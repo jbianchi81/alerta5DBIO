@@ -5088,7 +5088,7 @@ internal.engine = class {
 		} catch(e) {
 			return Promise.reject(e)
 		}
-		console.log(parent_query.query)
+		// console.log(parent_query.query)
 		return global.pool.query(parent_query.query)
 		.then(result=>{
 			// console.log("model_name: " + model_name)
@@ -13163,7 +13163,7 @@ ORDER BY cal.cal_id`
 	}
 
 	static async getSeriesPronoLast(filter={}) {
-		console.log({filter:filter})
+		// console.log({filter:filter})
 		var filter_string = internal.utils.control_filter2(
 			{
 				estacion_id: {type: "integer", table: "series"},
@@ -13225,7 +13225,7 @@ ORDER BY cal.cal_id`
 		var series_prono_last
 		if(series_id && tipo == "areal") {
 			series_prono_last = await this.getSeriesArealPronoLast(series_id,forecast_date)
-			console.log({series_prono_last:series_prono_last})
+			// console.log({series_prono_last:series_prono_last})
 			const cal_ids = new Set(series_prono_last.map(result=>result.cal_id))
 			filter.id = Array.from(cal_ids)
 			if(!filter.id.length) {
@@ -13235,7 +13235,7 @@ ORDER BY cal.cal_id`
 			calibrados = await engine.read("Calibrado",filter)
 		} else if(estacion_id || var_id || includeCorr || qualifier || forecast_date || series_id) {
 			series_prono_last = await this.getSeriesPronoLast({cal_id:cal_id,model_id:model_id,grupo_id:filter.grupo_id,estacion_id:estacion_id,var_id:var_id,forecast_date:forecast_date,series_id:series_id})
-			console.log({series_prono_last:series_prono_last})
+			// console.log({series_prono_last:series_prono_last})
 			const cal_ids = new Set(series_prono_last.map(result=>result.cal_id))
 			filter.id = Array.from(cal_ids)
 			if(!filter.id.length) {
@@ -15203,6 +15203,7 @@ ORDER BY cal.cal_id`
 				series_id:{table: "series", column: "id"},
 				estacion_id:{table: "series"},
 				nombre:{table: "estaciones"},
+				geom:{function: "st_x(estaciones.geom)"},
 				longitud:{function: "st_x(estaciones.geom)"},
 				latitud:{function: "st_y(estaciones.geom)"},
 				rio:{table: "estaciones"},
@@ -15378,7 +15379,7 @@ ORDER BY cal.cal_id`
 			" + pronos_query + " pronos ON (pronos.estacion_id=series.estacion_id AND pronos.var_id=series.var_id AND pronos.unit_id=series.unit_id)\
 			" + order_by_string + "\
 			" + limit_string,[filter.timestart,filter.timeend]) // ORDER BY series.estacion_id,series.var_id,series.proc_id
-		console.log(stmt)
+		// console.log(stmt)
 		return global.pool.query(stmt)
 		.then(result=>{
 			if(!result.rows) {

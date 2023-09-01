@@ -67,6 +67,11 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 					id: $(evt.target).parent().parent().attr('data-uniqueid')
 				}).on('click',reloadWithPars)						
 			)
+			.append(
+				$("<button>Ver en mapa</button>").attr({
+					id: $(evt.target).parent().parent().attr('data-uniqueid')
+				}).on('click',zoomToSeriesLocation)						
+			)
 			if($("div#chart_container")[0].hasAttribute("data-highcharts-chart")) {
 				$("div#"+$(evt.target).parent().parent().attr('data-uniqueid')+".popovercontent").append(
 					$("<button>Agregar a gráfico</button>").attr({
@@ -74,8 +79,9 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 					}).on('click',addToChart)
 				)
 			}
+			$(".popover").css("max-width",320)
 		})		
-		var $bstable = $(container).find("table.series_edit_table").bootstrapTable(
+		global.series_table_bs = $(container).find("table.series_edit_table").bootstrapTable(
 		{
 			pagination: true,
 			pageSize: 250,
@@ -852,6 +858,28 @@ function addPopoverToRows(cells) {
 
 function cellAttr(value) {
 	return '<a 	style="cursor:pointer" data-toggle=popover data-placement=top title="acción">' + value + '</a>'
+}
+
+function cellAttrGeometry(value) {
+	return '<a 	style="cursor:pointer" data-toggle=popover data-placement=top title="acción">' + value.coordinates.map(c=>c.toString()).join(",") + '</a>'
+}
+
+function geomSorter(a, b) {
+	const a_coor = a.coordinates // a.split(",").map(c=>parseFloat(c))  
+	const b_coor = b.coordinates // b.split(",").map(c=>parseFloat(c))
+	if(a_coor[0] > b_coor[0]) {
+		return 1
+	} else if(a_coor[0] == b_coor[0]) {
+		if(a_coor[1] > b_coor[1]) {
+			return 1
+		} else if(a_coor[1] == b_coor[1]) {
+			return 0
+		} else {
+			return -1
+		}
+	} else {
+		return -1
+	}
 }
 
 function queryParams(params) {

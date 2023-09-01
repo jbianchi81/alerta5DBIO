@@ -1190,8 +1190,8 @@
 					var query = {...monitoredpointsparams}
 					query.search = params.term
 					query.geojson = undefined
-					query.limit = 250
-					query.offset = (params.page) ? (params.page - 1) * 250 : 0 
+					query.limit = global.default_config.series_page_size // 250
+					query.offset = (params.page) ? (params.page - 1) * global.default_config.series_page_size : 0 
 					return query
 				},
 				processResults: function (data) {

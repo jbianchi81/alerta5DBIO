@@ -99,7 +99,7 @@ app.use(express.static('public', {
 	setHeaders: function (res, path, stat) {
 		res.set('x-timestamp', Date.now())
 		//~ console.log({path:path})
-		var contenttype = (/\/js\//.test(path)) ? "text/javascript" : (/\/css\//.test(path)) ? "text/css" : (/\/html\//.test(path)) ? "text/html" : (/\/img\//.test(path)) ? (/\.gif$/.test(path)) ? "image/gif" : "image/png" : (/\/planillas\//.test(path)) ?  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"  : (/\/json\//.test(path)) ? "application/json" : "text/html"
+		var contenttype = (/\/js\//.test(path)) ? "text/javascript" : (/\/css\//.test(path)) ? "text/css" : (/\/html\//.test(path)) ? "text/html" : (/\/img\//.test(path)) ? (/\.gif$/.test(path)) ? "image/gif" : "image/png" : (/\/planillas\//.test(path)) ?  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"  : (/\/json\//.test(path)) ? "application/json" : (/favicon\.ico$/.test(path)) ? "image/png" : "text/html"
 		//~ console.log({contenttype:contenttype})
 		res.set('Content-Type', contenttype)
 		if(/\/planillas\//.test(path)) {

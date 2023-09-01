@@ -2840,7 +2840,9 @@ paths:
         schema: {type: "boolean"}
         in: query
       - name: GeneralCategory 
-        schema: {type: "string"}
+        schema:
+          type: string
+          enum: ["Hydrology", "Climate", "Water Quality"]
         in: query
       - name: timestart 
         schema: {type: "string", format: "date-time"}
@@ -2864,6 +2866,16 @@ paths:
       - name: search
         schema:
           type: string
+        in: query
+      - name: sort
+        schema:
+          type: string
+          enum: ["series_id","estacion_id","nombre","geom","longitud","latitud","rio","var_id","var_name","proc_id","unit_id","timestart","timeend","count","forecast_date","data_availability","fuente","id_externo"]
+        in: query
+      - name: order
+        schema:
+          type: string
+          enum: ["asc", "desc"]
         in: query
       responses:
         '200':

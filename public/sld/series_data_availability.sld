@@ -11,6 +11,30 @@
             <Title>Point coloured according to data_availability</Title>
             <FeatureTypeStyle>
                 <Rule>
+                    <Name>label</Name>
+                    <Title>station name</Title>
+                    <MaxScaleDenominator>200000</MaxScaleDenominator>
+                    <TextSymbolizer>
+                        <Label>
+                            <ogc:PropertyName>nombre</ogc:PropertyName>
+                            <ogc:Literal> - </ogc:Literal>
+                            <ogc:PropertyName>estacion_id</ogc:PropertyName>
+                        </Label>
+                        <Font>
+                            <CssParameter name="font-weight">bold</CssParameter>
+                            <CssParameter name="font-size">12</CssParameter>
+                        </Font>
+                        <LabelPlacement>
+                            <PointPlacement>
+                                <Displacement>
+                                    <DisplacementX>15</DisplacementX>
+                                    <DisplacementY>0</DisplacementY>
+                                </Displacement>
+                            </PointPlacement>
+                        </LabelPlacement>
+                    </TextSymbolizer>
+                </Rule>
+                <Rule>
                     <Name>N</Name>
                     <Title>no data</Title>
                     <ogc:Filter>
@@ -31,7 +55,7 @@
                                     <CssParameter name="stroke-width">2</CssParameter>
                                 </Stroke>
                             </Mark>
-                            <Size>8</Size>
+                            <Size>11</Size>
                         </Graphic>
                     </PointSymbolizer>
                 </Rule>
@@ -58,7 +82,7 @@
                                     <CssParameter name="stroke-width">2</CssParameter>
                                 </Stroke>
                             </Mark>
-                            <Size>7</Size>
+                            <Size>10</Size>
                         </Graphic>
                     </PointSymbolizer>
                 </Rule>
@@ -85,7 +109,7 @@
                                     <CssParameter name="stroke-width">2</CssParameter>
                                 </Stroke>
                             </Mark>
-                            <Size>8</Size>
+                            <Size>11</Size>
                         </Graphic>
                     </PointSymbolizer>
                 </Rule>
@@ -112,7 +136,7 @@
                                     <CssParameter name="stroke-width">2</CssParameter>
                                 </Stroke>
                             </Mark>
-                            <Size>7</Size>
+                            <Size>10</Size>
                         </Graphic>
                     </PointSymbolizer>
                 </Rule>
@@ -139,7 +163,7 @@
                                     <CssParameter name="stroke-width">2</CssParameter>
                                 </Stroke>
                             </Mark>
-                            <Size>8</Size>
+                            <Size>11</Size>
                         </Graphic>
                     </PointSymbolizer>
                 </Rule>
@@ -166,7 +190,7 @@
                                     <CssParameter name="stroke-width">2</CssParameter>
                                 </Stroke>
                             </Mark>
-                            <Size>7</Size>
+                            <Size>10</Size>
                         </Graphic>
                     </PointSymbolizer>
                 </Rule>
@@ -193,7 +217,7 @@
                                     <CssParameter name="stroke-width">2</CssParameter>
                                 </Stroke>
                             </Mark>
-                            <Size>8</Size>
+                            <Size>11</Size>
                         </Graphic>
                     </PointSymbolizer>
                 </Rule>
@@ -220,7 +244,7 @@
                                     <CssParameter name="stroke-width">2</CssParameter>
                                 </Stroke>
                             </Mark>
-                            <Size>7</Size>
+                            <Size>10</Size>
                         </Graphic>
                     </PointSymbolizer>
                 </Rule>
@@ -247,7 +271,7 @@
                                     <CssParameter name="stroke-width">2</CssParameter>
                                 </Stroke>
                             </Mark>
-                            <Size>8</Size>
+                            <Size>11</Size>
                         </Graphic>
                     </PointSymbolizer>
                 </Rule>
@@ -274,7 +298,7 @@
                                     <CssParameter name="stroke-width">2</CssParameter>
                                 </Stroke>
                             </Mark>
-                            <Size>7</Size>
+                            <Size>10</Size>
                         </Graphic>
                     </PointSymbolizer>
                 </Rule>

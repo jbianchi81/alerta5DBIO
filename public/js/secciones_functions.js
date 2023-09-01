@@ -12,6 +12,20 @@ function rgbToHex(rgb) {
 	return hex;
 }
 
+function zoomToSeriesLocation(evt) {
+	var series_id = evt.currentTarget.id
+	var row = global.series_table_bs.bootstrapTable('getRowByUniqueId',series_id)
+	var geom = row.geom
+	if(geom.type == "Point") {
+		var extent = [ geom.coordinates[0] - 0.1, geom.coordinates[1] - 0.1, geom.coordinates[0] + 0.1, geom.coordinates[1] + 0.1]
+	} else {
+		var extent = new ol.geom.Polygon(geom.coordinates)
+	}
+	console.log({extent: extent})
+	$("a#maptab").click()
+	global.map.getView().fit(extent)
+}
+
 function reloadWithPars(evt) {
 	var ts = $("input#timestart").val()
 	var te = $("input#timeend").val()
