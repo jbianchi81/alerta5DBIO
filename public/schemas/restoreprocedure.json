@@ -1,0 +1,47 @@
+{
+    "$id": "restoreprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "RestoreProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "RestoreProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "class_name": {
+                    "type": "string",
+                    "description": "Name of the CRUD class of the records to restore"
+                },
+                "filter": {
+                    "descrition": "filter to select which records to restore",
+                    "type": "object",
+                    "properties": {
+                        "timestart": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "timeend": {
+                            "$ref": "dateorinterval.json"
+                        }                        
+                    },
+                    "additionalProperties": true
+                },
+                "options": {
+                    "type": "object",
+                    "properties": {
+                        "no_send_data": {
+                            "type": "boolean",
+                            "description": "If true, returns count of restored records instead of array of restored records"
+                        }
+                    }
+                }
+            },
+            "required": [
+                "class_name",
+                "filter"
+            ]
+        }
+    }
+}

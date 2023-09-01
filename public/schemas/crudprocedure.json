@@ -1,0 +1,59 @@
+{
+    "$id": "crudprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "CrudProcedure",
+    "type": "object",
+    "properties": {
+        "procedureName": {
+            "type": "string"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "options": {
+                    "$ref": "#/definitions/CrudProcedureOptions"
+                },
+                "output": {
+                    "type": "string",
+                    "description": "Route to the output file"
+                },
+                "output_format": {
+                    "type": "string",
+                    "description": "Output file format (json (default), csv, raster)"
+                }
+            }
+        },
+        "tests": {
+            "type": "array",
+            "items": {
+                "$ref": "crudproceduretest.json"
+            }
+        }
+    },
+    "required": [
+        "procedureName",
+        "arguments"
+    ],
+    "additionalProperties": false,
+    "definitions": {
+        "CrudProcedureOptions": {
+            "type": "object",
+            "properties": {
+                "output_individual_files": {
+                    "description": "Split the output of the procedure into separate files (one for each output element) and build file names according to the specified base path and pattern",
+                    "type": "object",
+                    "properties": {
+                        "pattern": {
+                            "description": "string pattern to use in building file names. Accepts {{placeholders}} between double brackets. Placeholders must be property names of the elements including deep property names using point separators",
+                            "type": "string"
+                        },
+                        "base_path": {
+                            "description": "base path to preppend to the file names",
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

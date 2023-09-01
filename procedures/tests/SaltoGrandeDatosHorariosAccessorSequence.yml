@@ -1,0 +1,157 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json 
+sequence:
+- procedureName: CreateProcedure
+  arguments:
+    class_name: estacion
+    jsonfile: sample_data/estacion_salto_grande.json
+    output: /tmp/estacion_salto_grande.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: id
+      property_value: 1018
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor
+    elements:
+    - name: salto_grande_datos_horarios
+      class: salto_grande_datos_horarios
+      config:
+        url: https://www.saltogrande.org/datos_horarios.php
+        series:
+        - tipo: puntual
+          id: 34826
+          estacion: {id: 1018, tabla: "estaciones_salto_grande", id_externo: "A5002774"}
+          var:
+            id: 87
+          procedimiento:
+            id: 1
+          unidades:
+            id: 10
+        - tipo: puntual
+          id: 34827
+          estacion: {id: 1018, tabla: "estaciones_salto_grande", id_externo: "A5002774"}
+          var:
+            id: 24
+          procedimiento:
+            id: 1
+          unidades:
+            id: 10
+        - tipo: puntual
+          id: 34828
+          estacion: {id: 1018, tabla: "estaciones_salto_grande", id_externo: "A5002774"}
+          var:
+            id: 85
+          procedimiento:
+            id: 1
+          unidades:
+            id: 11
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: class
+      property_value: salto_grande_datos_horarios
+- procedureName: GetMetadataFromAccessorProcedure
+  arguments:
+    accessor_id: salto_grande_datos_horarios
+    output: /tmp/salto_grande_series.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 3
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: estacion.id
+      property_value: 1018
+- procedureName: UpdateMetadataFromAccessorProcedure
+  arguments:
+    accessor_id: salto_grande_datos_horarios
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 3
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: estacion.id
+      property_value: 1018
+- procedureName: DownloadFromAccessorProcedure
+  arguments:
+    accessor_id: salto_grande_datos_horarios
+    filter:
+      timestart:
+        hours: -6
+    options:
+      output: /tmp/read_from_accessor.json
+  tests:
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: serie
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 3
+      max_length: 3
+- procedureName: DownloadFromAccessorProcedure
+  arguments:
+    accessor_id: salto_grande_datos_horarios
+    filter:
+      timestart:
+        hours: -6
+    options:
+      output_individual_files:
+        base_path: /tmp
+        pattern: salto_grande_datos_horarios_serie.{{id}} 
+  tests:
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: serie
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 3
+      max_length: 3
+  - testName: OutputFileTest
+    arguments:
+      class_name: serie
+      output: /tmp/salto_grande_datos_horarios_serie.34826.json
+      index: 0
+  - testName: OutputFileTest
+    arguments:
+      class_name: serie
+      output: /tmp/salto_grande_datos_horarios_serie.34827.json
+      index: 1
+  - testName: OutputFileTest
+    arguments:
+      class_name: serie
+      output: /tmp/salto_grande_datos_horarios_serie.34828.json
+      index: 2
+- procedureName: UpdateFromAccessorProcedure
+  arguments:
+    accessor_id: salto_grande_datos_horarios
+    filter:
+      timestart:
+        hours: -6
+  tests:
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: serie
+- procedureName: ReadProcedure
+  arguments:
+    class_name: observaciones
+    filter:
+      tipo: puntual
+      series_id: [34826, 34827, 34828]
+      timestart:
+        hours: -6
+  tests:
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: observaciones
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 15
+      max_length: 18

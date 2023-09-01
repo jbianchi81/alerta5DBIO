@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json 
+sequence:
+- procedureName: CreateProcedure
+  arguments:
+    class_name: var
+    # elements:
+    jsonfile: sample_data/sample_var.json
+    output: sample_data/created_var.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 77
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: var
+  - testName: OutputFileTest
+    arguments:
+      class_name: var
+      output: sample_data/created_var.json
+- procedureName: ReadProcedure
+  arguments:
+    class_name: var
+    # filter:
+    #   id: [1,2,3,4,5]
+    output: sample_data/read_var.json 
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 77
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: var
+  - testName: OutputFileTest
+    arguments:
+      class_name: var
+      output: sample_data/read_var.json
+- procedureName: UpdateProcedure
+  arguments:
+    class_name: var
+    filter:
+      id: 1
+    update:
+      abrev: precip_d_met
+    output: sample_data/updated_var.json 
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: abrev
+      property_value: precip_d_met
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: OutputFileTest
+    arguments:
+      class_name: var
+      output: sample_data/updated_var.json
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: var
+    filter:
+      var: Tmin
+    output: sample_data/deleted_var.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: var
+      property_value: Tmin
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: OutputFileTest
+    arguments:
+      class_name: var
+      output: sample_data/deleted_var.json
+- procedureName: CreateProcedure
+  arguments:
+    class_name: var
+    jsonfile: sample_data/deleted_var.json
+    output: sample_data/recreated_var.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: var
+      property_value: Tmin
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: OutputFileTest
+    arguments:
+      class_name: var
+      output: sample_data/recreated_var.json

@@ -1,0 +1,35 @@
+{
+    "$id": "deleteprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "DeleteProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "DeleteProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "class_name": {
+                    "type": "string"
+                },
+                "filter": {
+                    "type": "object",
+                    "properties": {
+                        "timestart": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "timeend": {
+                            "$ref": "dateorinterval.json"
+                        }                        
+                    },
+                    "additionalProperties": true
+                }
+            },
+            "required": [
+                "class_name"
+            ]
+        }
+    }
+}

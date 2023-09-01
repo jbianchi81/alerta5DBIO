@@ -1,0 +1,20 @@
+<h1>Sistema de Alerta de la Cuenca del Plata</h1>
+<h2>Estado hídrico</h2>
+<p id="mapa_base">
+    <img src="/img/mapa_base_para_test.png" alt="mapa regiones" />
+</p>
+<h2>Reporte semanal</h2>
+<div id="texto_general">
+    {{texto_general}}
+</div>
+<div>Actualizado: {{fecha}}</div>
+
+<div id="contenido">
+{{#each contenido}}
+    <h3>{{this.region_nombre}}</h3>
+    <div>
+        {{{this.texto}}}
+    </div>
+    <div>Actualizado: {{this.fecha}}</div>
+{{/each}}
+</div>

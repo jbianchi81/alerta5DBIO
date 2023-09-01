@@ -1,0 +1,178 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json 
+sequence:
+- procedureName: GetSitesFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      # pais: Paraguay
+      view: gs-view-and(whos,gs-view-source(paraguay-dmh))
+    output: /tmp/whos_om_sites_paraguay-dmh.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 30
+      max_length: 120
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: result.parameter.0.value
+      property_value: Paraguay
+- procedureName: GetMetadataFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      feature_of_interest_id: 17A3BA7B41DAA3F3C1CB2B27134DB06E6DAAD5A2
+    options:
+      output: /tmp/read_metadata_from_accessor_whos.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: feature_of_interest.feature_id
+      property_value: 17A3BA7B41DAA3F3C1CB2B27134DB06E6DAAD5A2
+- procedureName: GetMetadataFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      view: gs-view-and(whos,gs-view-source(paraguay-dmh))
+    options:
+      output: /tmp/read_metadata_from_accessor_whos_paraguay_dmh.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 30
+# filter by observed_property_id
+- procedureName: GetMetadataFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      # pais: Paraguay
+      observed_property_id: presion nivel estacion (paraguay-dmh)
+    options:
+      output: /tmp/read_metadata_from_accessor.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: observed_property.observed_property_id
+      property_value: presion nivel estacion (paraguay-dmh)
+# get "real-time" timeseries of a specific observed property
+- procedureName: ReadProcedure
+  arguments:
+    class_name: accessor_timeseries_observation
+    filter:
+      pais: Paraguay
+      end_position:
+        days: -2
+      observed_property_id: Precipitation
+      # pais: Paraguay
+      # feature_of_interest_id: 17A3BA7B41DAA3F3C1CB2B27134DB06E6DAAD5A2
+    options:
+      output: /tmp/read_metadata_from_accessor_whos_paraguay_dmh_precip_rt.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments: 
+      property_name: observed_property.observed_property_id
+      property_value: Precipitation
+# get 1 tso
+- procedureName: DownloadFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      feature_of_interest_id: 17A3BA7B41DAA3F3C1CB2B27134DB06E6DAAD5A2
+      observed_property_id: presion nivel estacion (paraguay-dmh)
+      timestart: 2023-05-19T19:20:44Z
+      timeend: 2023-05-22T19:20:44Z
+    options:
+      output: /tmp/read_from_accessor.json
+  tests:
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: accessor_timeseries_observation
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 12
+      max_length: 24
+      index: 0
+      property_name: data
+  - testName: OutputFileTest
+    arguments:
+      class_name: accessor_timeseries_observation
+      output: /tmp/read_from_accessor.json
+# get multiple tso
+- procedureName: DownloadFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      feature_of_interest_id: [17A3BA7B41DAA3F3C1CB2B27134DB06E6DAAD5A2, 9890AB5521F6F23E3B7D98972B0E075A64D70E95, 0077D7E2BF65D26E5408DE298E5AE20C6484D268]
+      observed_property_id: presion nivel estacion (paraguay-dmh)
+      timestart: 2023-05-19T19:20:44Z
+      timeend: 2023-05-22T19:20:44Z
+    options:
+      output: /tmp/read_from_accessor.json
+  tests:
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: accessor_timeseries_observation
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 3
+      max_length: 3
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 12
+      max_length: 24
+      property_name: data
+  - testName: OutputFileTest
+    arguments:
+      class_name: accessor_timeseries_observation
+      output: /tmp/read_from_accessor.json
+# - procedureName: UpdateFromAccessorProcedure
+#   arguments:
+#     accessor_id: a5
+#     filter:
+#       tipo: puntual
+#       series_id: [26652, 26654]
+#       timestart: 1990-01-01 00:00:00
+#       timeend: 2021-01-01 00:00:00
+#     options:
+#       output_individual_files:
+#         base_path: sample_data
+#         pattern: serie.{{id}} 
+#   tests:
+#   - testName: ResultIsInstanceOfTest
+#     arguments:
+#       class_name: serie
+#   - testName: OutputFileTest
+#     arguments:
+#       class_name: serie
+#       output: sample_data/serie.26652.json
+#       index: 0
+#   - testName: OutputFileTest
+#     arguments:
+#       class_name: serie
+#       output: sample_data/serie.26654.json
+#       index: 1
+# - procedureName: ReadProcedure
+#   arguments:
+#     class_name: observaciones
+#     filter:
+#       tipo: puntual
+#       series_id: [26652, 26654]
+#       timestart: 1990-01-01 00:00:00
+#       timeend: 2021-01-01 00:00:00
+#     output: sample_data/read_observaciones.json
+#   tests:
+#   - testName: ResultIsInstanceOfTest
+#     arguments:
+#       class_name: observaciones
+#   - testName: ArrayLengthTest
+#     arguments:
+#       min_length: 15754
+#       max_length: 15754
+# - procedureName: DeleteProcedure
+#   arguments:
+#     class_name: observaciones
+#     filter:
+#       tipo: puntual
+#       series_id: [26652, 26654]
+#       timestart: 1990-01-01 00:00:00
+#       timeend: 2021-01-01 00:00:00
+#     output: sample_data/deleted_observaciones.json

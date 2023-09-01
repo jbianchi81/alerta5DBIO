@@ -1,0 +1,2746 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "version": "1.0.0",
+        "title": "API JSON de consulta y gestión de la base de datos hidrometeorológica alerta5",
+        "description": "sim: funciones CRUD sobre los registros de simulación. accessors: funciones de acceso a recursos externos y actualización de la db"
+    },
+    "servers": [
+        {
+            "url": "/",
+            "description": "local deployment for testing"
+        }
+    ],
+    "consumes": [
+        "application/json"
+    ],
+    "produces": [
+        "application/json"
+    ],
+    "paths": {
+        "/login": {
+            "post": {
+                "summary": "login endpoint",
+                "nickname": "login",
+                "parameters": [
+                    {
+                        "name": "username",
+                        "required": true,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "password",
+                        "required": true,
+                        "type": "string",
+                        "format": "password",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "login correct"
+                    },
+                    "400": {
+                        "description": "login incorrect"
+                    }
+                }
+            }
+        },
+        "/logout": {
+            "post": {
+                "summary": "logout endpoint",
+                "nickname": "logout",
+                "responses": {
+                    "200": {
+                        "description": "logout correct"
+                    },
+                    "400": {
+                        "description": "logout incorrect"
+                    }
+                }
+            }
+        },
+        "/sim/modelos": {
+            "get": {
+                "summary": "Da el listado de modelos disponibles opcionalmente filtrado por name_contains (string matching) o tipo",
+                "nickname": "getModelos",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "name_contains",
+                        "description": "nombre del modelo parcial o completo",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "type",
+                        "description": "tipo de modelo",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/components/schemas/ArrayOfModelos"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            }
+        },
+        "/sim/modelos/{id}": {
+            "get": {
+                "summary": "Da el modelo correspondiente al id ingresado",
+                "nickname": "getModelByID",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "description": "id del modelo",
+                        "required": true,
+                        "type": "integer",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/components/schemas/Modelo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "404": {
+                        "description": "Modelo with the specified id not found"
+                    }
+                }
+            }
+        },
+        "/sim/calibrados": {
+            "get": {
+                "summary": "Da el listado de configuraciones de modelos disponibles ('calibrados') opcionalmente filtrado por name_contains, estacion_id, var_id, includeCorr, timestart, timeend, o model_id",
+                "nickname": "getCalibrados",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "name_contains",
+                        "description": "nombre parcial o completo del calibrado",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "estacion_id",
+                        "description": "id de estación del output del calibrado",
+                        "required": false,
+                        "type": "integer",
+                        "in": "query"
+                    },
+                    {
+                        "name": "var_id",
+                        "description": "id de variable del output del calibrado",
+                        "required": false,
+                        "type": "integer",
+                        "in": "query"
+                    },
+                    {
+                        "name": "includeCorr",
+                        "description": "si se debe incluir la última corrida del calibrado",
+                        "required": false,
+                        "type": "boolean",
+                        "in": "query"
+                    },
+                    {
+                        "name": "timestart",
+                        "description": "fecha inicial de las series temporales simuladas",
+                        "required": false,
+                        "type": "dateTime",
+                        "in": "query"
+                    },
+                    {
+                        "name": "timeend",
+                        "description": "fecha final de las series temporales simuladas",
+                        "required": false,
+                        "type": "dateTime",
+                        "in": "query"
+                    },
+                    {
+                        "name": "model_id",
+                        "description": "id de modelo del calibrado",
+                        "required": false,
+                        "type": "integer",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Calibrado"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    }
+                }
+            },
+            "post": {
+                "summary": "Crea o actualiza una configuración de modelo ('calibrado') con los parámetros provistos. Para actualizar un calibrado existente, proveer id",
+                "nickname": "postCalibrados",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "description": "Un objeto Calibrado describiendo la configuración del modelo",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Calibrado"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Calibrado creado o actualizado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Calibrado"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Authorization required"
+                    }
+                }
+            }
+        },
+        "/sim/calibrados/{id}": {
+            "get": {
+                "summary": "Da la configuración del modelo ('calibrado') seleccionado mediante id",
+                "nickname": "getCalibradosByID",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "description": "identificador único del calibrado",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Calibrado"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "404": {
+                        "description": "No se encontró Calibrado con el id indicado"
+                    }
+                }
+            },
+            "put": {
+                "summary": "actualiza configuración del modelo ('calibrado') con los parámetros provistos",
+                "nickname": "updateCalibrados",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "description": "identificador único del calibrado",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    }
+                ],
+                "requestBody": {
+                    "description": "Un objeto Calibrado describiendo la configuración del modelo",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Calibrado"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Calibrado actualizado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Calibrado"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Authorization required"
+                    }
+                }
+            },
+            "delete": {
+                "summary": "elimina configuración del modelo ('calibrado') del id indicado",
+                "nickname": "deleteCalibrado",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "description": "identificador único del calibrado",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Calibrado eliminado",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Calibrado"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Authorization required"
+                    },
+                    "404": {
+                        "description": "No se encontró Calibrado con el id indicado"
+                    }
+                }
+            }
+        },
+        "/sim/calibrados/{cal_id}/corridas": {
+            "get": {
+                "summary": "Da listado de corridas del calibrado correspondiente al cal_id dado, opcionalmente filtrado por  forecast_timestart y forecast_timeend, estacion_id y/o var_id del output y/o filtrando las series temporales con las fechas dadas por timestart y timeend",
+                "nickname": "getCorridas",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cal_id",
+                        "description": "identificador único del calibrado",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    },
+                    {
+                        "name": "forecast_timestart",
+                        "description": "fecha de emisión inicial",
+                        "type": "string",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "forecast_timeend",
+                        "description": "fecha de emisión final",
+                        "type": "string",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "estacion_id",
+                        "description": "id de estación del output",
+                        "type": "integer",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "var_id",
+                        "description": "id de variable del output",
+                        "type": "integer",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "timestart",
+                        "description": "fecha inicial de series temporales",
+                        "type": "string",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "timeend",
+                        "description": "fecha final de series temporales",
+                        "type": "string",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "qualifier",
+                        "description": "calificador opcional para diferenciar subseries",
+                        "type": "string",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "includeProno",
+                        "description": "si debe incluir series temporales simuladas",
+                        "type": "boolean",
+                        "required": false,
+                        "in": "query",
+                        "defaultValue": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Corrida"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "404": {
+                        "description": "No se encontraron Corridas para los parámetros especificados"
+                    }
+                }
+            },
+            "post": {
+                "summary": "crea o actualiza una corrida del calibrado correspondiente al cal_id dado, con los datos provistos en el cuerpo de la petición",
+                "nickname": "postCorrida",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cal_id",
+                        "description": "identificador único del calibrado",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    }
+                ],
+                "requestBody": {
+                    "description": "Un objeto Corrida que contiene las series temporales simuladas",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Corrida"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Corrida creada o actualizada",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Corrida"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    }
+                }
+            }
+        },
+        "/sim/calibrados/{cal_id}/corridas/{id}": {
+            "get": {
+                "summary": "Da la corrida del calibrado correspondiente al cal_id e id dados, opcionalmente filtrado por estacion_id y/o var_id del output y/o filtrando las series temporales con las fechas dadas por timestart y timeend",
+                "nickname": "getCorrida",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cal_id",
+                        "description": "identificador único del calibrado",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    },
+                    {
+                        "name": "id",
+                        "description": "identificador único de la corrida",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    },
+                    {
+                        "name": "estacion_id",
+                        "description": "id de estación del output",
+                        "type": "integer",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "var_id",
+                        "description": "id de variable del output",
+                        "type": "integer",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "timestart",
+                        "description": "fecha inicial de series temporales",
+                        "type": "string",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "timeend",
+                        "description": "fecha final de series temporales",
+                        "type": "string",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "qualifier",
+                        "description": "calificador opcional para diferenciar subseries",
+                        "type": "string",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "includeProno",
+                        "description": "si debe incluir series temporales simuladas",
+                        "type": "boolean",
+                        "required": false,
+                        "in": "query",
+                        "defaultValue": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Corrida"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "404": {
+                        "description": "No se encontró Corrida con el id especificado"
+                    }
+                }
+            },
+            "put": {
+                "summary": "actualiza corrida del calibrado correspondiente al cal_id e id dados, con los datos provistos en el cuerpo de la petición",
+                "nickname": "putCorrida",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cal_id",
+                        "description": "identificador único del calibrado",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    },
+                    {
+                        "name": "id",
+                        "description": "identificador único de la corrida",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    }
+                ],
+                "requestBody": {
+                    "description": "Un objeto Corrida que contiene las series temporales simuladas",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/Corrida"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Corrida actualizada",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Corrida"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "404": {
+                        "description": "No se encontró Corrida con el id indicado"
+                    }
+                }
+            },
+            "delete": {
+                "summary": "elimina corrida del calibrado correspondiente al cal_id e id dados",
+                "nickname": "deleteCorrida",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cal_id",
+                        "description": "identificador único del calibrado",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    },
+                    {
+                        "name": "id",
+                        "description": "identificador único de la corrida",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Corrida eliminada",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Corrida"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "404": {
+                        "description": "No se encontró Corrida con el id indicado"
+                    }
+                }
+            }
+        },
+        "/sim/calibrados/{cal_id}/corridas/last": {
+            "get": {
+                "summary": "Da la última corrida del calibrado correspondiente al cal_id dado, opcionalmente filtrado por estacion_id y/o var_id del output y/o filtrando las series temporales con las fechas dadas por timestart y timeend",
+                "nickname": "getLastCorrida",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cal_id",
+                        "description": "identificador único del calibrado",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    },
+                    {
+                        "name": "estacion_id",
+                        "description": "id de estación del output",
+                        "type": "integer",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "var_id",
+                        "description": "id de variable del output",
+                        "type": "integer",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "timestart",
+                        "description": "fecha inicial de series temporales",
+                        "type": "string",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "timeend",
+                        "description": "fecha final de series temporales",
+                        "type": "string",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "qualifier",
+                        "description": "calificador opcional para diferenciar subseries",
+                        "type": "string",
+                        "required": false,
+                        "in": "query"
+                    },
+                    {
+                        "name": "includeProno",
+                        "description": "si debe incluir series temporales simuladas",
+                        "type": "boolean",
+                        "required": false,
+                        "in": "query",
+                        "defaultValue": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Corrida"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "404": {
+                        "description": "No se encontró última Corrida para el cal_id indicado"
+                    }
+                }
+            }
+        },
+        "/sim/calibrados/{cal_id}/forzantes": {
+            "get": {
+                "summary": "Da las forzantes del calibrado indicado",
+                "nickname": "getForzantes",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cal_id",
+                        "description": "identificador único del calibrado",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Forzante"
+                                    }
+                                }
+                            },
+                            "text/csv": {
+                                "schema": {
+                                    "type": "string",
+                                    "example": " #cal_id: 1\n\n 1,1244,series\n2,2348,series_areal\n3,4578,series_areal"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "404": {
+                        "description": "No se encontraron Forzantespara el cal_id indicado"
+                    }
+                }
+            },
+            "post": {
+                "summary": "Inserta o actualiza las forzantes del calibrado indicado",
+                "nickname": "upsertForzantes",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cal_id",
+                        "description": "identificador único del calibrado",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    }
+                ],
+                "requestBody": {
+                    "description": "Un array de objetos Forzante que define las forzantes del calibrado indicado",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/Forzante"
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/Forzante"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Authorization required"
+                    },
+                    "404": {
+                        "description": "No se encontraron Forzantes para el cal_id indicado"
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Elimina las forzantes del calibrado indicado",
+                "nickname": "deleteForzantes",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cal_id",
+                        "description": "identificador único del calibrado",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Forzantes eliminadas",
+                        "content": {
+                            "application/json": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/components/schemas/Forzante"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Authorization required"
+                    },
+                    "404": {
+                        "description": "No se encontraron Forzantes para el cal_id indicado"
+                    }
+                }
+            }
+        },
+        "/sim/calibrados/{cal_id}/forzantes/{orden}": {
+            "get": {
+                "summary": "Da la forzante del cal_id y orden indicados",
+                "nickname": "getForzante",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cal_id",
+                        "description": "identificador único del calibrado",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    },
+                    {
+                        "name": "orden",
+                        "description": "número de orden de la forzante",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Forzante"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "404": {
+                        "description": "No se encontró la Forzante indicada"
+                    }
+                }
+            },
+            "put": {
+                "summary": "Actualiza la forzante indicada",
+                "nickname": "upsertForzante",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cal_id",
+                        "description": "identificador único del calibrado",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    },
+                    {
+                        "name": "orden",
+                        "description": "número de orden de la forzante",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    }
+                ],
+                "requestBody": {
+                    "description": "Un objeto Forzante que define la forzante del calibrado indicado",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "$ref": "#/components/schemas/Forzante"
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "$ref": "#/components/schemas/Forzante"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Authorization required"
+                    },
+                    "404": {
+                        "description": "No se encontró la forzante indicada"
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Elimina la forzante del calibrado y orden  indicados",
+                "nickname": "deleteForzante",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "cal_id",
+                        "description": "identificador único del calibrado",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    },
+                    {
+                        "name": "orden",
+                        "description": "número de orden de la forzante",
+                        "type": "integer",
+                        "required": true,
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Forzante eliminada",
+                        "content": {
+                            "application/json": {
+                                "$ref": "#/components/schemas/Forzante"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Authorization required"
+                    },
+                    "404": {
+                        "description": "No se encontró la Forzante indicada"
+                    }
+                }
+            }
+        },
+        "/accessors": {
+            "get": {
+                "summary": "Da el listado de accessors disponibles opcionalmente filtrado por name",
+                "nickname": "getAccessorsList",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "name",
+                        "description": "nombre del accessor",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Accessor"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            }
+        },
+        "/accessors/{name}": {
+            "get": {
+                "summary": "Da el accessor correspondiente al parámetro name",
+                "nickname": "getAccessor",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "name",
+                        "description": "nombre del accessor",
+                        "required": true,
+                        "type": "string",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Accessor"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            }
+        },
+        "/accessors/{name}/test": {
+            "get": {
+                "summary": "Prueba la conexión con el servidor donde se encuentra el recurso",
+                "nickname": "TestAccessor",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "name",
+                        "description": "nombre del accessor",
+                        "required": true,
+                        "type": "string",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Accessor test OK"
+                    },
+                    "400": {
+                        "description": "Accessor not found/Accessor test Failed"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            }
+        },
+        "/accessors/{name}/get": {
+            "get": {
+                "summary": "Descarga datos del recurso",
+                "nickname": "getFromAccessor",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "name",
+                        "description": "nombre del accessor",
+                        "required": true,
+                        "type": "string",
+                        "in": "path"
+                    },
+                    {
+                        "name": "timestart",
+                        "description": "fecha-hora inicial",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "timeend",
+                        "description": "fecha-hora final",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "estacion_id",
+                        "description": "id de estación",
+                        "required": false,
+                        "type": "integer",
+                        "in": "query"
+                    },
+                    {
+                        "name": "no_download",
+                        "description": "si true, no descarga el recurso, lee de archivo local",
+                        "required": false,
+                        "type": "boolean",
+                        "in": "query"
+                    },
+                    {
+                        "name": "forecast_date",
+                        "description": "fecha-hora de emisión (requerido para tabprono)",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Observacion"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Accessor not found/Accessor get Failed"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            }
+        },
+        "/accessors/{name}/update": {
+            "post": {
+                "summary": "Descarga datos del recurso y actualiza base de datos",
+                "nickname": "upsertToAccessor",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "name",
+                        "description": "nombre del accessor",
+                        "required": true,
+                        "type": "string",
+                        "in": "path"
+                    },
+                    {
+                        "name": "timestart",
+                        "description": "fecha-hora inicial",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "timeend",
+                        "description": "fecha-hora final",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "estacion_id",
+                        "description": "id de estación",
+                        "required": false,
+                        "type": "integer",
+                        "in": "query"
+                    },
+                    {
+                        "name": "no_download",
+                        "description": "si true, no descarga el recurso, lee de archivo local",
+                        "required": false,
+                        "type": "boolean",
+                        "in": "query"
+                    },
+                    {
+                        "name": "forecast_date",
+                        "description": "fecha-hora de emisión (requerido para tabprono)",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "run_asociaciones",
+                        "description": "si true, actualiza asociaciones de las series descargadas",
+                        "required": false,
+                        "type": "boolean",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Observacion"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Accessor not found/Accessor get Failed/Accessor upload Failed"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            }
+        },
+        "/accessors/{name}/upload": {
+            "post": {
+                "summary": "Carga datos desde archivo y actualiza base de datos",
+                "nickname": "uploadToAccessor",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "file": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "timestart": {
+                                        "type": "string"
+                                    },
+                                    "timeend": {
+                                        "type": "string"
+                                    },
+                                    "estacion_id": {
+                                        "type": "integer"
+                                    },
+                                    "no_download": {
+                                        "type": "boolean"
+                                    },
+                                    "forecast_date": {
+                                        "type": "string"
+                                    },
+                                    "run_asociaciones": {
+                                        "type": "boolean"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "name",
+                        "description": "nombre del accessor",
+                        "required": true,
+                        "type": "string",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Accessor not found/Accessor get Failed"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            }
+        },
+        "/obs/{tipo}/fuentes": {
+            "get": {
+                "summary": "Obtiene listado de fuentes del tipo indicado ",
+                "nickname": "getFuentes",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "tipo",
+                        "description": "tipo de la fuente",
+                        "required": true,
+                        "type": "string",
+                        "enum": [
+                            "puntual",
+                            "areal",
+                            "rast"
+                        ],
+                        "in": "path"
+                    },
+                    {
+                        "name": "nombre",
+                        "description": "nombre de la fuente",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "tabla_id",
+                        "description": "tabla_id de la fuente",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "public",
+                        "description": "si true, solo selecciona las fuentes públicas",
+                        "required": false,
+                        "type": "boolean",
+                        "in": "query"
+                    },
+                    {
+                        "name": "id",
+                        "description": "id de la fuente",
+                        "required": false,
+                        "type": "integer",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Fuente"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            },
+            "post": {
+                "summary": "crea nuevas fuentes del tipo especificado",
+                "nickname": "insertFuentes",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "tipo",
+                        "description": "tipo de la fuente",
+                        "required": true,
+                        "type": "string",
+                        "enum": [
+                            "puntual",
+                            "areal",
+                            "rast"
+                        ],
+                        "in": "path"
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "/components/schemas/Fuente"
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Fuente"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            }
+        },
+        "/obs/{tipo}/fuentes/{id}": {
+            "get": {
+                "summary": "Obtiene la fuente del tipo e id indicados",
+                "nickname": "getFuente",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "tipo",
+                        "description": "tipo de la fuente",
+                        "required": true,
+                        "type": "string",
+                        "enum": [
+                            "puntual",
+                            "areal",
+                            "rast"
+                        ],
+                        "in": "path"
+                    },
+                    {
+                        "name": "id",
+                        "description": "id de la fuente",
+                        "required": true,
+                        "type": "integer",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Fuente"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            },
+            "put": {
+                "summary": "actualiza la fuente del tipo e id especificado",
+                "nickname": "updateFuente",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "tipo",
+                        "description": "tipo de la fuente",
+                        "required": true,
+                        "type": "string",
+                        "enum": [
+                            "puntual",
+                            "areal",
+                            "rast"
+                        ],
+                        "in": "path"
+                    },
+                    {
+                        "name": "id",
+                        "description": "id de la fuente",
+                        "required": true,
+                        "type": "integer",
+                        "in": "path"
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "$ref": "/components/schemas/Fuente"
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Fuente"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            },
+            "delete": {
+                "summary": "elimina la fuente del tipo e id especificado",
+                "nickname": "deleteFuente",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "tipo",
+                        "description": "tipo de la fuente",
+                        "required": true,
+                        "type": "string",
+                        "enum": [
+                            "puntual",
+                            "areal",
+                            "rast"
+                        ],
+                        "in": "path"
+                    },
+                    {
+                        "name": "id",
+                        "description": "id de la fuente",
+                        "required": true,
+                        "type": "integer",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Fuente"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            }
+        },
+        "/obs/variables": {
+            "get": {
+                "summary": "Obtiene el listado de variables",
+                "nickname": "getVariables",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "description": "id de la variable",
+                        "required": false,
+                        "type": "integer",
+                        "in": "query"
+                    },
+                    {
+                        "name": "var",
+                        "description": "código alfanumérico de la variable",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "nombre",
+                        "description": "Nombre de la variable",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "abrev",
+                        "description": "Abreviatura de la variable",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "type",
+                        "description": "tipo de la variable",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "dataType",
+                        "description": "tipo de dato de la variable según ODM",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "valueType",
+                        "description": "tipo de valor de la variable según ODM",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "GeneralCategory",
+                        "description": "categoría general de la variable según ODM",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "VariableName",
+                        "description": "nombre de la variable según ODM",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "SampleMedium",
+                        "description": "Medio de muestreo según ODM",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "def_unit_id",
+                        "description": "id de unidades por defecto",
+                        "required": false,
+                        "type": "integer",
+                        "in": "query"
+                    },
+                    {
+                        "name": "timeSupport",
+                        "description": "soporte temporal de la medición",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/Variable"
+									}
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            },
+            "post": {
+				"summary": "crea variables",
+				"nickname": "upsertVariables",
+				"security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "description": "Un array de objetos Variable",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+								"type": "object",
+								"properties": {
+									"variables": {
+										"type": "array",
+										"items": {
+											"$ref": "#/components/schemas/Variable"
+										}
+									}
+								}
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Variables creadas o actualizadas",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+									"type": "Array",
+									"items": {
+										"$ref": "#/components/schemas/Variable"
+									}
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                }
+            }
+		},
+		"/obs/variables/{id}": {
+            "get": {
+                "summary": "Obtiene Variable con el id indicado",
+                "nickname": "getVariable",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "description": "id de la variable",
+                        "required": true,
+                        "type": "integer",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Variable"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            },    
+            "put": {
+                "summary": "Actualiza la Variable con el id indicado",
+                "nickname": "upsertVariable",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "description": "id de la Variable",
+                        "required": true,
+                        "type": "integer",
+                        "in": "path"
+                    }
+                ],
+                "requestBody": {
+                    "description": "objeto Variable",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+								"type": "object",
+								"properties": {
+									"variable": {
+										"$ref": "/components/schemas/Variable"
+									}
+								}
+							}
+						}
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+									"$ref": "#/components/schemas/Variable"
+				                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            },
+            "delete": {
+                "summary": "elimina la Variable del id indicado",
+                "nickname": "deleteVariable",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "description": "id de la Variable",
+                        "required": true,
+                        "type": "integer",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Variable"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            }
+        },
+		"/obs/procedimientos": {
+            "get": {
+                "summary": "Obtiene procedimientos",
+                "nickname": "getProcedimientos",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "description": "id del Procedimiento",
+                        "required": false,
+                        "type": "integer",
+                        "in": "query"
+                    },
+                    {
+                        "name": "nombre",
+                        "description": "Nombre del Procedimiento (parcial o completo)",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "abrev",
+                        "description": "Nombre abreviado del Procedimiento (parcial o completo)",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    },
+                    {
+                        "name": "descripcion",
+                        "description": "descripción del Procedimiento (parcial o completa)",
+                        "required": false,
+                        "type": "string",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/Procedimiento"
+									}
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            },
+            "post": {
+				"summary": "Crea Procedimientos",
+				"nickname": "upsertProcedimientos",
+				"security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "description": "listado de Procedimientos",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+								"type": "object",
+								"properties": {
+									"procedimientos": {
+										"type": "array",
+										"items": {
+											"$ref": "#/components/schemas/Procedimiento"
+										}
+									}
+								}
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Procedimientos creados o actualizados",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+									"type": "Array",
+									"items": {
+										"$ref": "#/components/schemas/Procedimiento"
+									}
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                }
+            }
+		},		
+		"/obs/procedimientos/{id}": {
+            "get": {
+                "summary": "Obtiene Procedimiento del id indicado",
+                "nickname": "getProcedimiento",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "description": "id del Procedimiento",
+                        "required": true,
+                        "type": "interger",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Procedimiento"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            },    
+            "put": {
+                "summary": "Actualiza Procedimiento del id indicado",
+                "nickname": "upsertProcedimiento",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "description": "id del Procedimiento",
+                        "required": true,
+                        "type": "integer",
+                        "in": "path"
+                    }
+                ],
+                "requestBody": {
+                    "description": "objeto Procedimiento",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+								"type": "object",
+								"properties": {
+									"procedimiento": {
+										"$ref": "/components/schemas/Procedimiento"
+									}
+								}
+							}
+						}
+					}
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+									"$ref": "#/components/schemas/Procedimiento"
+				                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            },
+            "delete": {
+                "summary": "elimina Procedimiento del id indicado",
+                "nickname": "deleteProcedimiento",
+                "security": [
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "description": "id del Procedimiento",
+                        "required": true,
+                        "type": "integer",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Procedimiento"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "404": {
+                        "description": "Not found"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "Modelo": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "description": "identificador único del modelo"
+                    },
+                    "nombre": {
+                        "type": "string",
+                        "description": "Nombre del modelo"
+                    },
+                    "tipo": {
+                        "type": "string",
+                        "description": "Tipo de modelo"
+                    }
+                }
+            },
+            "ArrayOfModelos": {
+                "type": "array",
+                "items": {
+                    "$ref": "#/components/schemas/Modelo"
+                }
+            },
+            "Calibrado": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "identificador único del calibrado"
+                    },
+                    "model_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "identificador único del modelo"
+                    },
+                    "nombre": {
+                        "type": "string",
+                        "description": "nombre del calibrado"
+                    },
+                    "activar": {
+                        "type": "boolean",
+                        "description": "activar el calibrado",
+                        "default": true
+                    },
+                    "outputs": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Output"
+                        },
+                        "description": "Series de salida del calibrado"
+                    },
+                    "parametros": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Parametro"
+                        },
+                        "description": "Parámetros del calibrado"
+                    },
+                    "estados_iniciales": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Estado"
+                        },
+                        "description": "Estados iniciales del calibrado"
+                    },
+                    "forzantes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Forzante"
+                        },
+                        "description": "Series de entrada del calibrado"
+                    },
+                    "selected": {
+                        "type": "boolean",
+                        "description": "Si el calibrado debe seleccionarse como el principal para las series de salida",
+                        "defaultValue": false
+                    },
+                    "out_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "id de estación de salida del calibrado"
+                    },
+                    "area_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "id de area del calibrado"
+                    },
+                    "tramo_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "id de tramo de curso de agua del calibrado"
+                    },
+                    "dt": {
+                        "type": "string",
+                        "description": "intervalo temporal del calibrado en formato SQL, p. ej '1 days' o '12 hours' o '00:30:00'",
+                        "defaultValue": "1 days"
+                    },
+                    "t_offset": {
+                        "type": "string",
+                        "description": "offset temporal del modelo en formato SQL, p ej '9 hours'",
+                        "defaultValue": "9 hours"
+                    }
+                },
+                "required": [
+                    "model_id",
+                    "nombre"
+                ]
+            },
+            "Output": {
+                "type": "object",
+                "properties": {
+                    "series_table": {
+                        "type": "string",
+                        "description": "tabla a la que pertenece la serie de salida",
+                        "enum": [
+                            "series",
+                            "series_areal"
+                        ],
+                        "defaultValue": "series"
+                    },
+                    "series_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "identificador único de la serie de salida"
+                    },
+                    "orden": {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "número de orden de salida",
+                        "minimum": 1
+                    }
+                },
+                "required": [
+                    "series_id",
+                    "orden"
+                ]
+            },
+            "Parametro": {
+                "type": "object",
+                "properties": {
+                    "valor": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "valor del parámetro"
+                    },
+                    "orden": {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "número de orden del parámetro",
+                        "minimum": 1
+                    }
+                },
+                "required": [
+                    "valor",
+                    "orden"
+                ]
+            },
+            "Estado": {
+                "type": "object",
+                "properties": {
+                    "valor": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "valor del estado"
+                    },
+                    "orden": {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "número de orden del estado",
+                        "minimum": 1
+                    }
+                },
+                "required": [
+                    "valor",
+                    "orden"
+                ]
+            },
+            "Forzante": {
+                "type": "object",
+                "properties": {
+                    "series_table": {
+                        "type": "string",
+                        "description": "tabla a la que pertenece la serie de entrada",
+                        "enum": [
+                            "series",
+                            "series_areal"
+                        ],
+                        "defaultValue": "series"
+                    },
+                    "series_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "identificador único de la serie de entrada"
+                    },
+                    "orden": {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "número de orden de entrada",
+                        "minimum": 1
+                    }
+                },
+                "required": [
+                    "series_id",
+                    "orden"
+                ]
+            },
+            "Corrida": {
+                "type": "object",
+                "properties": {
+                    "forecast_date": {
+                        "type": "string",
+                        "description": "Fecha de emisión"
+                    },
+                    "series": {
+                        "type": "array",
+                        "description": "series temporales simuladas",
+                        "items": {
+                            "$ref": "#/components/schemas/SerieTemporalSim"
+                        }
+                    }
+                },
+                "required": [
+                    "forecast_date",
+                    "series"
+                ]
+            },
+            "SerieTemporalSim": {
+                "type": "object",
+                "properties": {
+                    "series_table": {
+                        "type": "string",
+                        "description": "tabla de la serie simulada",
+                        "enum": [
+                            "series",
+                            "series_areal"
+                        ],
+                        "defaultValue": "series"
+                    },
+                    "series_id": {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "identificador único de serie simulada"
+                    },
+                    "pronosticos": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Pronostico"
+                        },
+                        "description": "Tuplas de la serie simulada"
+                    }
+                },
+                "required": [
+                    "series_table",
+                    "series_id",
+                    "pronosticos"
+                ]
+            },
+            "Pronostico": {
+                "type": "object",
+                "properties": {
+                    "timestart": {
+                        "type": "string",
+                        "description": "fecha-hora inicial del pronóstico"
+                    },
+                    "timeend": {
+                        "type": "string",
+                        "description": "fecha-hora final del pronóstico"
+                    },
+                    "valor": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "valor del pronóstico"
+                    },
+                    "qualifier": {
+                        "type": "string",
+                        "description": "calificador opcional para diferenciar subseries, default:'main'",
+                        "defaultValue": "main"
+                    }
+                },
+                "required": [
+                    "timestart",
+                    "timeend",
+                    "valor"
+                ]
+            },
+            "Observacion": {
+                "type": "object",
+                "properties": {
+                    "tipo": {
+                        "type": "string",
+                        "description": "tipo de registro",
+                        "enum": [
+                            "areal",
+                            "puntual",
+                            "raster"
+                        ]
+                    },
+                    "timestart": {
+                        "type": "string",
+                        "description": "fecha-hora inicial del registro"
+                    },
+                    "timeend": {
+                        "type": "string",
+                        "description": "fecha-hora final del registro"
+                    },
+                    "valor": {
+                        "type": "number",
+                        "format": "float",
+                        "description": "valor del registro"
+                    },
+                    "series_id": {
+                        "type": "integer",
+                        "description": "id de serie"
+                    }
+                }
+            },
+            "Accessor": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "nombre identificador del recurso"
+                    },
+                    "url": {
+                        "type": "string",
+                        "description": "ubicación del recurso"
+                    },
+                    "class": {
+                        "type": "string",
+                        "description": "tipo de recurso"
+                    },
+                    "series_tipo": {
+                        "type": "string",
+                        "enum": [
+                            "puntual",
+                            "areal",
+                            "raster"
+                        ],
+                        "description": "tipo de la serie temporal correspondiente al recurso"
+                    },
+                    "series_source_id": {
+                        "type": "integer",
+                        "description": "id de la fuente correspondiente al recurso"
+                    },
+                    "time_update": {
+                        "type": "string",
+                        "description": "última fecha de actualización del recurso"
+                    },
+                    "config": {
+                        "type": "object",
+                        "properties": {
+                            "download_dir": {
+                                "type": "string",
+                                "description": "directorio de descargas"
+                            },
+                            "tmp_dir": {
+                                "type": "string",
+                                "description": "directorio temporal"
+                            },
+                            "tables_dir": {
+                                "type": "string",
+                                "description": "directorio de tablas"
+                            },
+                            "host": {
+                                "type": "string",
+                                "description": "IP o url del recurso"
+                            },
+                            "user": {
+                                "type": "string",
+                                "description": "nombre de usuario del recurso"
+                            },
+                            "password": {
+                                "type": "string",
+                                "description": "contraseña del recurso"
+                            },
+                            "path": {
+                                "type": "string",
+                                "description": "ruta del recurso"
+                            }
+                        }
+                    },
+                    "series_id": {
+                        "type": "integer",
+                        "description": "id de la serie temporal correspondiente al recurso"
+                    }
+                }
+            },
+            "Variable": {
+				"type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "description": "id de la variable"
+                    },
+                    "var": {
+                        "description": "código alfanumérico de la variable",
+                        "type": "string"
+                    },
+                    "nombre": {
+                        "description": "Nombre de la variable",
+                        "type": "string"
+                    },
+                    "abrev": {
+                        "description": "Abreviatura de la variable",
+                        "type": "string"
+                    },
+                    "type": {
+                        "description": "tipo de la variable",
+                        "type": "string"
+                    },
+                    "dataType": {
+                        "description": "tipo de dato de la variable según ODM",
+                        "type": "string"
+                    },
+                    "valueType": {
+                        "description": "tipo de valor de la variable según ODM",
+                        "type": "string"
+                    },
+                    "GeneralCategory": {
+                        "description": "categoría general de la variable según ODM",
+                        "type": "string"
+                    },
+                    "VariableName": {
+                        "description": "nombre de la variable según ODM",
+                        "type": "string"
+                    },
+                    "SampleMedium": {
+                        "description": "Medio de muestreo según ODM",
+                        "type": "string"
+                    },
+                    "def_unit_id": {
+                        "description": "id de unidades por defecto",
+                        "type": "integer"
+                    },
+                    "timeSupport": {
+                        "description": "soporte temporal de la medición",
+                        "type": "string"
+                    }
+                }
+			},
+			"Procedimiento": {
+				"type": "object",
+				"properties": {
+					"id": {
+                        "description": "id del Procedimiento",
+                        "type": "integer"
+                    },
+                    "nombre": {
+                        "description": "Nombre del Procedimiento (parcial o completo)",
+                        "type": "string"
+                    },
+                    "abrev": {
+                        "description": "Nombre abreviado del Procedimiento (parcial o completo)",
+                        "type": "string"
+                    },
+                    "descripicion": {
+                        "description": "descripción del Procedimiento (parcial o completa)",
+                        "type": "string"
+                    }
+                }
+            }
+
+        },
+        "securitySchemes": {
+            "cookieAuth": {
+                "type": "apiKey",
+                "description": "cookie provista por el servidor en /login",
+                "name": "id",
+                "in": "cookie"
+            }
+        }
+    }
+}
+-

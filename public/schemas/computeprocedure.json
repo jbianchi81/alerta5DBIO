@@ -1,0 +1,37 @@
+{
+    "$id": "computeprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ComputeProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "ComputeProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "class_name": {
+                    "type": "string",
+                    "description": "Name of the CRUD class of the elements to compute"
+                },
+                "filter": {
+                    "descrition": "filter to select which records to compute",
+                    "type": "object",
+                    "properties": {
+                        "timestart": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "timeend": {
+                            "$ref": "dateorinterval.json"
+                        }                        
+                    },
+                    "additionalProperties": true
+                }
+            },
+            "required": [
+                "class_name"
+            ]
+        }
+    }
+}

@@ -1,0 +1,17 @@
+{
+    "$id": "crudproceduretest.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "CrudProcedureTest",
+    "type": "object",
+    "properties": {
+        "testName": {
+            "type": "string"
+        },
+        "arguments": {
+            "type": "object"
+        }
+    },
+    "required": [
+        "testName"
+    ]
+}

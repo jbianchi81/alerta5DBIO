@@ -1,0 +1,81 @@
+{
+    "$id": "aggregateprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "AggregateProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "AggregateProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "filter": {
+                    "descrition": "filter to select which records to restore",
+                    "type": "object",
+                    "properties": {
+                        "tipo": {
+                            "type": "string"
+                        },
+                        "series_id": {
+                            "type": "integer"
+                        },
+                        "timestart": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "timeend": {
+                            "$ref": "dateorinterval.json"
+                        }                        
+                    },
+                    "additionalProperties": false
+                },
+                "options": {
+                    "type": "object",
+                    "properties": {
+                        "agg_function": {
+                            "type": "string",
+                            "enum": ["mean","sum","nearest","min","max","first","last","math"]
+                        },
+                        "time_step": {
+                            "type": "string",
+                            "enum": ["day","month"]
+                        },
+                        "precision": {
+                            "type": "string",
+                            "description": "number of decimals to round resulting values"
+                        },
+                        "time_support": {
+                            "oneOf": ["string","timeinterval.json"],
+                            "description": "time support of source series (to override series metadata)"
+                        },
+                        "expression": {
+                            "type": "string",
+                            "description": "mathematical expression to use with agg_function=math"
+                        },
+                        "min_obs": {
+                            "type": "integer",
+                            "description": "lower threshold of observations count per timestep"
+                        },
+                        "inst": {
+                            "type": "boolean",
+                            "description": "if the source series is instantaneous (zero time support) (overrides series metadata)"
+                        },
+                        "dest_series_id": {
+                            "type": "integer",
+                            "description": "set this series_id to the resulting timeseries"
+                        },
+                        "update": {
+                            "type": "boolean",
+                            "description": "save results into destination series"
+                        }
+                    }
+                }
+            },
+            "required": [
+                "class_name",
+                "filter"
+            ]
+        }
+    }
+}

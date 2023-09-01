@@ -1,0 +1,47 @@
+{
+    "$id": "https://alerta.ina.gob.ar/schemas/hec-ras-plan.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "HecRasPlan",
+    "type": "object",
+    "properties": {
+        "workspace": {
+            "description": "path of workspace",
+            "type": "string"
+        },
+        "model_path": {
+            "description": "path of model",
+            "type": "string"
+        },
+        "initial_load": {
+            "description": "if true, generates topology from model files",
+            "type": "boolean"
+        },
+        "project_name": {
+            "type": "string"
+        },
+        "topology_file": {
+            "type": "string"
+        },
+        "model_config": {
+            "type": "object",
+            "properties": {
+                "geometry_file": {
+                    "type": "string"
+                },
+                "plan_file": {
+                    "type": "string"
+                },
+                "unsteady_file": {
+                    "type": "string"
+                }
+            }
+        }
+    
+    },
+    "required": [
+        "workspace",
+        "model_path",
+        "project_name",
+        "topology_file"
+    ]
+}

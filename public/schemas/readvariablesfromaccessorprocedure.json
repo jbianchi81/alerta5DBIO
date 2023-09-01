@@ -1,0 +1,29 @@
+{
+    "$id": "readvariablesfromaccessorprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ReadVariablesFromAccessorProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "ReadVariablesFromAccessorProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "accessor_id": {
+                    "type": "string",
+                    "description": "Identifier of the Accessor class which timeseries observations are being mapped into a5.variables"
+                },
+                "filter": {
+                    "description": "filter to select which timeseries observations to map into a5.variables",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            },
+            "required": [
+                "accessor_id"
+            ]
+        }
+    }
+}

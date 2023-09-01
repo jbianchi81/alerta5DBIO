@@ -1,0 +1,150 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json 
+sequence:
+    - procedureName: DeleteProcedure
+      arguments:
+        class_name: observaciones
+        filter:
+          tipo: puntual
+          series_id: 26652
+          timestart: 1990-01-01 00:00:00
+          timeend: 2021-01-01 00:00:00
+        output: sample_data/deleted_observaciones.json
+    - procedureName: CreateProcedure
+      arguments:
+        class_name: observaciones
+        # elements:
+        jsonfile: sample_data/sample_serie.json
+        property_name: observaciones
+        output: sample_data/created_observaciones.json
+      tests:
+      - testName: ArrayLengthTest
+        arguments:
+          min_length: 10988
+          max_length: 10988
+      - testName: ResultIsInstanceOfTest
+        arguments:
+          class_name: observaciones
+      - testName: OutputFileTest
+        arguments:
+          class_name: observaciones
+          output: sample_data/created_observaciones.json
+    - procedureName: ReadProcedure
+      arguments:
+        class_name: observaciones
+        filter:
+          tipo: puntual
+          series_id: 26652
+          timestart: 1990-01-01 00:00:00
+          timeend: 2021-01-01 00:00:00
+        output: sample_data/read_observaciones.json 
+      tests:
+      - testName: ArrayLengthTest
+        arguments:
+          min_length: 10988
+          max_length: 10988
+      - testName: ResultIsInstanceOfTest
+        arguments:
+          class_name: observaciones
+      - testName: OutputFileTest
+        arguments:
+          class_name: observaciones
+          output: sample_data/read_observaciones.json
+    - procedureName: GetSeriesBySiteAndVarProcedure
+      arguments:
+        filter:
+          estacion_id: 55
+          var_id: 40
+          timestart: 1990-01-01 00:00:00
+          timeend: 2021-01-01 00:00:00
+        options:
+          regular: true
+          dt:
+            days: 1
+        output: sample_data/getSeriesBySiteAndVarResult.json
+      tests:
+      - testName: ArrayOfArraysTest
+        arguments:
+          outside_array_length: 11323
+          inside_array_length: 4
+          property_name: observaciones
+    - procedureName: UpdateProcedure
+      arguments:
+        class_name: observaciones
+        filter:
+          tipo: puntual
+          series_id: 26652
+          timestart: 1990-01-01 00:00:00
+          timeend: 2021-01-01 00:00:00
+        update:
+          valor: -9999
+        output: sample_data/updated_observaciones.json 
+      tests:
+      - testName: PropertyEqualsTest
+        arguments:
+          property_name: valor
+          property_value: -9999
+      - testName: ArrayLengthTest
+        arguments:
+          min_length: 10988
+          max_length: 10988
+      - testName: OutputFileTest
+        arguments:
+          class_name: observaciones
+          output: sample_data/updated_observaciones.json
+    - procedureName: DeleteProcedure
+      arguments:
+        class_name: observaciones
+        filter:
+          tipo: puntual
+          series_id: 26652
+          timestart: 1990-01-01 00:00:00
+          timeend: 2021-01-01 00:00:00
+        output: sample_data/deleted_observaciones.json
+      tests:
+      - testName: PropertyEqualsTest
+        arguments:
+          property_name: series_id
+          property_value: 26652
+      - testName: ArrayLengthTest
+        arguments:
+          min_length: 10988
+          max_length: 10988
+      - testName: OutputFileTest
+        arguments:
+          class_name: observaciones
+          output: sample_data/deleted_observaciones.json
+    - procedureName: CreateProcedure
+      arguments:
+        class_name: observaciones
+        csvfile: sample_data/observaciones_sample.csv
+        output: /tmp/created_obs.json
+      tests:
+      - testName: ArrayLengthTest
+        arguments:
+          min_length: 12
+          max_length: 12
+      - testName: ResultIsInstanceOfTest
+        arguments:
+          class_name: observaciones
+    - procedureName: DeleteProcedure
+      arguments:
+        class_name: observaciones
+        filter:
+          tipo: puntual
+          series_id: 34825
+          timestart: 1990-01-01 00:00:00
+          timeend: 1991-01-01 00:00:00
+        output: sample_data/deleted_observaciones.json
+      tests:
+      - testName: PropertyEqualsTest
+        arguments:
+          property_name: series_id
+          property_value: 34825
+      - testName: ArrayLengthTest
+        arguments:
+          min_length: 12
+          max_length: 12
+      - testName: OutputFileTest
+        arguments:
+          class_name: observaciones
+          output: sample_data/deleted_observaciones.json

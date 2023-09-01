@@ -1,0 +1,19 @@
+#tabla,estacion,var,proc,timestart
+#puntual
+#alturas_prefe,*,*,1,1890-01-01
+#alturas_prefe,*,*,2,1890-01-01
+estaciones_pvnymm,*,*,1,today-'1 year'
+alturas_varios,1700,*,1,today-'1 year'
+alturas_varios,2868,*,1,today-'1 year'
+alturas_varios,2233,*,1,today-'1 year'
+estaciones_shn,*,*,1,today-'1 year'
+sat2,*,1,1,2010-01-01
+sat2,*,31,1,2010-01-01
+sat2,*,33,1,2010-01-01
+sat2,*,34,1,2010-01-01
+sat2,*,39,1,2010-01-01
+sat2,*,40,1,2010-01-01
+sat2,*,48,1,2010-01-01
+ina_delta,*,*,1,2010-01-01
+#areal
+#raster

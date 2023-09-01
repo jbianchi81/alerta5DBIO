@@ -1,0 +1,65 @@
+{
+    "$id": "createprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "CreateProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "CreateProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "class_name": {
+                    "description": "name of the CRUD class of the elements to create",
+                    "type": "string"
+                },
+                "elements": {
+                    "description": "Array of elements or single element to create. Overrides jsonfile and csvfile",
+                    "oneof": [{
+                        "type": "object"
+                        },{
+                        "type": "array"
+                        }]
+                },
+                "jsonfile": {
+                    "description": "Location of the json file containing elements to create. Overrides csvfile. Overrided by elements",
+                    "type": "string"
+                },
+                "csvfile": {
+                    "description": "Location of the csv file containing elements to create. Overrided by jsonfile. Overrided by elements",
+                    "type": "string"
+                },
+                "rasterfile": {
+                    "description": "Location of the raster file containing elements to create. Overrided by csvfile. Overrided by jsonfile. Overrided by elements",
+                    "type": "string"
+                },
+                "property_name": {
+                    "description": "Name of the object property of provided file whose value is an array containing the elements to create",
+                    "type": "string"
+                },
+                "output": {
+                    "description": "Output file location",
+                    "type": "string"
+                },
+                "output_format": {
+                    "type": "string",
+                    "description": "Output file format (json (default), csv, raster)"
+                },
+                "options": {
+                    "type": "object",
+                    "properties": {
+                        "upsert_estacion": {
+                            "type": "boolean"
+                        }
+                    }
+                }
+            },
+            "required": [
+                "class_name"
+            ],
+            "additionalProperties": false
+        }
+    }
+}

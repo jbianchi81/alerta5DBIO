@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json 
+sequence:
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      id: 34825
+- procedureName: CreateProcedure
+  arguments:
+    class_name: serie
+    # elements:
+    jsonfile: sample_data/hourly_timeseries_long.json
+- procedureName: CreateProcedure
+  arguments:
+    class_name: serie
+    elements:
+      - tipo: puntual
+        id: 34825
+        var:
+          id: 33
+        procedimiento:
+          id: 1
+        unidades:
+          id: 11
+        estacion:
+          id: 1699
+  tests:
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: serie
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: id
+      property_value: 34825            
+- procedureName: AggregateProcedure
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      series_id: 3280
+      timestart: 1990-01-01 00:00:00
+      timeend: 1991-01-01 00:00:00
+    options:
+      time_step: day
+      dest_series_id: 34824
+      update: true
+      agg_function: mean
+      min_obs: 16
+    output: sample_data/aggregated_daily_long.json 
+- procedureName: AggregateProcedure
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      series_id: 34824
+      timestart: 1990-01-01 00:00:00
+      timeend: 1991-01-01 00:00:00
+    options:
+      time_step: month
+      dest_series_id: 34825
+      update: true
+      agg_function: mean
+      min_obs: 16
+    output: sample_data/aggregated_monthly.json 
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 12
+      max_length: 12
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: observaciones
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: observaciones
+    filter:
+      tipo: puntual
+      series_id: 3280
+      timestart: 1990-01-01 00:00:00
+      timeend: 1991-01-01 00:00:00
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: observaciones
+    filter:
+      tipo: puntual
+      series_id: 34824
+      timestart: 1990-01-01 00:00:00
+      timeend: 1991-01-01 00:00:00
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: observaciones
+    filter:
+      tipo: puntual
+      series_id: 34825
+      timestart: 1990-01-01 00:00:00
+      timeend: 1991-01-01 00:00:00

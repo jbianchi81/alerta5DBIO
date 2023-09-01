@@ -1,0 +1,125 @@
+{
+    "$id": "getppcdpbatchprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "GetPpCdpBatchProcedure",
+    "type": "object",
+    "properties": {
+        "procedureName": {
+            "const": "GetPpCdpBatchProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "timestart": {
+                    "$ref": "dateorinterval.json"
+                },
+                "timeend": {
+                    "$ref": "dateorinterval.json"
+                },
+                "upsert": {
+                    "type": "boolean"
+                },
+                "filter": {
+                    "$href": "seriespuntualesfilter.json"
+                },
+                "options": {
+                    "type": "object",
+                    "properties": {
+                        "skip_count_control": {
+                            "type": "boolean"
+                        },
+                        "no_update_areales": {
+                            "type": "boolean"
+                        },
+                        "radius1": {
+                            "type": "number"
+                        },
+                        "radius2": {
+                            "type": "number"
+                        },
+                        "out_x": {
+                            "type": "number"
+                        },
+                        "out_y": {
+                            "type": "number"
+                        },
+                        "nullvalue": {
+                            "type": "number"
+                        },
+                        "method": {
+                            "enum": [
+                                "invdist",
+                                "nearest",
+                                "linear"
+                            ]
+                        },
+                        "target_extent": {
+                            "type": "array",
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "items": {
+                                "type": "array",
+                                "minItems": 2,
+                                "maxItems": 2,
+                                "items": {
+                                    "type": "number"
+                                }
+                            }
+                        },
+                        "roifile": {
+                            "type": "string"
+                        },
+                        "srs": {
+                            "type": "integer"
+                        },
+                        "makepng": {
+                            "type": "boolean"
+                        },
+                        "geojsonfile": {
+                            "type": "string"
+                        },
+                        "tipo": {
+                            "type": "string"
+                        },
+                        "zfield": {
+                            "type": "string"
+                        },
+                        "agg_func": {
+                            "enum": ["mean","avg","average","min","max","count","diff","increment","sum","nearest","array"]
+                        },
+                        "dt": {
+                            "$ref": "timeinterval.json"
+                        },
+                        "t_offset": {
+                            "$ref": "timeinterval.json"
+                        },
+                        "inst": {
+                            "type": "boolean"
+                        },
+                        "precision": {
+                            "type": "integer"
+                        },
+                        "timeSupport": {
+                            "$ref": "timeinterval.json"
+                        },
+                        "min_count": {
+                            "type": "integer"
+                        },
+                        "min_time_fraction": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "required": [
+        "procedureName",
+        "arguments"
+    ],
+    "additionalProperties": false
+}

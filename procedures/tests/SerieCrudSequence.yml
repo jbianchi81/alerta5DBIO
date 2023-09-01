@@ -1,0 +1,143 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json 
+sequence:
+- procedureName: DownloadFromAccessorProcedure
+  arguments:
+    accessor_id: a5
+    filter:
+      tipo: puntual
+      series_id: 26652
+      timestart: 1990-01-01 00:00:00
+      timeend: 2021-01-01 00:00:00
+    options:
+      output_individual_files:
+        base_path: sample_data
+        pattern: serie.{{var.var}}.{{estacion.abreviatura}}
+  tests:
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: serie
+  - testName: OutputFileTest
+    arguments:
+      class_name: serie
+      output: sample_data/serie.Qmd.PILC.json
+      index: 0
+- procedureName: CreateProcedure
+  arguments:
+    class_name: serie
+    # elements:
+    jsonfile: sample_data/serie.Qmd.PILC.json
+    output: sample_data/created_serie.json
+    options:
+      upsert_estacion: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: serie
+  - testName: OutputFileTest
+    arguments:
+      class_name: serie
+      output: sample_data/created_serie.json
+- procedureName: ReadProcedure
+  arguments:
+    class_name: serie
+    filter:
+      series_id: [26652]
+      timestart: 1990-01-01 00:00:00
+      timeend: 2021-01-01 00:00:00
+    output: sample_data/read_series.json 
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: serie
+  - testName: OutputFileTest
+    arguments:
+      class_name: serie
+      output: sample_data/read_series.json
+- procedureName: UpdateProcedure
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      id: 26652
+    update:
+      proc_id: 5
+    output: sample_data/updated_serie.json 
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: procedimiento.id
+      property_value: 5
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: OutputFileTest
+    arguments:
+      class_name: serie
+      output: sample_data/updated_serie.json
+- procedureName: UpdateProcedure
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      id: 26652
+    update:
+      proc_id: 1
+    output: sample_data/updated_serie.json 
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: procedimiento.id
+      property_value: 1
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: OutputFileTest
+    arguments:
+      class_name: serie
+      output: sample_data/updated_serie.json
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      id: 26652
+    output: sample_data/deleted_serie.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: id
+      property_value: 26652
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: OutputFileTest
+    arguments:
+      class_name: serie
+      output: sample_data/deleted_serie.json
+- procedureName: CreateProcedure
+  arguments:
+    class_name: serie
+    jsonfile: sample_data/deleted_serie.json
+    output: sample_data/recreated_serie.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: id
+      property_value: 26652
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: OutputFileTest
+    arguments:
+      class_name: serie
+      output: sample_data/recreated_serie.json

@@ -1,0 +1,29 @@
+{
+    "$id": "mapsitesfromaccessorprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "MapSitesFromAccessorProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "MapSitesFromAccessorProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "accessor_id": {
+                    "type": "string",
+                    "description": "Identifier of the Accessor class which sites are being mapped into a5.estaciones"
+                },
+                "filter": {
+                    "description": "filter to select which sites (features of interest) to map into a5.estaciones",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            },
+            "required": [
+                "accessor_id"
+            ]
+        }
+    }
+}

@@ -1,0 +1,200 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json 
+sequence:
+# back up original users
+- procedureName: ReadProcedure
+  arguments:
+    class_name: user
+    output: /tmp/restore_users.json
+  tests:
+  - testName: OutputFileTest
+    arguments:
+      class_name: user
+      output: /tmp/restore_users.json
+- procedureName: CreateProcedure
+  arguments:
+    class_name: user
+    jsonfile: sample_data/user.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: user
+- procedureName: CreateProcedure
+  arguments:
+    class_name: user
+    jsonfile: sample_data/users.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 4
+      max_length: 4
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: user
+- procedureName: ReadProcedure
+  arguments:
+    class_name: user
+    filter:
+      name: test
+    output: /tmp/user.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: name
+      property_value: test
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: user
+  - testName: OutputFileTest
+    arguments:
+      class_name: user
+      output: /tmp/user.json
+- procedureName: ReadProcedure
+  arguments:
+    class_name: user
+    filter:
+      name: test
+    output: /tmp/user.csv
+    output_format: csv
+    options:
+      header: true
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: name
+      property_value: test
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: user
+  - testName: OutputFileTest
+    arguments:
+      class_name: user
+      output: /tmp/user.csv
+      output_format: csv
+      header: true
+- procedureName: ReadProcedure
+  arguments:
+    class_name: user
+    output: /tmp/users.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 4
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: user
+  - testName: OutputFileTest
+    arguments:
+      class_name: user
+      output: /tmp/users.json
+- procedureName: ReadProcedure
+  arguments:
+    class_name: user
+    output: /tmp/users.csv
+    output_format: csv
+    options:
+      header: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 4
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: user
+  - testName: OutputFileTest
+    arguments:
+      class_name: user
+      output: /tmp/users.csv
+      output_format: csv
+      header: true
+- procedureName: UpdateProcedure
+  arguments:
+    class_name: user
+    filter:
+      name: test
+    update:
+      password: new
+    output: /tmp/user_upd.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: user
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: password
+      property_value: new
+  - testName: OutputFileTest
+    arguments:
+      class_name: user
+      output: /tmp/user_upd.json
+- procedureName: UpdateProcedure
+  arguments:
+    class_name: user
+    update:
+      password: new
+    output: /tmp/users_upd.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 4
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: user
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: password
+      property_value: new
+      all: true
+  - testName: OutputFileTest
+    arguments:
+      class_name: user
+      output: /tmp/users_upd.json
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: user
+    filter:
+      name: test
+    output: /tmp/user_del.json
+  tests:
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: user
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: name
+      property_value: test
+  - testName: OutputFileTest
+    arguments:
+      class_name: user
+      output: /tmp/user_del.json
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: user
+    output: /tmp/users_del.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 3
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: user
+  - testName: OutputFileTest
+    arguments:
+      class_name: user
+      output: /tmp/users_del.json
+# restore original users
+- procedureName: CreateProcedure
+  arguments:
+    class_name: user
+    jsonfile: /tmp/restore_users.json
+  tests:
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: user

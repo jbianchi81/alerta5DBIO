@@ -1,0 +1,21 @@
+{
+    "api": {
+        "username":"name",
+        "password":"pass",
+        "url":"http://localhost:3005",
+        "token": "token"
+    },
+    "database": {
+        "dbname": "dbname",
+        "user": "username",
+        "host": "localhost",
+        "port": 5432
+    },
+    "proxy_dict": {
+        "http": "http://user:pass@10.10.10.10:1111/",
+        "https": "http://user:pass@10.10.10.10:1111/",
+        "ftp": "http://user:pass@10.10.10.10:1111/"
+    }, 
+    "use_proxy": true
+}
+

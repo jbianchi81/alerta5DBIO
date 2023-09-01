@@ -1,0 +1,41 @@
+{
+    "$id": "updateprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "UpdateProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "UpdateProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "class_name": {
+                    "type": "string",
+                    "description": "Name of the CRUD class of the records to update"
+                },
+                "filter": {
+                    "descrition": "filter to select which records to update",
+                    "type": "object",
+                    "properties": {
+                        "timestart": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "timeend": {
+                            "$ref": "dateorinterval.json"
+                        }                        
+                    },
+                    "additionalProperties": true
+                },
+                "update": {
+                    "type": "object",
+                    "description": "properties to update with the specified values"
+                }
+            },
+            "required": [
+                "class_name","update"
+            ]
+        }
+    }
+}

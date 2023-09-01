@@ -1,0 +1,524 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json
+sequence:
+# feature of interest
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor_feature_of_interest
+    jsonfile: sample_data/foi.json
+    output: /tmp/foi_c.json
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor_feature_of_interest
+    csvfile: sample_data/foi.csv
+    output: /tmp/foi_c.csv
+    options:
+      header: true
+      output_format: csv
+- procedureName: ReadProcedure
+  arguments:
+    class_name: accessor_feature_of_interest
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+    options:
+      output: /tmp/foi.json
+- procedureName: ReadProcedure
+  arguments:
+    class_name: accessor_feature_of_interest
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+    options:
+      output: /tmp/foi.csv
+      output_format: csv
+- procedureName: UpdateProcedure
+  arguments:
+    class_name: accessor_feature_of_interest
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      feature_id: test
+    update:
+      name: test1
+- procedureName: MapSitesFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      name: test1
+    output: /tmp/estacion_from_accessor.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: nombre
+      property_value: test1
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: tabla
+      property_value: whos_plata
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: estacion
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: accessor_feature_of_interest
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      feature_id: test
+    output: /tmp/foi_d.json
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: estacion
+    filter:
+      nombre: test1
+      id_externo: test
+      tabla: whos_plata
+    output: /tmp/estacion_from_accessor_del.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: nombre
+      property_value: test1
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: tabla
+      property_value: whos_plata
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: estacion
+# observed property
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor_observed_property
+    jsonfile: sample_data/op.json
+    output: /tmp/op_c.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: name
+      property_value: test 
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor_observed_property
+    csvfile: sample_data/op.csv
+    output: /tmp/op_c.csv
+    options:
+      header: true
+      output_format: csv
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: name
+      property_value: test 
+- procedureName: ReadProcedure
+  arguments:
+    class_name: accessor_observed_property
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      name: test
+    options:
+      output: /tmp/op_r.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: name
+      property_value: test 
+- procedureName: ReadProcedure
+  arguments:
+    class_name: accessor_observed_property
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      name: test
+    options:
+      output: /tmp/op_r.csv
+      output_format: csv
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: name
+      property_value: test 
+- procedureName: UpdateProcedure
+  arguments:
+    class_name: accessor_observed_property
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      name: test
+    update:
+      name: test_update
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: name
+      property_value: test_update 
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: accessor_observed_property
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      name: test_update
+    output: /tmp/op_d.json
+# - procedureName: CreateProcedure
+#   arguments:
+#     class_name: accessor_observed_property
+#     jsonfile: /tmp/op_d.json
+# unit of measurement
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor_unit_of_measurement
+    jsonfile: sample_data/uom.json
+    output: /tmp/uom_c.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: unit_of_measurement_id
+      property_value: test 
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor_unit_of_measurement
+    csvfile: sample_data/uom.csv
+    output: /tmp/uom_c.csv
+    options:
+      header: true
+      output_format: csv
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: unit_of_measurement_id
+      property_value: test 
+- procedureName: ReadProcedure
+  arguments:
+    class_name: accessor_unit_of_measurement
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      unit_of_measurement_id: test
+    options:
+      output: /tmp/uom_r.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: unit_of_measurement_id
+      property_value: test 
+- procedureName: ReadProcedure
+  arguments:
+    class_name: accessor_unit_of_measurement
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      unit_of_measurement_id: test
+    options:
+      output: /tmp/uom_r.csv
+      output_format: csv
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: unit_of_measurement_id
+      property_value: test 
+- procedureName: UpdateProcedure
+  arguments:
+    class_name: accessor_unit_of_measurement
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      unit_of_measurement_id: test
+    update:
+      unit_id: 14
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: unit_of_measurement_id
+      property_value: test 
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: unit_id
+      property_value: 14 
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: accessor_unit_of_measurement
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      unit_of_measurement_id: test
+    output: /tmp/uom_d.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: unit_of_measurement_id
+      property_value: test 
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: unit_id
+      property_value: 14 
+# - procedureName: CreateProcedure
+#   arguments:
+#     class_name: accessor_unit_of_measurement
+#     jsonfile: /tmp/uom_d.json
+# timeseries observation
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor_timeseries_observation
+    jsonfile: sample_data/tso.json
+    output: /tmp/tso_c.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: timeseries_id
+      property_value: test 
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor_timeseries_observation
+    csvfile: sample_data/tso.csv
+    output: /tmp/tso_c.csv
+    options:
+      header: true
+      output_format: csv
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: timeseries_id
+      property_value: test 
+- procedureName: ReadProcedure
+  arguments:
+    class_name: accessor_timeseries_observation
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      timeseries_id: test
+      timestart: 1961-01-01T12:00:00Z
+      timeend: 1961-01-01T12:00:00Z
+    options:
+      output: /tmp/tso.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: timeseries_id
+      property_value: test 
+  - testName: ArrayLengthTest
+    arguments:
+      property_name: data
+      min_length: 1
+      max_length: 1
+  - testName: OutputFileTest
+    arguments:
+      class_name: accessor_timeseries_observation
+      output: /tmp/tso.json
+- procedureName: ReadProcedure
+  arguments:
+    class_name: accessor_timeseries_observation
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      timeseries_id: test
+    options:
+      output: /tmp/tso.csv
+      output_format: csv
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: timeseries_id
+      property_value: test 
+- procedureName: ReadProcedure
+  arguments:
+    class_name: accessor_timeseries_observation
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      timeseries_id: test
+    options:
+      output: /tmp/tso_mapping.json
+      columns: [accessor_id, timeseries_id, series_puntual_id]
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: timeseries_id
+      property_value: test
+  - testName: PropertyIsUndefinedTest
+    arguments:
+      property_name: result
+- procedureName: ReadProcedure
+  arguments:
+    class_name: accessor_timeseries_observation
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      timeseries_id: test
+    options:
+      output: /tmp/tso_mapping.csv
+      output_format: csv
+      header: true
+      columns: [accessor_id, timeseries_id, series_puntual_id]
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: timeseries_id
+      property_value: test
+  - testName: PropertyIsUndefinedTest
+    arguments:
+      property_name: result
+- procedureName: UpdateProcedure
+  arguments:
+    class_name: accessor_timeseries_observation
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      timeseries_id: test
+    update:
+      data_type: Continuous
+    output: /tmp/tso_u.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: data_type
+      property_value: Continuous
+- procedureName: ReadVariablesFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      timeseries_id: test
+    output: /tmp/variables_mapped_from_accessor.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: var
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: datatype
+      property_value: Continuous
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: VariableName
+      property_value: Visibility
+# - procedureName: CreateProcedure
+#   arguments:
+#     class_name: accessor_timeseries_observation
+#     jsonfile: ../tmp/tso_d.json
+# time value pair
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor_time_value_pair
+    jsonfile: sample_data/tvp.json
+    output: /tmp/tvp_c.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: numeric_value
+      property_value: 62
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: timestamp
+      property_value: 1961-01-31T00:00:00.000Z
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor_time_value_pair
+    csvfile: sample_data/tvp.csv
+    output: /tmp/tvp_c.csv
+    options:
+      header: true
+      output_format: csv
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: numeric_value
+      property_value: 62
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: timestamp
+      property_value: 1961-01-31T00:00:00.000Z
+- procedureName: ReadProcedure
+  arguments:
+    class_name: accessor_time_value_pair
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      timeseries_id: test
+      timestamp: 1961-01-31T00:00:00.000Z
+      numeric_value: 62
+      timestart: 1961-01-31T00:00:00.000Z
+      timeend: 1961-12-25T00:00:00.000Z
+    options:
+      output: /tmp/tvp.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: timestamp
+      property_value: 1961-01-31T00:00:00.000Z
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: OutputFileTest
+    arguments:
+      class_name: accessor_time_value_pair
+      output: /tmp/tvp.json
+- procedureName: ReadProcedure
+  arguments:
+    class_name: accessor_time_value_pair
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      timeseries_id: test
+      timestamp: 1961-01-31T00:00:00.000Z
+      numeric_value: 62
+      timestart: 1961-01-31T00:00:00.000Z
+      timeend: 1961-12-25T00:00:00.000Z
+    options:
+      output: /tmp/tvp.csv
+      output_format: csv
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: timestamp
+      property_value: 1961-01-31T00:00:00.000Z
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: UpdateProcedure
+  arguments:
+    class_name: accessor_time_value_pair
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      timeseries_id: test
+      timestamp: 1961-01-31T00:00:00.000Z
+    update:
+      numeric_value: 8888
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: timestamp
+      property_value: 1961-01-31T00:00:00.000Z
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: numeric_value
+      property_value: 8888
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: accessor_time_value_pair
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      timeseries_id: test
+      timestamp: 1961-01-31T00:00:00.000Z
+    output: /tmp/tvp_d.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+# - procedureName: CreateProcedure
+#   arguments:
+#     class_name: accessor_time_value_pair
+#     jsonfile: /tmp/tvp_d.json
+# delete timeseries_observation
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: accessor_timeseries_observation
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+      timeseries_id: test
+    output: /tmp/tso_d.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: data_type
+      property_value: Continuous
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1

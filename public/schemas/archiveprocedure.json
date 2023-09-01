@@ -1,0 +1,54 @@
+{
+    "$id": "archiveprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ArchiveProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "ArchiveProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "class_name": {
+                    "type": "string",
+                    "description": "Name of the CRUD class of the records to archive"
+                },
+                "filter": {
+                    "descrition": "filter to select which records to archive",
+                    "type": "object",
+                    "properties": {
+                        "timestart": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "timeend": {
+                            "$ref": "dateorinterval.json"
+                        }                        
+                    },
+                    "additionalProperties": true
+                },
+                "options": {
+                    "type": "object",
+                    "properties": {
+                        "delete": {
+                            "type": "boolean",
+                            "description": "if true, it deletes records from operational tables (they may be restored with RestoreProcedure)"
+                        },
+                        "no_update": {
+                            "type": "boolean",
+                            "description": "if true, conflicting rows in archive table will not update"
+                        },
+                        "no_send_data": {
+                            "type": "boolean",
+                            "description": "if true, return count of saved observaciones instead of the array of observaciones"
+                        }
+                    }
+                }
+            },
+            "required": [
+                "class_name"
+            ]
+        }
+    }
+}

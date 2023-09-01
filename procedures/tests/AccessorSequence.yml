@@ -1,0 +1,115 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json 
+sequence:
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: observaciones
+    filter:
+      tipo: puntual
+      series_id: [26652, 26654]
+      timestart: 1990-01-01 00:00:00
+      timeend: 2021-01-01 00:00:00
+    output: sample_data/deleted_observaciones.json
+- procedureName: DownloadFromAccessorProcedure
+  arguments:
+    accessor_id: a5
+    filter:
+      tipo: puntual
+      series_id: [26652, 26654]
+      timestart: 1990-01-01 00:00:00
+      timeend: 2021-01-01 00:00:00
+    options:
+      output: sample_data/read_from_accessor.json
+  tests:
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: serie
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 2
+      max_length: 2
+  - testName: OutputFileTest
+    arguments:
+      class_name: serie
+      output: sample_data/read_from_accessor.json
+- procedureName: DownloadFromAccessorProcedure
+  arguments:
+    accessor_id: a5
+    filter:
+      tipo: puntual
+      series_id: [26652, 26654]
+      timestart: 1990-01-01 00:00:00
+      timeend: 2021-01-01 00:00:00
+    options:
+      output_individual_files:
+        base_path: sample_data
+        pattern: serie.{{id}} 
+  tests:
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: serie
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 2
+      max_length: 2
+  - testName: OutputFileTest
+    arguments:
+      class_name: serie
+      output: sample_data/serie.26652.json
+      index: 0
+  - testName: OutputFileTest
+    arguments:
+      class_name: serie
+      output: sample_data/serie.26654.json
+      index: 1
+- procedureName: UpdateFromAccessorProcedure
+  arguments:
+    accessor_id: a5
+    filter:
+      tipo: puntual
+      series_id: [26652, 26654]
+      timestart: 1990-01-01 00:00:00
+      timeend: 2021-01-01 00:00:00
+    options:
+      output_individual_files:
+        base_path: sample_data
+        pattern: serie.{{id}} 
+  tests:
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: serie
+  - testName: OutputFileTest
+    arguments:
+      class_name: serie
+      output: sample_data/serie.26652.json
+      index: 0
+  - testName: OutputFileTest
+    arguments:
+      class_name: serie
+      output: sample_data/serie.26654.json
+      index: 1
+- procedureName: ReadProcedure
+  arguments:
+    class_name: observaciones
+    filter:
+      tipo: puntual
+      series_id: [26652, 26654]
+      timestart: 1990-01-01 00:00:00
+      timeend: 2021-01-01 00:00:00
+    output: sample_data/read_observaciones.json
+  tests:
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: observaciones
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 15754
+      max_length: 15754
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: observaciones
+    filter:
+      tipo: puntual
+      series_id: [26652, 26654]
+      timestart: 1990-01-01 00:00:00
+      timeend: 2021-01-01 00:00:00
+    output: sample_data/deleted_observaciones.json

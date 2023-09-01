@@ -1,0 +1,64 @@
+{
+    "$id": "getseriesbysiteandvarprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "GetSeriesBySiteAndVarProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "GetSeriesBySiteAndVarProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "filter": {
+                    "descrition": "filter to select which series to read",
+                    "type": "object",
+                    "properties": {
+                        "estacion_id": {
+                            "type": "integer"
+                        },
+                        "var_id": {
+                            "type": "integer"
+                        },
+                        "timestart": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "timeend": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "forecast_date": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "proc_id": {
+                            "type": "integer"
+                        }                        
+                    },
+                    "required": ["estacion_id", "var_id"],
+                    "additionalProperties": true
+                },
+                "options": {
+                    "type": "object",
+                    "properties": {                                               
+                        "includeProno": {
+                            "type": "boolean"
+                        },
+                        "regular": {
+                            "type": "boolean"
+                        },
+                        "dt": {
+                            "$ref": "timeinterval.json"
+                        },
+                        "isPublic": {
+                            "type": "boolean"
+                        },
+                        "additionalProperties": true
+                    }
+                }
+            },
+            "required": [
+                "filter"
+            ]
+        }
+    }
+}

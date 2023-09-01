@@ -1,0 +1,16 @@
+#tabla,estacion,var,proc,timestart
+alturas_prefe,*,*,1,7
+alturas_prefe,*,*,2,7
+estaciones_pvnymm,*,*,1,7
+alturas_varios,1700,*,1,7
+alturas_varios,2868,*,1,7
+alturas_varios,2233,*,1,7
+estaciones_shn,*,*,1,7
+sat2,*,1,1,7
+sat2,*,31,1,7
+sat2,*,33,1,7
+sat2,*,34,1,7
+sat2,*,39,1,7
+sat2,*,40,1,7
+sat2,*,48,1,7
+ina_delta,*,*,1,7

@@ -1,0 +1,39 @@
+{
+    "$id": "grassbatchjobprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "GrassBatchJobProcedure",
+    "type": "object",
+    "properties": {
+        "procedureName": {
+            "const": "GrassBatchJobProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "batchjob": {
+                    "type": "string",
+                    "description": "path of the batch job executable relative to the base path"
+                },
+                "location": {
+                    "type": "string",
+                    "description": "GRASS location where to execute the batch job"
+                },
+                "date": {
+                    "$ref": "dateorinterval.json"
+                },
+                "filepath_pattern": {
+                    "type": "string",
+                    "description": "string with replacement ${names} to build filepath using other properties"
+                },
+                "env": {
+                    "type": "object",
+                    "description": "environment variables to pass to the batch job"
+                }
+            }
+        }
+    },
+    "required": [
+        "batchjob"
+    ],
+    "additionalProperties": false
+}

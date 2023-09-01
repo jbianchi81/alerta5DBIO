@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json 
+sequence:
+- procedureName: CreateProcedure
+  arguments:
+    class_name: serie
+    jsonfile: sample_data/qmm_sample.json
+    options:
+      refresh_date_range: true
+# read data and write down csv
+- procedureName: ReadProcedure
+  arguments:
+    class_name: serie
+    filter:
+      series_id: 24674
+      count: 216
+      timestart: 1990-01-01
+      timeend: 2021-01-01
+    options:
+      getWeibullPercentiles: true
+      getStats: true
+      output_individual_files:
+        pattern: qmm.{{estacion.id}}
+        base_path: ../../data/qmm
+    output_format: csv
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      property_name: monthlyStats
+      min_length: 12
+      max_length: 12
+  - testName: OutputFileTest
+    arguments:
+      class_name: observaciones
+      output: ../../data/qmm/qmm.8.csv
+      output_format: csv
+      result_property_name: observaciones
+# read data and write down json
+- procedureName: ReadProcedure
+  arguments:
+    class_name: serie
+    filter:
+      series_id: 24674
+      count: 216
+      timestart: 1990-01-01
+      timeend: 2021-01-01
+    options:
+      getWeibullPercentiles: true
+      getStats: true
+      output_individual_files:
+        pattern: qmm.{{estacion.id}}
+        base_path: ../../data/qmm
+    output_format: json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      property_name: monthlyStats
+      min_length: 12
+      max_length: 12
+  - testName: OutputFileTest
+    arguments:
+      class_name: serie
+      output: ../../data/qmm/qmm.8.json
+      output_format: json
+      index: 0
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: observaciones
+    filter:
+      series_id: 24674
+      timestart: 1990-01-01
+      timeend: 2021-01-01

@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json 
+sequence:
+- procedureName: UpdateMetadataFromAccessorProcedure
+  arguments:
+    accessor_id: a5
+    filter:
+      tabla: alturas_prefe
+      proc_id: [1,2]
+      # estacion_id: 29
+    output: /tmp/a5_meta.json
+  tests:
+  - testName: TruthyTest
+  - testName: NonEmptyArrayTest 
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 2
+  - testName: PropertyExistsTest
+    arguments:
+      property_name: id
+      all: true
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: tipo
+      property_value: puntual
+      all: true
+  - testName: PropertyIsInstanceOfTest
+    arguments:
+      property_name: estacion
+      class_name: estacion
+      all: true
+  - testName: PropertyIsInstanceOfTest
+    arguments:
+      property_name: var
+      class_name: var
+      all: true
+  - testName: PropertyIsInstanceOfTest
+    arguments:
+      property_name: procedimiento
+      class_name: procedimiento
+      all: true
+  - testName: PropertyIsInstanceOfTest
+    arguments:
+      property_name: unidades
+      class_name: unidades
+      all: true
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: serie
+      all: true

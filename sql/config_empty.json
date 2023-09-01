@@ -1,0 +1,7 @@
+{
+    "db_connection_params": {"dbname":"","host":"","user":""},
+    "schema_dump_file": "meteorology_schema_dump.sql",
+    "functions_dump_file": "meteorology_functions.sql",
+    "functions_list_file": "meteorology_functions.csv",
+    "dump_path": [""]
+}

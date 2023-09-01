@@ -1,0 +1,41 @@
+{
+    "$id": "updatefromaccessorprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "UpdateFromAccessorProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "UpdateFromAccessorProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "accessor_id": {
+                    "type": "string",
+                    "description": "Identifier of the Accessor class to be called for update"
+                },
+                "filter": {
+                    "descrition": "filter to select which records to update from the source",
+                    "type": "object",
+                    "properties": {
+                        "timestart": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "timeend": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "forecast_date": {
+                            "$ref": "dateorinterval.json"
+                        }
+                    },
+                    "additionalProperties": true
+                }
+            },
+            "required": [
+                "accessor_id",
+                "filter"
+            ]
+        }
+    }
+}

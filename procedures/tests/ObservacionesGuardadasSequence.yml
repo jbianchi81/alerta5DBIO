@@ -1,0 +1,164 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json 
+sequence:
+# delete from observaciones
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: observaciones
+    filter:
+      tipo: puntual
+      series_id: 26652
+      timestart: 1990-01-01 00:00:00
+      timeend: 2021-01-01 00:00:00
+# create observaciones from json file
+- procedureName: CreateProcedure
+  arguments:
+    class_name: observaciones
+    # elements:
+    jsonfile: sample_data/sample_serie.json
+    property_name: observaciones
+# backup into json
+# - procedureName: BackupProcedure
+#   arguments:
+#     class_name: observaciones
+#     filter:
+#       tipo: puntual
+#       series_id: 26652
+#       timestart: 1990-01-01
+#       timeend: 2021-01-01
+#     options:
+#       output: /tmp/sample_serie_backup.json
+#   tests:
+#   - testName: OutputFileTest
+#     arguments:
+#       class_name: observaciones
+#       output: /tmp/sample_serie_backup.json
+# archive
+- procedureName: ArchiveProcedure
+  arguments:
+    class_name: observaciones
+    filter:
+      tipo: puntual
+      series_id: 26652
+      timestart: 1990-01-01
+      timeend: 2021-01-01
+    options:
+      delete: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 10988
+      max_length: 10988
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: observaciones
+# check if records where deleted from operational table
+- procedureName: ReadProcedure
+  arguments:
+    class_name: observaciones
+    filter:
+      tipo: puntual
+      series_id: 26652
+      timestart: 1990-01-01 00:00:00
+      timeend: 2021-01-01 00:00:00
+  tests:
+  - testName: EmptyArrayTest
+# read from archive into json
+- procedureName: ReadProcedure
+  arguments:
+    class_name: observacionesGuardadas
+    filter:
+      tipo: puntual
+      series_id: 26652
+      timestart: 1990-01-01 00:00:00
+      timeend: 2021-01-01 00:00:00
+    output: sample_data/read_observacionesGuardadas.json 
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 10988
+      max_length: 10988
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: observaciones
+  - testName: OutputFileTest
+    arguments:
+      class_name: observaciones
+      output: sample_data/read_observacionesGuardadas.json
+# read from archive into csv
+- procedureName: ReadProcedure
+  arguments:
+    class_name: observacionesGuardadas
+    filter:
+      tipo: puntual
+      series_id: 26652
+      timestart: 1990-01-01 00:00:00
+      timeend: 2021-01-01 00:00:00
+    output: sample_data/read_observacionesGuardadas.csv
+    output_format: csv
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 10988
+      max_length: 10988
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: observacionesGuardadas
+  - testName: OutputFileTest
+    arguments:
+      class_name: observacionesGuardadas
+      output: sample_data/read_observacionesGuardadas.csv
+      output_format: csv
+# TO DO? update from archive
+# TO DO? delete from archive
+# restore from archive
+- procedureName: RestoreProcedure
+  arguments:
+    class_name: observaciones
+    filter:
+      tipo: puntual
+      series_id: 26652
+      timestart: 1990-01-01 00:00:00
+      timeend: 2021-01-01 00:00:00
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 10988
+      max_length: 10988
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: observaciones
+# check that records where restored
+- procedureName: ReadProcedure
+  arguments:
+    class_name: observaciones
+    filter:
+      tipo: puntual
+      series_id: 26652
+      timestart: 1990-01-01 00:00:00
+      timeend: 2021-01-01 00:00:00
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 10988
+      max_length: 10988
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: observaciones
+# delete from observaciones
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: observaciones
+    filter:
+      tipo: puntual
+      series_id: 26652
+      timestart: 1990-01-01 00:00:00
+      timeend: 2021-01-01 00:00:00
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: series_id
+      property_value: 26652
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 10988
+      max_length: 10988

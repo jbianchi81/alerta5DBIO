@@ -1,0 +1,41 @@
+{
+    "$id": "computequantilesprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ComputeQuantilesProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "ComputeQuantilesProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "filter": {
+                    "$ref": "getpronosticofromaccessorprocedure.json#definitions/PronosticosFilter"
+                },
+                "quantiles": {
+                    "description": "list of quantiles [range 0-1] to compute",
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "labels": {
+                    "description": "list of labels to assign to each quantile",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "create": {
+                    "description": "option to insert/update quantile series into database",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "filter"
+            ]
+        }
+    }
+}

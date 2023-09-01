@@ -1,0 +1,95 @@
+{
+    "$id": "getpronosticofromaccessorprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "GetPronosticoFromAccessorProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "GetPronosticoFromAccessorProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "accessor_id": {
+                    "type": "string",
+                    "description": "Identifier of the Accessor class to be called for forecast retrieval"
+                },
+                "filter": {
+                    "$ref": "#/definitions/PronosticosFilter"
+                },
+                "options": {
+                    "type": "object",
+                    "allOf": [{
+                        "$ref": "crudprocedure.json#definitions/CrudProcedureOptions"
+                    }],
+                    "properties": {
+                        "includeProno": {
+                            "type": "boolean"
+                        } 
+                    }
+                }
+            },
+            "required": [
+                "accessor_id",
+                "filter"
+            ]
+        }
+    },
+    "definitions": {
+        "PronosticosFilter": {
+            "description": "filter to select forecasts",
+            "type": "object",
+            "properties": {
+                "timestart": {
+                    "$ref": "dateorinterval.json"
+                },
+                "timeend": {
+                    "$ref": "dateorinterval.json"
+                },
+                "forecast_date": {
+                    "$ref": "dateorinterval.json"
+                },
+                "series_id": {
+                    "type": "integer"
+                },
+                "var_id": {
+                    "type": "integer"
+                },
+                "qualifier": {
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    ]
+                },
+                "tabla": {
+                    "type": "string"
+                },
+                "tipo": {
+                    "type": "string"
+                },
+                "cal_id": {
+                    "type": "integer"
+                },
+                "cor_id": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },{
+                            "enum": ["last"]
+                        }
+                    ]
+                }
+            },
+            "required": ["cal_id"],
+            "additionalProperties": true
+        }
+    }
+}

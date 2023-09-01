@@ -1,0 +1,47 @@
+{
+    "$id": "backupprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "BackupProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "BackupProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "class_name": {
+                    "type": "string",
+                    "description": "Name of the CRUD class of the records to backup"
+                },
+                "filter": {
+                    "descrition": "filter to select which records to backup",
+                    "type": "object",
+                    "properties": {
+                        "timestart": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "timeend": {
+                            "$ref": "dateorinterval.json"
+                        }                        
+                    },
+                    "additionalProperties": true
+                },
+                "options": {
+                    "type": "object",
+                    "properties": {
+                        "output": {
+                            "type": "string",
+                            "description": "path to the output file"
+                        }
+                    }
+                }
+            },
+            "required": [
+                "class_name",
+                "filter"
+            ]
+        }
+    }
+}

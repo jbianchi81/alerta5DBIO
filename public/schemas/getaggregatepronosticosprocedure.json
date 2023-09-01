@@ -1,0 +1,80 @@
+{
+    "$id": "getaggregatepronosticosprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "GetAggregatePronosticosProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "GetMonthlyPronosticosProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "filter": {
+                    "$ref": "getpronosticofromaccessorprocedure.json#definitions/PronosticosFilter"
+                },
+                "time_step": {
+                    "description": "time interval of aggregation",
+                    "enum": ["day", "month"]
+                },
+                "tipo": {
+                    "type": "string"
+                },
+                "source_series_id": {
+                    "type": "integer"
+                },
+                "dest_series_id": {
+                    "type": "integer"
+                },
+                "estacion_id": {
+                    "type": "integer"
+                },
+                "dest_fuentes_id": {
+                    "type": "integer"
+                },
+                "source_var_id": {
+                    "type": "integer"
+                },
+                "dest_var_id": {
+                    "type": "integer"
+                },
+                "dest_tipo": {
+                    "type": "string"
+                },
+                "agg_function": {
+                    "type": "string"
+                },
+                "precision": {
+                    "type": "integer"
+                },
+                "date_offset": {
+                    "description": "day of the month to start monthly aggregation (0-based, default=0)",
+                    "type": "integer"
+                },
+                "time_offset": {
+                    "description": "time of the day when to start aggregation",
+                    "$ref": "timeinterval.json"
+                },
+                "utc": {
+                    "description": "option to use 00 UTC as reference",
+                    "type": "boolean"
+                },
+                "group_by_qualifier": {
+                    "description": "option to generate separate series for each qualifier",
+                    "type": "boolean"
+                },
+                "create": {
+                    "description": "option to insert/update monthly series into database",
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "filter",
+                "dest_var_id",
+                "time_step",
+                "dest_tipo"
+            ]
+        }
+    }
+}

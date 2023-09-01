@@ -1,0 +1,29 @@
+{
+    "$id": "getsitesfromaccessorprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "GetSitesFromAccessorProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "GetSitesFromAccessorProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "accessor_id": {
+                    "type": "string",
+                    "description": "Identifier of the Accessor class to be called for metadata retrieval"
+                },
+                "filter": {
+                    "description": "filter to select which sites (features of interest) to retrieve from the source",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            },
+            "required": [
+                "accessor_id"
+            ]
+        }
+    }
+}

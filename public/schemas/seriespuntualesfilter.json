@@ -1,0 +1,33 @@
+{
+    "$id": "seriespuntualesfilter.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "SeriesPuntualesFilter",
+    "type": "object",
+    "properties": {
+        "var_id": {
+            "$ref": "integerorarrayofintegers.json"
+        },
+        "proc_id": {
+            "$ref": "integerorarrayofintegers.json"
+        },
+        "unit_id": {
+            "$ref": "integerorarrayofintegers.json"
+        },
+        "estacion_id": {
+            "$ref": "integerorarrayofintegers.json"
+        },
+        "red_id": {
+            "$ref": "integerorarrayofintegers.json"
+        },
+        "series_id": {
+            "$ref": "integerorarrayofintegers.json"
+        },
+        "geom": {
+            "$ref": "geometry.json"
+        },
+        "public": {
+            "type": "boolean"
+        }
+    },
+    "additionalProperties": false
+}

@@ -1,0 +1,88 @@
+{
+    "$id": "thinobservacionesprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ThinObservacionesProcedure",
+    "type": "object",
+    "properties": {
+        "procedureName": {
+            "const": "ThinObservacionesProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "tipo": {
+                    "type": "string",
+                    "enum": [
+                        "puntual",
+                        "areal",
+                        "raster"
+                    ]
+                },
+                "output": {
+                    "type": "string"
+                },
+                "filter": {
+                    "type": "object",
+                    "properties": {
+                        "timestart": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "timeend": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "var_id": {
+                            "$ref": "integerorarrayofintegers.json"
+                        },
+                        "proc_id": {
+                            "$ref": "integerorarrayofintegers.json"
+                        },
+                        "unit_id": {
+                            "$ref": "integerorarrayofintegers.json"
+                        },
+                        "estacion_id": {
+                            "$ref": "integerorarrayofintegers.json"
+                        },
+                        "fuentes_id": {
+                            "$ref": "integerorarrayofintegers.json"
+                        },
+                        "series_id": {
+                            "$ref": "integerorarrayofintegers.json"
+                        }
+                    },
+                    "required": [
+                        "timestart",
+                        "timeend"
+                    ],
+                    "additionalProperties": false
+                },
+                "options": {
+                    "type": "object",
+                    "properties": {
+                        "no_send_data": {
+                            "type": "boolean"
+                        },
+                        "interval": {
+                            "$ref": "timeinterval.json"
+                        },
+                        "delete_skipped": {
+                            "type": "boolean"
+                        },
+                        "return_skipped": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "required": [
+                "filter"
+            ],
+            "additionalProperties": false
+        }
+    },
+    "required": [
+        "procedureName",
+        "arguments"
+    ],
+    "additionalProperties": false
+}

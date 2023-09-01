@@ -1,0 +1,29 @@
+{
+    "$id": "http://localhost:3005/schemas/simulation-plan.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "SimulationPlan",
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string"
+        },
+        "parameters": {
+            "type": "array",
+            "items": {
+                "type": "number"
+            }
+        },
+        "initial_states": {
+            "type": "array",
+            "items": {
+                "type": "number"
+            }
+        },
+        "boundary_conditions": {
+            "type": "array",
+            "items": {
+                "$ref": "http://localhost:3005/schemas/serie.json"
+            }
+        }
+    }
+}

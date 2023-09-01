@@ -1,0 +1,100 @@
+{
+    "$id": "sequence.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Sequence",
+    "type": "object",
+    "properties": {
+        "sequence": {
+            "type": "array",
+            "items": {
+                "anyOf": [
+                    {
+                        "$ref": "pruneobservacionesprocedure.json"
+                    },
+                    {
+                        "$ref": "thinobservacionesprocedure.json"
+                    },
+                    {
+                        "$ref": "updatecubefromseriesprocedure.json"
+                    },
+                    {
+                        "$ref": "getppcdpbatchprocedure.json"
+                    },
+                    {
+                        "$ref": "saveobservacionesprocedure.json"
+                    },
+                    {
+                        "$ref": "updatemetadatafromaccessorprocedure.json"
+                    },
+                    {
+                        "$ref": "getmetadatafromaccessorprocedure.json"
+                    },
+                    {
+                        "$ref": "createprocedure.json"
+                    },
+                    {
+                        "$ref": "readprocedure.json"
+                    },
+                    {
+                        "$ref": "updateprocedure.json"
+                    },
+                    {
+                        "$ref": "deleteprocedure.json"
+                    },
+                    {
+                        "$ref": "computeprocedure.json"
+                    },
+                    {
+                        "$ref": "archiveprocedure.json"
+                    },
+                    {
+                        "$ref": "backupprocedure.json"
+                    },
+                    {
+                        "$ref": "restoreprocedure.json"
+                    },
+                    {
+                        "$ref": "downloadfromaccessorprocedure.json"
+                    },
+                    {
+                        "$ref": "aggregateprocedure.json"
+                    },
+                    {
+                        "$ref": "getmetadatafromaccessorprocedure.json"
+                    },
+                    {
+                        "$ref": "updatefromaccessorprocedure.json"
+                    },
+                    {
+                        "$ref": "updatemetadatafromaccessorprocedure.json"
+                    },
+                    {
+                        "$ref": "getsitesfromaccessorprocedure.json"
+                    },
+                    {
+                        "$ref": "mapsitesfromaccessorprocedure.json"
+                    },
+                    {
+                        "$ref": "readvariablesfromaccessorprocedure.json"
+                    },
+                    {
+                        "$ref": "getseriesbysiteandvarprocedure.json"
+                    },
+                    {
+                        "$ref": "getpronosticofromaccessorprocedure.json"
+                    },
+                    {
+                        "$ref": "computequantilesprocedure.json"
+                    },
+                    {
+                        "$ref": "getaggregatepronosticosprocedure.json"
+                    }
+                ]
+            }
+        }
+    },
+    "required": [
+        "sequence"
+    ],
+    "additionalProperties": false
+}
