@@ -1123,7 +1123,7 @@
 	}
 
 	function getMonitoredPointParams(search_filters) {
-		var monitoredpointsparams = [] // {geojson:true}
+		var monitoredpointsparams = {} // {geojson:true}
 		if(search_filters.varId) {
 			monitoredpointsparams.var_id = search_filters.varId
 		} else if (global.default_config.filters && global.default_config.filters.varId) {
@@ -1139,15 +1139,20 @@
 		} else if (global.default_config.filters && global.default_config.filters.estacionId) {
 			monitoredpointsparams.estacion_id = global.default_config.filters.estacionId
 		}
+		if(search_filters.tipo) {
+			monitoredpointsparams.tipo = search_filters.tipo
+		}
 		if(search_filters.fuentesId) {
 			monitoredpointsparams.fuentes_id = search_filters.fuentesId
-			var get_monitored_url = "getMonitoredAreas"
-			var estaciones_feature_type = "polygon"
-			var tipo = "areal"
+			// var get_monitored_url = "getMonitoredAreas"
+			// var estaciones_feature_type = "polygon"
+			// monitoredpointsparams.tipo = "areal"
+		} else if(monitoredpointsparams.tipo == "areal") {
+			alert("Falta fuentesId. Por favor seleccione uno para realizar la búsqueda de series areales")
 		} else {
-			var get_monitored_url = "getMonitoredPoints"
-			var estaciones_feature_type = "point"
-			var tipo = "puntual"
+			// var get_monitored_url = "getMonitoredPoints"
+			// var estaciones_feature_type = "point"
+			monitoredpointsparams.tipo = "puntual"
 		}
 		monitoredpointsparams.timestart=$("input#timestart").val()
 		monitoredpointsparams.timeend=$("input#timeend").val()
@@ -1269,8 +1274,11 @@
 		//			}
 		//		})
 		//	}
+
+		global.isWriter = {{writer}}
+		// global.monitoredpointsparams = monitoredpointsparams
 			
-		makeSeriesEditTable($("div.tabcontent#tabla_series"),undefined,{{writer}},search_filters,tipo)
+		makeSeriesEditTable($("div.tabcontent#tabla_series"),undefined,{{writer}},search_filters,monitoredpointsparams.tipo)
 		
 			// var flag=false
 			// var matched_point
@@ -1343,9 +1351,15 @@
 			// series.request_params = {estacion_id:matched_point.properties.estacion_id, var_id:matched_point.properties.var_id, timestart:timestart, timeend:timeend, includeProno:true,proc_id:matched_point.properties.proc_id}
 			var prono_resumen = getPronoResumen(series)
 			//~ var general = {id:series.id, tipo: series.tipo, estacion: series.estacion, variable: series["var"], procedimiento: series.procedimiento, unidades: series.unidades, obs_stats: obs_stats, prono_resumen: prono_resumen}
+			var download_url = "obs/" + series.tipo + "/series/" + series.id
 			$("div#general ul#general").append(
-				$("<li>id de serie: <b>" + series.id + "</b></li>"),
-				$("<li>tipo de serie: <b>" + series.tipo + "</b></li>")
+				$("<li></li>").append(
+					$('<h3 id=p_serie>Serie <a title=descargar class="metadata-edit-button" href="' + download_url + '" download><i class="material-icons">download</i></a></h3>'),
+						$("<ul></ul>").append(
+							$("<li>id de serie: <b>" + series.id + "</b></li>"),
+							$("<li>tipo de serie: <b>" + series.tipo + "</b></li>")
+					)
+				)
 			)
 			
 			if (series.estacion) {
@@ -1524,6 +1538,7 @@
 			$("#descargarPoint").attr('href',gurl).html('GeoJSON')
 		
 			// read time series from 'data' and load tables and chart
+			series.request_params = getSeriesParams
 			loadChart(series, null, "chart_container", {prono_table:"table_container_prono",dt:series.var.timeSupport}, loadChartCallback)
 
 			// make obs edit table

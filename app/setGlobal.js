@@ -8,6 +8,9 @@ if(!global.pool) {
     if(! config.database) {
         throw("Missing config.database")
     }
+    if(! config.database.idleTimeoutMillis) {
+      config.database.idleTimeoutMillis = 1000
+    }
     const { Pool } = require('pg')
     global.pool = new Pool(config.database)
     if(!global.dbConnectionString) {

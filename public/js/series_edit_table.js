@@ -4,8 +4,10 @@ var actions = '<a class="add" title="Add/Update" data-toggle="tooltip" style="di
 					'<a class="edit" title="Edit" data-toggle="tooltip"><i class="material-icons">&#xE254;</i></a> ' +
 					'<a class="delete" title="Delete" data-toggle="tooltip"><i class="material-icons">&#xE872;</i></a>' +
 					'<a class="cancel" title="Cancel" data-toggle="tooltip" style="display:none"><i class="material-icons">cancel</i></a>' +
-					'<a class="view" title="View" data-toggle="tooltip"><i class="material-icons">view</i></a>'
-var public_actions = '<a class="view" title="View" data-toggle="tooltip"><i class="material-icons">place</i></a>'
+					'<a class="view" title="View" data-toggle="tooltip"><i class="material-icons">view</i></a>' + 
+					'<a class="download title="Download" data-toggle="tooltip"><i class="material-icons">download</i></a>'
+var public_actions = '<a class="view" title="View" data-toggle="tooltip"><i class="material-icons">place</i></a>' + 
+					'<a class="download title="Download" data-toggle="tooltip"><i class="material-icons">download</i></a>'
 function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual") {
 	if(monitoringPoints) {
 		var features = monitoringPoints.features.map(f=>{
@@ -27,7 +29,9 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 				'<a class="edit" title="Edit" data-toggle="tooltip"><i class="material-icons">&#xE254;</i></a> ' +
 				'<a class="delete" title="Delete" data-toggle="tooltip"><i class="material-icons">&#xE872;</i></a>' +
 				'<a class="cancel" title="Cancel" data-toggle="tooltip" style="display:none"><i class="material-icons">cancel</i></a>' +
-				'<a class="view" title="View" data-toggle="tooltip"><i class="material-icons">place</i></a>' : '<a class="view" title="View" data-toggle="tooltip"><i class="material-icons">place</i></a>'
+				'<a class="view" title="View" data-toggle="tooltip"><i class="material-icons">place</i></a>' + 
+				'<a class="download title="Download" data-toggle="tooltip"><i class="material-icons">download</i></a>' : '<a class="view" title="View" data-toggle="tooltip"><i class="material-icons">place</i></a>' + 
+				'<a class="download title="Download" data-toggle="tooltip"><i class="material-icons">download</i></a>'
 			return row
 		})
 	} else {
@@ -170,7 +174,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 			$(this).attr("disabled", "disabled");
 			//~ alert("set POST request")
 			//~ $("div#myModalSeries form#confirm input[name=series]").val(JSON.stringify({series:[seriesObj]}))
-			var action_url = (tipo == "puntual") ?  "obs/puntual/series" : "obs/areal/series" 
+			var action_url = (tipo == "areal") ?  "obs/areal/series" : "obs/puntual/series"
 			$("div#myModalSeries form#confirm").attr("action",action_url)
 			$("div#myModalSeries form#confirm").attr("method","POST")
 			$("div#myModalSeries form#confirm select.new-series").attr("required",true)
@@ -192,7 +196,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 			var seriesObj = makeSeriesObj($(this).parents("tr").find('select'))
 			$(this).parents("tr").find(".error").first().focus();
 			if(!empty){
-				var action_url = (tipo == "puntual") ?  "obs/puntual/series" : "obs/areal/series"
+				var action_url = (tipo == "areal") ?  "obs/areal/series" : "obs/puntual/series"
 				if($(this).parents("tr").attr("data-uniqueid") == "-1") {   // CREATE NEW SERIES
 					//~ alert("set POST request")
 					$("div#myModalSeries form#confirm input[name=series]").val(JSON.stringify({series:[seriesObj]}))
@@ -249,7 +253,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 			$(container).find(".export-csv-all").attr("disabled", "disabled");
 			$(container).find("ul.pagination li").addClass("disabled");
 			$("span.page-list .btn-secondary").addClass("disabled")
-			var action_url = (tipo == "puntual") ?  "obs/puntual/series" : "obs/areal/series"
+			var action_url = (tipo == "areal") ?  "obs/areal/series" : "obs/puntual/series"
 			$("div#myModalSeries form#confirm").attr("action",action_url + "/" + idForEdition) 
 			$("div#myModalSeries form#confirm").attr("method","PUT")
 		});
@@ -257,7 +261,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 		$(container).on("click", ".delete", function(){
 			var idForDeletion = $(this).parents("tr").attr("data-uniqueid") // find("td:first-child").eq(0).html()
 			$(".add-new").removeAttr("disabled");
-			var action_url = (tipo == "puntual") ?  "obs/puntual/series" : "obs/areal/series"
+			var action_url = (tipo == "areal") ?  "obs/areal/series" : "obs/puntual/series"
 			if(idForDeletion != -1) {
 				$("div#myModalSeries form#confirm").attr("action",action_url + "/" + idForDeletion) 
 				$("div#myModalSeries form#confirm").attr("method","DELETE")
@@ -271,6 +275,15 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 				$("span.page-list .btn-secondary").removeClass("disabled")
 			}
 		});
+		// Download row on button click
+		// $(container).on("click", ".download", function(){
+		// 	var series_id = $(this).parents("tr").attr("data-uniqueid") // find("td:first-child").eq(0).html()
+		// 	$(".add-new").removeAttr("disabled");
+		// 	var action_url = (tipo == "areal") ?  "obs/areal/series" : "obs/puntual/series"
+		// 	$("div#myModalSeries form#confirm").attr("action",action_url + "/" + series_id) 
+		// 	$("div#myModalSeries form#confirm").attr("method","GET")
+		// 	$('div#myModalSeries').modal('show') // $(container).find('#myModal').modal('show')
+		// });
 		// Remove selected rows on button click
 		$(container).find(".remove-selected").click(function(){
 			$("div#myModalSeries form#confirm input[name=id]").remove()
@@ -284,7 +297,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 				)
 			})
 			$("div#myModalSeries form#confirm span#removeselected").html("<p>Selected " + selected.length + " rows for deletion</p>").show()
-			var action_url = (tipo == "puntual") ?  "obs/puntual/series" : "obs/areal/series"
+			var action_url = (tipo == "areal") ?  "obs/areal/series" : "obs/puntual/series"
 			$("div#myModalSeries form#confirm").attr("action",action_url)
 			$("div#myModalSeries form#confirm").attr("method","DELETE")
 			$('div#myModalSeries').modal('show').on('hide.bs.modal', function (e) {
@@ -304,7 +317,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 		// Import CSV data
 		$(container).find(".import-csv").click(function(){
 			$(".add-new").removeAttr("disabled");
-			var action_url = (tipo == "puntual") ?  "obs/puntual/series" : "obs/areal/series"
+			var action_url = (tipo == "areal") ?  "obs/areal/series" : "obs/puntual/series"
 			$("div#myModalSeries form#confirm").attr("action",action_url)
 			$("div#myModalSeries form#confirm").attr("method","POST")
 			$("div#myModalSeries form#confirm span#csvfile").show();
@@ -440,7 +453,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 			$("span.page-list .btn-secondary").removeClass("disabled")
 			//~ addPopoverToRows($(container).find("table.series_edit_table tr td:nth-child(n+3)"))
 		})
-		function returnFromReqCallback(jqxhr) {
+		function returnFromReqCallback(jqxhr,reload=true) {
 			//~ series.sortObs()
 			// series.reloadChart()
 			$(container).find("a[data-toggle=tooltip]").tooltip()
@@ -448,7 +461,9 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 			$("span.page-list .btn-secondary").removeClass("disabled")
 			$('div#myModalSeries').modal('hide')
 			closemodal(jqxhr,container)
-			location.reload()
+			if(reload) {
+				location.reload()
+			}
 		}
 		// load series on view button click
 		$(container).on("click", ".view", function(){		
@@ -518,6 +533,12 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 				}
 			})
 			console.log({inputs:inputs})
+			// if(reqPars.type == "GET") {
+			// 	reqPars.success = function(response){
+			// 		console.log("Downloaded 1 series")
+			// 		returnFromReqCallback(jqxhr,false)
+			// 	}
+			// } else 
 			if(reqPars.type == "POST") {
 				console.log("prepara post obs/puntual/series")
 				if(inputs.series != "") {   // input series set by csv import

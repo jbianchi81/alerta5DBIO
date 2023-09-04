@@ -15325,6 +15325,7 @@ ORDER BY cal.cal_id`
 		}
 		// console.log({redes_filter: redes_filter})
 		const stmt = internal.utils.pasteIntoSQLQuery("SELECT \
+					'puntual' AS tipo,\
 					series.id series_id,\
 				   estaciones.nombre,\
 				   series.estacion_id,\

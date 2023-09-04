@@ -471,13 +471,15 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 		date.setUTCHours(3)
 		while(new Date(date).setUTCMonth(date.getUTCMonth()-1) < new Date(getseriesbysiteandvarobj.request_params.timeend).getTime()) {
 			var mon = date.getUTCMonth()
-			// console.log({mon:mon})
+			console.log({mon:mon})
 			// var start_of_month = new Date(date.getUTCFullYear(),mon,1)
-			percentiles[0].data.push([date.getTime(),getseriesbysiteandvarobj.monthlyStats[mon].p99])
-			percentiles[1].data.push([date.getTime(),getseriesbysiteandvarobj.monthlyStats[mon].p90])
-			percentiles[2].data.push([date.getTime(),getseriesbysiteandvarobj.monthlyStats[mon].p50])
-			percentiles[3].data.push([date.getTime(),getseriesbysiteandvarobj.monthlyStats[mon].p10])
-			percentiles[4].data.push([date.getTime(),getseriesbysiteandvarobj.monthlyStats[mon].p01])
+			if(getseriesbysiteandvarobj.monthlyStats[mon]) {
+				percentiles[0].data.push([date.getTime(),getseriesbysiteandvarobj.monthlyStats[mon].p99])
+				percentiles[1].data.push([date.getTime(),getseriesbysiteandvarobj.monthlyStats[mon].p90])
+				percentiles[2].data.push([date.getTime(),getseriesbysiteandvarobj.monthlyStats[mon].p50])
+				percentiles[3].data.push([date.getTime(),getseriesbysiteandvarobj.monthlyStats[mon].p10])
+				percentiles[4].data.push([date.getTime(),getseriesbysiteandvarobj.monthlyStats[mon].p01])
+			}
 			date.setUTCMonth(mon+1)
 		}
 		json.series = json.series.concat(percentiles)

@@ -1029,6 +1029,13 @@ function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create'
 			$(formContainer).find("button[type=submit]").attr('formnovalidate',"formnovalidate")
 			//~ $(formContainer).find("button[type=submit]").unbind('submit').submit(onSubmitMetadataRemove)
 			break;		
+		// case "download":
+		// 	$("div#myModalMetadata div.modal-content div.modal-header h4.modal-title").text("Descargar " + mdElement.objectName + " id:" + values.id)
+		// 	$(formContainer).find(".confirm.edit").hide()
+		// 	$(formContainer).find("label").hide()
+		// 	$(formContainer).find(".confirm.edit[name=id]").val(values.id).attr('required','required')
+		// 	$(formContainer).attr('action','#get').attr('method','GET')
+		// 	$(formContainer).find("button[type=submit]").attr('formnovalidate',"formnovalidate")
 		default:
 			console.error("bad action")
 			return
@@ -1601,6 +1608,11 @@ function makeMDTable(metadataElement,container,isWriter) {
 		var content = $(container).find("table.md_edit_table").bootstrapTable('getRowByUniqueId',id)
 		loadMDElement(content)
 	})
+	// $(container).on("click", ".download", function(){		
+	// 	$(this).tooltip('hide')
+	// 	var id = $(this).parents("tr").attr("data-uniqueid") // find("td:first-child").eq(1).html()
+	// 	setMetadataForm(global.mdElement,global.mdKey,$("div#myModalMetadata form#confirm"),{id:id},"download")
+	// })
 	// select all rows on all pages on click
 	$(container).find(".select-all").click(function(){
 		//~ $(container).find("table.series_edit_table").bootstrapTable('togglePagination')
@@ -1773,6 +1785,18 @@ function cellAttr(value) {
 
 function cellAttrGeom(value) {
 	return '<a 	style="cursor:pointer" data-toggle=popover data-placement=top title="acción">' + value.substring(0,40)  + '...</a>'
+}
+
+function cellAction(value,row,index,field) {
+	var download_url = (row.tipo == "areal") ? "obs/areal/series/" : "obs/puntual/series/"
+	download_url += row.series_id.toString()
+	return global.isWriter ? '<a class="add" title="Add/Update" data-toggle="tooltip" style="display:none"><i class="material-icons">&#xE03B;</i></a> ' +
+		'<a class="edit" title="Edit" data-toggle="tooltip"><i class="material-icons">&#xE254;</i></a> ' +
+		'<a class="delete" title="Delete" data-toggle="tooltip"><i class="material-icons">&#xE872;</i></a>' +
+		'<a class="cancel" title="Cancel" data-toggle="tooltip" style="display:none"><i class="material-icons">cancel</i></a>' +
+		'<a class="view" title="View" data-toggle="tooltip"><i class="material-icons">place</i></a>' + 
+		'<a class="download" title="Download" data-toggle="tooltip" href="' + download_url + '" download><i class="material-icons">download</i></a>' : '<a class="view" title="View" data-toggle="tooltip"><i class="material-icons">place</i></a>' + 
+		'<a class="download" title="Download" data-toggle="tooltip" href="' + download_url + '" download><i class="material-icons">download</i></a>'
 }
 
 function getMDElementHandler(event) {
