@@ -968,19 +968,29 @@ internal.OutputFileTest = class extends internal.CrudProcedureTest {
         if(parsed_content) {
             if(this.result_deep_property) {
                 var result_deep_value = getDeepValue(result,this.result_deep_property)
-                if(JSON.stringify(result_deep_value) !== JSON.stringify(parsed_content)) {
+                const result_deep_value_string = JSON.stringify(result_deep_value)
+                const parsed_content_string = JSON.stringify(parsed_content)
+                if(result_deep_value_string !== parsed_content_string) {
                     value = false
-                    reason = `Parsed content differs from result property ${this.result_deep_property}`
+                    const diff_pos = findFirstDiffPos(result_deep_value_string,parsed_content_string)
+                    const context_string =  result_deep_value_string.slice(Math.max(0,diff_pos-20),Math.min(result_deep_value_string.length,diff_pos+20))
+                    const context_string_parsed =  parsed_content_string.slice(Math.max(0,diff_pos-20),Math.min(parsed_content_string.length,diff_pos+20))
+                    reason = `Parsed content differs from result property ${this.result_deep_property} at position ${diff_pos}:\n    ${context_string}\n    ${context_string_parsed}`
                 }
             } else if(this.index != null) {
                 if(!result[this.index]) {
                     value = false
                     reason = `Index ${this.index} of result not found`
                 } else if(!Array.isArray(parsed_content)) {
-                    // if parsed content is not an array, it tests the whole againts result[index]
-                    if(JSON.stringify(result[this.index]) !== JSON.stringify(parsed_content)) {
+                    // if parsed content is not an array, it tests the whole against result[index]
+                    const result_string = JSON.stringify(result[this.index])
+                    const parsed_content_string = JSON.stringify(parsed_content)
+                    if(result_string !== parsed_content_string) {
                         value = false
-                        reason = `Parsed content differs from result at index ${this.index}`
+                        const diff_pos = findFirstDiffPos(result_string,parsed_content_string)
+                        const context_string =  result_string.slice(Math.max(0,diff_pos-20),Math.min(result_string.length,diff_pos+20))
+                        const context_string_parsed =  parsed_content_string.slice(Math.max(0,diff_pos-20),Math.min(parsed_content_string.length,diff_pos+20))
+                        reason = `Parsed content differs from result at index ${this.index}, position ${diff_pos}:\n    ${context_string}\n    ${context_string_parsed}`
                     }
                 } else if (!parsed_content[this.index]) {
                     value = false
@@ -3052,5 +3062,12 @@ const replacePlaceholders = function(string,object) {
         })
     }
     return string
+}
+
+function findFirstDiffPos(a, b) {
+    var i = 0;
+    if (a === b) return -1;
+    while (a[i] === b[i]) i++;
+    return i;
 }
 module.exports = internal
