@@ -1734,7 +1734,11 @@ internal.serie = class extends baseModel {
 		if(options && options.refresh_date_range) {
 			await global.pool.query(`REFRESH MATERIALIZED VIEW ${this.getDateRangeTable(options)}`)
 		}
+		this.refreshJsonView()
 		return result
+	}
+	static async refreshJsonView() {
+		return internal.CRUD.refreshSeriesJson()
 	}
 	static async create(series,options={},client) {
 		const results = await internal.CRUD.upsertSeries(series,options.all,options.upsert_estacion,options.generate_id,client)
@@ -1743,6 +1747,7 @@ internal.serie = class extends baseModel {
 				await global.pool.query(`REFRESH MATERIALIZED VIEW ${this.getDateRangeTable(results[0].tipo,options)}`)
 			}
 		}
+		this.refreshJsonView()
 		return results
 	}
 	static async read(filter={},options={}) {
@@ -1763,6 +1768,7 @@ internal.serie = class extends baseModel {
 			console.error("Serie with specified id not found. Nothing updated")
 			return
 		}
+		this.refreshJsonView()
 		return internal.serie.read({tipo:this.tipo,id:result.rows[0].id})
 	}
 	updateQuery(changes={}) {
@@ -1786,7 +1792,7 @@ internal.serie = class extends baseModel {
 	}
 
 	static async delete(filter={},options={}) {
-		var matches = await this.read(filter)
+		var matches = await this.read(filter,{fromView:false})
 		if(matches != null && !Array.isArray(matches)) {
 			matches = [matches]
 		}
@@ -1795,9 +1801,11 @@ internal.serie = class extends baseModel {
 			return []
 		}
 		const deleted = []
-		for(var i in matches) {
-			deleted.push(await matches[i].delete()) // internal.CRUD.deleteVar(matches[i].id))
+		for(var serie of matches) {
+			console.log(serie instanceof this)
+			deleted.push(await serie.delete()) // internal.CRUD.deleteVar(matches[i].id))
 		}
+		this.refreshJsonView()
 		return matches.filter(m=>{
 			// filter out instances that could not be deleted
 			return (deleted.map(d=>d.id).indexOf(m.id) >= 0)
@@ -1815,7 +1823,6 @@ internal.serie = class extends baseModel {
 			return
 		}
 		return result
-
 	}
 
 	aggregateMonthly(timestart,timeend,agg_function="acum",precision=2,time_support,expression,min_obs=15,inst,date_offset=0,utc=false) {
@@ -4473,7 +4480,7 @@ internal.corrida = class extends baseModel {
 		return
 	}
 
-	async getAggregateSeries(tipo,source_series_id,dest_series_id,estacion_id,dest_fuentes_id,source_var_id,dest_var_id,dest_tipo,timestart,timeend,time_step="day",agg_function="mean",precision=2,offset,utc,proc_id=4,create=true,client) {
+	async getAggregateSeries(tipo,source_series_id,dest_series_id,estacion_id,dest_fuentes_id,source_var_id,dest_var_id,dest_tipo,timestart,timeend,time_step="day",agg_function="mean",precision=2,offset,utc,proc_id=4,create=true,client,from_view) {
 		client = client ?? await global.pool.connect()
 		// estacion_id,source_tipo,source_series_id,dest_series_id,source_var_id=20,dest_var_id=90,qualifier,timestart,timeend,dest_fuentes_id
 		if(!source_var_id) {
@@ -4488,7 +4495,7 @@ internal.corrida = class extends baseModel {
 		var source_tipo = tipo ?? ((source_var_id == 20) ? "areal" : "puntual")
 		var source_series_table = (source_tipo == "areal") ? "series_areal" : "series"
 		// console.log({tipo:tipo, source_tipo: source_tipo, source_series_table: source_series_table})
-		var series_dest = await internal.serie.read({tipo:dest_tipo, estacion_id:estacion_id,var_id:dest_var_id,series_id:dest_series_id,fuentes_id:dest_fuentes_id,proc_id:proc_id},{no_metadata:true})
+		var series_dest = await internal.serie.read({tipo:dest_tipo, estacion_id:estacion_id,var_id:dest_var_id,series_id:dest_series_id,fuentes_id:dest_fuentes_id,proc_id:proc_id},{no_metadata:true,fromView:from_view})
 		// console.log("series_dest: " + series_dest.length)
 		const series_agg = []
 		var pronos_to_create = []
@@ -5586,6 +5593,18 @@ internal.CRUD = class {
 			// if(estacion) {
 			// 	upserted.push(estacion)
 			// }
+			if(estaciones[i].id) {
+				const existing_estacion = await internal.estacion.read({id:estaciones[i].id})
+				if(existing_estacion) {
+					if(existing_estacion.tabla == estaciones[i].tabla && existing_estacion.id_externo == estaciones[i].id_externo) {
+						console.error("Estación " + estaciones[i].id + " already exists. Updating")
+						estaciones[i].id = undefined
+					} else {
+						console.error("Id already taken")
+						continue
+					}
+				}
+			} 
 			queries.push(this.upsertEstacionQuery(estaciones[i],options))
 		}
 		// return upserted // Promise.all(promises)
@@ -6865,7 +6884,7 @@ internal.CRUD = class {
 				})
 				var query_string
 				// check if series exists already
-				var series_match = await this.getSeries(serie.tipo,{estacion_id:serie.estacion.id,var_id:serie.var.id,proc_id:serie.proc_id,unit_id:serie.unidades.id,fuentes_id:serie.fuente.id},{},client)
+				var series_match = await this.getSeries(serie.tipo,{estacion_id:serie.estacion.id,var_id:serie.var.id,proc_id:serie.procedimiento.id,unit_id:serie.unidades.id,fuentes_id:serie.fuente.id},{},client)
 				if(series_match.length) {
 					// match found
 					if(serie.id) {
@@ -6874,6 +6893,7 @@ internal.CRUD = class {
 							// console.log("serie already exists and with the same id, do nothing")
 						} else {
 							// check if the id is already taken
+							console.log("existing id: " + series_match[0].id + ", new id: " + serie.id)
 							var id_exists = await this.checkSerieIdExists(serie.tipo,serie.id,client)
 							if(id_exists) {
 								if(generate_id) {
@@ -6894,6 +6914,7 @@ internal.CRUD = class {
 					}
 				} else {
 					// this is a new serie
+					console.log("no match for " + JSON.stringify({estacion_id:serie.estacion.id,var_id:serie.var.id,proc_id:serie.procedimiento.id,unit_id:serie.unidades.id,fuentes_id:serie.fuente.id}))
 					if(serie.id) {
 						var id_exists = await this.checkSerieIdExists(serie.tipo,serie.id,client)
 						if(id_exists) {
@@ -6968,7 +6989,7 @@ internal.CRUD = class {
 			var results_ = (internalClass) ? result.rows.map(r=>new internalClass(r)) : result.rows
 			results.push(...results_)
 		}
-		return Promise.resolve(results)
+		return results
 	}
 	
 	static async deleteSerie(tipo,id) {
@@ -7202,7 +7223,9 @@ internal.CRUD = class {
 		} else {
 			var result = await client.query("\
 			SELECT series.id,series.estacion_id,series.var_id,series.proc_id,series.unit_id,redes.public,series_date_range.timestart,series_date_range.timeend,series_date_range.count FROM series \
-			JOIN estaciones ON (series.estacion_id=estaciones.unid) JOIN redes ON (estaciones.tabla=redes.tabla_id) left join series_date_range on (series.id=series_date_range.series_id)\
+			JOIN estaciones ON series.estacion_id=estaciones.unid \
+			JOIN redes ON estaciones.tabla=redes.tabla_id\
+			LEFT JOIN series_date_range on series.id=series_date_range.series_id\
 			WHERE series.id=$1",[id])
 			if(result.rows.length<=0) {
 				console.log("serie no encontrada")
@@ -7464,8 +7487,7 @@ internal.CRUD = class {
 				}
 			})
 		}
-		return result
-		
+		return result.map(s=>new internal.serie(s))		
 	}
 
 	static async getSeriesArealesJson(filter={},options={}) {
@@ -7562,7 +7584,7 @@ internal.CRUD = class {
 				}
 			})
 		}
-		return result
+		return result.map(s=>new internal.serie(s))
 	}
 
 	static async getSeriesRasterJson(filter={},options={}) {
@@ -7641,7 +7663,7 @@ internal.CRUD = class {
 				}
 			})
 		}
-		return result
+		return result.map(s=>new internal.serie(s))
 	}
 	
 	static async getSeries(tipo,filter={},options={},client) {
@@ -7655,7 +7677,7 @@ internal.CRUD = class {
 		if(tipo) {
 			filter.tipo = tipo
 		}
-		if((!filter.timestart || !filter.timeend) && !options.getMonthlyStats && !options.getStats && !options.getPercentiles) {
+		if((!filter.timestart || !filter.timeend) && !options.getMonthlyStats && !options.getStats && !options.getPercentiles && options.fromView) {
 			return this.getSeriesJson(filter,options)
 
 		}
@@ -15084,7 +15106,7 @@ ORDER BY cal.cal_id`
 		return Promise.resolve(pronosticos_result)
 	}
 	
-	static async getSeriesBySiteAndVar(estacion_id,var_id,startdate,enddate,includeProno=true,regular=false,dt="1 days",proc_id,isPublic,forecast_date,series_id,tipo="puntual") {
+	static async getSeriesBySiteAndVar(estacion_id,var_id,startdate,enddate,includeProno=true,regular=false,dt="1 days",proc_id,isPublic,forecast_date,series_id,tipo="puntual",from_view=true) {
 		var stmt
 		var params
 		if(series_id) {
@@ -15129,7 +15151,7 @@ ORDER BY cal.cal_id`
 			.then(async serie=>{
 				// console.log("got serie at " + Date())
 				if(includeProno) {
-					const series_sim = await this.getSeries(tipo,{estacion_id: serie.estacion.id, var_id: serie.var.id, unit_id: serie.unidades.id, fuentes_id: (serie.fuente) ? serie.fuente.id : undefined})
+					const series_sim = await this.getSeries(tipo,{estacion_id: serie.estacion.id, var_id: serie.var.id, unit_id: serie.unidades.id, fuentes_id: (serie.fuente) ? serie.fuente.id : undefined},{fromView:from_view})
 					if(!series_sim.length) {
 						console.log("No series sim found with id " + series_id + ", tipo " + tipo)
 						serie.pronosticos = []

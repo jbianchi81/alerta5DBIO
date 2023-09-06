@@ -8,14 +8,36 @@ sequence:
           series_id: 26652
           timestart: 1990-01-01 00:00:00
           timeend: 2021-01-01 00:00:00
-        output: sample_data/deleted_observaciones.json
+        output: outputs/deleted_observaciones.json
+    - procedureName: CreateProcedure
+      arguments:
+        class_name: estacion
+        elements:
+        - id: 55
+          tabla: alturas_prefe
+          geom: {"type": "Point", "coordinates": [-55, -25]}
+          id_externo: 55
+    - procedureName: CreateProcedure
+      arguments:
+        class_name: serie
+        elements:
+        - tipo: puntual
+          id: 26652
+          estacion:
+            id: 55
+          procedimiento:
+            id: 1
+          var:
+            id: 40
+          unidades:
+            id: 10
     - procedureName: CreateProcedure
       arguments:
         class_name: observaciones
         # elements:
         jsonfile: sample_data/sample_serie.json
         property_name: observaciones
-        output: sample_data/created_observaciones.json
+        output: outputs/created_observaciones.json
       tests:
       - testName: ArrayLengthTest
         arguments:
@@ -27,7 +49,7 @@ sequence:
       - testName: OutputFileTest
         arguments:
           class_name: observaciones
-          output: sample_data/created_observaciones.json
+          output: outputs/created_observaciones.json
     - procedureName: ReadProcedure
       arguments:
         class_name: observaciones
@@ -36,7 +58,7 @@ sequence:
           series_id: 26652
           timestart: 1990-01-01 00:00:00
           timeend: 2021-01-01 00:00:00
-        output: sample_data/read_observaciones.json 
+        output: outputs/read_observaciones.json 
       tests:
       - testName: ArrayLengthTest
         arguments:
@@ -48,7 +70,7 @@ sequence:
       - testName: OutputFileTest
         arguments:
           class_name: observaciones
-          output: sample_data/read_observaciones.json
+          output: outputs/read_observaciones.json
     - procedureName: GetSeriesBySiteAndVarProcedure
       arguments:
         filter:
@@ -60,7 +82,7 @@ sequence:
           regular: true
           dt:
             days: 1
-        output: sample_data/getSeriesBySiteAndVarResult.json
+        output: outputs/getSeriesBySiteAndVarResult.json
       tests:
       - testName: ArrayOfArraysTest
         arguments:
@@ -77,7 +99,7 @@ sequence:
           timeend: 2021-01-01 00:00:00
         update:
           valor: -9999
-        output: sample_data/updated_observaciones.json 
+        output: outputs/updated_observaciones.json 
       tests:
       - testName: PropertyEqualsTest
         arguments:
@@ -90,7 +112,7 @@ sequence:
       - testName: OutputFileTest
         arguments:
           class_name: observaciones
-          output: sample_data/updated_observaciones.json
+          output: outputs/updated_observaciones.json
     - procedureName: DeleteProcedure
       arguments:
         class_name: observaciones
@@ -99,7 +121,7 @@ sequence:
           series_id: 26652
           timestart: 1990-01-01 00:00:00
           timeend: 2021-01-01 00:00:00
-        output: sample_data/deleted_observaciones.json
+        output: outputs/deleted_observaciones.json
       tests:
       - testName: PropertyEqualsTest
         arguments:
@@ -112,12 +134,12 @@ sequence:
       - testName: OutputFileTest
         arguments:
           class_name: observaciones
-          output: sample_data/deleted_observaciones.json
+          output: outputs/deleted_observaciones.json
     - procedureName: CreateProcedure
       arguments:
         class_name: observaciones
         csvfile: sample_data/observaciones_sample.csv
-        output: /tmp/created_obs.json
+        output: outputs/created_obs.json
       tests:
       - testName: ArrayLengthTest
         arguments:
@@ -134,7 +156,7 @@ sequence:
           series_id: 34825
           timestart: 1990-01-01 00:00:00
           timeend: 1991-01-01 00:00:00
-        output: sample_data/deleted_observaciones.json
+        output: outputs/deleted_observaciones.json
       tests:
       - testName: PropertyEqualsTest
         arguments:
@@ -147,4 +169,4 @@ sequence:
       - testName: OutputFileTest
         arguments:
           class_name: observaciones
-          output: sample_data/deleted_observaciones.json
+          output: outputs/deleted_observaciones.json

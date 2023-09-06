@@ -1,3 +1,5 @@
+\set ON_ERROR_STOP on
+
 -- monitored_vars
 
 CREATE TABLE public.monitored_vars (
@@ -197,5 +199,5 @@ ALTER TABLE ONLY public.series_mon_stats
 -- Name: TABLE series_mon_stats; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.series_mon_stats TO actualiza;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.series_mon_stats TO sololectura;
+-- GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.series_mon_stats TO actualiza;
+-- GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.series_mon_stats TO sololectura;

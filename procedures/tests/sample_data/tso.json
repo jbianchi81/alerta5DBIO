@@ -1,0 +1,93 @@
+[
+    {
+        "accessor_id": "whos_om_ogc_timeseries_api",
+        "timeseries_id": "test",
+        "result": {
+            "id": "test",
+            "type": "TimeSeriesObservation",
+            "result": {
+                "points": [
+                    {
+                        "time": {
+                            "instant": "1961-01-01T12:00:00Z"
+                        },
+                        "value": 76
+                    }
+                ],
+                "metadata": {},
+                "defaultPointMetadata": {
+                    "uom": "%",
+                    "interpolationType": {
+                        "href": "http://www.opengis.net/def/waterml/2.0/interpolationType/Continuous",
+                        "title": "Continuous/Instantaneous"
+                    }
+                }
+            },
+            "phenomenonTime": {
+                "end": "1976-07-01T00:00:00Z",
+                "begin": "1911-12-31T23:59:56Z"
+            },
+            "observedProperty": {
+                "title": "UMIDADE RELATIVA DO AR, HORARIA"
+            },
+            "featureOfInterest": {
+                "href": "8FB73F5E49C8F92046B9A19BCEE4873487EE54B9"
+            }
+        },
+        "series_puntual_id": null,
+        "series_areal_id": null,
+        "series_rast_id": null,
+        "time_support": {},
+        "data_type": "Continuous/Instantaneous",
+        "observed_property": {
+            "accessor_id": "whos_om_ogc_timeseries_api",
+            "observed_property_id": "UMIDADE RELATIVA DO AR, HORARIA",
+            "name": "UMIDADE RELATIVA DO AR, HORARIA",
+            "result": {
+                "title": "UMIDADE RELATIVA DO AR, HORARIA"
+            },
+            "variable_name": "Relative humidity"
+        },
+        "unit_of_measurement": {
+            "accessor_id": "whos_om_ogc_timeseries_api",
+            "unit_of_measurement_id": "%",
+            "unit_id": 15
+        },
+        "feature_of_interest": {
+            "accessor_id": "whos_om_ogc_timeseries_api",
+            "feature_id": "8FB73F5E49C8F92046B9A19BCEE4873487EE54B9",
+            "name": null,
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    0,
+                    0
+                ]
+            },
+            "result": null,
+            "estacion_id": null,
+            "area_id": null,
+            "escena_id": null,
+            "network_id": "whos_plata"
+        },
+        "data": [
+            {
+                "accessor_id": "whos_om_ogc_timeseries_api",
+                "timeseries_id": "test",
+                "timestamp": "1961-01-01T12:00:00.000Z",
+                "numeric_value": 76,
+                "json_value": null,
+                "raster_value": null,
+                "result": {
+                    "time": {
+                        "instant": "1961-01-01T12:00:00Z"
+                    },
+                    "value": 76
+                },
+                "observaciones_puntual_id": null,
+                "observaciones_areal_id": null,
+                "observaciones_rast_id": null
+            }
+        ]
+    }
+]

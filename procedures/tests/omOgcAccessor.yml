@@ -1,12 +1,17 @@
 # yaml-language-server: $schema=../../public/schemas/sequence.json 
 sequence:
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor
+    jsonfile: sample_data/accessor.json
+    output: outputs/accessor_c.json
 - procedureName: GetSitesFromAccessorProcedure
   arguments:
     accessor_id: whos_om_ogc_timeseries_api
     filter:
       # pais: Paraguay
       view: gs-view-and(whos,gs-view-source(paraguay-dmh))
-    output: /tmp/whos_om_sites_paraguay-dmh.json
+    output: outputs/whos_om_sites_paraguay-dmh.json
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -22,7 +27,7 @@ sequence:
     filter:
       feature_of_interest_id: 17A3BA7B41DAA3F3C1CB2B27134DB06E6DAAD5A2
     options:
-      output: /tmp/read_metadata_from_accessor_whos.json
+      output: outputs/read_metadata_from_accessor_whos.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -34,7 +39,7 @@ sequence:
     filter:
       view: gs-view-and(whos,gs-view-source(paraguay-dmh))
     options:
-      output: /tmp/read_metadata_from_accessor_whos_paraguay_dmh.json
+      output: outputs/read_metadata_from_accessor_whos_paraguay_dmh.json
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -47,7 +52,7 @@ sequence:
       # pais: Paraguay
       observed_property_id: presion nivel estacion (paraguay-dmh)
     options:
-      output: /tmp/read_metadata_from_accessor.json
+      output: outputs/read_metadata_from_accessor.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -65,7 +70,7 @@ sequence:
       # pais: Paraguay
       # feature_of_interest_id: 17A3BA7B41DAA3F3C1CB2B27134DB06E6DAAD5A2
     options:
-      output: /tmp/read_metadata_from_accessor_whos_paraguay_dmh_precip_rt.json
+      output: outputs/read_metadata_from_accessor_whos_paraguay_dmh_precip_rt.json
   tests:
   - testName: PropertyEqualsTest
     arguments: 
@@ -81,7 +86,7 @@ sequence:
       timestart: 2023-05-19T19:20:44Z
       timeend: 2023-05-22T19:20:44Z
     options:
-      output: /tmp/read_from_accessor.json
+      output: outputs/read_from_accessor.json
   tests:
   - testName: ResultIsInstanceOfTest
     arguments:
@@ -95,7 +100,7 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: accessor_timeseries_observation
-      output: /tmp/read_from_accessor.json
+      output: outputs/read_from_accessor.json
 # get multiple tso
 - procedureName: DownloadFromAccessorProcedure
   arguments:
@@ -106,7 +111,7 @@ sequence:
       timestart: 2023-05-19T19:20:44Z
       timeend: 2023-05-22T19:20:44Z
     options:
-      output: /tmp/read_from_accessor.json
+      output: outputs/read_from_accessor.json
   tests:
   - testName: ResultIsInstanceOfTest
     arguments:
@@ -123,7 +128,7 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: accessor_timeseries_observation
-      output: /tmp/read_from_accessor.json
+      output: outputs/read_from_accessor.json
 # - procedureName: UpdateFromAccessorProcedure
 #   arguments:
 #     accessor_id: a5

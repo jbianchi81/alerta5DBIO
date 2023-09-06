@@ -7,19 +7,21 @@
 -- Dumped from database version 9.5.24
 -- Dumped by pg_dump version 9.5.24
 
-SET statement_timeout = 0;
-SET lock_timeout = 0;
-SET client_encoding = 'UTF8';
-SET standard_conforming_strings = on;
-SELECT pg_catalog.set_config('search_path', '', false);
-SET check_function_bodies = false;
-SET xmloption = content;
-SET client_min_messages = warning;
-SET row_security = off;
+-- SET statement_timeout = 0;
+-- SET lock_timeout = 0;
+-- SET client_encoding = 'UTF8';
+-- SET standard_conforming_strings = on;
+-- SELECT pg_catalog.set_config('search_path', '', false);
+-- SET check_function_bodies = false;
+-- SET xmloption = content;
+-- SET client_min_messages = warning;
+-- SET row_security = off;
 
-SET default_tablespace = '';
+-- SET default_tablespace = '';
 
-SET default_with_oids = false;
+-- SET default_with_oids = false;
+
+\set ON_ERROR_STOP on
 
 --
 -- Name: accessors; Type: TABLE; Schema: public; Owner: -
@@ -75,13 +77,63 @@ CREATE TABLE public.areas_pluvio (
     exutorio_id integer
 );
 
+--
+-- Name: redes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.redes (
+    tabla_id character varying,
+    id integer NOT NULL,
+    nombre character varying,
+    public boolean DEFAULT true,
+    public_his_plata boolean DEFAULT false NOT NULL
+);
+
+--
+-- Name: redes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.redes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: redes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.redes_id_seq OWNED BY public.redes.id;
+
+--
+-- Name: id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.redes ALTER COLUMN id SET DEFAULT nextval('public.redes_id_seq'::regclass);
+
+--
+-- Name: redes_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.redes
+    ADD CONSTRAINT redes_id_key UNIQUE (id);
+
+
+--
+-- Name: redes_tabla_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.redes
+    ADD CONSTRAINT redes_tabla_id_key UNIQUE (tabla_id);
 
 --
 -- Name: estaciones; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.estaciones (
-    tabla character varying,
+    tabla character varying references redes(tabla_id) NOT NULL,
     id integer NOT NULL,
     tipo character varying(1),
     "real" boolean,
@@ -245,18 +297,6 @@ CREATE SEQUENCE public.estaciones_unid_seq
 ALTER SEQUENCE public.estaciones_unid_seq OWNED BY public.estaciones.unid;
 
 
---
--- Name: redes; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.redes (
-    tabla_id character varying,
-    id integer NOT NULL,
-    nombre character varying,
-    public boolean DEFAULT true,
-    public_his_plata boolean DEFAULT false NOT NULL
-);
-
 
 --
 -- Name: fuentes; Type: TABLE; Schema: public; Owner: -
@@ -400,23 +440,6 @@ CREATE SEQUENCE public.procedimiento_id_seq
 ALTER SEQUENCE public.procedimiento_id_seq OWNED BY public.procedimiento.id;
 
 
---
--- Name: redes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.redes_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: redes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.redes_id_seq OWNED BY public.redes.id;
 
 
 --
@@ -560,11 +583,6 @@ ALTER TABLE ONLY public.observaciones_areal ALTER COLUMN id SET DEFAULT nextval(
 ALTER TABLE ONLY public.procedimiento ALTER COLUMN id SET DEFAULT nextval('public.procedimiento_id_seq'::regclass);
 
 
---
--- Name: id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.redes ALTER COLUMN id SET DEFAULT nextval('public.redes_id_seq'::regclass);
 
 
 --
@@ -688,22 +706,6 @@ ALTER TABLE ONLY public.observaciones
 
 ALTER TABLE ONLY public.procedimiento
     ADD CONSTRAINT procedimiento_pkey PRIMARY KEY (id);
-
-
---
--- Name: redes_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.redes
-    ADD CONSTRAINT redes_id_key UNIQUE (id);
-
-
---
--- Name: redes_tabla_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.redes
-    ADD CONSTRAINT redes_tabla_id_key UNIQUE (tabla_id);
 
 
 --
@@ -865,8 +867,8 @@ ALTER TABLE ONLY public.areas_pluvio
 -- Name: estaciones_tabla_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.estaciones
-    ADD CONSTRAINT estaciones_tabla_fkey FOREIGN KEY (tabla) REFERENCES public.redes(tabla_id);
+-- ALTER TABLE ONLY public.estaciones
+--     ADD CONSTRAINT estaciones_tabla_fkey FOREIGN KEY (tabla) REFERENCES public.redes(tabla_id);
 
 
 --
@@ -1077,9 +1079,9 @@ CREATE MATERIALIZED VIEW public.series_date_range AS
   ORDER BY series.id
   WITH NO DATA;
 
-GRANT SELECT ON TABLE public.series_date_range TO actualiza;
+-- GRANT SELECT ON TABLE public.series_date_range TO actualiza;
 
-REFRESH MATERIALIZED VIEW series_date_range;
+REFRESH MATERIALIZED VIEW public.series_date_range;
 
 CREATE TABLE public.alturas_alerta (
     unid integer NOT NULL,
@@ -1112,7 +1114,7 @@ ALTER TABLE ONLY public.alturas_alerta
 -- Name: TABLE alturas_alerta; Type: ACL; Schema: public; Owner: alerta5
 --
 
-GRANT SELECT,INSERT,UPDATE ON TABLE public.alturas_alerta TO actualiza;
+-- GRANT SELECT,INSERT,UPDATE ON TABLE public.alturas_alerta TO actualiza;
 
 --
 -- Name: escenas; Type: TABLE; Schema: public; Owner: alerta5
@@ -1136,7 +1138,7 @@ CREATE SEQUENCE public.escenas_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.escenas_id_seq OWNER TO alerta5;
+-- ALTER TABLE public.escenas_id_seq OWNER TO alerta5;
 
 --
 -- Name: escenas_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: alerta5
@@ -1164,13 +1166,13 @@ ALTER TABLE ONLY public.escenas
 -- Name: TABLE escenas; Type: ACL; Schema: public; Owner: alerta5
 --
 
-GRANT ALL ON TABLE public.escenas TO actualiza;
+-- GRANT ALL ON TABLE public.escenas TO actualiza;
 
 --
 -- Name: SEQUENCE escenas_id_seq; Type: ACL; Schema: public; Owner: alerta5
 --
 
-GRANT ALL ON SEQUENCE public.escenas_id_seq TO actualiza;
+-- GRANT ALL ON SEQUENCE public.escenas_id_seq TO actualiza;
 
 --
 -- PostgreSQL database dump complete
@@ -1186,7 +1188,7 @@ CREATE TABLE public.observaciones_rast (
 );
 
 
-ALTER TABLE public.observaciones_rast OWNER TO alerta5;
+-- ALTER TABLE public.observaciones_rast OWNER TO alerta5;
 
 --
 -- Name: series_rast; Type: TABLE; Schema: public; Owner: alerta5
@@ -1203,7 +1205,7 @@ CREATE TABLE public.series_rast (
 );
 
 
-ALTER TABLE public.series_rast OWNER TO alerta5;
+-- ALTER TABLE public.series_rast OWNER TO alerta5;
 
 --
 -- Name: observaciones_rast_id_seq; Type: SEQUENCE; Schema: public; Owner: alerta5
@@ -1339,25 +1341,25 @@ ALTER TABLE ONLY public.series_rast
 -- Name: TABLE observaciones_rast; Type: ACL; Schema: public; Owner: alerta5
 --
 
-GRANT ALL ON TABLE public.observaciones_rast TO actualiza;
+-- GRANT ALL ON TABLE public.observaciones_rast TO actualiza;
 
 --
 -- Name: TABLE series_rast; Type: ACL; Schema: public; Owner: alerta5
 --
 
-GRANT ALL ON TABLE public.series_rast TO actualiza;
+-- GRANT ALL ON TABLE public.series_rast TO actualiza;
 
 --
 -- Name: SEQUENCE observaciones_rast_id_seq; Type: ACL; Schema: public; Owner: alerta5
 --
 
-GRANT USAGE ON SEQUENCE public.observaciones_rast_id_seq TO actualiza;
+-- GRANT USAGE ON SEQUENCE public.observaciones_rast_id_seq TO actualiza;
 
 --
 -- Name: SEQUENCE series_rast_id_seq; Type: ACL; Schema: public; Owner: alerta5
 --
 
-GRANT USAGE ON SEQUENCE public.series_rast_id_seq TO actualiza;
+-- GRANT USAGE ON SEQUENCE public.series_rast_id_seq TO actualiza;
 
 --
 -- PostgreSQL database dump complete
@@ -1379,7 +1381,8 @@ CREATE MATERIALIZED VIEW public.series_areal_date_range AS
   ORDER BY series_areal.id
   WITH NO DATA;
 
-REFRESH MATERIALIZED VIEW series_areal_date_range;
+REFRESH MATERIALIZED VIEW public.series_areal_date_range;
+
 --
 -- Name: series_rast_date_range; Type: MATERIALIZED VIEW; Schema: public; Owner: -
 --
@@ -1396,7 +1399,7 @@ CREATE MATERIALIZED VIEW public.series_rast_date_range AS
   ORDER BY series_rast.id
   WITH NO DATA;
 
-REFRESH MATERIALIZED VIEW series_rast_date_range;
+REFRESH MATERIALIZED VIEW public.series_rast_date_range;
 
 CREATE TABLE public.asociaciones (
     id integer NOT NULL,
@@ -1545,3 +1548,343 @@ ALTER TABLE ONLY public.asociaciones
 ALTER TABLE ONLY public.asociaciones
     ADD CONSTRAINT asociaciones_source_series_id_fkey FOREIGN KEY (source_series_id) REFERENCES public.series(id);
 
+--
+-- Name: datatypes; Type: TABLE; Schema: public; Owner: 
+--
+
+CREATE TABLE IF NOT EXISTS public.datatypes (
+    id integer primary key NOT NULL,
+    term character varying UNIQUE NOT NULL,
+    in_waterml1_cv boolean DEFAULT false,
+    waterml2_code character varying,
+    waterml2_uri character varying
+);
+
+
+CREATE SEQUENCE IF NOT EXISTS public.datatypes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+
+
+--
+-- Name: datatypes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: 
+--
+
+ALTER SEQUENCE public.datatypes_id_seq OWNED BY public.datatypes.id;
+
+
+--
+-- Name: datatypes id; Type: DEFAULT; Schema: public; Owner: 
+--
+
+ALTER TABLE ONLY public.datatypes ALTER COLUMN id SET DEFAULT nextval('public.datatypes_id_seq'::regclass);
+
+
+--
+-- Name: datatypes_id_seq; Type: SEQUENCE SET; Schema: public; Owner:
+--
+
+SELECT pg_catalog.setval('public.datatypes_id_seq', 49, true);
+
+
+--
+-- Name: TABLE datatypes; Type: ACL; Schema: public; Owner: 
+--
+
+-- GRANT SELECT ON TABLE public.datatypes TO actualiza;
+-- GRANT SELECT ON TABLE public.datatypes TO sololectura;
+
+
+-- alter table var drop constraint var_datatype_fkey;
+alter table public.var add constraint var_datatype_fkey foreign key (datatype) references public.datatypes(term);
+
+-- JSON VIEWS
+
+CREATE MATERIALIZED VIEW public.series_json AS
+SELECT
+    series.id,
+    json_build_object(
+    'tipo','puntual',
+    'id',series.id,
+    'estacion',json_build_object(
+        'id',estaciones.unid,
+        'nombre',estaciones.nombre,
+        'id_externo',estaciones.id_externo,
+        'geom',ST_ASGEOJSON(estaciones.geom::public.geometry)::json,
+        'tabla', estaciones.tabla,
+        'pais', estaciones.pais,
+        'rio', estaciones.rio,
+        'has_obs', estaciones.has_obs,
+        'tipo', estaciones.tipo,
+        'automatica', estaciones.automatica,
+        'habilitar', estaciones.habilitar,
+        'propietario', estaciones.propietario,
+        'abreviatura', estaciones.abrev,
+        'localidad', estaciones.localidad,
+        'real', estaciones.real,
+        'nivel_alerta', nivel_alerta.valor,
+        'nivel_evacuacion', nivel_evacuacion.valor,
+        'nivel_aguas_bajas', nivel_aguas_bajas.valor,
+        'altitud', estaciones.altitud,
+        'public', redes.public,
+        'cero_ign', estaciones.cero_ign,
+        'red_id', redes.id,
+        'red_nombre', redes.nombre
+    ),
+    'var', json_build_object(
+        'id', var.id,
+        'var', var.var,
+        'nombre', var.nombre,
+        'abrev', var.abrev,
+        'type', var.type,
+        'datatype', var.datatype,
+        'valuetype', var.valuetype,
+        'GeneralCategory', var."GeneralCategory",
+        'VariableName', var."VariableName",
+        'SampleMedium', var."SampleMedium",
+        'def_unit_id', var.def_unit_id,
+        'timeSupport', var."timeSupport",
+        'def_hora_corte', var.def_hora_corte
+    ),
+        'procedimiento', json_build_object(
+        'id', procedimiento.id,
+        'nombre', procedimiento.nombre,
+        'abrev', procedimiento.abrev,
+        'descripcion', procedimiento.descripcion
+    ),
+    'unidades', json_build_object(
+        'id', unidades.id,
+        'nombre', unidades.nombre,
+        'abrev', unidades.abrev,
+        'UnitsID', unidades."UnitsID",
+        'UnitsType', unidades."UnitsType"
+    ),
+    'fuente', json_build_object(),
+    'date_range', json_build_object(
+        'timestart', series_date_range.timestart,
+        'timeend', series_date_range.timeend,
+        'count', series_date_range.count
+    )
+)  AS serie
+FROM public.series
+JOIN  public.estaciones ON (public.series.estacion_id=public.estaciones.unid)
+JOIN public.redes ON (public.estaciones.tabla=public.redes.tabla_id)
+LEFT JOIN public.alturas_alerta  AS nivel_alerta ON (public.estaciones.unid=nivel_alerta.unid AND nivel_alerta.estado='a')
+LEFT JOIN public.alturas_alerta AS nivel_evacuacion ON (public.estaciones.unid=nivel_evacuacion.unid AND nivel_evacuacion.estado='e')
+LEFT JOIN  public.alturas_alerta  AS nivel_aguas_bajas ON (public.estaciones.unid=nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b')
+JOIN public.var ON (public.series.var_id = public.var.id)
+JOIN public.procedimiento ON (public.series.proc_id = public.procedimiento.id)
+JOIN public.unidades ON (public.series.unit_id = public.unidades.id)
+LEFT JOIN public.series_date_range ON (public.series.id = public.series_date_range.series_id)
+ORDER BY series.id
+WITH NO DATA;
+
+CREATE OR REPLACE VIEW public.table_constraints AS
+SELECT 
+    rel.relname AS table_name,
+    con.conname AS constraint_name,
+    con.contype AS constraint_type,
+    array_agg(kcu.COLUMN_NAME::text) AS column_names
+FROM pg_catalog.pg_constraint con
+    INNER JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid
+    INNER JOIN pg_catalog.pg_namespace nsp ON nsp.oid = connamespace
+    INNER JOIN information_schema.key_column_usage kcu ON kcu.constraint_name = con.conname
+    INNER JOIN public.fuentes ON rel.relname = public.fuentes.data_table
+WHERE nsp.nspname = 'public' group by rel.relname, con.conname, con.contype;
+
+CREATE MATERIALIZED VIEW series_areal_json AS
+WITH table_constraints_json AS (
+    SELECT
+        table_constraints.table_name,
+        json_build_object(
+            'table_name', table_constraints.table_name,
+            'constraints', array_agg(json_build_object(
+                'constraint_name', table_constraints.constraint_name,
+                'constraint_type', table_constraints.constraint_type
+            ))
+        ) AS constraints
+    FROM table_constraints
+    GROUP BY table_constraints.table_name )
+SELECT
+    series_areal.id,
+    json_build_object(
+    'tipo','areal',
+    'id',series_areal.id,
+    'estacion',json_build_object(
+        'id',areas_pluvio.unid,
+        'nombre',areas_pluvio.nombre,
+        'geom',ST_ASGEOJSON(areas_pluvio.geom)::json,
+        'exutorio',json_build_object(
+            'id', estaciones.unid,
+            'geom', ST_ASGEOJSON(estaciones.geom)::json,
+            'tabla', estaciones.tabla
+        )
+    ),
+    'var', json_build_object(
+        'id', var.id,
+        'var', var.var,
+        'nombre', var.nombre,
+        'abrev', var.abrev,
+        'type', var.type,
+        'datatype', var.datatype,
+        'valuetype', var.valuetype,
+        'GeneralCategory', var."GeneralCategory",
+        'VariableName', var."VariableName",
+        'SampleMedium', var."SampleMedium",
+        'def_unit_id', var.def_unit_id,
+        'timeSupport', var."timeSupport",
+        'def_hora_corte', var.def_hora_corte
+    ),
+        'procedimiento', json_build_object(
+        'id', procedimiento.id,
+        'nombre', procedimiento.nombre,
+        'abrev', procedimiento.abrev,
+        'descripcion', procedimiento.descripcion
+    ),
+    'unidades', json_build_object(
+        'id', unidades.id,
+        'nombre', unidades.nombre,
+        'abrev', unidades.abrev,
+        'UnitsID', unidades."UnitsID",
+        'UnitsType', unidades."UnitsType"
+    ),
+    'fuente', json_build_object(
+        'id', fuentes.id,
+        'nombre', fuentes.nombre,
+        'data_table', fuentes.data_table,
+        'data_column', fuentes.data_column,
+        'tipo', fuentes.tipo,
+        'def_proc_id', fuentes.def_proc_id,
+        'def_dt', fuentes.def_dt,
+        'hora_corte', fuentes.hora_corte,
+        'def_unit_id', fuentes.def_unit_id,
+        'def_var_id', fuentes.def_var_id,
+        'fd_column', fuentes.fd_column,
+        'mad_table', fuentes.mad_table,
+        'scale_factor', fuentes.scale_factor,
+        'data_offset', fuentes.data_offset,
+        'def_extent', fuentes.def_extent,
+        'date_column', fuentes.date_column,
+        'def_pixeltype', fuentes.def_pixeltype,
+        'abstract', fuentes.abstract,
+        'source', fuentes.source,
+        'public', fuentes.public,
+        'constraints', table_constraints_json.constraints
+    ),
+    'date_range', json_build_object(
+        'timestart', series_areal_date_range.timestart,
+        'timeend', series_areal_date_range.timeend,
+        'count', series_areal_date_range.count
+    )
+)  AS serie
+FROM series_areal
+JOIN areas_pluvio ON (series_areal.area_id = areas_pluvio.unid)
+LEFT JOIN estaciones ON (areas_pluvio.exutorio_id = estaciones.unid)
+JOIN var ON (series_areal.var_id = var.id)
+JOIN procedimiento ON (series_areal.proc_id = procedimiento.id)
+JOIN unidades ON (series_areal.unit_id = unidades.id)
+JOIN fuentes ON (series_areal.fuentes_id = fuentes.id)
+LEFT JOIN series_areal_date_range ON (series_areal.id = series_areal_date_range.series_id)
+LEFT JOIN table_constraints_json ON (fuentes.data_table = table_constraints_json.table_name)
+ORDER BY series_areal.id;
+
+CREATE MATERIALIZED VIEW series_areal_json_no_geom AS
+WITH table_constraints_json AS (
+    SELECT
+        table_constraints.table_name,
+        json_build_object(
+            'table_name', table_constraints.table_name,
+            'constraints', array_agg(json_build_object(
+                'constraint_name', table_constraints.constraint_name,
+                'constraint_type', table_constraints.constraint_type
+            ))
+        ) AS constraints
+    FROM table_constraints
+    GROUP BY table_constraints.table_name )
+SELECT
+    series_areal.id,
+    json_build_object(
+    'tipo','areal',
+    'id',series_areal.id,
+    'estacion',json_build_object(
+        'id',areas_pluvio.unid,
+        'nombre',areas_pluvio.nombre,
+        'exutorio',json_build_object(
+            'id', estaciones.unid,
+            'geom', ST_ASGEOJSON(estaciones.geom)::json,
+            'tabla', estaciones.tabla
+        )
+    ),
+    'var', json_build_object(
+        'id', var.id,
+        'var', var.var,
+        'nombre', var.nombre,
+        'abrev', var.abrev,
+        'type', var.type,
+        'datatype', var.datatype,
+        'valuetype', var.valuetype,
+        'GeneralCategory', var."GeneralCategory",
+        'VariableName', var."VariableName",
+        'SampleMedium', var."SampleMedium",
+        'def_unit_id', var.def_unit_id,
+        'timeSupport', var."timeSupport",
+        'def_hora_corte', var.def_hora_corte
+    ),
+        'procedimiento', json_build_object(
+        'id', procedimiento.id,
+        'nombre', procedimiento.nombre,
+        'abrev', procedimiento.abrev,
+        'descripcion', procedimiento.descripcion
+    ),
+    'unidades', json_build_object(
+        'id', unidades.id,
+        'nombre', unidades.nombre,
+        'abrev', unidades.abrev,
+        'UnitsID', unidades."UnitsID",
+        'UnitsType', unidades."UnitsType"
+    ),
+    'fuente', json_build_object(
+        'id', fuentes.id,
+        'nombre', fuentes.nombre,
+        'data_table', fuentes.data_table,
+        'data_column', fuentes.data_column,
+        'tipo', fuentes.tipo,
+        'def_proc_id', fuentes.def_proc_id,
+        'def_dt', fuentes.def_dt,
+        'hora_corte', fuentes.hora_corte,
+        'def_unit_id', fuentes.def_unit_id,
+        'def_var_id', fuentes.def_var_id,
+        'fd_column', fuentes.fd_column,
+        'mad_table', fuentes.mad_table,
+        'scale_factor', fuentes.scale_factor,
+        'data_offset', fuentes.data_offset,
+        'def_extent', fuentes.def_extent,
+        'date_column', fuentes.date_column,
+        'def_pixeltype', fuentes.def_pixeltype,
+        'abstract', fuentes.abstract,
+        'source', fuentes.source,
+        'public', fuentes.public,
+        'constraints', table_constraints_json.constraints
+    ),
+    'date_range', json_build_object(
+        'timestart', series_areal_date_range.timestart,
+        'timeend', series_areal_date_range.timeend,
+        'count', series_areal_date_range.count
+    )
+)  AS serie
+FROM series_areal
+JOIN areas_pluvio ON (series_areal.area_id = areas_pluvio.unid)
+LEFT JOIN estaciones ON (areas_pluvio.exutorio_id = estaciones.unid)
+JOIN var ON (series_areal.var_id = var.id)
+JOIN procedimiento ON (series_areal.proc_id = procedimiento.id)
+JOIN unidades ON (series_areal.unit_id = unidades.id)
+JOIN fuentes ON (series_areal.fuentes_id = fuentes.id)
+LEFT JOIN series_areal_date_range ON (series_areal.id = series_areal_date_range.series_id)
+LEFT JOIN table_constraints_json ON (fuentes.data_table = table_constraints_json.table_name)
+ORDER BY series_areal.id
+WITH NO DATA;

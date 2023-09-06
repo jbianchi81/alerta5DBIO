@@ -1,0 +1,44 @@
+[
+    {
+        "accessor_id": "whos_om_ogc_timeseries_api",
+        "feature_id": "test",
+        "name": "test",
+        "geometry": {
+            "type": "Point",
+            "coordinates": [
+                0,
+                0
+            ]
+        },
+        "result": {
+            "id": "test",
+            "name": "test",
+            "shape": {
+                "type": "Point",
+                "coordinates": [
+                    0,
+                    0
+                ]
+            },
+            "parameter": [
+                {
+                    "name": "country",
+                    "value": "Argentina"
+                },
+                {
+                    "name": "identifier",
+                    "value": "abcd1234"
+                }
+            ],
+            "relatedParty": [
+                {
+                    "role": "publisher",
+                    "organisationName": "Instito Nacional del Agua, Argentina"
+                }
+            ]
+        },
+        "estacion_id": null,
+        "area_id": null,
+        "escena_id": null,
+        "network_id": "whos_plata"
+    }]

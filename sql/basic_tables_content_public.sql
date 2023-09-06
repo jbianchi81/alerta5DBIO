@@ -18,6 +18,8 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+\set ON_ERROR_STOP on
+
 --
 -- Data for Name: procedimiento; Type: TABLE DATA; Schema: public; Owner: alerta5
 --
@@ -70,6 +72,33 @@ COPY public.unidades (id, nombre, abrev, "UnitsID", "UnitsType") FROM stdin;
 106	month	mon	106	Time
 \.
 
+--
+-- Data for Name: datatypes; Type: TABLE DATA; Schema: public; Owner:
+--
+
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (2, 'Sporadic', true, NULL, NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (3, 'Cumulative', true, NULL, NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (4, 'Incremental', true, NULL, NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (8, 'Constant Over Interval', true, NULL, NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (9, 'Categorical', true, NULL, NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (1, 'Continuous', true, 'Continuous', 'http://www.opengis.net/def/timeseries/InterpolationCode/Continuous') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (36, 'Average in Preceding Interval', false, 'Average preceding', 'http://www.opengis.net/def/timeseries/InterpolationCode/AveragePrec') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (37, 'Average in Succeeding Interval', false, 'Average Succeeding', 'http://www.opengis.net/def/timeseries/InterpolationCode/AverageSucc') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (38, 'Constant in Preceding Interval', false, 'Constant Preceding', 'http://www.opengis.net/def/timeseries/InterpolationCode/ConstPrec') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (39, 'Constant in Succeeding Interval', false, 'Constant Succeeding', 'http://www.opengis.net/def/timeseries/InterpolationCode/ConstSucc') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (40, 'Discontinuous', false, 'Discontinuous', 'http://www.opengis.net/def/timeseries/InterpolationCode/Discontinuous') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (41, 'Instantaneous Total', false, 'Instant Total', 'http://www.opengis.net/def/timeseries/InterpolationCode/InstantTotal') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (42, 'Maximum in Preceding Interval', false, 'Maximum Preceding', 'http://www.opengis.net/def/timeseries/InterpolationCode/MaxPrec') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (43, 'Maximum in Succeeding Interval', false, 'Maximum Succeeding', 'http://www.opengis.net/def/timeseries/InterpolationCode/MaxSucc') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (44, 'Minimum in Preceding Interval', false, 'Minimum Preceding', 'http://www.opengis.net/def/timeseries/InterpolationCode/MinPrec') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (45, 'Minimum in Succeeding Interval', false, 'Minimum Succeeding', 'http://www.opengis.net/def/timeseries/InterpolationCode/MinSucc') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (5, 'Average', true, 'Average Succeeding', 'http://www.opengis.net/def/timeseries/InterpolationCode/AverageSucc') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (6, 'Maximum', true, 'Maximum Succeeding', 'http://www.opengis.net/def/timeseries/InterpolationCode/MaximumSucc') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (7, 'Minimum', true, 'Minimum Succeeding', 'http://www.opengis.net/def/timeseries/InterpolationCode/MinimumSucc') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (46, 'Preceding Total', false, NULL, NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (47, 'Succeeding Total', false, NULL, NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (48, 'Mode in Preceding Interval', false, NULL, NULL) ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.datatypes (id, term, in_waterml1_cv, waterml2_code, waterml2_uri) VALUES (49, 'Mode in Succeeding Interval', false, NULL, NULL) ON CONFLICT (id) DO NOTHING;
 
 --
 -- Data for Name: var; Type: TABLE DATA; Schema: public; Owner: alerta5
@@ -123,7 +152,7 @@ COPY public.var (id, var, nombre, abrev, type, datatype, valuetype, "GeneralCate
 58	Hr	Humedad relativa	humrel	num	Continuous	Field Observation	Climate	Relative humidity	Air	\N	15	\N	\N
 60	Pr	Presión barométrica	pres	num	Continuous	Field Observation	Climate	Barometric pressure	Air	\N	17	\N	\N
 56	Vvh	Velocidad del viento horaria	velvientohora	num	Average	Field Observation	Climate	Wind Speed	Air	\N	13	01:00:00	00:00:00
-62	nub	nubosidad	nub	num	continuous	Field Observation	Climate	Cloud cover	Air	\N	353	\N	\N
+62	nub	nubosidad	nub	num	Continuous	Field Observation	Climate	Cloud cover	Air	\N	353	\N	\N
 63	pnm	presión al nivel del mar	pres_nm	num	Continuous	Field Observation	Climate	Sea-level pressure	Air	\N	17	\N	\N
 27	Pi	Precipitación a intervalo nativo	precip_inst	num	Incremental	Field Observation	Climate	Precipitation	Precipitation	\N	9	\N	\N
 40	Qmd	Caudal medio diario	caudalmediodia	num	Average	Field Observation	Hydrology	Discharge	Surface Water	\N	10	1 day	00:00:00
@@ -202,3 +231,12 @@ SELECT pg_catalog.setval('public.escenas_id_seq', 21, true);
 -- PostgreSQL database dump complete
 --
 
+REFRESH MATERIALIZED VIEW public.series_date_range;
+
+REFRESH MATERIALIZED VIEW public.series_areal_date_range;
+
+REFRESH MATERIALIZED VIEW public.series_rast_date_range;
+
+REFRESH MATERIALIZED VIEW public.series_json;
+
+REFRESH MATERIALIZED VIEW public.series_areal_json_no_geom;

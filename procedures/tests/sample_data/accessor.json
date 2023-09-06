@@ -1,0 +1,11 @@
+{
+    "class": "om_ogc_timeseries_client",
+    "name": "whos_om_ogc_timeseries_api",
+    "config": {
+        "url": "https://whos.geodab.eu/gs-service/services/essi",
+        "token":"MY_TOKEN",
+        "view":"whos-plata",
+        "tabla":"whos_plata",
+        "accessor_id":"whos_om_ogc_timeseries_api"
+    }
+}

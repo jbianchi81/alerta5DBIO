@@ -1,3 +1,5 @@
+\set ON_ERROR_STOP on
+
 BEGIN;
 CREATE TABLE public.observaciones_guardadas (
     id bigint NOT NULL,
@@ -93,9 +95,6 @@ ALTER TABLE ONLY public.observaciones_rast_guardadas
 ALTER TABLE ONLY public.observaciones_rast_guardadas
     ADD CONSTRAINT observaciones_rast_guardadas_series_id_fkey FOREIGN KEY (series_id) REFERENCES public.series_rast(id);
 
-grant select,delete,update,insert on observaciones_guardadas to actualiza;
-grant select,delete,update,insert on observaciones_areal_guardadas to actualiza;
-grant select,delete,update,insert on observaciones_rast_guardadas to actualiza;
 
 --
 -- materialized views --
@@ -134,19 +133,16 @@ SELECT series_rast.id AS series_id,
   GROUP BY series_rast.id
   ORDER BY series_rast.id;
 
-grant select on series_guardadas_date_range to actualiza;
-grant select on series_areal_guardadas_date_range to actualiza;
-grant select on series_rast_guardadas_date_range to actualiza;
-
-create role matviews role actualiza, jbianchi, alerta5;
 alter materialized view series_date_range owner to matviews;
 alter materialized view series_guardadas_date_range owner to matviews;
 alter materialized view series_areal_date_range owner to matviews;
 alter materialized view series_areal_guardadas_date_range owner to matviews;
 alter materialized view series_rast_date_range owner to matviews;
 alter materialized view series_rast_guardadas_date_range owner to matviews;
-grant select on series,series_areal,series_rast,observaciones,observaciones_areal,observaciones_rast to matviews;
+alter materialized view series_json owner to matviews;
+alter materialized view series_areal_json owner to matviews;
+alter materialized view series_areal_json_no_geom owner to matviews;
+grant select on fuentes,areas_pluvio,unidades,procedimiento,var,alturas_alerta,redes,estaciones,series,series_areal,series_rast,observaciones,observaciones_areal,observaciones_rast to matviews;
 grant select on observaciones_guardadas,observaciones_areal_guardadas,observaciones_rast_guardadas to matviews;
-
 
 COMMIT;

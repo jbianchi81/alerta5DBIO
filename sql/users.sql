@@ -20,6 +20,8 @@ SET row_security = off;
 
 SET default_tablespace = '';
 
+\set ON_ERROR_STOP on
+
 --
 -- Name: user_roles; Type: TABLE; Schema: public; Owner: alerta5
 --

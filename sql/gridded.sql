@@ -20,6 +20,8 @@ SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
+\set ON_ERROR_STOP on
+
 --
 -- Name: colecciones_raster; Type: TABLE; Schema: public; Owner: leyden
 --

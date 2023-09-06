@@ -1,0 +1,2 @@
+accessor_id,timeseries_id,timestamp,numeric_value,json_value,raster_value,result,observaciones_puntual_id,observaciones_areal_id,observaciones_rast_id
+whos_om_ogc_timeseries_api,test,1961-01-31T00:00:00.000Z,62,,,"{""time"":{""instant"":""1961-01-31T00:00:00Z""},""value"":62}",,,

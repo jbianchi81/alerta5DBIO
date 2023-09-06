@@ -2,6 +2,14 @@
 sequence:
 - procedureName: CreateProcedure
   arguments:
+    class_name: estacion
+    elements:
+    - id: 8
+      tabla: alturas_prefe
+      geom: {"type": "Point", "coordinates": [-50, -20]}
+      id_externo: 8
+- procedureName: CreateProcedure
+  arguments:
     class_name: serie
     jsonfile: sample_data/qmm_sample.json
     options:
@@ -20,7 +28,7 @@ sequence:
       getStats: true
       output_individual_files:
         pattern: qmm.{{estacion.id}}
-        base_path: ../../data/qmm
+        base_path: outputs
     output_format: csv
   tests:
   - testName: ArrayLengthTest
@@ -31,7 +39,7 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: observaciones
-      output: ../../data/qmm/qmm.8.csv
+      output: outputs/qmm.8.csv
       output_format: csv
       result_property_name: observaciones
 # read data and write down json
@@ -48,7 +56,7 @@ sequence:
       getStats: true
       output_individual_files:
         pattern: qmm.{{estacion.id}}
-        base_path: ../../data/qmm
+        base_path: outputs
     output_format: json
   tests:
   - testName: ArrayLengthTest
@@ -59,7 +67,7 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: serie
-      output: ../../data/qmm/qmm.8.json
+      output: outputs/qmm.8.json
       output_format: json
       index: 0
 - procedureName: DeleteProcedure

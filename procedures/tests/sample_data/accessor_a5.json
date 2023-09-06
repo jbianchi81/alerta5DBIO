@@ -1,0 +1,8 @@
+{
+    "class": "a5",
+    "name": "a5",
+    "config": {
+        "url": "https://alerta.ina.gob.ar/a5/", 
+        "token": "my_token"
+    }
+}

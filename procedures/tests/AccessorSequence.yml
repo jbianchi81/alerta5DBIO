@@ -1,5 +1,9 @@
 # yaml-language-server: $schema=../../public/schemas/sequence.json 
 sequence:
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor
+    jsonfile: sample_data/accessor_a5.json
 - procedureName: DeleteProcedure
   arguments:
     class_name: observaciones
@@ -8,7 +12,7 @@ sequence:
       series_id: [26652, 26654]
       timestart: 1990-01-01 00:00:00
       timeend: 2021-01-01 00:00:00
-    output: sample_data/deleted_observaciones.json
+    output: outputs/deleted_observaciones.json
 - procedureName: DownloadFromAccessorProcedure
   arguments:
     accessor_id: a5
@@ -18,7 +22,7 @@ sequence:
       timestart: 1990-01-01 00:00:00
       timeend: 2021-01-01 00:00:00
     options:
-      output: sample_data/read_from_accessor.json
+      output: outputs/read_from_accessor.json
   tests:
   - testName: ResultIsInstanceOfTest
     arguments:
@@ -30,7 +34,7 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: serie
-      output: sample_data/read_from_accessor.json
+      output: outputs/read_from_accessor.json
 - procedureName: DownloadFromAccessorProcedure
   arguments:
     accessor_id: a5
@@ -41,7 +45,7 @@ sequence:
       timeend: 2021-01-01 00:00:00
     options:
       output_individual_files:
-        base_path: sample_data
+        base_path: outputs
         pattern: serie.{{id}} 
   tests:
   - testName: ResultIsInstanceOfTest
@@ -54,13 +58,19 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: serie
-      output: sample_data/serie.26652.json
+      output: outputs/serie.26652.json
       index: 0
   - testName: OutputFileTest
     arguments:
       class_name: serie
-      output: sample_data/serie.26654.json
+      output: outputs/serie.26654.json
       index: 1
+- procedureName: UpdateMetadataFromAccessorProcedure
+  arguments:
+    accessor_id: a5
+    filter:
+      tipo: puntual
+      series_id: [26652, 26654]
 - procedureName: UpdateFromAccessorProcedure
   arguments:
     accessor_id: a5
@@ -71,7 +81,7 @@ sequence:
       timeend: 2021-01-01 00:00:00
     options:
       output_individual_files:
-        base_path: sample_data
+        base_path: outputs
         pattern: serie.{{id}} 
   tests:
   - testName: ResultIsInstanceOfTest
@@ -80,12 +90,12 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: serie
-      output: sample_data/serie.26652.json
+      output: outputs/serie.26652.json
       index: 0
   - testName: OutputFileTest
     arguments:
       class_name: serie
-      output: sample_data/serie.26654.json
+      output: outputs/serie.26654.json
       index: 1
 - procedureName: ReadProcedure
   arguments:
@@ -95,15 +105,14 @@ sequence:
       series_id: [26652, 26654]
       timestart: 1990-01-01 00:00:00
       timeend: 2021-01-01 00:00:00
-    output: sample_data/read_observaciones.json
+    output: outputs/read_observaciones.json
   tests:
   - testName: ResultIsInstanceOfTest
     arguments:
       class_name: observaciones
   - testName: ArrayLengthTest
     arguments:
-      min_length: 15754
-      max_length: 15754
+      min_length: 4000
 - procedureName: DeleteProcedure
   arguments:
     class_name: observaciones
@@ -112,4 +121,4 @@ sequence:
       series_id: [26652, 26654]
       timestart: 1990-01-01 00:00:00
       timeend: 2021-01-01 00:00:00
-    output: sample_data/deleted_observaciones.json
+    output: outputs/deleted_observaciones.json

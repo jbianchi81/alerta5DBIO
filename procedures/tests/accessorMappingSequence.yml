@@ -3,14 +3,19 @@ sequence:
 # feature of interest
 - procedureName: CreateProcedure
   arguments:
+    class_name: accessor
+    jsonfile: sample_data/accessor.json
+    output: outputs/accessor_c.json
+- procedureName: CreateProcedure
+  arguments:
     class_name: accessor_feature_of_interest
     jsonfile: sample_data/foi.json
-    output: /tmp/foi_c.json
+    output: outputs/foi_c.json
 - procedureName: CreateProcedure
   arguments:
     class_name: accessor_feature_of_interest
     csvfile: sample_data/foi.csv
-    output: /tmp/foi_c.csv
+    output: outputs/foi_c.csv
     options:
       header: true
       output_format: csv
@@ -20,14 +25,14 @@ sequence:
     filter:
       accessor_id: whos_om_ogc_timeseries_api
     options:
-      output: /tmp/foi.json
+      output: outputs/foi.json
 - procedureName: ReadProcedure
   arguments:
     class_name: accessor_feature_of_interest
     filter:
       accessor_id: whos_om_ogc_timeseries_api
     options:
-      output: /tmp/foi.csv
+      output: outputs/foi.csv
       output_format: csv
 - procedureName: UpdateProcedure
   arguments:
@@ -42,7 +47,7 @@ sequence:
     accessor_id: whos_om_ogc_timeseries_api
     filter:
       name: test1
-    output: /tmp/estacion_from_accessor.json
+    output: outputs/estacion_from_accessor.json
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -65,7 +70,7 @@ sequence:
     filter:
       accessor_id: whos_om_ogc_timeseries_api
       feature_id: test
-    output: /tmp/foi_d.json
+    output: outputs/foi_d.json
 - procedureName: DeleteProcedure
   arguments:
     class_name: estacion
@@ -73,7 +78,7 @@ sequence:
       nombre: test1
       id_externo: test
       tabla: whos_plata
-    output: /tmp/estacion_from_accessor_del.json
+    output: outputs/estacion_from_accessor_del.json
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -95,7 +100,7 @@ sequence:
   arguments:
     class_name: accessor_observed_property
     jsonfile: sample_data/op.json
-    output: /tmp/op_c.json
+    output: outputs/op_c.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -105,7 +110,7 @@ sequence:
   arguments:
     class_name: accessor_observed_property
     csvfile: sample_data/op.csv
-    output: /tmp/op_c.csv
+    output: outputs/op_c.csv
     options:
       header: true
       output_format: csv
@@ -121,7 +126,7 @@ sequence:
       accessor_id: whos_om_ogc_timeseries_api
       name: test
     options:
-      output: /tmp/op_r.json
+      output: outputs/op_r.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -134,7 +139,7 @@ sequence:
       accessor_id: whos_om_ogc_timeseries_api
       name: test
     options:
-      output: /tmp/op_r.csv
+      output: outputs/op_r.csv
       output_format: csv
   tests:
   - testName: PropertyEqualsTest
@@ -160,17 +165,17 @@ sequence:
     filter:
       accessor_id: whos_om_ogc_timeseries_api
       name: test_update
-    output: /tmp/op_d.json
+    output: outputs/op_d.json
 # - procedureName: CreateProcedure
 #   arguments:
 #     class_name: accessor_observed_property
-#     jsonfile: /tmp/op_d.json
+#     jsonfile: outputs/op_d.json
 # unit of measurement
 - procedureName: CreateProcedure
   arguments:
     class_name: accessor_unit_of_measurement
     jsonfile: sample_data/uom.json
-    output: /tmp/uom_c.json
+    output: outputs/uom_c.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -180,7 +185,7 @@ sequence:
   arguments:
     class_name: accessor_unit_of_measurement
     csvfile: sample_data/uom.csv
-    output: /tmp/uom_c.csv
+    output: outputs/uom_c.csv
     options:
       header: true
       output_format: csv
@@ -196,7 +201,7 @@ sequence:
       accessor_id: whos_om_ogc_timeseries_api
       unit_of_measurement_id: test
     options:
-      output: /tmp/uom_r.json
+      output: outputs/uom_r.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -209,7 +214,7 @@ sequence:
       accessor_id: whos_om_ogc_timeseries_api
       unit_of_measurement_id: test
     options:
-      output: /tmp/uom_r.csv
+      output: outputs/uom_r.csv
       output_format: csv
   tests:
   - testName: PropertyEqualsTest
@@ -239,7 +244,7 @@ sequence:
     filter:
       accessor_id: whos_om_ogc_timeseries_api
       unit_of_measurement_id: test
-    output: /tmp/uom_d.json
+    output: outputs/uom_d.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -252,13 +257,13 @@ sequence:
 # - procedureName: CreateProcedure
 #   arguments:
 #     class_name: accessor_unit_of_measurement
-#     jsonfile: /tmp/uom_d.json
+#     jsonfile: outputs/uom_d.json
 # timeseries observation
 - procedureName: CreateProcedure
   arguments:
     class_name: accessor_timeseries_observation
     jsonfile: sample_data/tso.json
-    output: /tmp/tso_c.json
+    output: outputs/tso_c.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -268,7 +273,7 @@ sequence:
   arguments:
     class_name: accessor_timeseries_observation
     csvfile: sample_data/tso.csv
-    output: /tmp/tso_c.csv
+    output: outputs/tso_c.csv
     options:
       header: true
       output_format: csv
@@ -286,7 +291,7 @@ sequence:
       timestart: 1961-01-01T12:00:00Z
       timeend: 1961-01-01T12:00:00Z
     options:
-      output: /tmp/tso.json
+      output: outputs/tso.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -300,7 +305,7 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: accessor_timeseries_observation
-      output: /tmp/tso.json
+      output: outputs/tso.json
 - procedureName: ReadProcedure
   arguments:
     class_name: accessor_timeseries_observation
@@ -308,7 +313,7 @@ sequence:
       accessor_id: whos_om_ogc_timeseries_api
       timeseries_id: test
     options:
-      output: /tmp/tso.csv
+      output: outputs/tso.csv
       output_format: csv
   tests:
   - testName: PropertyEqualsTest
@@ -322,7 +327,7 @@ sequence:
       accessor_id: whos_om_ogc_timeseries_api
       timeseries_id: test
     options:
-      output: /tmp/tso_mapping.json
+      output: outputs/tso_mapping.json
       columns: [accessor_id, timeseries_id, series_puntual_id]
   tests:
   - testName: PropertyEqualsTest
@@ -339,7 +344,7 @@ sequence:
       accessor_id: whos_om_ogc_timeseries_api
       timeseries_id: test
     options:
-      output: /tmp/tso_mapping.csv
+      output: outputs/tso_mapping.csv
       output_format: csv
       header: true
       columns: [accessor_id, timeseries_id, series_puntual_id]
@@ -359,7 +364,7 @@ sequence:
       timeseries_id: test
     update:
       data_type: Continuous
-    output: /tmp/tso_u.json
+    output: outputs/tso_u.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -370,7 +375,7 @@ sequence:
     accessor_id: whos_om_ogc_timeseries_api
     filter:
       timeseries_id: test
-    output: /tmp/variables_mapped_from_accessor.json
+    output: outputs/variables_mapped_from_accessor.json
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -390,13 +395,13 @@ sequence:
 # - procedureName: CreateProcedure
 #   arguments:
 #     class_name: accessor_timeseries_observation
-#     jsonfile: ../tmp/tso_d.json
+#     jsonfile: ..outputs/tso_d.json
 # time value pair
 - procedureName: CreateProcedure
   arguments:
     class_name: accessor_time_value_pair
     jsonfile: sample_data/tvp.json
-    output: /tmp/tvp_c.json
+    output: outputs/tvp_c.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -410,7 +415,7 @@ sequence:
   arguments:
     class_name: accessor_time_value_pair
     csvfile: sample_data/tvp.csv
-    output: /tmp/tvp_c.csv
+    output: outputs/tvp_c.csv
     options:
       header: true
       output_format: csv
@@ -434,7 +439,7 @@ sequence:
       timestart: 1961-01-31T00:00:00.000Z
       timeend: 1961-12-25T00:00:00.000Z
     options:
-      output: /tmp/tvp.json
+      output: outputs/tvp.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -447,7 +452,7 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: accessor_time_value_pair
-      output: /tmp/tvp.json
+      output: outputs/tvp.json
 - procedureName: ReadProcedure
   arguments:
     class_name: accessor_time_value_pair
@@ -459,7 +464,7 @@ sequence:
       timestart: 1961-01-31T00:00:00.000Z
       timeend: 1961-12-25T00:00:00.000Z
     options:
-      output: /tmp/tvp.csv
+      output: outputs/tvp.csv
       output_format: csv
   tests:
   - testName: PropertyEqualsTest
@@ -495,7 +500,7 @@ sequence:
       accessor_id: whos_om_ogc_timeseries_api
       timeseries_id: test
       timestamp: 1961-01-31T00:00:00.000Z
-    output: /tmp/tvp_d.json
+    output: outputs/tvp_d.json
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -504,7 +509,7 @@ sequence:
 # - procedureName: CreateProcedure
 #   arguments:
 #     class_name: accessor_time_value_pair
-#     jsonfile: /tmp/tvp_d.json
+#     jsonfile: outputs/tvp_d.json
 # delete timeseries_observation
 - procedureName: DeleteProcedure
   arguments:
@@ -512,7 +517,7 @@ sequence:
     filter:
       accessor_id: whos_om_ogc_timeseries_api
       timeseries_id: test
-    output: /tmp/tso_d.json
+    output: outputs/tso_d.json
   tests:
   - testName: PropertyEqualsTest
     arguments:

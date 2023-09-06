@@ -9,6 +9,29 @@ sequence:
       series_id: 26652
       timestart: 1990-01-01 00:00:00
       timeend: 2021-01-01 00:00:00
+    output: outputs/deleted_observaciones.json
+- procedureName: CreateProcedure
+  arguments:
+    class_name: estacion
+    elements:
+    - id: 55
+      tabla: alturas_prefe
+      geom: {"type": "Point", "coordinates": [-55, -25]}
+      id_externo: 55
+- procedureName: CreateProcedure
+  arguments:
+    class_name: serie
+    elements:
+    - tipo: puntual
+      id: 26652
+      estacion:
+        id: 55
+      procedimiento:
+        id: 1
+      var:
+        id: 40
+      unidades:
+        id: 10
 # create observaciones from json file
 - procedureName: CreateProcedure
   arguments:
@@ -71,7 +94,7 @@ sequence:
       series_id: 26652
       timestart: 1990-01-01 00:00:00
       timeend: 2021-01-01 00:00:00
-    output: sample_data/read_observacionesGuardadas.json 
+    output: outputs/read_observacionesGuardadas.json 
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -83,7 +106,7 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: observaciones
-      output: sample_data/read_observacionesGuardadas.json
+      output: outputs/read_observacionesGuardadas.json
 # read from archive into csv
 - procedureName: ReadProcedure
   arguments:
@@ -93,7 +116,7 @@ sequence:
       series_id: 26652
       timestart: 1990-01-01 00:00:00
       timeend: 2021-01-01 00:00:00
-    output: sample_data/read_observacionesGuardadas.csv
+    output: outputs/read_observacionesGuardadas.csv
     output_format: csv
   tests:
   - testName: ArrayLengthTest
@@ -106,7 +129,7 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: observacionesGuardadas
-      output: sample_data/read_observacionesGuardadas.csv
+      output: outputs/read_observacionesGuardadas.csv
       output_format: csv
 # TO DO? update from archive
 # TO DO? delete from archive

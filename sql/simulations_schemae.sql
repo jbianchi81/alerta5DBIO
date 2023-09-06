@@ -5,19 +5,21 @@
 -- Dumped from database version 9.5.24
 -- Dumped by pg_dump version 9.5.24
 
-SET statement_timeout = 0;
-SET lock_timeout = 0;
-SET client_encoding = 'UTF8';
-SET standard_conforming_strings = on;
-SELECT pg_catalog.set_config('search_path', '', false);
-SET check_function_bodies = false;
-SET xmloption = content;
-SET client_min_messages = warning;
-SET row_security = off;
+-- SET statement_timeout = 0;
+-- SET lock_timeout = 0;
+-- SET client_encoding = 'UTF8';
+-- SET standard_conforming_strings = on;
+-- SELECT pg_catalog.set_config('search_path', '', false);
+-- SET check_function_bodies = false;
+-- SET xmloption = content;
+-- SET client_min_messages = warning;
+-- SET row_security = off;
 
-SET default_tablespace = '';
+-- SET default_tablespace = '';
 
-SET default_with_oids = false;
+-- SET default_with_oids = false;
+
+\set ON_ERROR_STOP on
 
 --
 -- Name: calibrados_grupos; Type: TABLE; Schema: public; Owner: jbianchi
@@ -60,7 +62,7 @@ ALTER TABLE ONLY public.calibrados_grupos ALTER COLUMN id SET DEFAULT nextval('p
 ALTER TABLE ONLY public.calibrados_grupos
     ADD CONSTRAINT calibrados_grupos_pkey PRIMARY KEY (id);
 
-GRANT SELECT ON TABLE public.calibrados_grupos TO actualiza;
+-- GRANT SELECT ON TABLE public.calibrados_grupos TO actualiza;
 
 
 --
@@ -380,14 +382,14 @@ ALTER TABLE ONLY public.planes
 -- Name: TABLE planes; Type: ACL; Schema: public; Owner: alerta5
 --
 
-GRANT ALL ON TABLE public.planes TO actualiza;
-GRANT SELECT ON TABLE public.planes TO sololectura;
+-- GRANT ALL ON TABLE public.planes TO actualiza;
+-- GRANT SELECT ON TABLE public.planes TO sololectura;
 
 --
 -- Name: SEQUENCE planes_id_seq; Type: ACL; Schema: public; Owner: alerta5
 --
 
-GRANT ALL ON SEQUENCE public.planes_id_seq TO actualiza;
+-- GRANT ALL ON SEQUENCE public.planes_id_seq TO actualiza;
 
 --
 -- Name: planes_corridas_id_seq; Type: SEQUENCE; Schema: public; Owner: alerta5
@@ -411,16 +413,16 @@ ALTER TABLE ONLY public.planes_corridas
 ALTER TABLE ONLY public.planes_corridas
     ADD CONSTRAINT planes_corridas_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.planes(id);
 
-REVOKE ALL ON TABLE public.planes_corridas FROM PUBLIC;
-REVOKE ALL ON TABLE public.planes_corridas FROM alerta5;
-GRANT ALL ON TABLE public.planes_corridas TO alerta5;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.planes_corridas TO actualiza;
+-- REVOKE ALL ON TABLE public.planes_corridas FROM PUBLIC;
+-- REVOKE ALL ON TABLE public.planes_corridas FROM alerta5;
+-- GRANT ALL ON TABLE public.planes_corridas TO alerta5;
+-- GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.planes_corridas TO actualiza;
 
 
-REVOKE ALL ON SEQUENCE public.planes_corridas_id_seq FROM PUBLIC;
-REVOKE ALL ON SEQUENCE public.planes_corridas_id_seq FROM alerta5;
-GRANT ALL ON SEQUENCE public.planes_corridas_id_seq TO alerta5;
-GRANT ALL ON SEQUENCE public.planes_corridas_id_seq TO actualiza;
+-- REVOKE ALL ON SEQUENCE public.planes_corridas_id_seq FROM PUBLIC;
+-- REVOKE ALL ON SEQUENCE public.planes_corridas_id_seq FROM alerta5;
+-- GRANT ALL ON SEQUENCE public.planes_corridas_id_seq TO alerta5;
+-- GRANT ALL ON SEQUENCE public.planes_corridas_id_seq TO actualiza;
 
 
 --
@@ -1255,15 +1257,15 @@ ALTER TABLE ONLY public.modelos_out
 -- Name: TABLE modelos_out; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.modelos_out TO actualiza;
-GRANT SELECT ON TABLE public.modelos_out TO sololectura;
+-- GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.modelos_out TO actualiza;
+-- GRANT SELECT ON TABLE public.modelos_out TO sololectura;
 
 
 --
 -- Name: SEQUENCE modelos_out_id_seq; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT USAGE ON SEQUENCE public.modelos_out_id_seq TO actualiza;
+-- GRANT USAGE ON SEQUENCE public.modelos_out_id_seq TO actualiza;
 
 --
 -- Name: cal_out; Type: TABLE; Schema: public; Owner: -
@@ -1358,19 +1360,297 @@ ALTER TABLE ONLY public.cal_out
 -- Name: TABLE cal_out; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.cal_out TO actualiza;
-GRANT SELECT ON TABLE public.cal_out TO sololectura;
+-- GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.cal_out TO actualiza;
+-- GRANT SELECT ON TABLE public.cal_out TO sololectura;
 
 
 --
 -- Name: SEQUENCE cal_out_id_seq; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT ALL ON SEQUENCE public.cal_out_id_seq TO alerta5;
-GRANT USAGE ON SEQUENCE public.cal_out_id_seq TO actualiza;
+-- GRANT ALL ON SEQUENCE public.cal_out_id_seq TO alerta5;
+-- GRANT USAGE ON SEQUENCE public.cal_out_id_seq TO actualiza;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
+--
+-- Name: pronosticos; Type: TABLE; Schema: public; Owner: leyden
+--
+
+CREATE TABLE public.pronosticos_areal (
+    id integer NOT NULL,
+    cor_id integer NOT NULL,
+    series_id integer NOT NULL,
+    timestart timestamp without time zone NOT NULL,
+    timeend timestamp without time zone NOT NULL,
+    qualifier character varying(50) DEFAULT 'main'::character varying,
+    valor real NOT NULL
+);
+
+
+--
+-- Name: pronosticos_id_seq; Type: SEQUENCE; Schema: public; Owner: leyden
+--
+
+CREATE SEQUENCE public.pronosticos_areal_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: pronosticos_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: leyden
+--
+
+ALTER SEQUENCE public.pronosticos_areal_id_seq OWNED BY public.pronosticos_areal.id;
+
+
+--
+-- Name: pronosticos id; Type: DEFAULT; Schema: public; Owner: leyden
+--
+
+ALTER TABLE ONLY public.pronosticos_areal ALTER COLUMN id SET DEFAULT nextval('public.pronosticos_areal_id_seq'::regclass);
+
+
+--
+-- Name: pronosticos pronosticos_cor_id_series_id_timestart_timeend_qualifier_key; Type: CONSTRAINT; Schema: public; Owner: leyden
+--
+
+ALTER TABLE ONLY public.pronosticos_areal
+    ADD CONSTRAINT pronosticos_areal_cor_id_series_id_timestart_timeend_qualifier_key UNIQUE (cor_id, series_id, timestart, timeend, qualifier);
+
+
+--
+-- Name: pronosticos pronosticos_id_key; Type: CONSTRAINT; Schema: public; Owner: leyden
+--
+
+ALTER TABLE ONLY public.pronosticos_areal
+    ADD CONSTRAINT pronosticos_area_id_key UNIQUE (id);
+
+
+--
+-- Name: pronosticos pronosticos_cor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: leyden
+--
+
+ALTER TABLE ONLY public.pronosticos_areal
+    ADD CONSTRAINT pronosticos_areal_cor_id_fkey FOREIGN KEY (cor_id) REFERENCES public.corridas(id) ON DELETE CASCADE;
+
+
+--
+-- Name: pronosticos pronosticos_series_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: leyden
+--
+
+ALTER TABLE ONLY public.pronosticos_areal
+    ADD CONSTRAINT pronosticos_areal_series_id_fkey FOREIGN KEY (series_id) REFERENCES public.series_areal(id) ON DELETE CASCADE;
+
+BEGIN;
+CREATE TABLE series_puntual_prono_date_range (
+    series_id integer not null references series(id),
+    cor_id integer not null references corridas(id),
+    begin_date timestamp not null,
+    end_date timestamp not null,
+    count integer not null,
+    qualifiers json not null,
+    unique (series_id,cor_id)
+);
+
+INSERT INTO series_puntual_prono_date_range (series_id,cor_id,begin_date,end_date,count,qualifiers)
+SELECT series.id AS series_id,
+    pronosticos.cor_id,
+    min(pronosticos.timestart) AS begin_date,
+    max(pronosticos.timestart) AS end_date,
+    count(pronosticos.timestart) AS count,
+    json_agg(DISTINCT qualifier) AS qualifiers
+   FROM estaciones
+   JOIN series ON estaciones.unid = series.estacion_id
+   JOIN pronosticos ON series.id = pronosticos.series_id
+  GROUP BY series.id,pronosticos.cor_id;
+
+CREATE TABLE series_areal_prono_date_range (
+    series_id integer not null references series_areal(id),
+    cor_id integer not null references corridas(id),
+    begin_date timestamp not null,
+    end_date timestamp not null,
+    count integer not null,
+    qualifiers json not null,
+    unique (series_id,cor_id)
+);
+
+INSERT INTO series_areal_prono_date_range (series_id,cor_id,begin_date,end_date,count,qualifiers)
+SELECT series_areal.id AS series_id,
+    pronosticos_areal.cor_id,
+    min(pronosticos_areal.timestart) AS begin_date,
+    max(pronosticos_areal.timestart) AS end_date,
+    count(pronosticos_areal.timestart) AS count,
+    json_agg(DISTINCT qualifier) AS qualifiers
+   FROM series_areal
+   JOIN pronosticos_areal ON series_areal.id = pronosticos_areal.series_id
+   JOIN areas_pluvio ON series_areal.area_id = areas_pluvio.unid
+   LEFT JOIN estaciones ON areas_pluvio.exutorio_id = estaciones.unid
+  GROUP BY series_areal.id,pronosticos_areal.cor_id;
+
+CREATE VIEW series_prono_date_range AS
+SELECT series.id AS series_id,
+    'series' AS series_table,
+    series.estacion_id,
+    estaciones.tabla,
+    series.var_id,
+    corridas.id AS cor_id,
+    series_puntual_prono_date_range.begin_date,
+    series_puntual_prono_date_range.end_date,
+    series_puntual_prono_date_range.count,
+    series_puntual_prono_date_range.qualifiers
+   FROM corridas 
+   JOIN series_puntual_prono_date_range ON series_puntual_prono_date_range.cor_id = corridas.id
+   JOIN series ON series.id=series_puntual_prono_date_range.series_id
+   JOIN estaciones ON estaciones.unid = series.estacion_id
+
+UNION ALL
+
+SELECT series_areal.id AS series_id,
+    'series_areal' AS series_table,
+    series_areal.area_id AS estacion_id,
+    estaciones.tabla,
+    series_areal.var_id,
+    corridas.id AS cor_id,
+    series_areal_prono_date_range.begin_date,
+    series_areal_prono_date_range.end_date,
+    series_areal_prono_date_range.count,
+    series_areal_prono_date_range.qualifiers
+   FROM corridas 
+   JOIN series_areal_prono_date_range ON series_areal_prono_date_range.cor_id = corridas.id
+   JOIN series_areal ON series_areal.id=series_areal_prono_date_range.series_id
+   JOIN areas_pluvio ON series_areal.area_id = areas_pluvio.unid
+   LEFT JOIN estaciones ON areas_pluvio.exutorio_id = estaciones.unid
+;
+
+
+
+COMMIT;
+
+BEGIN;
+CREATE TABLE series_puntual_prono_date_range_by_qualifier (
+    series_id integer not null references series(id),
+    cor_id integer not null references corridas(id),
+    qualifier varchar,
+    begin_date timestamp not null,
+    end_date timestamp not null,
+    count integer not null,
+    unique (series_id,cor_id,qualifier)
+);
+
+INSERT INTO series_puntual_prono_date_range_by_qualifier (series_id,cor_id,qualifier,begin_date,end_date,count)
+SELECT series.id AS series_id,
+    pronosticos.cor_id,
+    pronosticos.qualifier,
+    min(pronosticos.timestart) AS begin_date,
+    max(pronosticos.timestart) AS end_date,
+    count(pronosticos.timestart) AS count
+   FROM estaciones,
+    series,
+    pronosticos
+  WHERE estaciones.unid = series.estacion_id
+  AND series.id = pronosticos.series_id
+  GROUP BY series.id, pronosticos.cor_id, pronosticos.qualifier;
+
+CREATE TABLE series_areal_prono_date_range_by_qualifier (
+    series_id integer not null references series_areal(id),
+    cor_id integer not null references corridas(id),
+    qualifier varchar,
+    begin_date timestamp not null,
+    end_date timestamp not null,
+    count integer not null,
+    unique (series_id,cor_id,qualifier)
+);
+
+INSERT INTO series_areal_prono_date_range_by_qualifier (series_id,cor_id,qualifier,begin_date,end_date,count)
+SELECT series_areal.id AS series_id,
+    pronosticos_areal.cor_id,
+    pronosticos_areal.qualifier,
+    min(pronosticos_areal.timestart) AS begin_date,
+    max(pronosticos_areal.timestart) AS end_date,
+    count(pronosticos_areal.timestart) AS count
+   FROM series_areal
+   JOIN pronosticos_areal ON series_areal.id = pronosticos_areal.series_id
+   JOIN areas_pluvio ON series_areal.area_id = areas_pluvio.unid
+   LEFT JOIN estaciones ON areas_pluvio.exutorio_id = estaciones.unid
+  GROUP BY series_areal.id, pronosticos_areal.cor_id, pronosticos_areal.qualifier
+;
+
+CREATE VIEW series_prono_date_range_by_qualifier AS
+SELECT series.id AS series_id,
+    'series' AS series_table,
+    series.estacion_id,
+    estaciones.tabla,
+    series.var_id,
+    corridas.id AS cor_id,
+    series_puntual_prono_date_range_by_qualifier.qualifier,
+    series_puntual_prono_date_range_by_qualifier.begin_date,
+    series_puntual_prono_date_range_by_qualifier.end_date,
+    series_puntual_prono_date_range_by_qualifier.count
+   FROM corridas 
+   JOIN series_puntual_prono_date_range_by_qualifier ON series_puntual_prono_date_range_by_qualifier.cor_id = corridas.id
+   JOIN series ON series.id=series_puntual_prono_date_range_by_qualifier.series_id
+   JOIN estaciones ON estaciones.unid = series.estacion_id
+
+UNION ALL
+
+SELECT series_areal.id AS series_id,
+    'series_areal' AS series_table,
+    series_areal.area_id AS estacion_id,
+    estaciones.tabla,
+    series_areal.var_id,
+    corridas.id AS cor_id,
+    series_areal_prono_date_range_by_qualifier.qualifier,
+    series_areal_prono_date_range_by_qualifier.begin_date,
+    series_areal_prono_date_range_by_qualifier.end_date,
+    series_areal_prono_date_range_by_qualifier.count
+   FROM corridas 
+   JOIN series_areal_prono_date_range_by_qualifier ON series_areal_prono_date_range_by_qualifier.cor_id = corridas.id
+   JOIN series_areal ON series_areal.id=series_areal_prono_date_range_by_qualifier.series_id
+   JOIN areas_pluvio ON series_areal.area_id = areas_pluvio.unid
+   LEFT JOIN estaciones ON areas_pluvio.exutorio_id = estaciones.unid
+;
+
+CREATE OR REPLACE VIEW series_prono_date_range_last AS
+WITH last_forecast_date AS (
+    select 
+        cal_id,
+        max(date) AS forecast_date
+    from corridas
+    group by cal_id 
+),
+last_corridas AS (
+    select 
+        corridas.id AS cor_id,
+        corridas.cal_id,
+        corridas.date AS forecast_date,
+        calibrados.public,
+        calibrados.grupo_id AS cal_grupo_id
+    FROM corridas
+    JOIN calibrados ON corridas.cal_id=calibrados.id
+    JOIN last_forecast_date ON (
+        corridas.cal_id=last_forecast_date.cal_id 
+        AND corridas.date=last_forecast_date.forecast_date
+    )
+)
+SELECT 
+    series_prono_date_range.*,
+    last_corridas.cal_id,
+    last_corridas.forecast_date,
+    last_corridas.public,
+    last_corridas.cal_grupo_id    
+FROM series_prono_date_range
+JOIN last_corridas
+ON series_prono_date_range.cor_id=last_corridas.cor_id
+ORDER BY 
+    series_prono_date_range.series_table,
+    series_prono_date_range.series_id,
+    series_prono_date_range.cor_id;
+
+COMMIT;

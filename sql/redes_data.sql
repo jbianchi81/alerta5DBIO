@@ -15,6 +15,8 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+\set ON_ERROR_STOP on
+
 --
 -- Data for Name: redes; Type: TABLE DATA; Schema: public; Owner: alerta5
 --

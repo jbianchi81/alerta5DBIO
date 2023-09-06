@@ -1,3 +1,5 @@
+\set ON_ERROR_STOP on
+
 CREATE OR REPLACE FUNCTION public.area_calc()
  RETURNS trigger
  LANGUAGE plpgsql

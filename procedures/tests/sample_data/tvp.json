@@ -1,0 +1,1 @@
+[{"accessor_id":"whos_om_ogc_timeseries_api","timeseries_id":"test","timestamp":"1961-01-31T00:00:00.000Z","numeric_value":62,"json_value":null,"raster_value":null,"result":{"time":{"instant":"1961-01-31T00:00:00Z"},"value":62},"observaciones_puntual_id":null,"observaciones_areal_id":null,"observaciones_rast_id":null}]

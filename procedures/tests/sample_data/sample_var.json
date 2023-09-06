@@ -1,0 +1,1257 @@
+[
+    {
+        "id": 1,
+        "var": "P",
+        "nombre": "precipitación diaria 12Z",
+        "abrev": "precip_diaria_met",
+        "type": "num",
+        "datatype": "Cumulative",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Precipitation",
+        "SampleMedium": "Precipitation",
+        "def_unit_id": 22,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {
+            "hours": 9
+        }
+    },
+    {
+        "id": 2,
+        "var": "H",
+        "nombre": "Altura hidrométrica",
+        "abrev": "altura",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Gage height",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 11,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 4,
+        "var": "Q",
+        "nombre": "Caudal",
+        "abrev": "caudal",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Derived Value",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Discharge",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 10,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 5,
+        "var": "Tmin",
+        "nombre": "Temperatura mínima",
+        "abrev": "tempmin",
+        "type": "num",
+        "datatype": "Minimum",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Temperature",
+        "SampleMedium": "Air",
+        "def_unit_id": 12,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 6,
+        "var": "Tmax",
+        "nombre": "Temperatura máxima",
+        "abrev": "tempmax",
+        "type": "num",
+        "datatype": "Maximum",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Temperature",
+        "SampleMedium": "Air",
+        "def_unit_id": 12,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 7,
+        "var": "Tmed",
+        "nombre": "Temperatura media",
+        "abrev": "tempmed",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Temperature",
+        "SampleMedium": "Air",
+        "def_unit_id": 12,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 8,
+        "var": "Tsue",
+        "nombre": "Temperatura del suelo",
+        "abrev": "tempsuelo",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Temperature",
+        "SampleMedium": "Air",
+        "def_unit_id": 12,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 9,
+        "var": "Vmax",
+        "nombre": "Velocidad del viento máxima",
+        "abrev": "velvientomax",
+        "type": "num",
+        "datatype": "Maximum",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Wind speed",
+        "SampleMedium": "Air",
+        "def_unit_id": 13,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 10,
+        "var": "Vmed",
+        "nombre": "Velocidad del viento media",
+        "abrev": "velvientomedia",
+        "type": "num",
+        "datatype": "Minimum",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Wind speed",
+        "SampleMedium": "Air",
+        "def_unit_id": 13,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 11,
+        "var": "Vdir",
+        "nombre": "dirección del viento modal diaria",
+        "abrev": "dirviento",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Wind direction",
+        "SampleMedium": "Air",
+        "def_unit_id": 16,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 12,
+        "var": "HR",
+        "nombre": "Humedad relativa media diaria",
+        "abrev": "humrel",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Relative humidity",
+        "SampleMedium": "Air",
+        "def_unit_id": 15,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 13,
+        "var": "Hel",
+        "nombre": "Heliofanía",
+        "abrev": "helio",
+        "type": "num",
+        "datatype": "Cumulative",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Sunshine duration",
+        "SampleMedium": "Air",
+        "def_unit_id": 103,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 14,
+        "var": "SRad",
+        "nombre": "Radiación solar",
+        "abrev": "solarrad",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Global radiation",
+        "SampleMedium": "Air",
+        "def_unit_id": 144,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 15,
+        "var": "ETP",
+        "nombre": "Evapotranspiración potencial",
+        "abrev": "etp",
+        "type": "num",
+        "datatype": "Cumulative",
+        "valuetype": "Derived Value",
+        "GeneralCategory": "Climate",
+        "VariableName": "Evapotranspiration",
+        "SampleMedium": "Air",
+        "def_unit_id": 22,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {
+            "hours": 9
+        }
+    },
+    {
+        "id": 16,
+        "var": "Pmed",
+        "nombre": "Presión barométrica media diaria",
+        "abrev": "presionmedia",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Barometric pressure",
+        "SampleMedium": "Air",
+        "def_unit_id": 17,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 17,
+        "var": "nubdia",
+        "nombre": "nubosidad media diaria",
+        "abrev": "nubdia",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Cloud cover",
+        "SampleMedium": "Air",
+        "def_unit_id": 353,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 18,
+        "var": "pnmdia",
+        "nombre": "presión al nivel del mar media diaria",
+        "abrev": "pnmdia",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Sea-level pressure",
+        "SampleMedium": "Air",
+        "def_unit_id": 17,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 19,
+        "var": "HQ",
+        "nombre": "par Altura/Caudal",
+        "abrev": "parHQ",
+        "type": "numarr",
+        "datatype": "Sporadic",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": null,
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 21,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 20,
+        "var": "SM",
+        "nombre": "Humedad del suelo",
+        "abrev": "SM",
+        "type": "num",
+        "datatype": "Sporadic",
+        "valuetype": "Derived Value",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Volumetric water content",
+        "SampleMedium": "Soil",
+        "def_unit_id": 23,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": null
+    },
+    {
+        "id": 21,
+        "var": "FM",
+        "nombre": "Magnitud de inundación",
+        "abrev": "FM",
+        "type": "num",
+        "datatype": "Sporadic",
+        "valuetype": "Derived Value",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Flood magnitude",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 24,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": null
+    },
+    {
+        "id": 22,
+        "var": "Qafl",
+        "nombre": "Caudal Afluente",
+        "abrev": "Qafluente",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Reservoir inflow",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 10,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 23,
+        "var": "Qefl",
+        "nombre": "Caudal Efluente",
+        "abrev": "Qefluente",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Reservoir outflow",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 10,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 24,
+        "var": "Qver",
+        "nombre": "Caudal Vertido",
+        "abrev": "Qvertido",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Reservoir spilled",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 10,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 25,
+        "var": "Qtra",
+        "nombre": "Caudal Transferido",
+        "abrev": "Qtransfer",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Transfered discharge",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 10,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 26,
+        "var": "Vut",
+        "nombre": "Volumen Útil",
+        "abrev": "Vutil",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Reservoir storage",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 312,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 27,
+        "var": "Pi",
+        "nombre": "Precipitación a intervalo nativo",
+        "abrev": "precip_inst",
+        "type": "num",
+        "datatype": "Preceding Total",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Precipitation",
+        "SampleMedium": "Precipitation",
+        "def_unit_id": 9,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 28,
+        "var": "a:H",
+        "nombre": "Aforos:Altura",
+        "abrev": "altura",
+        "type": "num",
+        "datatype": "Sporadic",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Gage height",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 11,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 29,
+        "var": "a:Q",
+        "nombre": "Aforos:Caudal",
+        "abrev": "caudal",
+        "type": "num",
+        "datatype": "Sporadic",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Discharge",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 10,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 30,
+        "var": "WE",
+        "nombre": "Area Saturada",
+        "abrev": "areasat",
+        "type": "numarr",
+        "datatype": "Continuous",
+        "valuetype": "Derived Value",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Water extent",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 14,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 31,
+        "var": "Ph",
+        "nombre": "precipitación horaria",
+        "abrev": "precip_horaria",
+        "type": "num",
+        "datatype": "Cumulative",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Precipitation",
+        "SampleMedium": "Precipitation",
+        "def_unit_id": 9,
+        "timeSupport": {
+            "hours": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 32,
+        "var": "Hgeo",
+        "nombre": "Altura geométrica",
+        "abrev": "Hgeo",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Unknown",
+        "VariableName": null,
+        "SampleMedium": "Unknown",
+        "def_unit_id": 0,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 33,
+        "var": "Hmm",
+        "nombre": "Altura hidrométrica media mensual",
+        "abrev": "alturamediames",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Gage height",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 11,
+        "timeSupport": {
+            "months": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 34,
+        "var": "P3h",
+        "nombre": "precipitación 3 horaria",
+        "abrev": "precip_3h",
+        "type": "num",
+        "datatype": "Cumulative",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Precipitation",
+        "SampleMedium": "Precipitation",
+        "def_unit_id": 9,
+        "timeSupport": {
+            "hours": 3
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 35,
+        "var": "Htide",
+        "nombre": "Altura de marea astronómica",
+        "abrev": "altura_marea",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Model Simulation Result",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Tidal stage",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 11,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 36,
+        "var": "Hmeteo",
+        "nombre": "Altura de marea meteorológica",
+        "abrev": "altura_marea_meteo",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Model Simulation Result",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Water level",
+        "SampleMedium": "Surface water",
+        "def_unit_id": 11,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 37,
+        "var": "nieve",
+        "nombre": "nivel de nieve",
+        "abrev": "nieve",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Unknown",
+        "VariableName": "Snow depth",
+        "SampleMedium": "Unknown",
+        "def_unit_id": 11,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 38,
+        "var": "Pacum",
+        "nombre": "precipicación acumulada",
+        "abrev": "Pacum",
+        "type": "num",
+        "datatype": "Cumulative",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Unknown",
+        "VariableName": "Precipitation",
+        "SampleMedium": "Unknown",
+        "def_unit_id": 9,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 39,
+        "var": "Hmd",
+        "nombre": "Altura hidrométrica media diaria",
+        "abrev": "alturamediadia",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Gage height",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 11,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 40,
+        "var": "Qmd",
+        "nombre": "Caudal medio diario",
+        "abrev": "caudalmediodia",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Discharge",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 10,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 41,
+        "var": "Pmes",
+        "nombre": "precipitación mensual",
+        "abrev": "Pmensual",
+        "type": "num",
+        "datatype": "Cumulative",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Precipitation",
+        "SampleMedium": "Precipitation",
+        "def_unit_id": 9,
+        "timeSupport": {
+            "months": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 42,
+        "var": "visib",
+        "nombre": "visibilidad",
+        "abrev": "visib",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Meteorology",
+        "VariableName": "Visibility",
+        "SampleMedium": "Air",
+        "def_unit_id": 15,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 43,
+        "var": "Trocio",
+        "nombre": "temperatura de rocío",
+        "abrev": "Trocio",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Meteorology",
+        "VariableName": "Temperature, dew point",
+        "SampleMedium": "Atmosphere",
+        "def_unit_id": 12,
+        "timeSupport": null,
+        "def_hora_corte": null
+    },
+    {
+        "id": 45,
+        "var": "Tbulbo",
+        "nombre": "temperatura de bulbo húmedo",
+        "abrev": "Tbulbo",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Temperature",
+        "SampleMedium": "Atmosphere",
+        "def_unit_id": 12,
+        "timeSupport": null,
+        "def_hora_corte": null
+    },
+    {
+        "id": 46,
+        "var": "PmesAn",
+        "nombre": "anomalía de precipitación mensual",
+        "abrev": "PmesAn",
+        "type": "num",
+        "datatype": "Cumulative",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Precipitation",
+        "SampleMedium": "Precipitation",
+        "def_unit_id": 9,
+        "timeSupport": {
+            "hours": 744
+        },
+        "def_hora_corte": null
+    },
+    {
+        "id": 47,
+        "var": "api",
+        "nombre": "índice de precipitación antecedente",
+        "abrev": "API",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Model Simulation Result",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "antecedent precipitation index",
+        "SampleMedium": "Soil",
+        "def_unit_id": 14,
+        "timeSupport": {
+            "days": 7
+        },
+        "def_hora_corte": null
+    },
+    {
+        "id": 48,
+        "var": "Qmm",
+        "nombre": "caudal medio mensual",
+        "abrev": "caudalmediomes",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Discharge",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 10,
+        "timeSupport": {
+            "months": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 49,
+        "var": "Hmmin",
+        "nombre": "Altura hidrométrica mínima mensual",
+        "abrev": "alturaminmes",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Gage height",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 11,
+        "timeSupport": {
+            "months": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 50,
+        "var": "Hmmax",
+        "nombre": "Altura hidrométrica máxima mensual",
+        "abrev": "alturamaxmes",
+        "type": "num",
+        "datatype": "Maximum",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Gage height",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 11,
+        "timeSupport": {
+            "months": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 51,
+        "var": "Qmmin",
+        "nombre": "Caudal mínimo mensual",
+        "abrev": "caudalminmes",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Discharge",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 10,
+        "timeSupport": {
+            "months": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 52,
+        "var": "Qmmax",
+        "nombre": "Caudal máximo mensual",
+        "abrev": "caudalmaxmes",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Discharge",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 10,
+        "timeSupport": {
+            "months": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 53,
+        "var": "T",
+        "nombre": "Temperatura",
+        "abrev": "temp",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Temperature",
+        "SampleMedium": "Air",
+        "def_unit_id": 12,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 54,
+        "var": "Th",
+        "nombre": "Temperatura horaria",
+        "abrev": "temp",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Temperature",
+        "SampleMedium": "Air",
+        "def_unit_id": 12,
+        "timeSupport": {
+            "hours": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 55,
+        "var": "Vv",
+        "nombre": "Velocidad del viento",
+        "abrev": "velviento",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Wind Speed",
+        "SampleMedium": "Air",
+        "def_unit_id": 13,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 56,
+        "var": "Vvh",
+        "nombre": "Velocidad del viento horaria",
+        "abrev": "velvientohora",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Wind Speed",
+        "SampleMedium": "Air",
+        "def_unit_id": 13,
+        "timeSupport": {
+            "hours": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 57,
+        "var": "Vd",
+        "nombre": "Dirección del viento",
+        "abrev": "dirviento",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Wind Direction",
+        "SampleMedium": "Air",
+        "def_unit_id": 16,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 58,
+        "var": "Hr",
+        "nombre": "Humedad relativa",
+        "abrev": "humrel",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Relative humidity",
+        "SampleMedium": "Air",
+        "def_unit_id": 15,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 59,
+        "var": "Hrh",
+        "nombre": "Humedad relativa media horaria",
+        "abrev": "humrelhora",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Relative humidity",
+        "SampleMedium": "Air",
+        "def_unit_id": 15,
+        "timeSupport": null,
+        "def_hora_corte": {}
+    },
+    {
+        "id": 60,
+        "var": "Pr",
+        "nombre": "Presión barométrica",
+        "abrev": "pres",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Barometric pressure",
+        "SampleMedium": "Air",
+        "def_unit_id": 17,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 61,
+        "var": "Prh",
+        "nombre": "Presión barométrica media horaria",
+        "abrev": "preshora",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Barometric pressure",
+        "SampleMedium": "Air",
+        "def_unit_id": 17,
+        "timeSupport": {
+            "hours": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 62,
+        "var": "nub",
+        "nombre": "nubosidad",
+        "abrev": "nub",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Cloud cover",
+        "SampleMedium": "Air",
+        "def_unit_id": 353,
+        "timeSupport": null,
+        "def_hora_corte": null
+    },
+    {
+        "id": 63,
+        "var": "pnm",
+        "nombre": "presión al nivel del mar",
+        "abrev": "pres_nm",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Sea-level pressure",
+        "SampleMedium": "Air",
+        "def_unit_id": 17,
+        "timeSupport": null,
+        "def_hora_corte": null
+    },
+    {
+        "id": 64,
+        "var": "Vdh",
+        "nombre": "Dirección del viento modal horaria",
+        "abrev": "dirvientohora",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Wind Direction",
+        "SampleMedium": "Air",
+        "def_unit_id": 16,
+        "timeSupport": {
+            "hours": 1
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 65,
+        "var": "ugrd",
+        "nombre": "Viento - componente u",
+        "abrev": "ugrd",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Model Simulation Result",
+        "GeneralCategory": "Meteorology",
+        "VariableName": "Wind speed",
+        "SampleMedium": "Air",
+        "def_unit_id": 355,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 66,
+        "var": "vgrd",
+        "nombre": "Viento - componente v",
+        "abrev": "vgrd",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Model Simulation Result",
+        "GeneralCategory": "Meteorology",
+        "VariableName": "Wind speed",
+        "SampleMedium": "Air",
+        "def_unit_id": 355,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 67,
+        "var": "Hms",
+        "nombre": "Altura hidrométrica media semanal",
+        "abrev": "alturamediasemana",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Gage height",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 11,
+        "timeSupport": {
+            "days": 7
+        },
+        "def_hora_corte": {}
+    },
+    {
+        "id": 68,
+        "var": "QMDmax",
+        "nombre": "Caudal Medio Diario Máximo",
+        "abrev": "QMDmax",
+        "type": "num",
+        "datatype": "Maximum",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Discharge",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 10,
+        "timeSupport": {
+            "years": 1
+        },
+        "def_hora_corte": null
+    },
+    {
+        "id": 69,
+        "var": "QMDmin",
+        "nombre": "Caudal Medio Diario Mínimo",
+        "abrev": "QMDmin",
+        "type": "num",
+        "datatype": "Minimum",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Discharge",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 10,
+        "timeSupport": {
+            "years": 1
+        },
+        "def_hora_corte": null
+    },
+    {
+        "id": 70,
+        "var": "QMaxIn",
+        "nombre": "QMax Instantáneo",
+        "abrev": "QMaxIn",
+        "type": "num",
+        "datatype": "Maximum",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Discharge",
+        "SampleMedium": "Unknown",
+        "def_unit_id": 10,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 71,
+        "var": "QMinIn",
+        "nombre": "QMin Instantáneo",
+        "abrev": "QMinIn",
+        "type": "num",
+        "datatype": "Minimum",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Discharge",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 10,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 72,
+        "var": "Hmax",
+        "nombre": "Humedad relativa máxima diaria",
+        "abrev": "Hmax",
+        "type": "num",
+        "datatype": "Maximum",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Meteorology",
+        "VariableName": "Relative humidity",
+        "SampleMedium": "Air",
+        "def_unit_id": 15,
+        "timeSupport": {
+            "hours": 24
+        },
+        "def_hora_corte": null
+    },
+    {
+        "id": 73,
+        "var": "TAgua",
+        "nombre": "Temperatura del agua",
+        "abrev": "TAgua",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Water Quality",
+        "VariableName": "Temperature",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 12,
+        "timeSupport": {},
+        "def_hora_corte": null
+    },
+    {
+        "id": 74,
+        "var": "gc",
+        "nombre": "guía de crecidas",
+        "abrev": "gc",
+        "type": "num",
+        "datatype": "Cumulative",
+        "valuetype": "Model Simulation Result",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "flood guidance",
+        "SampleMedium": "Precipitation",
+        "def_unit_id": 9,
+        "timeSupport": {
+            "hours": 24
+        },
+        "def_hora_corte": null
+    },
+    {
+        "id": 80,
+        "var": "Troch",
+        "nombre": "temperatura de rocío horaria",
+        "abrev": "Trocioh",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Meteorology",
+        "VariableName": "Temperature, dew point",
+        "SampleMedium": "Air",
+        "def_unit_id": 12,
+        "timeSupport": {
+            "hours": 1
+        },
+        "def_hora_corte": null
+    },
+    {
+        "id": 85,
+        "var": "H1h",
+        "nombre": "Altura hidrométrica horaria",
+        "abrev": "alturahora",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Gage height",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 11,
+        "timeSupport": {
+            "hours": 1
+        },
+        "def_hora_corte": null
+    },
+    {
+        "id": 86,
+        "var": "Hgeo1h",
+        "nombre": "Altura geométrica horaria",
+        "abrev": "Hgeohora",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": null,
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 11,
+        "timeSupport": {
+            "hours": 1
+        },
+        "def_hora_corte": null
+    },
+    {
+        "id": 87,
+        "var": "Q1h",
+        "nombre": "Caudal horario",
+        "abrev": "caudalhora",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Discharge",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 10,
+        "timeSupport": {
+            "hours": 1
+        },
+        "def_hora_corte": null
+    },
+    {
+        "id": 88,
+        "var": "Hgeo1d",
+        "nombre": "altura geométrica diaria",
+        "abrev": "Hgeodia",
+        "type": "num",
+        "datatype": "Continuous",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": null,
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 11,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": null
+    }
+]

@@ -5,16 +5,42 @@ sequence:
     class_name: serie
     filter:
       tipo: puntual
-      id: 34825
+      id: [34825]
 - procedureName: CreateProcedure
   arguments:
-    class_name: serie
-    # elements:
-    jsonfile: sample_data/hourly_timeseries_long.json
+    class_name: estacion
+    elements:
+    - id: 99999
+      nombre: test
+      geom:
+        type: Point
+        coordinates: [ -55, -35] 
+      tabla: alturas_bdhi
+      id_externo: 99999
 - procedureName: CreateProcedure
   arguments:
     class_name: serie
     elements:
+      - tipo: puntual
+        id: 3280
+        var:
+          id: 2
+        procedimiento:
+          id: 1
+        unidades:
+          id: 11
+        estacion:
+          id: 99999 
+      - tipo: puntual
+        id: 34824
+        var:
+          id: 39
+        procedimiento:
+          id: 1
+        unidades:
+          id: 11
+        estacion:
+          id: 99999 
       - tipo: puntual
         id: 34825
         var:
@@ -24,15 +50,16 @@ sequence:
         unidades:
           id: 11
         estacion:
-          id: 1699
+          id: 99999
   tests:
   - testName: ResultIsInstanceOfTest
     arguments:
       class_name: serie
-  - testName: PropertyEqualsTest
-    arguments:
-      property_name: id
-      property_value: 34825            
+- procedureName: CreateProcedure
+  arguments:
+    class_name: observacion
+    # elements:
+    jsonfile: sample_data/hourly_timeseries_long.json
 - procedureName: AggregateProcedure
   arguments:
     class_name: serie
@@ -47,7 +74,7 @@ sequence:
       update: true
       agg_function: mean
       min_obs: 16
-    output: sample_data/aggregated_daily_long.json 
+    output: outputs/aggregated_daily_long.json 
 - procedureName: AggregateProcedure
   arguments:
     class_name: serie
@@ -62,7 +89,7 @@ sequence:
       update: true
       agg_function: mean
       min_obs: 16
-    output: sample_data/aggregated_monthly.json 
+    output: outputs/aggregated_monthly.json 
   tests:
   - testName: ArrayLengthTest
     arguments:

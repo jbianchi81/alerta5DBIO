@@ -7,7 +7,7 @@ sequence:
       tabla: alturas_prefe
       proc_id: [1,2]
       # estacion_id: 29
-    output: /tmp/a5_meta.json
+    output: outputs/a5_meta.json
   tests:
   - testName: TruthyTest
   - testName: NonEmptyArrayTest 
