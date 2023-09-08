@@ -1016,12 +1016,35 @@
 
 		// global objects
 		var gSeries, gPoints
-	
-		// get monitored points 	
-		getMonitoredPoints(search_filters)
 
-		// add estaciones_series map (wms)
-		addEstacionesSeriesWms(search_filters)
+		var [get_monitored_url, monitoredpointsparams,estaciones_feature_type] = getMonitoredPointParams(search_filters)
+		setChooseAddSeriesSelect(get_monitored_url,monitoredpointsparams)
+		
+		if(global.default_config.use_wms) {
+			// add estaciones_series map (wms)
+			addEstacionesSeriesWms(search_filters)
+		} else {
+			// get monitored points 	
+			getMonitoredPoints(get_monitored_url,monitoredpointsparams,estaciones_feature_type)
+		}
+		global.isWriter = {{writer}}
+		
+		// global.monitoredpointsparams = monitoredpointsparams
+			
+		makeSeriesEditTable($("div.tabcontent#tabla_series"),undefined,{{writer}},search_filters,monitoredpointsparams.tipo)
+
+		if(search_filters.seriesId) {
+			loadSerie(search_filters) // ,matched_point)
+		}
+
+					// show legend
+			//~ console.log("show map")
+		
+			
+			//~ descarga listado estaciones/var
+		var getMonitoredPointsUrl = get_monitored_url + "?geojson=true"
+		$("#descargarPoints").attr('href',getMonitoredPointsUrl).html(getMonitoredPointsUrl)
+
 	})
 
 	function setGeneralCategoryOption(generalCategory) {
@@ -1120,6 +1143,8 @@
 			})
 		})
 		global.map.addLayer(global.estaciones_wms_layer)
+		global.map.on("singleclick", evt => mapOnSingleClick(evt))		
+		$("div#maplegend").show()	
 	}
 
 	function getMonitoredPointParams(search_filters) {
@@ -1144,14 +1169,14 @@
 		}
 		if(search_filters.fuentesId) {
 			monitoredpointsparams.fuentes_id = search_filters.fuentesId
-			// var get_monitored_url = "getMonitoredAreas"
-			// var estaciones_feature_type = "polygon"
-			// monitoredpointsparams.tipo = "areal"
+			var get_monitored_url = "getMonitoredAreas"
+			var estaciones_feature_type = "polygon"
+			monitoredpointsparams.tipo = "areal"
 		} else if(monitoredpointsparams.tipo == "areal") {
 			alert("Falta fuentesId. Por favor seleccione uno para realizar la búsqueda de series areales")
 		} else {
-			// var get_monitored_url = "getMonitoredPoints"
-			// var estaciones_feature_type = "point"
+			var get_monitored_url = "getMonitoredPoints"
+			var estaciones_feature_type = "point"
 			monitoredpointsparams.tipo = "puntual"
 		}
 		monitoredpointsparams.timestart=$("input#timestart").val()
@@ -1181,15 +1206,21 @@
 		if(search_filters.generalCategory) {
 			monitoredpointsparams.GeneralCategory = search_filters.generalCategory
 		}
+		// if(search_filters.limit) {
+		//	monitoredpointsparams.limit = search_filters.limit
+		//} else
+		if (global.default_config.series_page_size) {
+			monitoredpointsparams.limit = global.default_config.series_page_size
+		}
 		global.monitoredpointsparams = monitoredpointsparams
-		return monitoredpointsparams
+		return [get_monitored_url,monitoredpointsparams,estaciones_feature_type]
 	}
-	function getMonitoredPoints(search_filters) {
-		var monitoredpointsparams = getMonitoredPointParams(search_filters)
+
+	function setChooseAddSeriesSelect(url,monitoredpointsparams) {
 		$("form#chooseaddseries select[name=series_id]").select2({
 			minimumInputLength: 3,
 			ajax: {
-   				url: 'getMonitoredPoints', //?' + new URLSearchParams(monitoredpointsparams).toString(),
+   				url: url, //?' + new URLSearchParams(monitoredpointsparams).toString(),
     			dataType: 'json',
     			data: function (params) {
 					var query = {...monitoredpointsparams}
@@ -1216,102 +1247,96 @@
 				delay: 500
   			}
 		})
-		
-		// $.get(get_monitored_url,monitoredpointsparams)
-		// .then(points=>{
-		$("body").css("cursor","default")
-		//	if(!points || !points.features) {
-		//		alert("0: No se encontraron series")
-		//	} else if (points.features.length == 0) {
-		//		alert("1: No se encontraron series")
-		//	}
-		$("button#refresh").removeAttr("disabled")
-		//	gPoints = points
-			// read points from GeoJSON and add layer to map
-		//	var featEstaciones = (new ol.format.GeoJSON()).readFeatures(points)
-		//	var sourceEstaciones = new ol.source.Vector({
-		//		projection: 'EPSG:4326',
-		//		features: featEstaciones
-		//	})			
-		//	layerEstaciones = new ol.layer.Vector({
-		//		source: sourceEstaciones,
-		//		style: (estaciones_feature_type == "point") ? styleFunction : polygonStyleFunction,
-		//		zIndex: 1
-		//	})
+	}
+	function getMonitoredPoints(get_monitored_url,monitoredpointsparams,estaciones_feature_type) {
+		const params = {geojson: true, ...monitoredpointsparams}
+		$.get(get_monitored_url,params)
+		.then(points=>{
+			$("body").css("cursor","default")
+			if(!points || !points.features) {
+				alert("0: No se encontraron series")
+			} else if (points.features.length == 0) {
+				alert("1: No se encontraron series")
+			}
+			$("button#refresh").removeAttr("disabled")
+			gPoints = points
+				// read points from GeoJSON and add layer to map
+			if(points.features.length) {
+				var featEstaciones = (new ol.format.GeoJSON()).readFeatures(points)
+				var sourceEstaciones = new ol.source.Vector({
+					projection: 'EPSG:4326',
+					features: featEstaciones
+				})			
+				layerEstaciones = new ol.layer.Vector({
+					source: sourceEstaciones,
+					style: (estaciones_feature_type == "point") ? styleFunction : polygonStyleFunction,
+					zIndex: 1
+				})
+				
+				global.map.addLayer(layerEstaciones)
+				//add map click interaction: popup table. Then clicking any row refreshes page with the corresponding data
+				global.map.on("singleclick", evt => mapOnSingleClickClientSide(evt))
 			
-		//	global.map.addLayer(layerEstaciones)
-			//add map click interaction: popup table. Then clicking any row refreshes page with the corresponding data
-		global.map.on("singleclick", evt => mapOnSingleClick(evt))
-			//add map click interaction: popup table. Then clicking any row refreshes page with the corresponding data
-			// add map interaction on hover point change cursor to pointer & display station name and id
-		//	global.map.on('pointermove', evt => mapOnPointerMove(evt))
-			// add listener to maptab: on click update map size
-		$(".nav-tabs a#maptab").on('shown.bs.tab', function(e){
-			global.map.updateSize()
-		})
-			// show legend
-			//~ console.log("show map")
-		$("div#maplegend").show()
-			
-			//~ descarga listado estaciones/var
-		var getMonitoredPointsUrl = "getMonitoredPoints?geojson=true"
-		$("#descargarPoints").attr('href',getMonitoredPointsUrl).html(getMonitoredPointsUrl)
-			
-			// llena tabla de series
-			
-		//	gPoints.sortSeries = function() {
-		//		gPoints.sort( (a,b)=>{
-		//			if (a.estacion_id < b.estacion_id) {
-		//				return -1
-		//			} else if (a.estacion_id > b.estacion_id) {
-		//				return 1
-		//			} else { // misma estacion
-		//				if(a.var_id < b.var_id) {
-		//					return -1
-		//				} else {
-		//					return 1
-		//				}
-		//			}
-		//		})
-		//	}
+				//add map click interaction: popup table. Then clicking any row refreshes page with the corresponding data
+				// add map interaction on hover point change cursor to pointer & display station name and id
+				global.map.on('pointermove', evt => mapOnPointerMove(evt))
+				// add listener to maptab: on click update map size
+				$(".nav-tabs a#maptab").on('shown.bs.tab', function(e){
+					global.map.updateSize()
+				})
 
-		global.isWriter = {{writer}}
-		// global.monitoredpointsparams = monitoredpointsparams
+				if(points.next_page_url) {
+					loadPointsNextPage(points.next_page_url,points,sourceEstaciones,{{writer}})
+				}
+			}
+			$("div#maplegend").show()
+				// llena tabla de series
+				
+			//	gPoints.sortSeries = function() {
+			//		gPoints.sort( (a,b)=>{
+			//			if (a.estacion_id < b.estacion_id) {
+			//				return -1
+			//			} else if (a.estacion_id > b.estacion_id) {
+			//				return 1
+			//			} else { // misma estacion
+			//				if(a.var_id < b.var_id) {
+			//					return -1
+			//				} else {
+			//					return 1
+			//				}
+			//			}
+			//		})
+			//	}
+
 			
-		makeSeriesEditTable($("div.tabcontent#tabla_series"),undefined,{{writer}},search_filters,monitoredpointsparams.tipo)
-		
-			// var flag=false
-			// var matched_point
-			// var table_rows = []
-			// var options = points.features.map(p=>{
-			// 	var selected=false
-			// 	if(search_filters.seriesId) {
-			// 		if(p.properties.series_id == search_filters.seriesId) {
-			// 			//~ console.log(p.properties)
-			// 			flag=true
-			// 			selected=true
-			// 			matched_point=p
-			// 		}
-			// 	} 
-			// 	var name = p.properties.estacion_id + ": " + ((p.properties.rio) ? p.properties.rio + "@" : "") + ((p.properties.nombre) ? p.properties.nombre.substring(0,30) : p.properties.estacion_id) + " (" + p.properties.var_name + ") [" + p.properties.series_id + "]"
-			// 	return "<option value="+p.properties.series_id + " " + ((selected) ? "selected" : "" ) + " >" + name + "</option>"
-			// })
-			// $("select#seriesId").append(options.join(""))
-			// $("form#chooseaddseries select[name=series_id]").append(options.join(""))
-			// if(points.next_page_url) {
-			// 	loadPointsNextPage(points.next_page_url,points,sourceEstaciones,{{writer}})
-			// }
-			// if(!flag) {
-			// 	console.log("seriesId not found")
-			// 	return
-			// }
-		if(search_filters.seriesId) {
-			loadSerie(search_filters) // ,matched_point)
-		}
-		// }).fail(e=>{
-		// 	$("body").css("cursor","default")
-		// 	alert(e.message)
-		// })
+			
+				// var flag=false
+				// var matched_point
+				// var table_rows = []
+				// var options = points.features.map(p=>{
+				// 	var selected=false
+				// 	if(search_filters.seriesId) {
+				// 		if(p.properties.series_id == search_filters.seriesId) {
+				// 			//~ console.log(p.properties)
+				// 			flag=true
+				// 			selected=true
+				// 			matched_point=p
+				// 		}
+				// 	} 
+				// 	var name = p.properties.estacion_id + ": " + ((p.properties.rio) ? p.properties.rio + "@" : "") + ((p.properties.nombre) ? p.properties.nombre.substring(0,30) : p.properties.estacion_id) + " (" + p.properties.var_name + ") [" + p.properties.series_id + "]"
+				// 	return "<option value="+p.properties.series_id + " " + ((selected) ? "selected" : "" ) + " >" + name + "</option>"
+				// })
+				// $("select#seriesId").append(options.join(""))
+				// $("form#chooseaddseries select[name=series_id]").append(options.join(""))
+			
+				// if(!flag) {
+				// 	console.log("seriesId not found")
+				// 	return
+				// }
+		}).fail(e=>{
+			$("body").css("cursor","default")
+		 	alert(e.message)
+		})
 	}
 	function loadSerie(search_filters,matched_point) {
 		var timestart, timeend
@@ -2071,6 +2096,76 @@
 		} 
 		
 	}
+
+	function mapOnSingleClickClientSide(evt) {
+		$('div.popover').remove()
+		if($("input#toggleDraw").prop("checked")) {
+			return
+		}
+		var pixel = evt.pixel
+		var coordinate = evt.coordinate
+		var features = global.map.getFeaturesAtPixel(pixel, {layerFilter:function(layerCandidate) {
+				if(layerCandidate.getZIndex() == 1) {
+					return true
+				} else {
+					return false
+				}
+			}, hitTolerance: 10})
+		global.content.innerHTML = "<h4>Estaciones</h4><table><tbody><thead><tr><th>fuente</th><th>id</th><th>nombre</th><th>variable</th><th>series_id</th><th>obs</th><th>sim</th></tr></thead></tbody></table>"
+		features.map(f=>{
+			var data_availability = f.get('data_availability')
+			var bgcolor = "#ffffff"
+			var outline = null
+			var obs = "no"
+			var sim = "no"
+			var fontColor = "white"
+			if(data_availability) {
+				obs = (data_availability.indexOf("H") > -1  || data_availability.indexOf("T") > -1 ) ? data_availability.replace(/\+.*$/,"") : "no"
+				sim = (data_availability.indexOf("S") > -1) ? "sí" : "no"
+				if(stylePars[data_availability]) {
+					bgcolor = "#" + stylePars[data_availability].fill.map(c=> rgbToHex(c)).join("").substring(0,6)
+					outline = '3px solid #' + stylePars[data_availability].stroke.map(c=> rgbToHex(c)).join("").substring(0,6)
+					fontColor = stylePars[data_availability].fontColor
+				} 
+			}
+			$("div#popup-content table tbody").append(
+				$("<tr id=" + f.get('series_id') + "><td>" + f.get('fuente') + "</td><td>" + f.get('estacion_id') + "</td><td>" + f.get('nombre') + "</td><td>" + f.get('var_name') + "</td><td>" + f.get('series_id') + "</td><td>"+obs+"</td><td>"+sim+"</td></tr>")
+				.css({'background-color': bgcolor, 'outline': outline, 'outline-offset':"-3px", 'color': fontColor})
+				.attr({"data-toggle":"popover", "data-placement":"top", "title": "acción"})
+				//~ .on('click',function(evt) {
+					//~ $('div#popup-content tr[data-toggle="popover"]').popover('dispose')
+				//~ })
+			)
+		})
+		$('div#popup-content tr[data-toggle="popover"]').popover({
+			html: true,
+			template: '<div class="popover" role="tooltip"><div class="arrow"></div><h3 class="popover-header"></h3><div class="popover-body"></div></div>',
+			trigger: "click",
+			content: function() {
+				return "<div class=popovercontent id="+$(this).attr('id')+"></div>"
+			}
+		})
+		.on('show.bs.popover', function (evt) {
+			$('div#popup-content tr[data-toggle="popover"][id!='+$(evt.target).attr('id')+']').popover('hide')
+		})
+		.on('shown.bs.popover', function (evt) {
+			console.log("popover shown")
+			$("div#"+$(evt.target).attr('id')+".popovercontent").empty().append(
+				$("<button>Ir a serie</button>").attr({
+					id: $(evt.target).attr('id')
+				}).on('click',reloadWithPars)						
+			)
+			if($("div#chart_container")[0].hasAttribute("data-highcharts-chart")) {
+				$("div#"+$(evt.target).attr('id')+".popovercontent").append(
+					$("<button>Agregar a gráfico</button>").attr({
+						id: $(evt.target).attr('id')
+					}).on('click',addToChart)
+				)
+			}
+		})
+		global.overlay.setPosition(coordinate)
+	}
+
 	function mapOnPointerMove(evt) {
 		if (!evt.dragging) {
 			if(global.map.hasFeatureAtPixel(global.map.getEventPixel(evt.originalEvent))) {
@@ -2110,8 +2205,14 @@
 			// old_points.push(...points.features)
 			// gPoints.push(...points.features)
 			// read points from GeoJSON and add features to layer
-			var featEstaciones = (new ol.format.GeoJSON()).readFeatures(points)
-			sourceEstaciones.addFeatures(featEstaciones)
+			if(points.features.length) {
+				var featEstaciones = (new ol.format.GeoJSON()).readFeatures(points)
+				sourceEstaciones.addFeatures(featEstaciones)
+				if(points.next_page_url) {
+					loadPointsNextPage(points.next_page_url,points,sourceEstaciones,writer,search_filters)
+				}
+			}
+			/*
 			// llena tabla de series
 			addSeriesEditTable($("div.tabcontent#tabla_series"),points,writer)
 			var flag=false
@@ -2132,9 +2233,9 @@
 			})
 			$("select#seriesId").append(options.join(""))
 			$("form#chooseaddseries select[name=series_id]").append(options.join(""))
-			if(points.next_page_url) {
-				loadPointsNextPage(points.next_page_url,points,sourceEstaciones,writer,search_filters)
-			}
+			*/
+			
+			/*
 			if(!flag) {
 				console.log("seriesId not found")
 				return
@@ -2160,6 +2261,7 @@
 			$("form#chooseaddseries input[name=timeend]").val(timeend.toISOString().substring(0,10))
 			$("form#choosepercentile input[name=timestart]").val(timestart.toISOString().substring(0,10))
 			$("form#choosepercentile input[name=timeend]").val(timeend.toISOString().substring(0,10))
+			*/
 		}).fail(e=>{
 			$("body").css("cursor","default")
 			alert(e.message)
