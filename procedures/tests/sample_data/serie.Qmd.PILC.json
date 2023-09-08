@@ -1,0 +1,85 @@
+{
+    "tipo": "puntual",
+    "id": 26652,
+    "estacion": {
+        "id": 55,
+        "nombre": "Puerto Pilcomayo",
+        "id_externo": "490",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -57.65,
+                -25.3666666666667
+            ]
+        },
+        "tabla": "alturas_prefe",
+        "provincia": "FORMOSA",
+        "pais": "Argentina",
+        "rio": "PARAGUAY",
+        "has_obs": true,
+        "tipo": "H",
+        "automatica": false,
+        "habilitar": true,
+        "propietario": "PNA",
+        "abreviatura": "PILC",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": 5.35,
+        "nivel_evacuacion": 6,
+        "nivel_aguas_bajas": 2.4,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null
+    },
+    "var": {
+        "id": 40,
+        "var": "Qmd",
+        "nombre": "Caudal medio diario",
+        "abrev": "caudalmediodia",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Discharge",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": "10",
+        "timeSupport": {
+            "years": 0,
+            "months": 0,
+            "days": 1,
+            "hours": 0,
+            "minutes": 0,
+            "seconds": 0,
+            "milliseconds": 0
+        },
+        "def_hora_corte": {
+            "years": 0,
+            "months": 0,
+            "days": 0,
+            "hours": 0,
+            "minutes": 0,
+            "seconds": 0,
+            "milliseconds": 0
+        }
+    },
+    "procedimiento": {
+        "id": 1,
+        "nombre": "medición directa",
+        "abrev": "medicion",
+        "descripcion": "Medición directa"
+    },
+    "unidades": {
+        "id": 10,
+        "nombre": "metros cúbicos por segundo",
+        "abrev": "m^3/s",
+        "UnitsID": 36,
+        "UnitsType": "Flow"
+    },
+    "fuente": {},
+    "date_range": {
+        "timestart": "1910-01-01T04:16:48.000Z",
+        "timeend": "2023-08-03T03:00:00.000Z",
+        "count": "27996"
+    },
+    "observaciones": []
+}

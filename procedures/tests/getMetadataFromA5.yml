@@ -1,5 +1,9 @@
 # yaml-language-server: $schema=../../public/schemas/sequence.json 
 sequence:
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor
+    jsonfile: sample_data/accessor_a5.json
 - procedureName: GetMetadataFromAccessorProcedure
   arguments:
     accessor_id: a5
@@ -47,3 +51,8 @@ sequence:
     arguments:
       class_name: serie
       all: true
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: accessor
+    filter:
+      name: a5

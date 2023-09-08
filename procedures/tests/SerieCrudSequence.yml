@@ -1,5 +1,9 @@
 # yaml-language-server: $schema=../../public/schemas/sequence.json 
 sequence:
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor
+    jsonfile: sample_data/accessor_a5.json
 - procedureName: DownloadFromAccessorProcedure
   arguments:
     accessor_id: a5
@@ -10,7 +14,7 @@ sequence:
       timeend: 2021-01-01 00:00:00
     options:
       output_individual_files:
-        base_path: sample_data
+        base_path: outputs
         pattern: serie.{{var.var}}.{{estacion.abreviatura}}
   tests:
   - testName: ResultIsInstanceOfTest
@@ -19,14 +23,22 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: serie
-      output: sample_data/serie.Qmd.PILC.json
+      output: outputs/serie.Qmd.PILC.json
       index: 0
+# - procedureName: UpdateProcedure
+#   arguments:
+#     class_name: serie
+#     filter:
+#       tipo: puntual
+#       id: 26652
+#     update:
+#       proc_id: 1
 - procedureName: CreateProcedure
   arguments:
     class_name: serie
     # elements:
-    jsonfile: sample_data/serie.Qmd.PILC.json
-    output: sample_data/created_serie.json
+    jsonfile: outputs/serie.Qmd.PILC.json
+    output: outputs/created_serie.json
     options:
       upsert_estacion: true
   tests:
@@ -39,7 +51,7 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: serie
-      output: sample_data/created_serie.json
+      output: outputs/created_serie.json
 - procedureName: ReadProcedure
   arguments:
     class_name: serie
@@ -47,7 +59,7 @@ sequence:
       series_id: [26652]
       timestart: 1990-01-01 00:00:00
       timeend: 2021-01-01 00:00:00
-    output: sample_data/read_series.json 
+    output: outputs/read_series.json 
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -58,7 +70,7 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: serie
-      output: sample_data/read_series.json
+      output: outputs/read_series.json
 - procedureName: UpdateProcedure
   arguments:
     class_name: serie
@@ -67,7 +79,7 @@ sequence:
       id: 26652
     update:
       proc_id: 5
-    output: sample_data/updated_serie.json 
+    output: outputs/updated_serie.json 
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -80,7 +92,7 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: serie
-      output: sample_data/updated_serie.json
+      output: outputs/updated_serie.json
 - procedureName: UpdateProcedure
   arguments:
     class_name: serie
@@ -89,7 +101,7 @@ sequence:
       id: 26652
     update:
       proc_id: 1
-    output: sample_data/updated_serie.json 
+    output: outputs/updated_serie.json 
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -102,14 +114,14 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: serie
-      output: sample_data/updated_serie.json
+      output: outputs/updated_serie.json
 - procedureName: DeleteProcedure
   arguments:
     class_name: serie
     filter:
       tipo: puntual
       id: 26652
-    output: sample_data/deleted_serie.json
+    output: outputs/deleted_serie.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -122,12 +134,12 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: serie
-      output: sample_data/deleted_serie.json
+      output: outputs/deleted_serie.json
 - procedureName: CreateProcedure
   arguments:
     class_name: serie
-    jsonfile: sample_data/deleted_serie.json
-    output: sample_data/recreated_serie.json
+    jsonfile: outputs/deleted_serie.json
+    output: outputs/recreated_serie.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -140,4 +152,15 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: serie
-      output: sample_data/recreated_serie.json
+      output: outputs/recreated_serie.json
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      id: 26652
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: accessor
+    filter:
+      name: a5

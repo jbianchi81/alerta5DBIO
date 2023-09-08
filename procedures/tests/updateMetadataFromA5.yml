@@ -1,5 +1,9 @@
 # yaml-language-server: $schema=../../public/schemas/sequence.json 
 sequence:
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor
+    jsonfile: sample_data/accessor_a5.json
 - procedureName: UpdateMetadataFromAccessorProcedure
   arguments:
     accessor_id: a5
@@ -7,7 +11,7 @@ sequence:
       tabla: alturas_prefe
       proc_id: [1,2]
       # estacion_id: 29
-    output: /tmp/a5_meta.json
+    output: outputs/a5_meta.json
   tests:
   - testName: TruthyTest
   - testName: NonEmptyArrayTest 
@@ -47,3 +51,20 @@ sequence:
     arguments:
       class_name: serie
       all: true
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: serie
+    filter:
+      tabla: alturas_prefe
+      proc_id: [1,2]
+      # estacion_id: 29
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: estacion
+    filter:
+      tabla: alturas_prefe
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: accessor
+    filter:
+      name: a5

@@ -280,14 +280,22 @@ internal.Accessor = class {
 		if(!this.engine.getSeries) {
 			var updated_observaciones = await this.engine.update(filter,options)
 			var series_id_list = [new Set(updated_observaciones.map(o=>o.series_id))]
-			return series_id_list.map(series_id=>{
+			const series = []
+			for(var series_id of series_id_list) {
 				const observaciones = new CRUD.observaciones(updated_observaciones.filter(o=>o.series_id == series_id))
-				return new CRUD.serie({
+				const serie = new CRUD.serie({
 					id: series_id,
 					tipo: observaciones.tipo,
 					observaciones: observaciones
 				})
-			})
+				series.push(serie)
+			}
+			var types = Array.from(new Set(series.map(s=>s.tipo)))
+			for(var tipo of types) {
+				console.log("refreshing date range of series " + tipo)
+				await CRUD.serie.refreshDateRange(tipo)
+			}
+			return series
 			// throw("getSeries not defined for this accessor")
 		}
 		var series_filter = {...filter}
@@ -320,6 +328,11 @@ internal.Accessor = class {
 					console.error(e)
 				}
 			}
+		}
+		var types = Array.from(new Set(series.map(s=>s.tipo)))
+		for(var tipo of types) {
+			console.log("refreshing date range of series " + tipo)
+			await CRUD.serie.refreshDateRange(tipo)
 		}
 		return results
 	}

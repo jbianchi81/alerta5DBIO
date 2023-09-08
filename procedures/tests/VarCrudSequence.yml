@@ -5,43 +5,47 @@ sequence:
     class_name: var
     # elements:
     jsonfile: sample_data/sample_var.json
-    output: sample_data/created_var.json
+    output: outputs/created_var.json
   tests:
   - testName: ArrayLengthTest
     arguments:
-      min_length: 77
+      min_length: 2
+      max_length: 2
   - testName: ResultIsInstanceOfTest
     arguments:
       class_name: var
   - testName: OutputFileTest
     arguments:
       class_name: var
-      output: sample_data/created_var.json
+      output: outputs/created_var.json
 - procedureName: ReadProcedure
   arguments:
     class_name: var
-    # filter:
-    #   id: [1,2,3,4,5]
-    output: sample_data/read_var.json 
+    filter:
+      id:
+      - 999
+      - 1000
+    output: outputs/read_var.json 
   tests:
   - testName: ArrayLengthTest
     arguments:
-      min_length: 77
+      min_length: 2
+      max_length: 2
   - testName: ResultIsInstanceOfTest
     arguments:
       class_name: var
   - testName: OutputFileTest
     arguments:
       class_name: var
-      output: sample_data/read_var.json
+      output: outputs/read_var.json
 - procedureName: UpdateProcedure
   arguments:
     class_name: var
     filter:
-      id: 1
+      id: 999
     update:
       abrev: precip_d_met
-    output: sample_data/updated_var.json 
+    output: outputs/updated_var.json 
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -54,18 +58,18 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: var
-      output: sample_data/updated_var.json
+      output: outputs/updated_var.json
 - procedureName: DeleteProcedure
   arguments:
     class_name: var
     filter:
-      var: Tmin
-    output: sample_data/deleted_var.json
+      var: Psampl
+    output: outputs/deleted_var.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
       property_name: var
-      property_value: Tmin
+      property_value: Psampl
   - testName: ArrayLengthTest
     arguments:
       min_length: 1
@@ -73,17 +77,17 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: var
-      output: sample_data/deleted_var.json
+      output: outputs/deleted_var.json
 - procedureName: CreateProcedure
   arguments:
     class_name: var
-    jsonfile: sample_data/deleted_var.json
-    output: sample_data/recreated_var.json
+    jsonfile: outputs/deleted_var.json
+    output: outputs/recreated_var.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
       property_name: var
-      property_value: Tmin
+      property_value: Psampl
   - testName: ArrayLengthTest
     arguments:
       min_length: 1
@@ -91,4 +95,16 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: var
-      output: sample_data/recreated_var.json
+      output: outputs/recreated_var.json
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: var
+    filter:
+      id:
+      - 999
+      - 1000
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 2
+      max_length: 2

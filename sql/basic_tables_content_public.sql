@@ -177,6 +177,8 @@ COPY public.var (id, var, nombre, abrev, type, datatype, valuetype, "GeneralCate
 61	Prh	Presión barométrica media horaria	preshora	num	Average	Field Observation	Climate	Barometric pressure	Air	\N	17	01:00:00	00:00:00
 65	ugrd	Viento - componente u	ugrd	num	Continuous	Model Simulation Result	Meteorology	Wind speed	Air	\N	355	00:00:00	\N
 66	vgrd	Viento - componente v	vgrd	num	Continuous	Model Simulation Result	Meteorology	Wind speed	Air	\N	355	00:00:00	\N
+85	H1h	Altura hidrométrica horaria	alturahora	num	Continuous	Field Observation	Hydrology	Gage height	Surface Water	\N	11	01:00:00	\N
+87	Q1h	Caudal horario	caudalhora	num	Continuous	Field Observation	Hydrology	Discharge	Surface Water	\N	10	01:00:00	\N
 \.
 
 

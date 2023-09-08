@@ -1,17 +1,21 @@
 # yaml-language-server: $schema=../../public/schemas/sequence.json 
 sequence:
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor
+    jsonfile: sample_data/accessor_a5.json
 - procedureName: DownloadFromAccessorProcedure
   arguments:
     accessor_id: a5
     filter:
       tipo: raster
-      series_id: 3
-      timestart: 2023-02-01 09:00:00
-      timeend: 2023-02-04 09:00:00
+      series_id: 8
+      timestart: 2023-09-01T12:00:00.000Z
+      timeend: 2023-09-08T12:00:00.000Z
     output_format: raster
     options:
       output_individual_files:
-        base_path: sample_data
+        base_path: outputs
         pattern: serie.rast.{{id}}.{{timestart}}
         iter_field: observaciones
   tests:
@@ -21,9 +25,17 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: observacion
-      output: sample_data/serie.rast.3.2023-02-01T12:00:00.000Z.tif
-      output_format: raster
-      result_deep_property: 0.observaciones.0
+      output: outputs/serie.rast.8.2023-09-01T12:00:00.000Z.tif
+      output_format: buffer
+      result_deep_property: 0.observaciones.0.valor
+- procedureName: CreateProcedure
+  arguments:
+    class_name: fuente
+    jsonfile: sample_data/fuente.json
+- procedureName: CreateProcedure
+  arguments:
+    class_name: escena
+    jsonfile: sample_data/escena.json
 - procedureName: CreateProcedure
   arguments:
     class_name: serie
@@ -31,9 +43,13 @@ sequence:
 - procedureName: CreateProcedure
   arguments:
     class_name: observacion
-    # elements:
-    rasterfile: sample_data/serie.rast.3.2023-02-01T12:00:00.000Z.tif
-    output: /tmp/created_obs.tif
+    elements:
+    - tipo: raster
+      series_id: 3
+      timestart: 2023-09-01T12:00:00.000Z
+      timeend: 2023-09-02T12:00:00.000Z
+      filename: outputs/serie.rast.8.2023-09-01T12:00:00.000Z.tif
+    output: outputs/created_obs.tif
     output_format: raster
     options:
       upsert_estacion: true
@@ -47,17 +63,17 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: observacion
-      output: /tmp/created_obs.tif
-      output_format: raster
-      index: 0
+      output: outputs/created_obs.tif
+      output_format: buffer
+      result_deep_property: 0.valor
 - procedureName: ReadProcedure
   arguments:
     class_name: observacion
     filter:
       tipo: raster
       series_id: 3
-      timestart: 2023-02-01T12:00:00.000Z
-    output: /tmp/read_obs.tif
+      timestart: 2023-09-01T12:00:00.000Z
+    output: outputs/read_obs.tif
     output_format: raster 
   tests:
   - testName: ArrayLengthTest
@@ -69,19 +85,19 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: observacion
-      output: /tmp/read_obs.tif
-      output_format: raster
-      index: 0
+      output: outputs/read_obs.tif
+      output_format: buffer
+      result_deep_property: 0.valor
 - procedureName: UpdateProcedure
   arguments:
     class_name: observacion
     filter:
       tipo: raster
       series_id: 3
-      timestart: 2023-02-01T12:00:00.000Z
+      timestart: 2023-09-01T12:00:00.000Z
     update:
       timeupdate: 2023-03-01T12:00:00.001Z
-    output: /tmp/updated_obs.tif 
+    output: outputs/updated_obs.tif 
     output_format: raster
   tests:
   - testName: PropertyEqualsTest
@@ -95,23 +111,23 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: observacion
-      output_format: raster
-      index: 0
-      output: /tmp/updated_obs.tif
+      output_format: buffer
+      result_deep_property: 0.valor
+      output: outputs/updated_obs.tif
 - procedureName: DeleteProcedure
   arguments:
     class_name: observacion
     filter:
       tipo: raster
       series_id: 3
-      timestart: 2023-02-01T12:00:00.000Z 
-    output: /tmp/deleted_obs.tif
+      timestart: 2023-09-01T12:00:00.000Z
+    output: outputs/deleted_obs.tif
     output_format: raster
   tests:
   - testName: PropertyEqualsTest
     arguments:
       property_name: timestart
-      property_value: 2023-02-01T12:00:00.000Z
+      property_value: 2023-09-01T12:00:00.000Z
   - testName: ArrayLengthTest
     arguments:
       min_length: 1
@@ -119,6 +135,27 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: observacion
-      output: /tmp/deleted_obs.tif
-      output_format: raster
-      index: 0
+      output: outputs/deleted_obs.tif
+      output_format: buffer
+      result_deep_property: 0.valor
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: serie
+    filter:
+      tipo: raster
+      id: 3
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: escena
+    filter:
+      id: 15
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: fuente
+    filter:
+      id: 5
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: accessor
+    filter:
+      name: a5

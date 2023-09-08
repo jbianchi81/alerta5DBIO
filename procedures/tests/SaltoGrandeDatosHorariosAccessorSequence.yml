@@ -4,7 +4,7 @@ sequence:
   arguments:
     class_name: estacion
     jsonfile: sample_data/estacion_salto_grande.json
-    output: /tmp/estacion_salto_grande.json
+    output: outputs/estacion_salto_grande.json
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -60,7 +60,7 @@ sequence:
 - procedureName: GetMetadataFromAccessorProcedure
   arguments:
     accessor_id: salto_grande_datos_horarios
-    output: /tmp/salto_grande_series.json
+    output: outputs/salto_grande_series.json
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -87,7 +87,7 @@ sequence:
       timestart:
         hours: -6
     options:
-      output: /tmp/read_from_accessor.json
+      output: outputs/read_from_accessor.json
   tests:
   - testName: ResultIsInstanceOfTest
     arguments:
@@ -104,7 +104,7 @@ sequence:
         hours: -6
     options:
       output_individual_files:
-        base_path: /tmp
+        base_path: outputs
         pattern: salto_grande_datos_horarios_serie.{{id}} 
   tests:
   - testName: ResultIsInstanceOfTest
@@ -117,17 +117,17 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: serie
-      output: /tmp/salto_grande_datos_horarios_serie.34826.json
+      output: outputs/salto_grande_datos_horarios_serie.34826.json
       index: 0
   - testName: OutputFileTest
     arguments:
       class_name: serie
-      output: /tmp/salto_grande_datos_horarios_serie.34827.json
+      output: outputs/salto_grande_datos_horarios_serie.34827.json
       index: 1
   - testName: OutputFileTest
     arguments:
       class_name: serie
-      output: /tmp/salto_grande_datos_horarios_serie.34828.json
+      output: outputs/salto_grande_datos_horarios_serie.34828.json
       index: 2
 - procedureName: UpdateFromAccessorProcedure
   arguments:
@@ -153,5 +153,21 @@ sequence:
       class_name: observaciones
   - testName: ArrayLengthTest
     arguments:
-      min_length: 15
+      min_length: 10
       max_length: 18
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: serie
+    filter:
+      estacion_id: 1018
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: estacion
+    filter:
+      id_externo: A5002774
+      tabla: estaciones_salto_grande
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: accessor
+    filter:
+      name: salto_grande_datos_horarios

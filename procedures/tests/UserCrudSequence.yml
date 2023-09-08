@@ -4,12 +4,12 @@ sequence:
 - procedureName: ReadProcedure
   arguments:
     class_name: user
-    output: /tmp/restore_users.json
+    output: outputs/restore_users.json
   tests:
   - testName: OutputFileTest
     arguments:
       class_name: user
-      output: /tmp/restore_users.json
+      output: outputs/restore_users.json
 - procedureName: CreateProcedure
   arguments:
     class_name: user
@@ -39,7 +39,7 @@ sequence:
     class_name: user
     filter:
       name: test
-    output: /tmp/user.json
+    output: outputs/user.json
   tests:
   - testName: PropertyEqualsTest
     arguments:
@@ -51,13 +51,13 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: user
-      output: /tmp/user.json
+      output: outputs/user.json
 - procedureName: ReadProcedure
   arguments:
     class_name: user
     filter:
       name: test
-    output: /tmp/user.csv
+    output: outputs/user.csv
     output_format: csv
     options:
       header: true
@@ -72,13 +72,13 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: user
-      output: /tmp/user.csv
+      output: outputs/user.csv
       output_format: csv
       header: true
 - procedureName: ReadProcedure
   arguments:
     class_name: user
-    output: /tmp/users.json
+    output: outputs/users.json
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -89,11 +89,11 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: user
-      output: /tmp/users.json
+      output: outputs/users.json
 - procedureName: ReadProcedure
   arguments:
     class_name: user
-    output: /tmp/users.csv
+    output: outputs/users.csv
     output_format: csv
     options:
       header: true
@@ -107,7 +107,7 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: user
-      output: /tmp/users.csv
+      output: outputs/users.csv
       output_format: csv
       header: true
 - procedureName: UpdateProcedure
@@ -117,7 +117,7 @@ sequence:
       name: test
     update:
       password: new
-    output: /tmp/user_upd.json
+    output: outputs/user_upd.json
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -133,13 +133,13 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: user
-      output: /tmp/user_upd.json
+      output: outputs/user_upd.json
 - procedureName: UpdateProcedure
   arguments:
     class_name: user
     update:
       password: new
-    output: /tmp/users_upd.json
+    output: outputs/users_upd.json
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -155,13 +155,13 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: user
-      output: /tmp/users_upd.json
+      output: outputs/users_upd.json
 - procedureName: DeleteProcedure
   arguments:
     class_name: user
     filter:
       name: test
-    output: /tmp/user_del.json
+    output: outputs/user_del.json
   tests:
   - testName: ResultIsInstanceOfTest
     arguments:
@@ -173,11 +173,11 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: user
-      output: /tmp/user_del.json
+      output: outputs/user_del.json
 - procedureName: DeleteProcedure
   arguments:
     class_name: user
-    output: /tmp/users_del.json
+    output: outputs/users_del.json
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -188,12 +188,12 @@ sequence:
   - testName: OutputFileTest
     arguments:
       class_name: user
-      output: /tmp/users_del.json
+      output: outputs/users_del.json
 # restore original users
 - procedureName: CreateProcedure
   arguments:
     class_name: user
-    jsonfile: /tmp/restore_users.json
+    jsonfile: outputs/restore_users.json
   tests:
   - testName: ResultIsInstanceOfTest
     arguments:

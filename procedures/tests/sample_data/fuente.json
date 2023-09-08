@@ -1,0 +1,50 @@
+{
+    "id": 5,
+    "nombre": "gfs_diario",
+    "data_table": "gfs_diario",
+    "data_column": "rast",
+    "tipo": "QPF",
+    "def_proc_id": 4,
+    "def_dt": {
+        "days": 1
+    },
+    "hora_corte": {
+        "hours": 9
+    },
+    "def_unit_id": 22,
+    "def_var_id": 1,
+    "fd_column": "fecha_emision",
+    "mad_table": "pmad_gfs",
+    "scale_factor": null,
+    "data_offset": null,
+    "def_pixel_height": 0.248963,
+    "def_pixel_width": 0.248756,
+    "def_srid": 4326,
+    "def_extent": {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [
+                    -90,
+                    -10
+                ],
+                [
+                    -40,
+                    -10
+                ],
+                [
+                    -40,
+                    -70
+                ],
+                [
+                    -90,
+                    -70
+                ],
+                [
+                    -90,
+                    -10
+                ]
+            ]
+        ]
+    }
+}

@@ -1,0 +1,69 @@
+{
+    "estacion": {
+        "nombre": "Nueva Palmira",
+        "id_externo": "380",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -58.422029,
+                -33.878478
+            ]
+        },
+        "tabla": "alturas_varios",
+        "provincia": "Colonia",
+        "pais": "URUGUAY",
+        "rio": "Uruguay",
+        "has_obs": true,
+        "tipo": "H",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "CARU",
+        "abreviatura": null,
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": 0.0275,
+        "id": 1699
+    },
+    "var": {
+        "var": "Hmd",
+        "nombre": "Altura hidrométrica media diaria",
+        "abrev": "alturamediadia",
+        "type": "num",
+        "datatype": "Average",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Hydrology",
+        "VariableName": "Gage height",
+        "SampleMedium": "Surface Water",
+        "def_unit_id": 11,
+        "timeSupport": {
+            "days": 1
+        },
+        "def_hora_corte": {},
+        "id": 39
+    },
+    "procedimiento": {
+        "nombre": "medición directa",
+        "abrev": "medicion",
+        "descripcion": "Medición directa",
+        "id": 1
+    },
+    "unidades": {
+        "nombre": "metros",
+        "abrev": "m",
+        "UnitsID": 52,
+        "UnitsType": "Length",
+        "id": 11
+    },
+    "tipo": "puntual",
+    "id": 34824,
+    "date_range": {
+        "timestart": null,
+        "timeend": null,
+        "count": null
+    }
+}

@@ -9,26 +9,33 @@
             "const": "DeleteProcedure"
         },
         "arguments": {
-            "type": "object",
-            "properties": {
-                "class_name": {
-                    "type": "string"
+            "allOf": [
+                {
+                    "$ref": "crudprocedure.json#/definitions/ProcedureArguments"
                 },
-                "filter": {
+                {
                     "type": "object",
                     "properties": {
-                        "timestart": {
-                            "$ref": "dateorinterval.json"
+                        "class_name": {
+                            "type": "string"
                         },
-                        "timeend": {
-                            "$ref": "dateorinterval.json"
-                        }                        
+                        "filter": {
+                            "type": "object",
+                            "properties": {
+                                "timestart": {
+                                    "$ref": "dateorinterval.json"
+                                },
+                                "timeend": {
+                                    "$ref": "dateorinterval.json"
+                                }                        
+                            },
+                            "additionalProperties": true
+                        }
                     },
-                    "additionalProperties": true
+                    "required": [
+                        "class_name"
+                    ]
                 }
-            },
-            "required": [
-                "class_name"
             ]
         }
     }

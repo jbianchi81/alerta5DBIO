@@ -84,6 +84,9 @@ internal.CrudProcedure = class  {
     }
     async runTests() {
         try {
+            if(this.prepare) {
+                this.prepare()
+            }
             this.result = await this.run()
             if(this.write_result) {
                 await this.writeResult()
@@ -687,12 +690,12 @@ internal.PropertyAggEqualsTest = class extends internal.CrudProcedureTest {
                 if(this.property_value) {
                     if(agg_value != this.property_value) {
                         value = false
-                        reason = `Result property ${this.property_name} aggregate ${this.agg_function} must equal ${this.property_value}`
+                        reason = `Result property ${this.property_name} aggregate ${this.agg_function} must equal ${this.property_value}. Instead, ${agg_value} was found`
                     }
                 } else if(this.property_range) {
                     if(agg_value < this.property_range[0] || agg_value > this.property_range[1]) {
                         value = false
-                        reason = `Result property ${this.property_name} aggregate ${this.agg_function} must fall within range ${this.property_range[0]} - ${this.property_range[1]}`
+                        reason = `Result property ${this.property_name} aggregate ${this.agg_function} must fall within range ${this.property_range[0]} - ${this.property_range[1]}. Instead, ${agg_value} was found`
                     }
                 }
             }
@@ -1000,14 +1003,18 @@ internal.OutputFileTest = class extends internal.CrudProcedureTest {
                         if(!result.hasOwnProperty(this.result_property_name)) {
                             value = false
                             reason = `Result is missing property ${this.result_property_name}`
-                        } else if(JSON.stringify(result[this.result_property_name][this.index]) !== JSON.stringify(parsed_content[this.index])) {
-                            value = false
-                            reason = `Parsed content at index ${this.index} differs from result at index ${this.index}`
+                        } else {
+                            var [is_equal, pos_string] = isDiffString(JSON.stringify(result[this.result_property_name][this.index]),JSON.stringify(parsed_content[this.index]))
+                            if(!is_equal) {
+                                value = false
+                                reason = `Parsed content at index ${this.index} differs from result at index ${this.index}:\n${pos_string}`
+                            }
                         }    
                     } else {
-                        if(JSON.stringify(result[this.index]) !== JSON.stringify(parsed_content[this.index])) {
+                        var [is_equal, pos_string] = isDiffString(JSON.stringify(result[this.index]),JSON.stringify(parsed_content[this.index]))
+                        if(!is_equal) {
                             value = false
-                            reason = `Parsed content at index ${this.index} differs from result at index ${this.index}`
+                            reason = `Parsed content at index ${this.index} differs from result at index ${this.index}:\n${pos_string}`
                         }
                     }
                 }
@@ -1020,35 +1027,40 @@ internal.OutputFileTest = class extends internal.CrudProcedureTest {
                     value = false
                     reason = `Result[0] is missing property ${this.result_property_name}`
                 } else if(result[0][this.result_property_name].toJSON && parsed_content.toJSON) {
-                    if(JSON.stringify(result[0][this.result_property_name].toJSON()) !== JSON.stringify(parsed_content.toJSON())) {
+                    var [is_equal, pos_string] = isDiffString(JSON.stringify(result[0][this.result_property_name].toJSON()),JSON.stringify(parsed_content.toJSON()))
+                    if(!is_equal) {
                         value = false
-                        reason = `File content differs from result[0][${this.result_property_name}]`
+                        reason = `File content differs from result[0][${this.result_property_name}]:\n${pos_string}`
                     }
                 } else if(result[0][this.result_property_name].length != parsed_content.length) {
                     value = false
                     reason = `File content length differs from result[0][${this.result_property_name}]`
                 } else {
                     for(var i in result[0][this.result_property_name]) {
-                        if(JSON.stringify(result[0][this.result_property_name][i]) !== JSON.stringify(parsed_content[i])) {
+                        var [is_equal, pos_string] = isDiffString(JSON.stringify(result[0][this.result_property_name][i]),JSON.stringify(parsed_content[i]))
+                        if(!is_equal) {
                             value = false
-                            reason = `File element ${i} differs from result[0][${this.result_property_name}][${i}]`
+                            reason = `File element ${i} differs from result[0][${this.result_property_name}][${i}]:\n${pos_string}`
                             break
                         }
                     }
                 }
             } else if(result.toJSON && parsed_content.toJSON) {
-                if(JSON.stringify(result.toJSON()) !== JSON.stringify(parsed_content.toJSON())) {
+                var [is_equal, pos_string] = isDiffString(JSON.stringify(result.toJSON()),JSON.stringify(parsed_content.toJSON()))
+                if(!is_equal) {
                     value = false
-                    reason = `File content differs from result`
+                    reason = `File content differs from result:\n${pos_string}`
                 }
             } else if(!Array.isArray(result)) {
                 if(!Array.isArray(parsed_content)) {
-                    if(JSON.stringify(result) !== JSON.stringify(parsed_content)) {
+                    var [is_equal, pos_string] = isDiffString(JSON.stringify(result), JSON.stringify(parsed_content))
+                    if(!is_equal) {
                         value = false
-                        reason = `File content differs from result`
+                        reason = `File content differs from result:\n${pos_string}`
                     }
                 } else {
-                    if(JSON.stringify(result) !== JSON.stringify(parsed_content[0])) {
+                    var [is_equal, pos_string] = isDiffString(JSON.stringify(result), JSON.stringify(parsed_content[0]))
+                    if(!is_equal) {
                         value = false
                         reason = `File element 0 differs from result`
                     }
@@ -1059,9 +1071,10 @@ internal.OutputFileTest = class extends internal.CrudProcedureTest {
                 reason = `File content length differs from output`
             } else {
                 for(var i in result) {
-                    if(JSON.stringify(result[i]) !== JSON.stringify(parsed_content[i])) {
+                    var [is_equal, pos_string] = isDiffString(JSON.stringify(result[i]), JSON.stringify(parsed_content[i]))
+                    if(!is_equal) {
                         value = false
-                        reason = `File element ${i} differs from result element ${i}`
+                        reason = `File element ${i} differs from result element ${i}:\n${pos_string}`
                         break
                     }
                 }
@@ -1202,8 +1215,8 @@ internal.UpdateMetadataFromAccessorProcedure = class extends internal.CrudProced
         // if(this.filter && this.filter.forecast_date) {
         //     this.filter.forecast_date = timeSteps.DateFromDateOrInterval(this.filter.forecast_date)
         // }
-        this.options = arguments[0].options
-        this.output = (arguments[0].output) ? arguments[0].output : undefined
+        // this.options = arguments[0].options
+        // this.output = (arguments[0].output) ? arguments[0].output : undefined
     }
     async run() {
         if(config.accessors && config.accessors[this.accessor_id]) {
@@ -1977,9 +1990,18 @@ internal.ValidateProcedure = class extends internal.CrudProcedure {
         } else {
             this.elements = arguments[0].elements
             if(Array.isArray(this.elements)) {
-                this.elements = this.elements.map(e=> new this.class(e))
+                for(var element of this.elements) {
+                    if(element.filename) {
+                        element.filename = path.resolve(this.files_base_dir,element.filename)
+                    }
+                    element = new this.class(element)
+                }
+                // this.elements = this.elements.map(e=> new this.class(e))
             } else {
-                this.elements = [new this.class(arguments[0])]
+                if(this.elements.filename) {
+                    this.elements.filename = path.resolve(this.files_base_dir,this.elements.filename)
+                }
+                this.elements = [new this.class(this.elements)]
             }
         }
     }
@@ -2037,9 +2059,26 @@ internal.CreateProcedure = class extends internal.CrudProcedure {
         } else {
             this.elements = arguments[0].elements
             if(Array.isArray(this.elements)) {
-                this.elements = this.elements.map(e=> new this.class(e))
+                for(var element of this.elements) {
+                    if(element.filename) {
+                        element.filename = path.resolve(this.files_base_dir,element.filename)
+                    }
+                    // element = new this.class(element)
+                }
             } else {
-                this.elements = [new this.class(this.elements)]
+                if(this.elements.filename) {
+                    this.elements.filename = path.resolve(this.files_base_dir, this.elements.filename)
+                }
+                this.elements = [this.elements]
+                // this.elements = [new this.class(this.elements)]
+            }
+        }
+    }
+    prepare() {
+        if(this.elements) {
+            this.elements = this.elements.map(e=>new this.class(e))
+            for(var i in this.elements) {
+                console.log({element: i,is_of_class: this.elements[i] instanceof this.class, class_name: this.class_name})
             }
         }
     }
@@ -2493,6 +2532,9 @@ internal.CrudProcedureSequenceRunner = class {
     }
     async runProcedure(i) {
         logger.info(`Running procedure ${i}, class ${this.sequence[i].procedureClass}`)
+        if(this.sequence[i].prepare) {
+            this.sequence[i].prepare()
+        }
         var result = await this.sequence[i].run()
         // result = new internal.ProcedureResult(result)
         if(this.sequence[i].write_result) {
@@ -2614,6 +2656,8 @@ internal.validateDataFile = function(crud_class,filename,property_name,format="y
         return internal.parseCsvFile(filename,crud_class,{header:header})
     } else if(format == "raster") {
         return internal.readRasterFile(filename,crud_class)
+    } else if(format == "buffer") {
+        return fs.readFileSync(filename)
     } else {
         return internal.validateYmlDataFile(crud_class,filename,property_name)
     }
@@ -3062,6 +3106,16 @@ const replacePlaceholders = function(string,object) {
         })
     }
     return string
+}
+
+function isDiffString(a, b) {
+    if(a === b) {
+        return [true, undefined]
+    } else {
+        var diff_pos = findFirstDiffPos(a, b)
+        var pos_strings = `${a.slice(Math.max(0,diff_pos-35),Math.min(diff_pos+35,a.length))}\n${b.slice(Math.max(0,diff_pos-35),Math.min(diff_pos+35,b.length))}`
+        return [false, pos_strings]
+    }
 }
 
 function findFirstDiffPos(a, b) {

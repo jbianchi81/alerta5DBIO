@@ -8,6 +8,22 @@
             "type": "string"
         },
         "arguments": {
+            "$ref": "#/definitions/ProcedureArguments"
+        },
+        "tests": {
+            "type": "array",
+            "items": {
+                "$ref": "crudproceduretest.json"
+            }
+        }
+    },
+    "required": [
+        "procedureName",
+        "arguments"
+    ],
+    "additionalProperties": false,
+    "definitions": {
+        "ProcedureArguments": {
             "type": "object",
             "properties": {
                 "options": {
@@ -23,19 +39,6 @@
                 }
             }
         },
-        "tests": {
-            "type": "array",
-            "items": {
-                "$ref": "crudproceduretest.json"
-            }
-        }
-    },
-    "required": [
-        "procedureName",
-        "arguments"
-    ],
-    "additionalProperties": false,
-    "definitions": {
         "CrudProcedureOptions": {
             "type": "object",
             "properties": {

@@ -585,12 +585,12 @@ internal.escena = class extends baseModel  {
 				} else {
 					this.id = arguments[0].id
 					this.nombre = arguments[0].nombre
-					this.geom = new internal.geometry(arguments[0].geom)
+					this.geom = (arguments[0].hasOwnProperty("geom")) ? new internal.geometry(arguments[0].geom) : undefined
 				}
 				break;
 			default:
 				this.nombre = arguments[0]
-				this.geom = new internal.geometry(arguments[1])
+				this.geom = (arguments[1]) ? new internal.geometry(arguments[1]) : undefined
 				break;
 		}
 	}
@@ -633,6 +633,42 @@ internal.escena = class extends baseModel  {
 			return internal.CRUD.getEscena(filter.id,options)
 		}
 		return internal.CRUD.getEscenas(filter,options)
+	}
+	async create() {
+		const created = await internal.CRUD.upsertEscena(this)
+		if(created) {
+			Object.assign(this,created)
+			return this
+		} else {
+			return
+		}
+	}
+
+	static async create(escenas) {
+		return internal.CRUD.upsertEscenas(escenas)
+	}
+
+	async delete() {
+		return internal.CRUD.deleteEscena(this.id)
+	}
+
+	static async delete(filter={}) {
+		var matches = await this.read(filter)
+		if(!matches) {
+			console.log("Nothing to delete")
+			return []
+		}
+		if(!Array.isArray(matches)) {
+			matches = [matches]
+		}
+		const deleted = []
+		for(var escena of matches) {
+			const deleted_ = await escena.delete()
+			if(deleted_) {
+				deleted.push(deleted_)
+			}
+		}
+		return deleted
 	}
 }
 
@@ -730,24 +766,32 @@ internal["var"] = class extends baseModel  {
 		// 		break;
 		// }
 	}
-	getId(pool) {
-		return pool.query("\
+	async getId(client) {
+		client = client ?? await global.pool.connect() 
+		var result = await client.query("\
 			SELECT id FROM var WHERE var=$1 AND \"GeneralCategory\"=$2\
-		",[this["var"], this.GeneralCategory]
-		).then(res=>{
-			if (res.rows.length>0) {
-				this.id = res.rows[0].id
+		",[this["var"], this.GeneralCategory])
+		if(result.rows.length) {
+			if(this.id) {
+				if(result.rows[0].id == this.id) {
+					return
+				} else {
+					throw("var already exists with different id")
+				}
+			} else {
+				this.id = result.rows[0].id
+			}
+		} else {
+			if(this.id) {
 				return
 			} else {
-				return pool.query("\
+				const new_id = await client.query("\
 				SELECT max(id)+1 AS id\
 				FROM var\
 				")
-				.then(res=>{
-					this.id = res.rows[0].id
-				})
+				this.id = new_id.rows[0].id
 			}
-		})
+		}
 	}
 	toString() {
 		return "{id:" + this.id + ",var:" + this["var"]+ ", nombre:" + this.nombre + ",abrev:" + this.abrev + ",type:" + this.type + ",datatype: " + this.datatype + ",valuetype:" + this.valuetype + ",GeneralCategory:" + this.GeneralCategory + ",VariableName:" + this.VariableName + ",SampleMedium:" + this.SampleMedium + ",def_unit_id:" + this.def_unit_id + ",timeSupport:" + JSON.stringify(this.timeSupport) + "}"
@@ -805,7 +849,7 @@ internal["var"] = class extends baseModel  {
 		return internal.CRUD.upsertVar(this)
 	}
 	static async read(filter={},options) {
-		if(filter.id) {
+		if(filter.id && !Array.isArray(filter.id)) {
 			return internal.CRUD.getVar(filter.id)
 		}
 		return internal.CRUD.getVars(filter)
@@ -931,10 +975,10 @@ internal.procedimiento = class extends baseModel  {
 	}
 	toJSON() {
 		return {
-			id: (this.id != null) ? parseInt(this.id) : null,
-			nombre: (this.nombre) ? this.nombre : null,
-			abrev: (this.abrev) ? this.abrev : null,
-			descripcion: (this.descripcion) ? this.descripcion : null
+			id: this.id, // (this.id != null) ? parseInt(this.id) : null,
+			nombre: this.nombre, // (this.nombre) ? this.nombre : null,
+			abrev: this.abrev, // (this.abrev) ? this.abrev : null,
+			descripcion: this.descripcion // (this.descripcion) ? this.descripcion : null
 		}
 	}
 }
@@ -1006,11 +1050,11 @@ internal.unidades = class extends baseModel  {
 	}
 	toJSON() {
 		return {
-			id: (this.id) ? parseInt(this.id) : null,
-			nombre: (this.nombre) ? this.nombre : null,
-			abrev: (this.abrev) ? this.abrev : null,
-			UnitsID: (this.UnitsID) ? this.UnitsID : null,
-			UnitsType: (this.UnitsType) ? this.UnitsType : null
+			id: this.id, // (this.id) ? parseInt(this.id) : null,
+			nombre: this.nombre, // (this.nombre) ? this.nombre : null,
+			abrev: this.abrev, // (this.abrev) ? this.abrev : null,
+			UnitsID: this.UnitsID, // (this.UnitsID) ? this.UnitsID : null,
+			UnitsType: this.UnitsType // (this.UnitsType) ? this.UnitsType : null
 		}
 	}
 	static async read(filter={}) {
@@ -1105,24 +1149,30 @@ internal.fuente = class extends baseModel {
 				break;
 		}
 	}
-	getId(pool) {
-		return pool.query("\
+	async getId(pool) {
+		const client = await pool.connect()
+		const existing_fuente = await client.query("\
 			SELECT id FROM fuentes WHERE nombre=$1 and tipo=$2\
-		",[this.nombre, this.tipo]
-		).then(res=>{
-			if (res.rows.length>0) {
-				this.id = res.rows[0].id
-				return
+		",[this.nombre, this.tipo])
+		if (existing_fuente.rows.length) {
+			this.id = existing_fuente.rows[0].id
+		} else {
+			if(this.id) {
+				const is_id_taken = await client.query("\
+					SELECT 1 FROM fuentes WHERE id=$1",[this.id]) 
+				if(is_id_taken.rows.length) {
+					throw("fuente id already taken")
+				}
 			} else {
-				return pool.query("\
-				SELECT max(id)+1 AS id\
-				FROM fuentes\
+				const new_id = await client.query("\
+					SELECT max(id)+1 AS id\
+					FROM fuentes\
 				")
-				.then(res=>{
-					this.id = res.rows[0].id
-				})
+				this.id = new_id.rows[0].id
 			}
-		})
+		}
+		client.release()
+		return
 	}
 	getConstraint(column_names) {
 		const match = this.constraints.filter(c=>c.check(column_names))
@@ -1156,30 +1206,30 @@ internal.fuente = class extends baseModel {
 	}
 	toJSON() {
 		return {
-			id: (this.id) ? parseInt(this.id) : null,
-			nombre: (this.nombre) ? this.nombre : null,
-			data_table: (this.data_table) ? this.data_table : null,
-			data_column: (this.data_column) ? this.data_column : null,
-			tipo: (this.tipo) ? this.tipo : null,
-			def_proc_id: (this.def_proc_id) ? parseInt(this.def_proc_id) : null,
-			def_dt: (this.def_dt) ? this.def_dt : null,
-			hora_corte: (this.hora_corte) ? this.hora_corte : null,
-			def_unit_id: (this.def_unit_id) ? parseInt(this.def_unit_id) : null,
-			def_var_id: (this.def_var_id) ? parseInt(this.def_var_id) : null,
-			fd_column: (this.fd_column) ? this.fd_column : null,
-			mad_table: (this.mad_table) ? this.mad_table : null,
-			scale_factor: (this.scale_factor) ? parseFloat(this.scale_factor) : null,
-			data_offset: (this.data_offset) ? parseFloat(this.data_offset) : null,
-			def_pixel_height: (this.def_pixel_height) ? parseFloat(this.def_pixel_height) : null,
-			def_pixel_width: (this.def_pixel_width) ? parseFloat(this.def_pixel_width) : null,
-			def_srid: (this.def_srid) ? parseInt(this.def_srid) : null,
-			def_extent: (this.def_extent) ? this.def_extent : null,
-			date_column: (this.date_column) ? this.date_column : null,
-			def_pixeltype: (this.def_pixeltype) ? this.def_pixeltype : null,
-			abstract: (this.abstract) ? this.abstract : null,
-			source: (this.source) ? this.source : null,
-			public: (this.public != null) ? Boolean(this.public) : null,
-			constraints: (this.constraints) ? this.constraints : null
+			id: this.id, // (this.id) ? parseInt(this.id) : null,
+			nombre: this.nombre, // (this.nombre) ? this.nombre : null,
+			data_table: this.data_table, // (this.data_table) ? this.data_table : null,
+			data_column: this.data_column, // (this.data_column) ? this.data_column : null,
+			tipo: this.tipo, // (this.tipo) ? this.tipo : null,
+			def_proc_id: this.def_proc_id, // (this.def_proc_id) ? parseInt(this.def_proc_id) : null,
+			def_dt: this.def_dt, // (this.def_dt) ? this.def_dt : null,
+			hora_corte: this.hora_corte, // (this.hora_corte) ? this.hora_corte : null,
+			def_unit_id: this.def_unit_id, // (this.def_unit_id) ? parseInt(this.def_unit_id) : null,
+			def_var_id: this.def_var_id, //(this.def_var_id) ? parseInt(this.def_var_id) : null,
+			fd_column: this.fd_column, // (this.fd_column) ? this.fd_column : null,
+			mad_table: this.mad_table, // (this.mad_table) ? this.mad_table : null,
+			scale_factor: this.scale_factor, // (this.scale_factor) ? parseFloat(this.scale_factor) : null,
+			data_offset: this.data_offset, // (this.data_offset) ? parseFloat(this.data_offset) : null,
+			def_pixel_height: this.def_pixel_height, // (this.def_pixel_height) ? parseFloat(this.def_pixel_height) : null,
+			def_pixel_width: this.def_pixel_width, // (this.def_pixel_width) ? parseFloat(this.def_pixel_width) : null,
+			def_srid: this.def_srid, // (this.def_srid) ? parseInt(this.def_srid) : null,
+			def_extent: this.def_extent, // (this.def_extent) ? this.def_extent : null,
+			date_column: this.date_column, // (this.date_column) ? this.date_column : null,
+			def_pixeltype: this.def_pixeltype, // (this.def_pixeltype) ? this.def_pixeltype : null,
+			abstract: this.abstract, // (this.abstract) ? this.abstract : null,
+			source: this.source, // (this.source) ? this.source : null,
+			public: this.public, // (this.public != null) ? Boolean(this.public) : null,
+			constraints: this.constraints // (this.constraints) ? this.constraints : null
 		}
 	}
 	static async read(filter={},options) {
@@ -1197,6 +1247,29 @@ internal.fuente = class extends baseModel {
 			return
 		}
 	}
+
+	async delete() {
+		return internal.CRUD.deleteFuente(this.id)
+	}
+
+	static async delete(filter={}) {
+		var matches = await this.read(filter)
+		if(!matches) {
+			console.log("Nothing to delete")
+			return []
+		}
+		if(!Array.isArray(matches)) {
+			matches = [matches]
+		}
+		const deleted = []
+		for(var fuente of matches) {
+			const deleted_ = await fuente.delete()
+			if(deleted_) {
+				deleted.push(deleted_)
+			}
+		}
+		return deleted
+	} 
 }
 
 internal.fuente.build_read_query = function(filter) {
@@ -1725,6 +1798,18 @@ internal.serie = class extends baseModel {
 		return (tipo == "areal") ? (options.guardadas) ? "series_areal_guardadas_date_range" : "series_areal_date_range" : (tipo == "rast" || tipo == "raster") ? (options.guardadas) ? "series_rast_guardadas_date_range" : "series_rast_date_range" : (options.guardadas) ? "series_guardadas_date_range" : "series_date_range"
 	}
 
+	static async refreshDateRange(tipo="puntual",options={},client) {
+		client = client ?? await global.pool.connect()
+		const date_range_table = this.getDateRangeTable(tipo,options)
+		return client.query(`REFRESH MATERIALIZED VIEW ${date_range_table}`)
+	}
+
+	async refreshDateRange(options={},client) {
+		client = client ?? await global.pool.connect()
+		const date_range_table = this.getDateRangeTable(options)
+		return client.query(`REFRESH MATERIALIZED VIEW ${date_range_table}`)
+	}
+
 	getSeriesTable() {
 		return (this.tipo == "areal") ? "series_areal" : (this.tipo == "rast" || this.tipo == "raster") ? "series_rast" : "series"
 	}
@@ -1732,7 +1817,7 @@ internal.serie = class extends baseModel {
 	async create(options) {
 		const result = await internal.CRUD.upsertSerie(this,options)
 		if(options && options.refresh_date_range) {
-			await global.pool.query(`REFRESH MATERIALIZED VIEW ${this.getDateRangeTable(options)}`)
+			await this.refreshDateRange(options) // global.pool.query(`REFRESH MATERIALIZED VIEW ${this.getDateRangeTable(options)}`)
 		}
 		this.refreshJsonView()
 		return result
@@ -1744,7 +1829,10 @@ internal.serie = class extends baseModel {
 		const results = await internal.CRUD.upsertSeries(series,options.all,options.upsert_estacion,options.generate_id,client)
 		if(options && options.refresh_date_range) {
 			if(results.length) {
-				await global.pool.query(`REFRESH MATERIALIZED VIEW ${this.getDateRangeTable(results[0].tipo,options)}`)
+				const types = [new Set(results.map(r=>r.tipo))]
+				for(var tipo of types) {
+					await this.refreshDateRange(tipo,options,client) // global.pool.query(`REFRESH MATERIALIZED VIEW ${this.getDateRangeTable(results[0].tipo,options)}`)
+				}
 			}
 		}
 		this.refreshJsonView()
@@ -1768,7 +1856,7 @@ internal.serie = class extends baseModel {
 			console.error("Serie with specified id not found. Nothing updated")
 			return
 		}
-		this.refreshJsonView()
+		this.constructor.refreshJsonView()
 		return internal.serie.read({tipo:this.tipo,id:result.rows[0].id})
 	}
 	updateQuery(changes={}) {
@@ -1802,14 +1890,17 @@ internal.serie = class extends baseModel {
 		}
 		const deleted = []
 		for(var serie of matches) {
-			console.log(serie instanceof this)
-			deleted.push(await serie.delete()) // internal.CRUD.deleteVar(matches[i].id))
+			// console.log(serie instanceof this)
+			const deleted_ = await serie.delete()
+			if(deleted_) { // internal.CRUD.deleteVar(matches[i].id))
+				deleted.push(deleted_)
+			}
 		}
 		this.refreshJsonView()
-		return matches.filter(m=>{
+		return deleted // matches.filter(m=>{
 			// filter out instances that could not be deleted
-			return (deleted.map(d=>d.id).indexOf(m.id) >= 0)
-		})
+		// 	return (deleted.map(d=>d.id).indexOf(m.id) >= 0)
+		// })
 	}
 	async delete() {
 		if(!this.id) {
@@ -1819,8 +1910,7 @@ internal.serie = class extends baseModel {
 		try {
 			var result = await internal.CRUD.deleteSerie(this.tipo,this.id)
 		} catch(e) {
-			console.error(e)
-			return
+			throw(e)
 		}
 		return result
 	}
@@ -2348,7 +2438,7 @@ internal.serie.build_read_query = function(filter={},options={}) {
 				table: "series_rast"
 			},public: {
 				type:"boolean_only_true",
-				table: "redes"
+				table: "fuentes"
 			}
 		}
 		table = `series_rast join (select id f_id,nombre fuentes_nombre,public from fuentes) fuentes on (fuentes.f_id=series_rast.fuentes_id) join (select id,nombre escena_nombre from escenas) escenas on (escenas.id=series_rast.escena_id) join (select id,nombre var_nombre from var) var on (var.id=series_rast.var_id) join (select id,nombre proc_nombre from procedimiento) procedimiento on (procedimiento.id=series_rast.proc_id) join (select id,nombre unit_nombre from unidades) unidades on (unidades.id=series_rast.unit_id)\
@@ -2704,6 +2794,8 @@ internal.observacion = class extends baseModel {
 						} else {
 							this.valor = arguments[0].valor
 						}
+					} else if(arguments[0].filename) {
+						this.valor = fs.readFileSync(arguments[0].filename)
 					}
 					this.id = arguments[0].id
 					this.tipo = (arguments[0].tipo) ? (arguments[0].tipo == "rast") ? "raster" : arguments[0].tipo : undefined
@@ -2880,7 +2972,7 @@ internal.observacion = class extends baseModel {
 			descripcion: (this.descripcion) ? this.descripcion : null,
 			unit_id: (this.unit_id) ? parseInt(this.unit_id) : null,
 			timeupdate: (this.timeupdate) ? this.timeupdate.toISOString() : null,
-			valor: (this.valor != null) ? (this.tipo == "rast" || this.tipo == "raster") ? this.rasterToJSON() : parseFloat(this.valor) : null,
+			valor: (this.valor) ? this.valor : null, // (this.valor != null) ? (this.tipo == "rast" || this.tipo == "raster") ? this.rasterToJSON() : parseFloat(this.valor) : null,
 			stats: (this.stats) ? this.stats : null
 		}
 	}
@@ -2922,6 +3014,8 @@ internal.observacion = class extends baseModel {
 						if(header[i].split(".").length > 1) {
 							// console.log("set deep value")
 							setDeepValue(observacion,header[i],data[i])
+						} else if(header[i] == "valor" && isNumeric(data[i])) {
+							observacion[header[i]] = parseFloat(data[i])
 						} else {
 							// console.log("set string value")
 							observacion[header[i]] = data[i]		
@@ -2955,8 +3049,8 @@ internal.observacion = class extends baseModel {
 		if(this.valor != null) {
 			fs.writeFileSync(output_file,new Buffer.from(this.valor))
 			// await delay(100)
-			var opt_md = (this.id) ? ` -mo "id=${this.id}"` : ""
-			execSync(`gdal_edit.py -mo "series_id=${this.series_id}" -mo "timestart=${this.timestart.toISOString()}" -mo "timeend=${this.timeend.toISOString()}" -mo "timeupdate=${this.timeupdate.toISOString()}" ${opt_md} ${output_file}`) 
+			// var opt_md = (this.id) ? ` -mo "id=${this.id}"` : ""
+			// execSync(`gdal_edit.py -mo "series_id=${this.series_id}" -mo "timestart=${this.timestart.toISOString()}" -mo "timeend=${this.timeend.toISOString()}" -mo "timeupdate=${this.timeupdate.toISOString()}" ${opt_md} ${output_file}`) 
 		} else {
 			logger.error(`No raster data found for series_id:${this.series_id}, timestart:${this.timestart.toISOString()}. Skipping`)
 		}
@@ -3325,6 +3419,7 @@ internal.observaciones = class extends BaseArray {
 			return new internal.observaciones(results)
 		}
 		var query = this.createQuery(tipo,options)
+		// console.log(query)
 		return new internal.observaciones(await executeQueryReturnRows(query,undefined,client))
 	}
 	static async create(observaciones, options={}, client) {
@@ -5600,8 +5695,7 @@ internal.CRUD = class {
 						console.error("Estación " + estaciones[i].id + " already exists. Updating")
 						estaciones[i].id = undefined
 					} else {
-						console.error("Id already taken")
-						continue
+						throw("estacion id already taken")
 					}
 				}
 			} 
@@ -6136,8 +6230,6 @@ internal.CRUD = class {
 			}
 			console.log("Deleted escenas.id=" + result.rows[0].id)
 			return result.rows[0]
-		}).catch(e=>{
-			console.error(e)
 		})
 	}
 
@@ -6162,24 +6254,25 @@ internal.CRUD = class {
 
 	// VAR //
 	
-	static async upsertVar(variable) {
-		return variable.getId(global.pool)
+	static async upsertVar(variable,client) {
+		client = client ?? await global.pool.connect()
+		return variable.getId(client)
 		.then(()=>{
 			return this.interval2epoch(variable.timeSupport)
 		}).then(timeSupport=>{
 			//~ var timeSupport = (variable.timeSupport) ? (typeof variable.timeSupport == 'object') ? this.interval2epoch(variable.timeSupport) : variable.timeSupport : variable.timeSupport
-			return global.pool.query(this.upsertVarQuery(variable))
+			return client.query(this.upsertVarQuery(variable))
 		}).then(result=>{
 			if(result.rows.length<=0) {
-				console.error("Upsert failed")
-				return
+				client.release()
+				throw("Upsert failed")
 			}
 			// console.log("Upserted var.id=" + result.rows[0].id)
 			variable.set(result.rows[0])
 			return new internal["var"](result.rows[0])
 		}).catch(e=>{
-			console.error(e)
-			return
+			client.release()
+			throw(e)
 		})
 	}
 
@@ -6493,6 +6586,7 @@ internal.CRUD = class {
 	static async upsertFuente(fuente) {
 		return fuente.getId(global.pool)
 		.then(()=>{
+			// console.log(fuente)
 			var query = this.upsertFuenteQuery(fuente)
 			// if(config.verbose) {
 			// 	console.log("crud.upsertFuente: " + query)
@@ -6567,8 +6661,6 @@ internal.CRUD = class {
 				return
 			}
 			console.log("Deleted fuentes.id=" + result.rows[0].id)
-		}).catch(e=>{
-			console.error(e)
 		})
 	}
 
@@ -6840,8 +6932,17 @@ internal.CRUD = class {
 					}
 				} else {
 					serie_props["var"] = await internal.var.read({id:serie.var.id})
+					if(!serie_props["var"]) {
+						throw("var " + serie.var.id + " not found")
+					}
 					serie_props["procedimiento"] = await internal.procedimiento.read({id:serie.procedimiento.id})
+					if(!serie_props["procedimiento"]) {
+						throw("procedimiento " + serie.procedimiento.id + " not found")
+					}
 					serie_props["unidades"] = await internal.unidades.read({id:serie.unidades.id})
+					if(!serie_props["unidades"]) {
+						throw("unidades " + serie.unidades.id + " not found")
+					}
 					serie_props["fuente"] = (serie.fuente.id != null) ? await internal.fuente.read({id:serie.fuente.id}) : {}
 				} 
 				if (all || upsert_estacion) {
@@ -6997,28 +7098,42 @@ internal.CRUD = class {
 			return global.pool.query("\
 				DELETE FROM series_areal\
 				WHERE id=$1\
-				RETURNING *",[id]
+				RETURNING 'areal' AS tipo,*",[id]
 			).then(result=>{
 				if(result.rows.length<=0) {
 					console.log("id not found")
-					return
+					return new internal.serie(result.rows[0])
 				}
 				console.log("Deleted series_areal.id=" + result.rows[0].id)
 			}).catch(e=>{
-				console.error(e)
+				throw(e)
+			})
+		} else if(tipo == "rast" || tipo == "raster") {
+			return global.pool.query("\
+				DELETE FROM series_rast\
+				WHERE id=$1\
+				RETURNING 'raster' AS tipo,*",[id]
+			).then(result=>{
+				if(result.rows.length<=0) {
+					console.log("id not found")
+					return new internal.serie(result.rows[0])
+				}
+				console.log("Deleted series_rast.id=" + result.rows[0].id)
+			}).catch(e=>{
+				throw(e)
 			})
 		} else {
 			return global.pool.query("\
 				DELETE FROM series\
 				WHERE id=$1\
-				RETURNING *",[id]
+				RETURNING 'puntual' AS tipo,*",[id]
 			).then(result=>{
 				if(result.rows.length<=0) {
 					console.log("id not found")
 					return
 				}
 				console.log("Deleted series.id=" + result.rows[0].id)
-				return result.rows[0]
+				return new internal.serie(result.rows[0])
 			}).catch(e=>{
 				throw(e)
 				//~ console.error(e)
@@ -7166,7 +7281,7 @@ internal.CRUD = class {
 			}
 			return serie
 		} else if (tipo=="rast" || tipo=="raster") {
-			var result = client.query("\
+			var result = await client.query("\
 			SELECT series_rast.id,series_rast.escena_id,series_rast.var_id,series_rast.proc_id,series_rast.unit_id,series_rast.fuentes_id,fuentes.public,series_rast_date_range.timestart,series_rast_date_range.timeend,series_rast_date_range.count FROM series_rast JOIN fuentes ON (series_rast.fuentes_id=fuentes.id) left join series_rast_date_range on (series_rast.id=series_rast_date_range.series_id)\
 			WHERE series_rast.id=$1",[id])
 			if(result.rows.length<=0) {
@@ -17362,6 +17477,12 @@ function getPercentile(values, percentile) {
 	var rank =  Math.round(percentile * (values.length + 1))
 	rank = (rank == 0) ? 1 : (rank > values.length) ? values.length : rank
 	return values[rank-1]
+}
+
+function isNumeric(str) {
+	if (typeof str != "string") return false // we only process strings!  
+	return !isNaN(str) && // use type coercion to parse the _entirety_ of the string (`parseFloat` alone does not do this)...
+		   !isNaN(parseFloat(str)) // ...and ensure strings of whitespace fail
 }
 
 module.exports = internal

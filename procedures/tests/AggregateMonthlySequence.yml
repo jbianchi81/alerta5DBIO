@@ -57,9 +57,9 @@ sequence:
       class_name: serie
 - procedureName: CreateProcedure
   arguments:
-    class_name: observacion
-    # elements:
-    jsonfile: sample_data/hourly_timeseries_long.json
+    class_name: observaciones
+    jsonfile: sample_data/serie_hourly_long.json # hourly_timeseries_long.json
+    property_name: observaciones
 - procedureName: AggregateProcedure
   arguments:
     class_name: serie
@@ -122,3 +122,15 @@ sequence:
       series_id: 34825
       timestart: 1990-01-01 00:00:00
       timeend: 1991-01-01 00:00:00
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      id: [3280, 34824, 34825]
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: estacion
+    filter:
+      id: 99999      
+

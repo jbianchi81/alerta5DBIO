@@ -1,0 +1,6 @@
+[
+    {"name":"test","role":"writer","password":"password","token":"token"},
+    {"name":"test_1","role":"reader","password":"password","token":"token"},
+    {"name":"test_2","role":"public","password":"password","token":"token"},
+    {"name":"test_3","role":"admin","password":"password","token":"token"}
+]

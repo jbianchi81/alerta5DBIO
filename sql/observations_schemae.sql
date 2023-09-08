@@ -221,7 +221,7 @@ CREATE TABLE public.valores_num (
 --
 
 CREATE TABLE public.observaciones_areal (
-    id integer NOT NULL,
+    id bigint NOT NULL,
     series_id integer NOT NULL,
     timestart timestamp without time zone,
     timeend timestamp without time zone,
@@ -251,7 +251,7 @@ CREATE TABLE public.series_areal (
 --
 
 CREATE TABLE public.valores_num_areal (
-    obs_id integer NOT NULL,
+    obs_id bigint NOT NULL,
     valor real NOT NULL
 );
 
@@ -359,7 +359,7 @@ CREATE TABLE public.unidades (
 --
 
 CREATE TABLE public.valores_numarr_areal (
-    obs_id integer NOT NULL,
+    obs_id bigint NOT NULL,
     valor real[] NOT NULL
 );
 
@@ -1107,7 +1107,7 @@ ALTER TABLE ONLY public.alturas_alerta
 --
 
 ALTER TABLE ONLY public.alturas_alerta
-    ADD CONSTRAINT alturas_alerta_unid_fkey FOREIGN KEY (unid) REFERENCES public.estaciones(unid);
+    ADD CONSTRAINT alturas_alerta_unid_fkey FOREIGN KEY (unid) REFERENCES public.estaciones(unid) ON DELETE CASCADE;
 
 
 --

@@ -527,3 +527,13 @@ sequence:
     arguments:
       min_length: 1
       max_length: 1
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: accessor_feature_of_interest
+    filter:
+      accessor_id: whos_om_ogc_timeseries_api
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: accessor
+    filter:
+      name: whos_om_ogc_timeseries_api

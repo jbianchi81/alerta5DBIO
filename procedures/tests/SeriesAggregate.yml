@@ -8,7 +8,7 @@ sequence:
       series_id: 3280
       timestart: 1990-10-01 00:00:00
       timeend: 1990-11-01 00:00:00
-    output: sample_data/deleted_observaciones.json
+    output: outputs/deleted_observaciones.json
 - procedureName: DeleteProcedure
   arguments:
     class_name: observaciones
@@ -17,17 +17,19 @@ sequence:
       series_id: 34824
       timestart: 1990-10-01 00:00:00
       timeend: 1990-11-01 00:00:00
-    output: sample_data/deleted_observaciones.json
+    output: outputs/deleted_observaciones.json
 - procedureName: CreateProcedure
   arguments:
     class_name: serie
     jsonfile: sample_data/serie_with_no_obs.json
+    options:
+      upsert_estacion: true
 - procedureName: CreateProcedure
   arguments:
     class_name: serie
     # elements:
     jsonfile: sample_data/hourly_timeseries.json
-    output: sample_data/created_hourly_timeseries.json
+    output: outputs/created_hourly_timeseries.json
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -50,19 +52,20 @@ sequence:
       dest_series_id: 34824
       update: true
       agg_function: mean
-    output: sample_data/aggregated_daily.json 
+      min_obs: 15
+    output: outputs/aggregated_daily.json 
   tests:
   - testName: ArrayLengthTest
     arguments:
-      min_length: 29
-      max_length: 29
+      min_length: 27
+      max_length: 27
   - testName: ResultIsInstanceOfTest
     arguments:
       class_name: observaciones
   - testName: OutputFileTest
     arguments:
       class_name: observaciones
-      output: sample_data/aggregated_daily.json
+      output: outputs/aggregated_daily.json
   - testName: PropertyIsValidDateTest
     arguments:
       property_name: timestart
@@ -75,12 +78,12 @@ sequence:
     arguments:
       agg_function: mean
       property_name: valor
-      property_range: [1.396, 1.397]
+      property_range: [1.405, 1.410]
   - testName: PropertyAggEqualsTest
     arguments:
       agg_function: sum
       property_name: valor
-      property_value: 40.5
+      property_range: [37.959, 37.961]
   - testName: PropertyAggEqualsTest
     arguments:
       agg_function: min
@@ -109,7 +112,7 @@ sequence:
       series_id: 3280
       timestart: 1990-10-01 00:00:00
       timeend: 1990-11-01 00:00:00
-    output: sample_data/deleted_observaciones.json
+    output: outputs/deleted_observaciones.json
 - procedureName: DeleteProcedure
   arguments:
     class_name: observaciones
@@ -118,4 +121,23 @@ sequence:
       series_id: 34824
       timestart: 1990-10-01 00:00:00
       timeend: 1990-11-01 00:00:00
-    output: sample_data/deleted_observaciones.json
+    output: outputs/deleted_observaciones.json
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      id: 34824
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      id: 3280
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: estacion
+    filter:
+      id: 1699
+
+
