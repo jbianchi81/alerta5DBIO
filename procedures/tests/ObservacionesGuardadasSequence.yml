@@ -185,3 +185,14 @@ sequence:
     arguments:
       min_length: 10988
       max_length: 10988
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      id: 26652
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: estacion
+    filter:
+      id: 55

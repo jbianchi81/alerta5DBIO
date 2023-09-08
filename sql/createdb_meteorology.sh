@@ -54,6 +54,12 @@ then
         echo "$a5database database creation and initialization failed"
         exit 1
     fi
+    psql --host $a5host --port $a5port $a5database -c "ALTER DATABASE $a5database SET postgis.gdal_enabled_drivers TO 'GTiff PNG JPEG'"
+    if [[ "$?" != "0" ]]
+    then
+        echo "$a5database database creation and initialization failed"
+        exit 1
+    fi
     psql --host $a5host --port $a5port $a5database -f sql/observaciones_functions.sql
     if [[ "$?" != "0" ]]
     then

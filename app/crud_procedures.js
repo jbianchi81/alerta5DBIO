@@ -2780,6 +2780,22 @@ const writeResult = async function(procedure,result,options={}) {
     }
 }
 
+function printErrorSummmary(error_log,n) {
+    logger.error("Run " + n + " sequence files of which " + error_log.length + " failed")
+    for(var i in error_log) {
+        var f = error_log[i]
+        logger.error("<" + i + "> Sequence file " + f.filename)
+        for(var j in f.errors) {
+            var e = f.errors[j]
+            if(e) {
+                logger.error("  *" + j + "* " + e)
+            } else {
+                logger.info("  *" + j + "* OK")
+            }
+        }
+    }
+}
+
 if(1==1) {
     program
     .version('0.0.1')
@@ -2794,6 +2810,7 @@ if(1==1) {
     //   .option("-p, --parameter <parameter...>", "send positional or key-value parameters")
     .action(async (files,options) => {
         var test_result = true
+        var error_log = []
         for(var i in files) {
             var filename = files[i]
             logger.info("~~~ Sequence file: " + filename + " ~~~")
@@ -2812,16 +2829,22 @@ if(1==1) {
                 var result = await internal.runSequence(filename,options.test)
             } catch (e) {
                 logger.error(e)
+                // error_log.push({filename:filename,errors: [e.toString()]})
                 continue
             }
             if(options.test && result.success===false) {
                 test_result = false
+                error_log.push({filename: filename, errors: result.reasons})
             }
         }
         logger.info("End.")
         if(test_result===false) {
+            if(files.length > 1) {
+                printErrorSummmary(error_log,files.length)
+            }
             process.exit(1)
         } else {
+            logger.info("All procedure sequences successful!")
             process.exit(0)
         }
     })
