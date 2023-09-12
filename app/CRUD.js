@@ -3877,6 +3877,10 @@ internal.monthlyStatsList = class extends baseModel {
 	toCSVless() {
 		return "# " + this.varNames.join(",") + "\n" + this.values.map(v=>v.toCSVless()).join("\n")
 	}
+	filter(predicate, thisArg) {
+		this.values = this.values.filter(predicate, thisArg)
+		return new this.constructor(this.values)
+	}
 }
 
 internal.dailyStatsList = class extends baseModel {
