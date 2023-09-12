@@ -1634,7 +1634,8 @@ internal.DeleteObservacionesProcedure = class extends internal.CrudProcedure {
         delete series_filter.timestart
         delete series_filter.timeend
         delete series_filter.id
-        var series = await crud.getSeries(this.tipo,series_filter,{"no_metadata":true})
+        const client = await global.pool.connect()
+        var series = await crud.getSeries(this.tipo,series_filter,{"no_metadata":true},client)
         this.result = []
         for(var i in series) {
             logger.info("serie id:" + series[i].id)
@@ -1648,7 +1649,7 @@ internal.DeleteObservacionesProcedure = class extends internal.CrudProcedure {
                 unit_id: this.filter.unit_id
             }
             if(this.options && this.options.no_send_data) {
-                var count = await crud.deleteObservaciones(this.tipo,filter,{"no_send_data":true})
+                var count = await crud.deleteObservaciones(this.tipo,filter,{"no_send_data":true},client)
                 logger.info("deleted " + count + " observaciones")
                 this.result.push(count)
             } else {
