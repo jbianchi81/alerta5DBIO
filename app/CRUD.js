@@ -16448,14 +16448,15 @@ ORDER BY cal.cal_id`
 	}
 
 	// 	 SERIES OBS - by SERIES_ID OR FUENTES_ID
-	static async pruneObs(tipo,filter, options={}) { // filter:series_id,timestart,timeend; options: no_send_data=false) {
+	static async pruneObs(tipo,filter, options={},client) { // filter:series_id,timestart,timeend; options: no_send_data=false) {
+		client = client ?? await global.pool.connect()
 		if(!filter.timestart || !filter.timeend) {
 			return Promise.reject("crud.pruneObs: Missing filter.timestart filter.timeend")
 		}
 		
 		// CASE SINGLE SERIES_ID 
 		if(filter.series_id && typeof filter.series_id == "number") {
-			return this.deleteObservaciones(tipo,{series_id:filter.series_id,timestart:filter.timestart,timeend:filter.timeend},{no_send_data:options.no_send_data})
+			return this.deleteObservaciones(tipo,{series_id:filter.series_id,timestart:filter.timestart,timeend:filter.timeend},{no_send_data:options.no_send_data},client)
 			.then(result=>{
 				return [
 					{
@@ -16470,7 +16471,7 @@ ORDER BY cal.cal_id`
 				return Promise.reject("crud.pruneObs: Missing filter.series_id OR filter.fuentes_id/red_id")
 			}
 			filter.id = (filter.series_id) ? filter.series_id : filter.id
-			return this.getSeries(tipo,filter,{no_metadata:true})
+			return this.getSeries(tipo,filter,{no_metadata:true},client)
 			.then(async series=>{
 				if(series.length == 0) {
 					console.log("crud.pruneObs: no series found")
@@ -16484,7 +16485,7 @@ ORDER BY cal.cal_id`
 					var series_id = series[i].id
 					console.log("index:" + i + ", series_id:" + series_id)
 					try {
-						var result = await this.deleteObservaciones(tipo,{series_id:series_id,timestart:filter.timestart,timeend:filter.timeend},{no_send_data:options.no_send_data})
+						var result = await this.deleteObservaciones(tipo,{series_id:series_id,timestart:filter.timestart,timeend:filter.timeend},{no_send_data:options.no_send_data},client)
 					} catch (e) {
 						console.error("crud.pruneObs: " + e.toString())
 						results.push({error:e})
@@ -16524,7 +16525,8 @@ ORDER BY cal.cal_id`
 			})
 		}
 	}
-	static async prunePartedByYear(tipo,filter,options) {
+	static async prunePartedByYear(tipo,filter,options,client) {
+		client = client ?? await global.pool.connect()
 		if(!filter.timestart || !filter.timeend) {
 			throw("Missing timestart and/or timeend")
 		}
@@ -16547,7 +16549,7 @@ ORDER BY cal.cal_id`
 			this_filter.timeend = timeend
 			// console.log(JSON.stringify(this_filter))
 			try {
-				var result = await this.pruneObs(tipo,this_filter,options)
+				var result = await this.pruneObs(tipo,this_filter,options,client)
 				results.push(result)
 			} catch(e) {
 				console.error(e)
