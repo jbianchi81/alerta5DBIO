@@ -10,7 +10,7 @@ sequence:
     filter:
       tabla: alturas_prefe
       proc_id: [1,2]
-      # estacion_id: 29
+      estacion_id: 29
     output: outputs/a5_meta.json
   tests:
   - testName: TruthyTest
@@ -57,7 +57,7 @@ sequence:
     filter:
       tabla: alturas_prefe
       proc_id: [1,2]
-      # estacion_id: 29
+      estacion_id: 29
 - procedureName: DeleteProcedure
   arguments:
     class_name: estacion

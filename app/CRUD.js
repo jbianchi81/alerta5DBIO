@@ -1539,49 +1539,44 @@ internal.serie = class extends baseModel {
 		return lines.join("\n")
 	}
 	
-	getId(pool) {
+	async getId(pool,client) {
+		client = (client) ? client : (pool) ? await pool.connect() : await global.pool.connect()
 		if(this.tipo == "areal") {
 			//~ console.log([this.estacion.id, this["var"].id, this.procedimiento.id, this.unidades.id, this.fuente.id])
-			return pool.query("\
+			var res = await client.query("\
 				SELECT id FROM series_areal WHERE area_id=$1 AND var_id=$2 AND proc_id=$3 AND unit_id=$4 AND fuentes_id=$5\
 			",[this.estacion.id, this["var"].id, this.procedimiento.id, this.unidades.id, this.fuente.id]
-			).then(res=>{
-				if (res.rows.length>0) {
-					this.id = res.rows[0].id
-					return this.id
-				} else {
-					return pool.query("\
-					SELECT max(id)+1 AS id\
-					FROM series_areal\
-					")
-					.then(res=>{
-						this.id = res.rows[0].id
-						return this.id
-					})
-				}
-			})
+			)
+			if (res.rows.length>0) {
+				this.id = res.rows[0].id
+				return this.id
+			} else {
+				res = await client.query("\
+				SELECT max(id)+1 AS id\
+				FROM series_areal\
+				")
+				this.id = res.rows[0].id
+				return this.id
+			}
 		} else {
 			if(!this.estacion.id || !this["var"].id || !this.procedimiento.id || !this.unidades.id) {
 				console.error("Can't retrieve series.id: missing one or more of estacion.id, var.id, procedimiento.id or unidades.id")
-				return Promise.resolve()
+				return
 			}
-			return pool.query("\
+			var res = await client.query("\
 				SELECT id FROM series WHERE estacion_id=$1 AND var_id=$2 AND proc_id=$3 AND unit_id=$4\
 			",[this.estacion.id, this["var"].id, this.procedimiento.id, this.unidades.id]
-			).then(res=>{
-				if (res.rows.length>0) {
-					this.id = res.rows[0].id
-					return
-				} else {
-					return pool.query("\
-					SELECT max(id)+1 AS id\
-					FROM series\
-					")
-					.then(res=>{
-						this.id = res.rows[0].id
-					})
-				}
-			})
+			)
+			if (res.rows.length>0) {
+				this.id = res.rows[0].id
+				return
+			} else {
+				res = await client.query("\
+				SELECT max(id)+1 AS id\
+				FROM series\
+				")
+				this.id = res.rows[0].id
+			}
 		}
 	}
 	
@@ -5947,7 +5942,8 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getArea(id,options={}) {
+	static async getArea(id,options={},client) {
+		client = client ?? await global.pool.connect()
 		var query = (options.no_geom) ? "\
 		SELECT areas_pluvio.unid AS id, areas_pluvio.nombre, st_astext(areas_pluvio.exutorio) AS exutorio\
 		FROM areas_pluvio\
@@ -5955,7 +5951,7 @@ internal.CRUD = class {
 		SELECT areas_pluvio.unid AS id, areas_pluvio.nombre, st_astext(ST_ForcePolygonCCW(areas_pluvio.geom)) AS geom, st_astext(areas_pluvio.exutorio) AS exutorio\
 		FROM areas_pluvio\
 		WHERE unid=$1"
-		return global.pool.query(query,[id])
+		return client.query(query,[id])
 		.then(result=>{
 			if(result.rows.length<=0) {
 				console.error("area no encontrada")
@@ -6664,13 +6660,14 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getFuente(id,isPublic) {
+	static async getFuente(id,isPublic,client) {
+		client = client ?? await global.pool.connect()
 		const query = "\
 		SELECT id, nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, st_asgeojson(def_extent)::json def_extent, date_column, def_pixeltype, abstract, source,public\
 		FROM fuentes\
 		WHERE id=$1"
 		// console.log(query)
-		var result = await global.pool.query(query,[id])
+		var result = await client.query(query,[id])
 		if(result.rows.length<=0) {
 			console.log("fuentes no encontrado")
 			return
@@ -6682,7 +6679,7 @@ internal.CRUD = class {
 		}
 		// nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, def_extent, date_column, def_pixeltype, abstract, source
 		var row = result.rows[0]
-		row.constraints = await this.getTableConstraints(row.data_table)
+		row.constraints = await this.getTableConstraints(row.data_table,undefined,client)
 		const fuente = new internal.fuente(row) //(row.nombre, row.data_table, row.data_column, row.tipo, row.def_proc_id, row.def_dt, row.hora_corte, row.def_unit_id, row.def_var_id, row.fd_column, row.mad_table, row.scale_factor, row.data_offset, row.def_pixel_height, row.def_pixel_width, row.def_srid, new internal.geometry(def_extent.type, def_extent.coordinates), row.date_column, row.def_pixeltype, row.abstract, row.source)
 		fuente.id = row.id
 		return fuente
@@ -10290,7 +10287,8 @@ internal.CRUD = class {
 	 * @param {string} table_name
 	 * @returns {Promise<Array<internal.tableConstraint>>} 
 	 */
-	static async getTableConstraints(table_name,namespace_name="public") {
+	static async getTableConstraints(table_name,namespace_name="public",client) {
+		client = client ?? await global.pool.connect()
 		const query = pasteIntoSQLQuery("SELECT \
 		rel.relname AS table_name,\
 		con.conname AS constraint_name,\
@@ -10302,14 +10300,15 @@ internal.CRUD = class {
 		INNER JOIN information_schema.key_column_usage kcu ON kcu.constraint_name = con.conname \
 		WHERE nsp.nspname = $1 and rel.relname = $2 group by rel.relname, con.conname, con.contype;",[namespace_name,table_name])
 		// console.log(query)
-		const result = await global.pool.query(query)
+		const result = await client.query(query)
 		return result.rows.map(row=>{
 			return new internal.tableConstraint(row)
 		}) 
 	}
 
-	static async upsertObservacionesCubo(id,observaciones) {
-		const fuente = await this.getFuente(id)
+	static async upsertObservacionesCubo(id,observaciones,client) {
+		client = client ?? await global.pool.connect()
+		const fuente = await this.getFuente(id,undefined,client)
 		fuente.date_column = (fuente.date_column) ? fuente.date_column : "date"
 		var query = `INSERT INTO ${fuente.data_table} (${fuente.date_column},${fuente.data_column})\
 		VALUES ($1,ST_FromGDALRaster($2))\
@@ -10323,7 +10322,7 @@ internal.CRUD = class {
 			RETURNING ${fuente.date_column}`
 		}
 		console.log("fuente id:" + fuente.id + ", obs length:" + observaciones.length)
-		const client = await global.pool.connect()
+		// const client = await global.pool.connect()
 		console.log("connected")
 		await client.query("BEGIN")
 		const upserted = []
@@ -10341,7 +10340,7 @@ internal.CRUD = class {
 			}
 		}
 		await client.query("COMMIT")
-		await client.release()
+		// await client.release()
 		return upserted
 	}
 
@@ -10430,11 +10429,12 @@ internal.CRUD = class {
 		return client.end()
 	}
 
-	static async deleteObservacionesCubo(fuentes_id,filter,options) {
+	static async deleteObservacionesCubo(fuentes_id,filter,options,client) {
+		client = client ?? await global.pool.connect()
 		if(!fuentes_id) {
 			throw("Missing id")
 		}
-		return this.getFuente(fuentes_id)
+		return this.getFuente(fuentes_id,undefined,client)
 		.then(fuente=>{
 			if(!fuente) {
 				throw("Fuente not found")
@@ -10482,7 +10482,7 @@ internal.CRUD = class {
 			stmt = `WITH deleted AS (DELETE FROM "${fuente.data_table}" WHERE 1=1 ` + filter_string + returning_clause + ") " + select_deleted_clause
 			// console.log(stmt)
 			// console.log(args)
-			return global.pool.query(stmt,args)
+			return client.query(stmt,args)
 		})
 		.then(result=>{
 			if(options.no_send_data) {
@@ -10493,8 +10493,9 @@ internal.CRUD = class {
 		})
 	}
 
-	static async rastExtract(series_id,timestart,timeend,options,isPublic) {
-		return this.getSerie("raster",series_id,undefined,undefined,undefined,isPublic)
+	static async rastExtract(series_id,timestart,timeend,options,isPublic,client) {
+		client = client ?? await global.pool.connect()
+		return this.getSerie("raster",series_id,undefined,undefined,undefined,isPublic,undefined,client)
 		.then(serie=>{
 			if(!serie) {
 				console.error("serie no encontrada")
@@ -10575,7 +10576,7 @@ internal.CRUD = class {
 				}
 			    args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion,options.format]
 		    }
-			return global.pool.query(stmt,args)
+			return client.query(stmt,args)
 			.then(result=>{
 				if(!result.rows) {
 					console.log("No raster values found")
@@ -10602,164 +10603,94 @@ internal.CRUD = class {
 		})
 	}
 
-	static async rastExtractByArea(series_id,timestart,timeend,area,options={}) {
+	static async rastExtractByArea(series_id,timestart,timeend,area,options={},client) {
+		client = client ?? await global.pool.connect()
 		if(!timestart || !timeend) {
 			return Promise.reject("falta timestart y/o timeend")
 		}
-		var promises =[]
 		if(parseInt(area).toString() != "NaN") {
-			promises.push(this.getArea(parseInt(area)))
+			area = await this.getArea(parseInt(area),undefined,client)
 		} else {
-			promises.push(new internal.area({geom:area}))
+			area = new internal.area({geom:area})
 		}
-		return Promise.all(promises)
-		.then(result => {
-			area = result[0]
-			return this.getSerie("rast",series_id)
-			.then(serie=>{
-				if(!serie) {
-					console.error("serie no encontrada")
-					return
-				}
-				if(!serie.id) {
-					console.log("serie no encontrada")
-					return
-				}
-				options.funcion = (!options.funcion) ? "mean" : options.funcion
-				const valid_funciones = ['mean','sum','count','min','max','stddev']
-				if(valid_funciones.map(f=> (f == options.funcion.toLowerCase()) ? 1 : 0).reduce( (a,b)=>a+b) == 0) {
-					console.error("Invalid funcion:" + options.funcion)
-					return
-				}
-				serie.estacion = area
-				serie.tipo = "areal"
-				serie.id= undefined
-				// console.log({geom:area.geom.toString(),srid:serie.fuente.def_srid})
-				var stmt = "WITH s as (\
-				  SELECT timestart timestart,\
-						 timeend timeend,\
-						 (st_summarystats(st_clip(st_resample(st_clip(valor,1,st_buffer(st_envelope(st_geomfromtext($1,$2)),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,$2),-9999,true)))." + options.funcion.toLowerCase() + " valor\
-						FROM observaciones_rast \
-						WHERE series_id=$3\
-						AND timestart>=$4\
-						AND timeend<=$5)\
-				  SELECT timestart, timeend, to_char(valor,'S99990.99')::numeric valor\
-						FROM s\
-						WHERE valor IS NOT NULL\
-				  ORDER BY timestart;"
-				var args = [area.geom.toString(),serie.fuente.def_srid,series_id,timestart,timeend] // [serie.fuente.hora_corte,serie.fuente.def_dt, area.geom.toString(),serie.fuente.def_srid,timestart,timeend]
-				// console.log(internal.utils.pasteIntoSQLQuery(stmt,args))
-				return global.pool.query(stmt,args)
-				.then(result=>{
-					if(!result.rows) {
-						console.log("No raster values found")
-						if(options.only_obs) {
-							return []
-						} else {
-							return serie
-						}
-					}
-					if(result.rows.length == 0) {
-						console.log("No raster values found")
-						if(options.only_obs) {
-							return []
-						} else {
-							return serie
-						}
-					}
-					console.log("Found " + result.rows.length + " values")
-					const observaciones = result.rows.map(obs=> {
-						//~ console.log(obs)
-						return new internal.observacion({tipo:"areal",timestart:obs.timestart,timeend:obs.timeend,valor:obs.valor, nombre:options.funcion, descripcion: "agregación espacial", unit_id: serie.unidades.id})
-					})
-					if(options.only_obs) {
-						return observaciones
-					} else {
-						serie.observaciones = observaciones
-						return serie
-					}
-				})
-				.catch(e=>{
-					console.error(e)
-					if(options.only_obs) {
-						return []
-					} else {
-						return serie
-					}
-				})
-			})
-			.catch(e=>{
-				console.error(e)
-				return null
-			})
+		const serie = await this.getSerie("rast",series_id,undefined,undefined,undefined,undefined,undefined,client)
+		if(!serie) {
+			console.error("serie no encontrada")
+			return
+		}
+		if(!serie.id) {
+			console.log("serie no encontrada")
+			return
+		}
+		options.funcion = (!options.funcion) ? "mean" : options.funcion
+		const valid_funciones = ['mean','sum','count','min','max','stddev']
+		if(valid_funciones.map(f=> (f == options.funcion.toLowerCase()) ? 1 : 0).reduce( (a,b)=>a+b) == 0) {
+			console.error("Invalid funcion:" + options.funcion)
+			return
+		}
+		serie.estacion = area
+		serie.tipo = "areal"
+		serie.id= undefined
+		// console.log({geom:area.geom.toString(),srid:serie.fuente.def_srid})
+		var stmt = "WITH s as (\
+			SELECT timestart timestart,\
+						timeend timeend,\
+						(st_summarystats(st_clip(st_resample(st_clip(valor,1,st_buffer(st_envelope(st_geomfromtext($1,$2)),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,$2),-9999,true)))." + options.funcion.toLowerCase() + " valor\
+					FROM observaciones_rast \
+					WHERE series_id=$3\
+					AND timestart>=$4\
+					AND timeend<=$5)\
+				SELECT timestart, timeend, to_char(valor,'S99990.99')::numeric valor\
+					FROM s\
+					WHERE valor IS NOT NULL\
+				ORDER BY timestart;"
+		var args = [area.geom.toString(),serie.fuente.def_srid,series_id,timestart,timeend] // [serie.fuente.hora_corte,serie.fuente.def_dt, area.geom.toString(),serie.fuente.def_srid,timestart,timeend]
+			// console.log(internal.utils.pasteIntoSQLQuery(stmt,args))
+		const result = await client.query(stmt,args)
+		if(!result.rows) {
+			console.log("No raster values found")
+			if(options.only_obs) {
+				return []
+			} else {
+				return serie
+			}
+		}
+		if(result.rows.length == 0) {
+			console.log("No raster values found")
+			if(options.only_obs) {
+				return []
+			} else {
+				return serie
+			}
+		}
+		console.log("Found " + result.rows.length + " values")
+		const observaciones = result.rows.map(obs=> {
+			//~ console.log(obs)
+			return new internal.observacion({tipo:"areal",timestart:obs.timestart,timeend:obs.timeend,valor:obs.valor, nombre:options.funcion, descripcion: "agregación espacial", unit_id: serie.unidades.id})
 		})
+		if(options.only_obs) {
+			return observaciones
+		} else {
+			serie.observaciones = observaciones
+			return serie
+		}
 	}
 	
-	static async rast2areal(series_id,timestart,timeend,area,options={}) {
+	static async rast2areal(series_id,timestart,timeend,area,options={},client) {
+		client = client ?? await global.pool.connect()
 		if(area == "all") {
 			var query = "SELECT series_areal.id,series_areal.area_id FROM series_areal,series_rast,areas_pluvio WHERE series_rast.id=$1 AND series_rast.fuentes_id=series_areal.fuentes_id AND areas_pluvio.unid=series_areal.area_id AND areas_pluvio.activar=TRUE ORDER BY series_areal.id"
 			// console.log(internal.utils.pasteIntoSQLQuery(query,[series_id]))
-			return global.pool.query(query,[series_id])
-			.then(result=>{
-				if(result.rows.length == 0) {
-					console.log("No se encontraron series areal")
-					return 
-				}
-				var promises=[]
-				for(var i=0;i<result.rows.length;i++) {
-					const serie_areal = result.rows[i]
-					//~ console.log([series_id,timestart,timeend,serie_areal.area_id])
-					promises.push(this.rastExtractByArea(series_id,timestart,timeend,serie_areal.area_id,options)
-					.then(serie=>{
-						if(!serie) {
-							console.log("serie rast no encontrada")
-							return
-						}
-						if(!serie.observaciones) {
-							console.log("observaciones no encontradas")
-							return
-						}
-						if(serie.observaciones.length == 0) {
-							console.log("observaciones no encontradas")
-							return
-						}
-						console.log("Found serie_areal.id:" + serie_areal.id)
-						serie.observaciones = serie.observaciones.map(obs=> {
-							obs.series_id = serie_areal.id
-							return obs
-						})
-						if(options.no_insert) {
-							return serie.observaciones
-						}
-						return this.upsertObservaciones(serie.observaciones,'areal',serie_areal.id)
-						.then(upserted=>{
-							console.log("Upserted " + upserted.length + " observaciones")
-							return upserted
-						})
-					}))
-				}
-				return Promise.all(promises)
-			})
-			.then(result=>{
-				if(result.length == 0) {
-					console.log("no observaciones areales created")
-					return []
-				}
-				const arr = []
-				result.map(s=> {
-					if(s) {
-						s.map(o=>{
-							arr.push(o)
-						})
-					} else {
-						return []
-					}
-				})
-				return arr
-			})
-		} else {
-			return this.rastExtractByArea(series_id,timestart,timeend,area,options)
-			.then(serie=>{
+			var result = await client.query(query,[series_id])
+			if(result.rows.length == 0) {
+				console.log("No se encontraron series areal")
+				return 
+			}
+			const results = []
+			for(var i=0;i<result.rows.length;i++) {
+				const serie_areal = result.rows[i]
+				//~ console.log([series_id,timestart,timeend,serie_areal.area_id])
+				const serie = await this.rastExtractByArea(series_id,timestart,timeend,serie_areal.area_id,options,client)
 				if(!serie) {
 					console.log("serie rast no encontrada")
 					return
@@ -10772,36 +10703,66 @@ internal.CRUD = class {
 					console.log("observaciones no encontradas")
 					return
 				}
-				// console.log({tipo:"areal", "var":serie["var"], procedimiento:serie.procedimiento, unidades:serie.unidades, estacion:serie.estacion, fuente:serie.fuente})
-				const serie_areal = new internal.serie({tipo:"areal", "var":serie["var"], procedimiento:serie.procedimiento, unidades:serie.unidades, estacion:serie.estacion, fuente:serie.fuente})
-				return serie_areal.getId(global.pool)
-				.then((id)=>{
-					console.log("Found serie_areal.id:" + serie_areal.id)
-					serie.observaciones = serie.observaciones.map(obs=> {
-						obs.series_id = serie_areal.id
-						return obs
-					})
-					if(options.no_insert) {
-						return serie.observaciones
-					}
-					if(config.verbose) {
-						console.log("crud.rast2areal: obs:" + JSON.stringify(serie.observaciones))
-					}
-					return this.upsertObservaciones(serie.observaciones)
-					.then(upserted=>{
-						console.log("Upserted " + upserted.length + " observaciones")
-						return upserted
-					})
+				console.log("Found serie_areal.id:" + serie_areal.id)
+				serie.observaciones = serie.observaciones.map(obs=> {
+					obs.series_id = serie_areal.id
+					return obs
 				})
+				if(options.no_insert) {
+					return serie.observaciones
+				}
+				const upserted = await this.upsertObservaciones(serie.observaciones,'areal',serie_areal.id,undefined,client)
+				console.log("Upserted " + upserted.length + " observaciones")
+				results.push(upserted)
+			}
+			if(results.length == 0) {
+				console.log("no observaciones areales created")
+				return []
+			}
+			const arr = []
+			results.map(s=> {
+				if(s) {
+					s.map(o=>{
+						arr.push(o)
+					})
+				} else {
+					return []
+				}
 			})
-			// .catch(e=>{
-			// 	console.error(e)
-			// 	return
-			// })
+			return arr
+		} else {
+			const serie = await this.rastExtractByArea(series_id,timestart,timeend,area,options,client)
+			if(!serie) {
+				console.log("serie rast no encontrada")
+				return
+			}
+			if(!serie.observaciones) {
+				console.log("observaciones no encontradas")
+				return
+			}
+			if(serie.observaciones.length == 0) {
+				console.log("observaciones no encontradas")
+				return
+			}
+			// console.log({tipo:"areal", "var":serie["var"], procedimiento:serie.procedimiento, unidades:serie.unidades, estacion:serie.estacion, fuente:serie.fuente})
+			const serie_areal = new internal.serie({tipo:"areal", "var":serie["var"], procedimiento:serie.procedimiento, unidades:serie.unidades, estacion:serie.estacion, fuente:serie.fuente})
+			const id = await serie_areal.getId(undefined,client)
+			console.log("Found serie_areal.id:" + serie_areal.id)
+			serie.observaciones = serie.observaciones.map(obs=> {
+				obs.series_id = serie_areal.id
+				return obs
+			})
+			if(options.no_insert) {
+				return serie.observaciones
+			}
+			if(config.verbose) {
+				console.log("crud.rast2areal: obs:" + JSON.stringify(serie.observaciones))
+			}
+			const upserted = await this.upsertObservaciones(serie.observaciones,undefined,undefined,undefined,client)
+			console.log("Upserted " + upserted.length + " observaciones")
+			return upserted
 		}
 	}
-
-
 	
 	static async rastExtractByPoint(series_id,timestart,timeend,point,options) {
 		var promises =[]
@@ -10911,8 +10872,9 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async getRegularSeries(tipo="puntual",series_id,dt="1 days",timestart,timeend,options) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate
+	static async getRegularSeries(tipo="puntual",series_id,dt="1 days",timestart,timeend,options,client) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate
 		// console.log({tipo:tipo,series_id:series_id,dt:dt,timestart:timestart,timeend:timeend,options:options})
+		client = client ?? await global.pool.connect()
 		if(!series_id || !timestart || !timeend) {
 			return Promise.reject("series_id, timestart and/or timeend missing")
 		}
@@ -10990,7 +10952,7 @@ internal.CRUD = class {
 							if(config.verbose) {
 								console.log("crud.getRegularSeries: stepstart:" +stepstart.toISOString() + ",stepend:" + stepend.toISOString())
 							}
-							results.push(await this.rastExtract(series_id,stepstart,stepend,options))
+							results.push(await this.rastExtract(series_id,stepstart,stepend,options,undefined,client))
 						}
 						return results // Promise.all(promises)
 					})
@@ -11022,7 +10984,7 @@ internal.CRUD = class {
 										return o
 									}
 								})
-								return this.upsertObservaciones(observaciones,undefined,undefined,options)
+								return this.upsertObservaciones(observaciones,undefined,undefined,options,client)
 								//~ .then(results=>{
 									//~ return results.map(o=>{
 										//~ if(o instanceof Buffer) {
@@ -11801,7 +11763,8 @@ internal.CRUD = class {
 	
 	// asociaciones
 	
-	static async getAsociaciones(filter={source_tipo:"puntual",dest_tipo:"puntual"},options={}) {
+	static async getAsociaciones(filter={source_tipo:"puntual",dest_tipo:"puntual"},options={}, client) {
+		client = client ?? await global.pool.connect()
 		// console.log({filter:filter})
 		//~ var tabla_sitios = (filter.source_tipo=="areal") ? "areas_pluvio" : (filter.source_tipo=='raster') ? "escenas" : "estaciones"
 		//~ var tabla_series = (filter.source_tipo=="areal") ? "series_areal" : (filter.source_tipo=='raster') ? "series_rast" : "series"
@@ -11867,7 +11830,7 @@ internal.CRUD = class {
 		//~ AND "+provider_col+"=coalesce($13,"+provider_col+")\
 		//~ ORDER BY a.id",[filter.source_tipo,filter.source_series_id,filter.dest_tipo,filter.dest_series_id,options.agg_func,options.dt,options.t_offset,filter.source_var_id,filter.dest_var_id,filter.source_proc_id,filter.dest_proc_id,filter.estacion_id,filter.provider_id])
 		console.log(query)
-		return global.pool.query(query)
+		return client.query(query)
 		.then(result=>{
 			return result.rows
 		})
@@ -11991,8 +11954,9 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 		
 	}
 	
-	static async runAsociaciones(filter,options={}) {
-		return this.getAsociaciones(filter,options)
+	static async runAsociaciones(filter,options={},client) {
+		client = client ?? await global.pool.connect()
+		return this.getAsociaciones(filter,options,client)
 		.then(async asociaciones=>{
 			if(asociaciones.length==0) {
 				console.log("No se encontraron asociaciones")
@@ -12042,15 +12006,15 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 							console.log("running aggregateMonthly")
 							const serie = await internal.serie.read({tipo:a.source_tipo,id:a.source_series_id,timestart:filter.timestart,timeend:filter.timeend})
 							const observaciones = serie.aggregateMonthly(filter.timestart,filter.timeend,a.agg_func,a.precision,opt.source_time_support,a.expression,opt.inst)
-							result = await this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id)
+							result = await this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id,undefined,client)
 						} else {
-							result =  await this.getRegularSeries(a.source_tipo,a.source_series_id,a.dt,filter.timestart,filter.timeend,opt)
+							result =  await this.getRegularSeries(a.source_tipo,a.source_series_id,a.dt,filter.timestart,filter.timeend,opt,client)
 						}
 					} else if(a.source_tipo=="raster" && a.dest_tipo=="areal") {
 						console.log("Running asociacion raster to areal")
-						result = await this.getSerie('areal',a.dest_series_id,undefined,undefined,{no_metadata:true})
+						result = await this.getSerie('areal',a.dest_series_id,undefined,undefined,{no_metadata:true},undefined,undefined,client)
 						.then(series=>{
-							return this.rast2areal(a.source_series_id,filter.timestart,filter.timeend,series.estacion.id,options)
+							return this.rast2areal(a.source_series_id,filter.timestart,filter.timeend,series.estacion.id,options,client)
 						})
 					} else {
 						console.error("asociacion " + a.id + "not run")
