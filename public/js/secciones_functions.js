@@ -988,7 +988,7 @@ function buildMetadataForm2(mdElement,mdKey,formContainer,values={}) {
 
 function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create') {
 	$(formContainer).find("input.confirm.upload").removeAttr('required').hide()
-	console.log(values)
+	// console.log(values)
 	switch(action) {
 		case "create":
 			$("div#myModalMetadata div.modal-content div.modal-header h4.modal-title").text("Crear " + mdElement.objectName)
@@ -1011,7 +1011,8 @@ function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create'
 			$("div#myModalMetadata div.modal-content div.modal-header h4.modal-title").text("Editar " + mdElement.objectName)
 			$(formContainer).find(".confirm.edit").each((i,e)=>{
 				var key = $(e).attr('name')
-				var value = (key == "longitud") ? (values.longitud) ? values.longitud : (values.geom) ? values.geom.coordinates[0] : null : (key == "latitud") ? (values.latitud) ? values.latitud : (values.geom) ? values.geom.coordinates[1] : null : (e.type == "interval") ? interval2string(values[key]) : (typeof values[key] == "object") ? JSON.stringify(values[key]) : values[key]
+				var value = (key == "longitud") ? (values.longitud) ? values.longitud : (values.geom) ? values.geom.coordinates[0] : null : (key == "latitud") ? (values.latitud) ? values.latitud : (values.geom) ? values.geom.coordinates[1] : null : (e.type == "interval") ? interval2string(values[key]) : (typeof values[key] == "object") ? (JSON.stringify(values[key]) == "null") ? null : JSON.stringify(values[key]) : (typeof values[key] == "boolean") ? values[key].toString() : values[key]
+				// console.log({key: key, value: value})
 				$(e).val(value)
 			}).show()
 			$(formContainer).find("label").show()
@@ -1595,6 +1596,11 @@ function makeMDTable(metadataElement,container,isWriter) {
 		$(this).tooltip('hide')
 		var id = $(this).parents("tr").attr("data-uniqueid") // find("td:first-child").eq(1).html()
 		var oldData = $(container).find("table.md_edit_table").bootstrapTable('getRowByUniqueId',id)
+		Object.keys(oldData).forEach(key=>{
+			if(oldData[key] == "null") {
+				oldData[key] = null
+			}
+		})
 		setMetadataForm(global.mdElement,global.mdKey,$("div#myModalMetadata form#confirm"),oldData,"edit")
 	})
 	$(container).on("click", ".delete", function(){		

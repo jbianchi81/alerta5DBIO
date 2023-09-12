@@ -882,7 +882,11 @@ function cellAttr(value) {
 }
 
 function cellAttrGeometry(value) {
-	return '<a 	style="cursor:pointer" data-toggle=popover data-placement=top title="acción">' + value.coordinates.map(c=>c.toString()).join(",") + '</a>'
+	if(value) {
+		return '<a 	style="cursor:pointer" data-toggle=popover data-placement=top title="acción">' + value.coordinates.map(c=>c.toString()).join(",") + '</a>'
+	} else {
+		return '<a 	style="cursor:pointer" data-toggle=popover data-placement=top title="acción"></a>'
+	}
 }
 
 function geomSorter(a, b) {
