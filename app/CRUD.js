@@ -16304,7 +16304,8 @@ ORDER BY cal.cal_id`
 	}
 
 	// RALEO (THIN) SERIES - by SERIES_ID OR FUENTES_ID
-	static async thinObs(tipo,filter, options) { // filter:series_id,timestart,timeend; options: interval={'hours':1},deleteSkipped=false,returnSkipped=false) {
+	static async thinObs(tipo,filter, options,client) { // filter:series_id,timestart,timeend; options: interval={'hours':1},deleteSkipped=false,returnSkipped=false) {
+		client = client ?? await global.pool.connect()
 		if(!filter.timestart || !filter.timeend) {
 			return Promise.reject("crud.thinObs: Missing filter.timestart filter.timeend")
 		}
@@ -16320,7 +16321,7 @@ ORDER BY cal.cal_id`
 		var seq = timeSteps.dateSeq(filter.timestart,filter.timeend,options.interval)
 		// CASE SINGLE SERIES_ID 
 		if(filter.series_id && typeof filter.series_id == "number") {
-			return this.thinSeries(tipo,{series_id:filter.series_id,timestart:filter.timestart,timeend:filter.timeend},{interval:options.interval,deleteSkipped:options.deleteSkipped,returnSkipped:options.returnSkipped},seq)
+			return this.thinSeries(tipo,{series_id:filter.series_id,timestart:filter.timestart,timeend:filter.timeend},{interval:options.interval,deleteSkipped:options.deleteSkipped,returnSkipped:options.returnSkipped},seq,client)
 			.then(result=>{
 				return [
 					{
@@ -16338,7 +16339,7 @@ ORDER BY cal.cal_id`
 			var filter_get_series = {...filter}
 			delete filter_get_series.timestart
 			delete filter_get_series.timeend
-			return this.getSeries(tipo,filter_get_series,{no_metadata:true})
+			return this.getSeries(tipo,filter_get_series,{no_metadata:true},client)
 			.then(async series=>{
 				if(series.length == 0) {
 					console.log("crud.thinObs: no series found")
@@ -16347,7 +16348,7 @@ ORDER BY cal.cal_id`
 				var results = []
 				for(var i in series) {
 					try {
-						var result = await this.thinSeries(tipo,{series_id:series[i].id,timestart:filter.timestart,timeend:filter.timeend},options,seq)
+						var result = await this.thinSeries(tipo,{series_id:series[i].id,timestart:filter.timestart,timeend:filter.timeend},options,seq,client)
 					} catch (e) {
 						console.error("crud.thinObs: " + e.toString())
 						results.push({error:e})
@@ -16375,7 +16376,8 @@ ORDER BY cal.cal_id`
 		}
 	}
 	
-	static async thinSeries(tipo='puntual',filter={},options={},seq) {
+	static async thinSeries(tipo='puntual',filter={},options={},seq,client) {
+		client = client ?? await global.pool.connect()
 		// console.log({options:options})
 		if(!filter.series_id || !filter.timestart || !filter.timeend || !options.interval) {
 			return Promise.reject("Missing filter.series_id, filter.timestart, filter.timeend, options.interval")
@@ -16391,7 +16393,7 @@ ORDER BY cal.cal_id`
 			// console.log("interval:" + JSON.stringify(interval))
 			seq = timeSteps.dateSeq(filter.timestart,filter.timeend,options.interval) 
 		} 
-		return this.getObservaciones(tipo,filter)
+		return this.getObservaciones(tipo,filter,undefined,client)
 		.then(observaciones=>{
 			// console.log("got " + observaciones.length + " observaciones.")
 			// console.log(observaciones)
@@ -16428,7 +16430,7 @@ ORDER BY cal.cal_id`
 				}
 				var obs_ids = skipped.map(o=>o.id) 
 				// console.log(obs_ids)
-				return this.deleteObservaciones(tipo,{id:obs_ids})
+				return this.deleteObservaciones(tipo,{id:obs_ids},undefined,client)
 				.then(deleted=>{
 					if(options.returnSkipped) {
 						return deleted
