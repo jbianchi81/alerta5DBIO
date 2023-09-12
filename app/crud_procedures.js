@@ -1653,7 +1653,7 @@ internal.DeleteObservacionesProcedure = class extends internal.CrudProcedure {
                 logger.info("deleted " + count + " observaciones")
                 this.result.push(count)
             } else {
-                var deleted = await crud.deleteObservaciones(this.tipo,filter)
+                var deleted = await crud.deleteObservaciones(this.tipo,filter,client)
                 logger.info("deleted " + deleted.length + " observaciones")
                 this.result.push(...deleted)
             }
