@@ -8253,6 +8253,7 @@ internal.CRUD = class {
 			
 	static async upsertObservacionesPuntual(observaciones,skip_nulls,no_update,timeSupport,client) {
 		//~ console.log({observaciones:observaciones})
+		client = client ?? await global.pool.connect()
 		var obs_values = []
 		observaciones = observaciones.map(observacion=> {
 			if(!observacion.series_id) {
@@ -8300,11 +8301,11 @@ internal.CRUD = class {
 		var disable_trigger = "" // (timeSupport) ? "ALTER TABLE observaciones DISABLE TRIGGER obs_puntual_dt_constraint_trigger;" : ""
 		var enable_trigger = "" //(timeSupport) ? "ALTER TABLE observaciones ENABLE TRIGGER obs_puntual_dt_constraint_trigger;" : ""
 		var release_client = false
-		if(!client) {
-			client = await global.pool.connect()
-			release_client = true
+		// if(!client) {
+			// client = await global.pool.connect()
+			// release_client = true
 			await client.query('BEGIN')
-		}
+		// }
 		try {
 			//~ console.log({obs_values:obs_values})
 			await client.query("\
@@ -8352,23 +8353,24 @@ internal.CRUD = class {
 				}
 			}
 			await client.query(enable_trigger)
-			if(release_client) {
+			// if(release_client) {
 				await client.query("COMMIT;")
-				await client.release()
-			}
+				// await client.release()
+			// }
 			// console.log("upserted: " + result.rows.length + " obs_puntuales")
 			return rows
 		} catch(e) {
 			// console.error({message: "upsertObservacionesPuntual error",error:e})
-			if(release_client) {
+			// if(release_client) {
 				await client.query("ROLLBACK")
-				await client.release()
-			}
+				// await client.release()
+			// }
 			throw(e)
 		}
 	}
 	
 	static async upsertObservacionesAreal(observaciones,skip_nulls,no_update, timeSupport,client) {
+		client = client ?? await global.pool.connect()
 		var obs_values = []
 		observaciones = observaciones.map(observacion=> {
 			if(!observacion.series_id) {
@@ -8414,11 +8416,11 @@ internal.CRUD = class {
 		var disable_trigger = (timeSupport) ? "ALTER TABLE observaciones_areal DISABLE TRIGGER obs_dt_trig;" : ""
 		var enable_trigger = (timeSupport) ? "ALTER TABLE observaciones_areal ENABLE TRIGGER obs_dt_trig;" : ""
 		var release_client = false
-		if(client) {
-			client = await global.pool.connect()
-			release_client = true
+		// if(client) {
+			// client = await global.pool.connect()
+			// release_client = true
 			await client.query("BEGIN")
-		}
+		// }
 		try {
 			await client.query(disable_trigger)
 			var rows = await executeQueryReturnRows("\
@@ -8455,7 +8457,7 @@ internal.CRUD = class {
 			}).filter(o=>o).join(",")
 				//~ console.log({val_values:val_values})
 			if(!val_values.length) {
-				throw("Nonthing inserted")
+				throw("Nothing inserted")
 			}
 			var values = await executeQueryReturnRows("INSERT INTO valores_num_areal (obs_id,valor)\
 					VALUES " + val_values + "\
@@ -8463,16 +8465,16 @@ internal.CRUD = class {
 					DO " + on_conflict_clause_val + "\
 					RETURNING *",undefined,client,false)
 			await client.query(enable_trigger) 
-			if(release_client) {
+			// if(release_client) {
 				await client.query("COMMIT")
-				await client.release()
-			}
+				// await client.release()
+			// }
 			return observaciones
 		} catch(e) {
-			if(release_client) {
+			// if(release_client) {
 				await client.query("ROLLBACK")
-				await client.release()
-			}
+				// await client.release()
+			// }
 			throw(e)
 		}	
 	}
