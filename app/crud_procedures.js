@@ -46,11 +46,13 @@ internal.CrudProcedure = class  {
      * @param {string} tests[].testName
      * @param {Object} tests[].arguments
      * @param {string} sequence_file_location - path of the sequence yml file. If defined, set all input and output filenames relative to this.
+     * @param {Client} client - connected database client
      */
     constructor() {
         // console.log(arguments)
         this.procedureClass = "CrudProcedure"
         this.files_base_dir = (arguments[2]) ? arguments[2] : "."
+        this.client = (arguments[3]) ? arguments[3] : undefined
         // logger.info("files_base_dir: " + this.files_base_dir)
         if(arguments[1]) {
             if(!Array.isArray(arguments[1])) {
@@ -64,7 +66,7 @@ internal.CrudProcedure = class  {
                 if(!internal.availableTests.hasOwnProperty(arguments[1][i].testName)) {
                     throw("Bad argument test.class: class not found")
                 }
-                this.tests.push(new internal.availableTests[arguments[1][i].testName]({...arguments[1][i].arguments,files_base_dir: this.files_base_dir}))
+                this.tests.push(new internal.availableTests[arguments[1][i].testName]({...arguments[1][i].arguments,files_base_dir: this.files_base_dir},client))
             }
         }
         this.output = (arguments[0] && arguments[0].output) ? path.resolve(this.files_base_dir,arguments[0].output) : (arguments[0] && arguments[0].options && arguments[0].options.output) ? path.resolve(this.files_base_dir,arguments[0].options.output) : undefined
@@ -237,6 +239,7 @@ internal.CrudProcedureTest = class {
         // logger.info("CrudProcedureTest arguments: " + JSON.stringify(arguments))
         this.testName = "CrudProcedureTest"
         this.files_base_dir = arguments[0].files_base_dir // (arguments[1]) ? arguments[1] : "."
+        this.client = (arguments[1]) ? arguments[1] : undefined
     }
 }
 
@@ -1113,7 +1116,7 @@ internal.UpdateCubeFromSeriesProcedure = class extends internal.CrudProcedure {
         this.fuentes_id = (arguments[0].fuentes_id) ? parseInt(arguments[0].fuentes_id) : undefined
     }
     async run() {
-        this.result = await crud.updateCubeFromSeries(this.series_id,this.timestart,this.timeend,this.forecast_date,this.is_public,this.fuentes_id)
+        this.result = await crud.updateCubeFromSeries(this.series_id,this.timestart,this.timeend,this.forecast_date,this.is_public,this.fuentes_id,this.client)
         return this.result
     }
 }
@@ -1132,7 +1135,7 @@ internal.GetPpCdpBatchProcedure = class extends internal.CrudProcedure {
         this.upsert =  arguments[0].upsert
     }
     async run() {
-        this.result = await crud.get_pp_cdp_batch(this.timestart,this.timeend,this.filter,this.options,this.upsert)
+        this.result = await crud.get_pp_cdp_batch(this.timestart,this.timeend,this.filter,this.options,this.upsert,this.client)
         return this.result
     }
 }
@@ -1576,6 +1579,7 @@ internal.GetAggregatePronosticosProcedure = class extends internal.CrudProcedure
             })         
         }
         this.result = results
+        client.release()
         return this.result
     }
 }
@@ -2498,7 +2502,7 @@ internal.availableTests = {
 }
 
 internal.CrudProcedureSequenceRunner = class {
-    constructor(args) {
+    constructor(args,client) {
         if(!args) {
             throw("Missing arguments")
         }
@@ -2521,7 +2525,10 @@ internal.CrudProcedureSequenceRunner = class {
             if(!availableCrudProcedures[procedure.procedureName]) {
                 throw(`Invalid procedure: procedureName "${procedure.procedureName}" is not available`)
             }
-            this.sequence.push(new availableCrudProcedures[procedure.procedureName](procedure.arguments,procedure.tests,args.sequence_file_location))
+            this.sequence.push(new availableCrudProcedures[procedure.procedureName](procedure.arguments,procedure.tests,args.sequence_file_location,client))
+        }
+        if(client) {
+            this.client = client
         }
     }
     async run() {
@@ -2578,11 +2585,11 @@ const exit_codes = {
     103: "Procedure failed"
 }
 
-internal.validateSequence = function(filename) {
+internal.validateSequence = function(filename,client) {
     var parsed_content = internal.parseYmlFile(filename) 
     parsed_content.sequence_file_location = path.dirname(filename)
     try {
-        var procedureSequence = new internal.CrudProcedureSequenceRunner(parsed_content)
+        var procedureSequence = new internal.CrudProcedureSequenceRunner(parsed_content,client)
     } catch(e) {
         logger.error(e)
         // console.error(e)
@@ -2591,8 +2598,9 @@ internal.validateSequence = function(filename) {
     return procedureSequence
 }
 
-internal.runSequence = async function(filename,test_mode=false) {
-    var procedureSequence = internal.validateSequence(filename)
+internal.runSequence = async function(filename,test_mode=false,client) {
+    client = client ?? await global.pool.connect()
+    var procedureSequence = internal.validateSequence(filename,client)
     // console.log(parsed_content)
     if(test_mode) {
         return procedureSequence.runTests()

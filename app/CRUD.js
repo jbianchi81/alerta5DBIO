@@ -382,11 +382,11 @@ internal.estacion = class extends baseModel  {
 			return
 		})
 	}
-	getEstacionId(pool) {
+	async getEstacionId() {
 		if(!this.id_externo || !this.tabla) {
 			return this
 		}
-		return pool.query("\
+		return global.pool.query("\
 		SELECT unid \
 		FROM estaciones \
 		WHERE id_externo = $1\
@@ -766,9 +766,8 @@ internal["var"] = class extends baseModel  {
 		// 		break;
 		// }
 	}
-	async getId(client) {
-		client = client ?? await global.pool.connect() 
-		var result = await client.query("\
+	async getId() {
+		var result = await global.pool.query("\
 			SELECT id FROM var WHERE var=$1 AND \"GeneralCategory\"=$2\
 		",[this["var"], this.GeneralCategory])
 		if(result.rows.length) {
@@ -785,7 +784,7 @@ internal["var"] = class extends baseModel  {
 			if(this.id) {
 				return
 			} else {
-				const new_id = await client.query("\
+				const new_id = await global.pool.query("\
 				SELECT max(id)+1 AS id\
 				FROM var\
 				")
@@ -1149,29 +1148,27 @@ internal.fuente = class extends baseModel {
 				break;
 		}
 	}
-	async getId(pool) {
-		const client = await pool.connect()
-		const existing_fuente = await client.query("\
+	async getId() {
+		const existing_fuente = await global.pool.query("\
 			SELECT id FROM fuentes WHERE nombre=$1 and tipo=$2\
 		",[this.nombre, this.tipo])
 		if (existing_fuente.rows.length) {
 			this.id = existing_fuente.rows[0].id
 		} else {
 			if(this.id) {
-				const is_id_taken = await client.query("\
+				const is_id_taken = await global.pool.query("\
 					SELECT 1 FROM fuentes WHERE id=$1",[this.id]) 
 				if(is_id_taken.rows.length) {
 					throw("fuente id already taken")
 				}
 			} else {
-				const new_id = await client.query("\
+				const new_id = await global.pool.query("\
 					SELECT max(id)+1 AS id\
 					FROM fuentes\
 				")
 				this.id = new_id.rows[0].id
 			}
 		}
-		client.release()
 		return
 	}
 	getConstraint(column_names) {
@@ -1539,11 +1536,10 @@ internal.serie = class extends baseModel {
 		return lines.join("\n")
 	}
 	
-	async getId(pool,client) {
-		client = (client) ? client : (pool) ? await pool.connect() : await global.pool.connect()
+	async getId() {
 		if(this.tipo == "areal") {
 			//~ console.log([this.estacion.id, this["var"].id, this.procedimiento.id, this.unidades.id, this.fuente.id])
-			var res = await client.query("\
+			var res = await global.pool.query("\
 				SELECT id FROM series_areal WHERE area_id=$1 AND var_id=$2 AND proc_id=$3 AND unit_id=$4 AND fuentes_id=$5\
 			",[this.estacion.id, this["var"].id, this.procedimiento.id, this.unidades.id, this.fuente.id]
 			)
@@ -1551,7 +1547,7 @@ internal.serie = class extends baseModel {
 				this.id = res.rows[0].id
 				return this.id
 			} else {
-				res = await client.query("\
+				res = await global.pool.query("\
 				SELECT max(id)+1 AS id\
 				FROM series_areal\
 				")
@@ -1563,7 +1559,7 @@ internal.serie = class extends baseModel {
 				console.error("Can't retrieve series.id: missing one or more of estacion.id, var.id, procedimiento.id or unidades.id")
 				return
 			}
-			var res = await client.query("\
+			var res = await global.pool.query("\
 				SELECT id FROM series WHERE estacion_id=$1 AND var_id=$2 AND proc_id=$3 AND unit_id=$4\
 			",[this.estacion.id, this["var"].id, this.procedimiento.id, this.unidades.id]
 			)
@@ -1571,7 +1567,7 @@ internal.serie = class extends baseModel {
 				this.id = res.rows[0].id
 				return
 			} else {
-				res = await client.query("\
+				res = await global.pool.query("\
 				SELECT max(id)+1 AS id\
 				FROM series\
 				")
@@ -1580,7 +1576,7 @@ internal.serie = class extends baseModel {
 		}
 	}
 	
-	async getStats(client) {
+	async getStats() {
 		if(!this.id) {
 			console.error("Se necesita el id de serie para obtener las estadísticas")
 			return this
@@ -1588,7 +1584,7 @@ internal.serie = class extends baseModel {
 		if(this.tipo == "areal") {
 			const rows = await executeQueryReturnRows("\
 				SELECT min(timestart) begintime,max(timestart) endtime, count(timestart) count, min(valor) minValor, max(valor) maxValor FROM observaciones_areal,valores_num_areal WHERE series_id=$1  AND observaciones_areal.id=valores_num_areal.obs_id\
-			",[this.id],client)
+			",[this.id])
 			if (rows.length>0) {
 				this.beginTime = rows[0].begintime
 				this.endTime = rows[0].endtime
@@ -1616,7 +1612,7 @@ internal.serie = class extends baseModel {
 						round((stats).min::numeric, 3) min,\
 						round((stats).max::numeric, 3) max\
 				FROM stats\
-				",[this.id],client)
+				",[this.id])
 			if (rows.length>0) {
 				this.beginTime = rows[0].begintime
 				this.endTime = rows[0].endtime
@@ -1628,7 +1624,7 @@ internal.serie = class extends baseModel {
 		} else {
 			const rows = await executeQueryReturnRows("\
 				SELECT min(timestart) begintime,max(timestart) endtime, count(timestart) count, min(valor) minValor, max(valor) maxValor FROM observaciones,valores_num WHERE series_id=$1 AND observaciones.id=valores_num.obs_id\
-			",[this.id],client)
+			",[this.id])
 			if (rows.length>0) {
 				this.beginTime = rows[0].begintime
 				this.endTime = rows[0].endtime
@@ -1793,16 +1789,14 @@ internal.serie = class extends baseModel {
 		return (tipo == "areal") ? (options.guardadas) ? "series_areal_guardadas_date_range" : "series_areal_date_range" : (tipo == "rast" || tipo == "raster") ? (options.guardadas) ? "series_rast_guardadas_date_range" : "series_rast_date_range" : (options.guardadas) ? "series_guardadas_date_range" : "series_date_range"
 	}
 
-	static async refreshDateRange(tipo="puntual",options={},client) {
-		client = client ?? await global.pool.connect()
+	static async refreshDateRange(tipo="puntual",options={}) {
 		const date_range_table = this.getDateRangeTable(tipo,options)
-		return client.query(`REFRESH MATERIALIZED VIEW ${date_range_table}`)
+		return global.pool.query(`REFRESH MATERIALIZED VIEW ${date_range_table}`)
 	}
 
-	async refreshDateRange(options={},client) {
-		client = client ?? await global.pool.connect()
+	async refreshDateRange(options={}) {
 		const date_range_table = this.getDateRangeTable(options)
-		return client.query(`REFRESH MATERIALIZED VIEW ${date_range_table}`)
+		return global.pool.query(`REFRESH MATERIALIZED VIEW ${date_range_table}`)
 	}
 
 	getSeriesTable() {
@@ -1820,13 +1814,13 @@ internal.serie = class extends baseModel {
 	static async refreshJsonView() {
 		return internal.CRUD.refreshSeriesJson()
 	}
-	static async create(series,options={},client) {
-		const results = await internal.CRUD.upsertSeries(series,options.all,options.upsert_estacion,options.generate_id,client)
+	static async create(series,options={}) {
+		const results = await internal.CRUD.upsertSeries(series,options.all,options.upsert_estacion,options.generate_id)
 		if(options && options.refresh_date_range) {
 			if(results.length) {
 				const types = [new Set(results.map(r=>r.tipo))]
 				for(var tipo of types) {
-					await this.refreshDateRange(tipo,options,client) // global.pool.query(`REFRESH MATERIALIZED VIEW ${this.getDateRangeTable(results[0].tipo,options)}`)
+					await this.refreshDateRange(tipo,options) // global.pool.query(`REFRESH MATERIALIZED VIEW ${this.getDateRangeTable(results[0].tipo,options)}`)
 				}
 			}
 		}
@@ -3404,7 +3398,7 @@ internal.observaciones = class extends BaseArray {
 		// console.error("observaciones tipo not defined")
 		return
 	}
-	async create(options={},client) {
+	async create(options={}) {
 		var tipo = this.getTipo()
 		if(tipo == "raster") {
 			const results = []
@@ -3415,11 +3409,11 @@ internal.observaciones = class extends BaseArray {
 		}
 		var query = this.createQuery(tipo,options)
 		// console.log(query)
-		return new internal.observaciones(await executeQueryReturnRows(query,undefined,client))
+		return new internal.observaciones(await executeQueryReturnRows(query,undefined))
 	}
-	static async create(observaciones, options={}, client) {
+	static async create(observaciones, options={}) {
 		const observaciones_instance = new internal.observaciones(observaciones)
-		return observaciones_instance.create(options,client)
+		return observaciones_instance.create(options)
 	}
 	createQuery(tipo,options={}) {
 		tipo = (tipo) ? tipo : "puntual"
@@ -3468,8 +3462,8 @@ internal.observaciones = class extends BaseArray {
 		order by inserted_union_excluded.series_id, inserted_union_excluded.timestart;
 		`,params)
 	}
-	static async read(filter={},options,client) {
-		return internal.CRUD.getObservaciones(filter.tipo,filter,options,client)
+	static async read(filter={},options) {
+		return internal.CRUD.getObservaciones(filter.tipo,filter,options)
 	}
 	async update(changes={}) {
 		for(var o of this) {
@@ -3479,21 +3473,21 @@ internal.observaciones = class extends BaseArray {
 		const options = (["timeupdate","nombre","descripcion","unit_id"].some(k=> Object.keys(changes).includes(k))) ? {update_obs_metadata: true} : undefined
 		return this.create(options)
 	}
-	static async update(filter,changes={},client) {
-		const observaciones = await this.read(filter,undefined,client)
+	static async update(filter,changes={}) {
+		const observaciones = await this.read(filter,undefined)
 		return observaciones.update(changes)
 	}
-	async delete(options={},client) {
+	async delete(options={}) {
 		var ids = this.map(o=>o.id).filter(id=>id)
 		if(!length.ids) {
 			console.error("Observaciones id not found for deletion")
 			return
 		}
-		return internal.CRUD.deleteObservacionesById(this.getTipo(),ids,options.no_send_data,client)
+		return internal.CRUD.deleteObservacionesById(this.getTipo(),ids,options.no_send_data)
 	}
-	static async delete(filter={},options={},client) {
+	static async delete(filter={},options={}) {
 		var tipo = (filter.tipo) ? filter.tipo : "puntual"
-		return internal.CRUD.deleteObservaciones(tipo,filter,options,client)
+		return internal.CRUD.deleteObservaciones(tipo,filter,options)
 	}
 	/**
 	 * Exports observaciones as json files (one for each serie)
@@ -4549,22 +4543,20 @@ internal.corrida = class extends baseModel {
 			this.series = await this.getSeries(filter,options)
 		}
 	}
-	async setPronosticos(filter={},options={},client) {
-		client = client ?? await global.pool.connect()
+	async setPronosticos(filter={},options={}) {
 		for(var serie of this.series) {
 			if((filter.series_id && filter.series_table) && (serie.series_table != filter.series_table || serie.series_id != filter.series_id)) {
 				continue
 			} 
-			await serie.setPronosticos(filter,options,client)
+			await serie.setPronosticos(filter,options)
 		}
 	}
-	async getQuantileSeries(filter={},quantiles=[0,0.25,0.5,0.75,1],labels=["min","1st_quartile","median","3rd_quartile","max"],create,client) {
-		client = client ?? await global.pool.connect()
+	async getQuantileSeries(filter={},quantiles=[0,0.25,0.5,0.75,1],labels=["min","1st_quartile","median","3rd_quartile","max"],create) {
 		for(var serie of this.series) {
 			const old_pronosticos = serie.pronosticos
-			await serie.setPronosticos(filter,undefined,client)
+			await serie.setPronosticos(filter,undefined)
 			// console.log("get quantiles. series_id:" + serie.series_id)
-			await serie.getQuantileSeries(quantiles,labels,create,client)
+			await serie.getQuantileSeries(quantiles,labels,create)
 			// console.log({series_id: serie.id, quantile_series: result})
 			if(create) {
 				serie.pronosticos = old_pronosticos
@@ -4820,7 +4812,7 @@ internal.SerieTemporalSim = class extends baseModel {
 
 	}
 
-	async getQuantileSeries(quantiles=[0,0.25,0.5,0.75,1],labels=["min","1st_quartile","median","3rd_quartile","max"],create,client) {
+	async getQuantileSeries(quantiles=[0,0.25,0.5,0.75,1],labels=["min","1st_quartile","median","3rd_quartile","max"],create) {
 		const pivot_table = {}
 		const dates = {}
 		const pronosticos_ensemble = []
@@ -4882,7 +4874,7 @@ internal.SerieTemporalSim = class extends baseModel {
 		const result_series = Object.keys(quantile_series).map(key=> quantile_series[key])
 		// console.log("got " + result_series.length + " quantile series")
 		this.pronosticos = pronosticos_ensemble
-		client = client ?? await global.pool.connect()
+		const client = await global.pool.connect()
 		const pronosticos_to_create = []
 		for(var serie of result_series) {
 			this.pronosticos.push(...serie.pronosticos)
@@ -4899,8 +4891,10 @@ internal.SerieTemporalSim = class extends baseModel {
 				await internal.CRUD.upsertPronosticos(client,pronosticos_to_create)
 				pronosticos_to_create.length = 0
 			}
+			client.release()
 			return
 		} else {
+			client.release()
 			return result_series
 		}
 	}
@@ -5468,7 +5462,7 @@ internal.CRUD = class {
 	}
 	
 	static async upsertEstacion_(estacion,options={}) {
-		return estacion.getEstacionId(global.pool)
+		return estacion.getEstacionId()
 		.then(()=>{
 			console.log({id:estacion.id})
 			var query = this.upsertEstacionQuery(estacion,options)
@@ -5626,7 +5620,7 @@ internal.CRUD = class {
 			estacion = await this.upsertNivelesAlerta(estacion,client)
 		}
 		if(release_client) {
-			await client.release()
+			client.release()
 		}
 		return new internal.estacion(estacion)
 	}
@@ -5669,7 +5663,7 @@ internal.CRUD = class {
 			}
 		}
 		if(release_client) {
-			await client.release()
+			client.release()
 		}
 		return estacion
 	}
@@ -5778,7 +5772,7 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getEstacionesWithPagination(filter={},options={},req,client) {
+	static async getEstacionesWithPagination(filter={},options={},req) {
 		filter.limit = filter.limit ?? config.pagination.default_limit
 		filter.limit = parseInt(filter.limit)
 		if (filter.limit > config.pagination.max_limit) {
@@ -5786,7 +5780,7 @@ internal.CRUD = class {
 		}
 		filter.offset = filter.offset ?? 0
 		filter.offset = parseInt(filter.offset)
-		const result = await this.getEstaciones(filter,options,client)
+		const result = await this.getEstaciones(filter,options)
 		var is_last_page = (result.length < filter.limit)
 		if(is_last_page) {
 			return {
@@ -5946,8 +5940,7 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getArea(id,options={},client) {
-		client = client ?? await global.pool.connect()
+	static async getArea(id,options={}) {
 		var query = (options.no_geom) ? "\
 		SELECT areas_pluvio.unid AS id, areas_pluvio.nombre, st_astext(areas_pluvio.exutorio) AS exutorio\
 		FROM areas_pluvio\
@@ -5955,7 +5948,7 @@ internal.CRUD = class {
 		SELECT areas_pluvio.unid AS id, areas_pluvio.nombre, st_astext(ST_ForcePolygonCCW(areas_pluvio.geom)) AS geom, st_astext(areas_pluvio.exutorio) AS exutorio\
 		FROM areas_pluvio\
 		WHERE unid=$1"
-		return client.query(query,[id])
+		return global.pool.query(query,[id])
 		.then(result=>{
 			if(result.rows.length<=0) {
 				console.error("area no encontrada")
@@ -6254,24 +6247,21 @@ internal.CRUD = class {
 
 	// VAR //
 	
-	static async upsertVar(variable,client) {
-		client = client ?? await global.pool.connect()
-		return variable.getId(client)
+	static async upsertVar(variable) {
+		return variable.getId()
 		.then(()=>{
 			return this.interval2epoch(variable.timeSupport)
 		}).then(timeSupport=>{
 			//~ var timeSupport = (variable.timeSupport) ? (typeof variable.timeSupport == 'object') ? this.interval2epoch(variable.timeSupport) : variable.timeSupport : variable.timeSupport
-			return client.query(this.upsertVarQuery(variable))
+			return global.pool.query(this.upsertVarQuery(variable))
 		}).then(result=>{
 			if(result.rows.length<=0) {
-				client.release()
 				throw("Upsert failed")
 			}
 			// console.log("Upserted var.id=" + result.rows[0].id)
 			variable.set(result.rows[0])
 			return new internal["var"](result.rows[0])
 		}).catch(e=>{
-			client.release()
 			throw(e)
 		})
 	}
@@ -6320,7 +6310,7 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getVar(id,client) {
+	static async getVar(id) {
 		return executeQueryReturnRows("\
 		SELECT id, \
 		       var,\
@@ -6336,7 +6326,7 @@ internal.CRUD = class {
 		       \"timeSupport\",\
 		       def_hora_corte\
 		FROM var\
-		WHERE id=$1",[id],client)
+		WHERE id=$1",[id])
 		.then(rows=>{
 			if(rows.length<=0) {
 				console.log("variable no encontrada")
@@ -6664,14 +6654,13 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getFuente(id,isPublic,client) {
-		client = client ?? await global.pool.connect()
+	static async getFuente(id,isPublic) {
 		const query = "\
 		SELECT id, nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, st_asgeojson(def_extent)::json def_extent, date_column, def_pixeltype, abstract, source,public\
 		FROM fuentes\
 		WHERE id=$1"
 		// console.log(query)
-		var result = await client.query(query,[id])
+		var result = await global.pool.query(query,[id])
 		if(result.rows.length<=0) {
 			console.log("fuentes no encontrado")
 			return
@@ -6683,7 +6672,7 @@ internal.CRUD = class {
 		}
 		// nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, def_extent, date_column, def_pixeltype, abstract, source
 		var row = result.rows[0]
-		row.constraints = await this.getTableConstraints(row.data_table,undefined,client)
+		row.constraints = await this.getTableConstraints(row.data_table,undefined)
 		const fuente = new internal.fuente(row) //(row.nombre, row.data_table, row.data_column, row.tipo, row.def_proc_id, row.def_dt, row.hora_corte, row.def_unit_id, row.def_var_id, row.fd_column, row.mad_table, row.scale_factor, row.data_offset, row.def_pixel_height, row.def_pixel_width, row.def_srid, new internal.geometry(def_extent.type, def_extent.coordinates), row.date_column, row.def_pixeltype, row.abstract, row.source)
 		fuente.id = row.id
 		return fuente
@@ -7408,29 +7397,29 @@ internal.CRUD = class {
 		var promises=[]
 		if(!serie.estacion) {
 			if(serie.tipo == "areal") {
-				promises.push(this.getArea(serie.estacion_id))
+				promises.push(this.getArea(serie.estacion_id,undefined))
 			} else if (serie.tipo == "rast") {
-				promises.push(this.getEscena(serie.estacion_id))
+				promises.push(this.getEscena(serie.estacion_id,undefined))
 			} else {
-				promises.push(this.getEstacion(serie.estacion_id))
+				promises.push(this.getEstacion(serie.estacion_id,undefined))
 			}
 		} else if (serie.estacion.id) {
 			if(serie.tipo == "areal") {
 				if(! serie.estacion instanceof internal.area) {
-					promises.push(this.getArea(serie.estacion.id))
+					promises.push(this.getArea(serie.estacion.id,undefined))
 				} else {
 					promises.push(serie.estacion)
 				}
 			} else if (serie.tipo == "rast") {
 				if(! serie.estacion instanceof internal.escena) {
-					promises.push(this.getEscena(serie.estacion.id))
+					promises.push(this.getEscena(serie.estacion.id,undefined))
 				} else {
 					promises.push(serie.estacion)
 				}
 			} else {
 				if(! serie.estacion instanceof internal.estacion) {
 					console.log("running getEstacion")
-					promises.push(this.getEstacion(serie.estacion.id))
+					promises.push(this.getEstacion(serie.estacion.id,undefined))
 				} else {
 					promises.push(serie.estacion)
 				}
@@ -7473,10 +7462,10 @@ internal.CRUD = class {
 		}
 		if(serie.tipo == "areal") {
 			if(!serie.fuente) {
-				promises.push(this.getFuente(serie.fuentes_id))
+				promises.push(this.getFuente(serie.fuentes_id,undefined))
 			} else if (serie.fuente.id) {
 				if(!serie.fuente instanceof internal.fuente) {
-					promises.push(this.getFuente(serie.fuente.id))
+					promises.push(this.getFuente(serie.fuente.id,undefined))
 				} else {
 					promises.push(serie.fuente)
 				}
@@ -8256,8 +8245,7 @@ internal.CRUD = class {
 	
 			
 	static async upsertObservacionesPuntual(observaciones,skip_nulls,no_update,timeSupport,client) {
-		//~ console.log({observaciones:observaciones})
-		client = client ?? await global.pool.connect()
+		//~ console.log({observaciones:observaciones})	
 		var obs_values = []
 		observaciones = observaciones.map(observacion=> {
 			if(!observacion.series_id) {
@@ -8305,11 +8293,11 @@ internal.CRUD = class {
 		var disable_trigger = "" // (timeSupport) ? "ALTER TABLE observaciones DISABLE TRIGGER obs_puntual_dt_constraint_trigger;" : ""
 		var enable_trigger = "" //(timeSupport) ? "ALTER TABLE observaciones ENABLE TRIGGER obs_puntual_dt_constraint_trigger;" : ""
 		var release_client = false
-		// if(!client) {
-			// client = await global.pool.connect()
-			// release_client = true
+		if(!client) {
+			client = await global.pool.connect()
+			release_client = true
 			await client.query('BEGIN')
-		// }
+		}
 		try {
 			//~ console.log({obs_values:obs_values})
 			await client.query("\
@@ -8357,24 +8345,23 @@ internal.CRUD = class {
 				}
 			}
 			await client.query(enable_trigger)
-			// if(release_client) {
+			 if(release_client) {
 				await client.query("COMMIT;")
-				// await client.release()
-			// }
+				await client.release()
+			}
 			// console.log("upserted: " + result.rows.length + " obs_puntuales")
 			return rows
 		} catch(e) {
 			// console.error({message: "upsertObservacionesPuntual error",error:e})
-			// if(release_client) {
+			if(release_client) {
 				await client.query("ROLLBACK")
-				// await client.release()
-			// }
+				await client.release()
+			}
 			throw(e)
 		}
 	}
 	
 	static async upsertObservacionesAreal(observaciones,skip_nulls,no_update, timeSupport,client) {
-		client = client ?? await global.pool.connect()
 		var obs_values = []
 		observaciones = observaciones.map(observacion=> {
 			if(!observacion.series_id) {
@@ -8420,11 +8407,11 @@ internal.CRUD = class {
 		var disable_trigger = (timeSupport) ? "ALTER TABLE observaciones_areal DISABLE TRIGGER obs_dt_trig;" : ""
 		var enable_trigger = (timeSupport) ? "ALTER TABLE observaciones_areal ENABLE TRIGGER obs_dt_trig;" : ""
 		var release_client = false
-		// if(client) {
-			// client = await global.pool.connect()
-			// release_client = true
+		if(client) {
+			 client = await global.pool.connect()
+			release_client = true
 			await client.query("BEGIN")
-		// }
+		}
 		try {
 			await client.query(disable_trigger)
 			var rows = await executeQueryReturnRows("\
@@ -8469,16 +8456,16 @@ internal.CRUD = class {
 					DO " + on_conflict_clause_val + "\
 					RETURNING *",undefined,client,false)
 			await client.query(enable_trigger) 
-			// if(release_client) {
+			if(release_client) {
 				await client.query("COMMIT")
-				// await client.release()
-			// }
+				await client.release()
+			}
 			return observaciones
 		} catch(e) {
-			// if(release_client) {
+			if(release_client) {
 				await client.query("ROLLBACK")
-				// await client.release()
-			// }
+				await client.release()
+			}
 			throw(e)
 		}	
 	}
@@ -8620,11 +8607,16 @@ internal.CRUD = class {
 			return Promise.all(promises)
 			.then(result=>{
 				if(!result[0].rows) {
-					throw client.notifications[client.notifications.length-1].message
+					var notification = client.notifications[client.notifications.length-1].message.toString()
+					client.release()
+					throw notification
+					
 				}
 				if(result[0].rows.length == 0) {
 					if(client.notifications && client.notifications.length > 0) {
-						throw client.notifications[client.notifications.length-1].message
+						var notification = client.notifications[client.notifications.length-1].message.toString()
+						client.release()
+						throw notification
 					} else {
 						throw "id de observación no encontrado"
 					}
@@ -8633,9 +8625,12 @@ internal.CRUD = class {
 				if(result[1].rows) {
 					obs.valor = result[1].rows[0].valor
 					obs.tipo = "puntual"
+					client.release()
 					return new internal.observacion(obs)
 				} else {
-					throw client.notifications[client.notifications.length-1].message
+					var notification = client.notifications[client.notifications.length-1].message.toString()
+					client.release
+					throw notification
 				}
 			})
 		})
@@ -8652,7 +8647,9 @@ internal.CRUD = class {
 		}
 		client = (client) ? client : await global.pool.connect()
 		try {
-			await client.query('BEGIN')
+			if(release_client) {
+				await client.query('BEGIN')
+			}
 			var deleted_valores
 			var deleteObsText
 			if(val_tabla != "") { // PUNTUAL o AREAL
@@ -8672,8 +8669,8 @@ internal.CRUD = class {
 			const deleted_observaciones = await executeQueryReturnRows(deleteObsText, [id],client)
 					//~ obs.tipo=tipo
 					//~ obs.valor=res.rows[0].valor
-			await client.query("COMMIT")
 			if(release_client) {
+				await client.query("COMMIT")
 				await client.release()
 			}
 			if(val_tabla != "") { // PUNTUAL o AREAL
@@ -8694,8 +8691,8 @@ internal.CRUD = class {
 				}
 			}
 		} catch(e) {
-			await client.query('ROLLBACK')
 			if(release_client) {
+				await client.query('ROLLBACK')
 				await client.release()
 			}
 			throw e
@@ -8823,7 +8820,9 @@ internal.CRUD = class {
 				client = await global.pool.connect()
 			}
 			try {
-				await client.query('BEGIN')
+				if(release_client) {
+					await client.query('BEGIN')
+				}
 				var result = await executeQueryReturnRows(deleteValorText,undefined,client)
 				if(result.length == 0) {
 					console.log("No se eliminó ningun valor")
@@ -8846,7 +8845,10 @@ internal.CRUD = class {
 				} else {
 					deleted_observaciones = result
 				}
-				await client.query("COMMIT")
+				if(release_client) {
+					await client.query("COMMIT")
+					client.release()
+				}
 				if(options && options.no_send_data) {
 					console.log("Deleted " + result[0].count + " rows from " + obs_tabla)
 					return parseInt(result[0].count)
@@ -10294,7 +10296,6 @@ internal.CRUD = class {
 	 * @returns {Promise<Array<internal.tableConstraint>>} 
 	 */
 	static async getTableConstraints(table_name,namespace_name="public",client) {
-		client = client ?? await global.pool.connect()
 		const query = pasteIntoSQLQuery("SELECT \
 		rel.relname AS table_name,\
 		con.conname AS constraint_name,\
@@ -10306,15 +10307,19 @@ internal.CRUD = class {
 		INNER JOIN information_schema.key_column_usage kcu ON kcu.constraint_name = con.conname \
 		WHERE nsp.nspname = $1 and rel.relname = $2 group by rel.relname, con.conname, con.contype;",[namespace_name,table_name])
 		// console.log(query)
-		const result = await client.query(query)
+		if(client) {
+			var result = await client.query(query)
+		} else {
+			var result = await global.pool.query(query)
+		}
 		return result.rows.map(row=>{
 			return new internal.tableConstraint(row)
 		}) 
 	}
 
-	static async upsertObservacionesCubo(id,observaciones,client) {
-		client = client ?? await global.pool.connect()
-		const fuente = await this.getFuente(id,undefined,client)
+	static async upsertObservacionesCubo(id,observaciones) {
+		const client = await global.pool.connect()
+		const fuente = await this.getFuente(id,undefined)
 		fuente.date_column = (fuente.date_column) ? fuente.date_column : "date"
 		var query = `INSERT INTO ${fuente.data_table} (${fuente.date_column},${fuente.data_column})\
 		VALUES ($1,ST_FromGDALRaster($2))\
@@ -10328,7 +10333,6 @@ internal.CRUD = class {
 			RETURNING ${fuente.date_column}`
 		}
 		console.log("fuente id:" + fuente.id + ", obs length:" + observaciones.length)
-		// const client = await global.pool.connect()
 		console.log("connected")
 		await client.query("BEGIN")
 		const upserted = []
@@ -10346,11 +10350,12 @@ internal.CRUD = class {
 			}
 		}
 		await client.query("COMMIT")
-		// await client.release()
+		client.release()
 		return upserted
 	}
 
 	static async updateCubeFromSeries(series_id,timestart,timeend,forecast_date,isPublic,fuentes_id) {
+		const client = await global.pool.connect()
 		if(!series_id) {
 			throw "Missing source series_id (from series_rast)"
 		}
@@ -10361,8 +10366,9 @@ internal.CRUD = class {
 			throw "Missing timeend"
 		}
 		try{
-			var serie = await this.getSerie("rast",series_id,undefined,undefined,undefined,isPublic)
+			var serie = await this.getSerie("rast",series_id,undefined,undefined,undefined,isPublic,undefined,client)
 		} catch(e) {
+			client.release()
 			throw(e)
 		}
 		if(!serie) {
@@ -10375,14 +10381,16 @@ internal.CRUD = class {
 			throw("Missing fuentes_id")
 		}
 		try {
-			var fuente = await this.getFuente(fuentes_id,isPublic)
+			var fuente = await this.getFuente(fuentes_id,isPublic,client)
 		} catch(e) {
+			client.release()
 			throw(e)
 		}
 		if(!fuente.data_table) {
+			client.release()
 			throw("Missing data_table from fuente")
 		}
-		var client  = await global.pool.connect()
+		// var client  = await global.pool.connect()
 		const data_table = client.escapeIdentifier(fuente.data_table)
 		const data_column = (fuente.data_column) ? client.escapeIdentifier(fuente.data_column) : "rast"
 		const fd_column = (fuente.fd_column) ? client.escapeIdentifier(fuente.fd_column) : undefined
@@ -10390,11 +10398,13 @@ internal.CRUD = class {
 		series_id = parseInt(series_id)
 		timestart = timeSteps.DateFromDateOrInterval(timestart)
 		if(timestart.toString() == "Invalid Date") {
+			client.release()
 			throw("Invalid timestart")
 		}
 		timestart = client.escapeLiteral(timestart.toISOString())
 		timeend = timeSteps.DateFromDateOrInterval(timeend)
 		if(timeend.toString() == "Invalid Date") {
+			client.release()
 			throw("Invalid timeend")
 		}
 		timeend = client.escapeLiteral(timeend.toISOString())
@@ -10411,6 +10421,7 @@ internal.CRUD = class {
 			if(forecast_date) {
 				forecast_date = new Date(forecast_date)
 				if(forecast_date.toString() == "Invalid Date") {
+					client.release()
 					throw("Invalid forecast_date")
 				}
 				forecast_date = client.escapeLiteral(forecast_date.toISOString())
@@ -10429,14 +10440,15 @@ internal.CRUD = class {
 		try {
 			var result = await client.query(query)
 		} catch(e) {
+			client.release()
 			throw(e)
 		}
 		console.log("Saved " + result.rows.length + " rows into " + data_table)
-		return client.end()
+		client.release()
+		return // client.end()
 	}
 
 	static async deleteObservacionesCubo(fuentes_id,filter,options,client) {
-		client = client ?? await global.pool.connect()
 		if(!fuentes_id) {
 			throw("Missing id")
 		}
@@ -10488,7 +10500,11 @@ internal.CRUD = class {
 			stmt = `WITH deleted AS (DELETE FROM "${fuente.data_table}" WHERE 1=1 ` + filter_string + returning_clause + ") " + select_deleted_clause
 			// console.log(stmt)
 			// console.log(args)
-			return client.query(stmt,args)
+			if(client) {
+				return client.query(stmt,args)
+			} else {
+				return global.pool.query(stmt,args)
+			}
 		})
 		.then(result=>{
 			if(options.no_send_data) {
@@ -15131,7 +15147,11 @@ ORDER BY cal.cal_id`
 	static async upsertPronosticos(client,pronosticos) {
 		if(!client) {
 			client = await global.pool.connect()
+			var release_client = true
+		} else {
+			var release_client = false
 		}
+
 		// filter by series_table
 		var values = [] 
 		var values_areal = [] 
@@ -15188,6 +15208,9 @@ ORDER BY cal.cal_id`
 			}
 		}
 		console.log("upserted " + pronosticos_result.length + " pronosticos")
+		if(release_client) {
+			client.release(true)
+		}
 		return Promise.resolve(pronosticos_result)
 	}
 	
@@ -17457,6 +17480,14 @@ function isNumeric(str) {
 	if (typeof str != "string") return false // we only process strings!  
 	return !isNaN(str) && // use type coercion to parse the _entirety_ of the string (`parseFloat` alone does not do this)...
 		   !isNaN(parseFloat(str)) // ...and ensure strings of whitespace fail
+}
+
+async function new_client(client) {
+	if(client) {
+		return [client,false]
+	} else {
+		return [await global.pool.connect(),true]
+	}
 }
 
 module.exports = internal
