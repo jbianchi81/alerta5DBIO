@@ -19,7 +19,7 @@ const spawn = require('child_process').spawn
 
 const crypto = require('crypto')
 
-const config = require('config');
+const config = global.config // require('config');
 
 // const global.pool = new Pool(config.database)
 const port = config.rest.port
@@ -605,18 +605,29 @@ app.post('/login',passport.authenticate('local'),(req,res)=>{
 	}
 })
 app.get('/logout', function(req, res){
-    req.logout();
-    var path = (req.query) ? (req.query.path) ? req.query.path : "secciones"  : "secciones"
-	var query = {}
-	Object.keys(req.query).forEach(key=> {
-		if(key != "path" && key != "redirected" && key != "unauthorized" && key != "loggedout") {
-			query[key] = req.query[key]
+    req.session.destroy((err)=>{
+		if (err) {
+			console.error(err)
+			res.status(400).send(err.toString())
+			return
 		}
+		req.logout()
+		console.log({message:"logged out"});
+		// res.redirect('login')
+		// res.send("logged out")
+		var path = (req.query) ? (req.query.path) ? req.query.path : "secciones"  : "secciones"
+		var query = {}
+		Object.keys(req.query).forEach(key=> {
+			if(key != "path" && key != "redirected" && key != "unauthorized" && key != "loggedout") {
+				query[key] = req.query[key]
+			}
+		})
+		var query_string = querystring.stringify(query) // (req.body.class) ? "?class="+req.body.class : ""
+		var redirect_url = 'login?loggedout=true&path=' + path
+		redirect_url += (query_string != "") ? ("&" + query_string) : ""
+		res.redirect(redirect_url)
 	})
-	var query_string = querystring.stringify(query) // (req.body.class) ? "?class="+req.body.class : ""
-	var redirect_url = 'login?loggedout=true&path=' + path
-	redirect_url += (query_string != "") ? ("&" + query_string) : ""
-    res.redirect(redirect_url)
+	
 });
 app.post('logout', function(req, res){
   req.logout();
