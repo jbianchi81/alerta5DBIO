@@ -1,0 +1,17 @@
+<layer>
+  <name>estaciones_con_series</name>
+  <id>LayerInfoImpl--1e6aff6c:18a22f3f45d:-7ffd</id>
+  <type>VECTOR</type>
+  <defaultStyle>
+    <id>StyleInfoImpl-20bfbdcf:18a27dee2eb:-8000</id>
+  </defaultStyle>
+  <resource class="featureType">
+    <id>FeatureTypeInfoImpl--1e6aff6c:18a22f3f45d:-7ffe</id>
+  </resource>
+  <attribution>
+    <logoWidth>0</logoWidth>
+    <logoHeight>0</logoHeight>
+  </attribution>
+  <dateCreated>2023-08-23 15:12:53.797 UTC</dateCreated>
+  <dateModified>2023-08-30 22:45:56.251 UTC</dateModified>
+</layer>

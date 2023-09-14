@@ -1,0 +1,350 @@
+<featureType>
+  <id>FeatureTypeInfoImpl--1e6aff6c:18a22f3f45d:-7ffe</id>
+  <name>estaciones_con_series</name>
+  <nativeName>estaciones_con_series</nativeName>
+  <namespace>
+    <id>NamespaceInfoImpl-7c75b6ed:18a1e801f84:-7fff</id>
+  </namespace>
+  <title>estaciones_con_series</title>
+  <keywords>
+    <string>features</string>
+    <string>estaciones_con_series</string>
+  </keywords>
+  <nativeCRS>GEOGCS[&quot;WGS 84&quot;, 
+  DATUM[&quot;World Geodetic System 1984&quot;, 
+    SPHEROID[&quot;WGS 84&quot;, 6378137.0, 298.257223563, AUTHORITY[&quot;EPSG&quot;,&quot;7030&quot;]], 
+    AUTHORITY[&quot;EPSG&quot;,&quot;6326&quot;]], 
+  PRIMEM[&quot;Greenwich&quot;, 0.0, AUTHORITY[&quot;EPSG&quot;,&quot;8901&quot;]], 
+  UNIT[&quot;degree&quot;, 0.017453292519943295], 
+  AXIS[&quot;Geodetic longitude&quot;, EAST], 
+  AXIS[&quot;Geodetic latitude&quot;, NORTH], 
+  AUTHORITY[&quot;EPSG&quot;,&quot;4326&quot;]]</nativeCRS>
+  <srs>EPSG:4326</srs>
+  <nativeBoundingBox>
+    <minx>-72.8838888888889</minx>
+    <maxx>-1.01694444444444</maxx>
+    <miny>-54.7975</miny>
+    <maxy>-1.01694444444444</maxy>
+    <crs>EPSG:4326</crs>
+  </nativeBoundingBox>
+  <latLonBoundingBox>
+    <minx>-72.8838888888889</minx>
+    <maxx>-1.01694444444444</maxx>
+    <miny>-54.7975</miny>
+    <maxy>-1.01694444444444</maxy>
+    <crs>EPSG:4326</crs>
+  </latLonBoundingBox>
+  <projectionPolicy>FORCE_DECLARED</projectionPolicy>
+  <enabled>true</enabled>
+  <metadata>
+    <entry key="JDBC_VIRTUAL_TABLE">
+      <virtualTable>
+        <name>estaciones_con_series</name>
+        <sql>WITH pronos AS (&#xd;
+            SELECT &#xd;
+                series_puntual_prono_date_range.series_id AS series_id,&#xd;
+                json_agg(&#xd;
+                    json_build_object(&#xd;
+                        &apos;cal_id&apos;, corridas.cal_id,&#xd;
+                        &apos;cal_grupo_id&apos;, calibrados.grupo_id,&#xd;
+                        &apos;cor_id&apos;, series_puntual_prono_date_range.cor_id,&#xd;
+                        &apos;timestart&apos;, series_puntual_prono_date_range.begin_date,&#xd;
+                        &apos;timeend&apos;, series_puntual_prono_date_range.end_date,&#xd;
+                        &apos;count&apos;, series_puntual_prono_date_range.count,&#xd;
+                        &apos;qualifiers&apos;, series_puntual_prono_date_range.qualifiers&#xd;
+                    )&#xd;
+                ) AS corridas_array&#xd;
+            FROM series_puntual_prono_date_range&#xd;
+            JOIN corridas ON series_puntual_prono_date_range.cor_id = corridas.id&#xd;
+            JOIN calibrados ON corridas.cal_id = calibrados.id&#xd;
+            WHERE&#xd;
+                (&apos;%cal_grupo_id%&apos; = &apos;NULL&apos; OR calibrados.grupo_id = %cal_grupo_id%)&#xd;
+                AND &#xd;
+                (&apos;%cal_id%&apos; = &apos;NULL&apos; OR calibrados.id = %cal_id%)&#xd;
+            GROUP BY series_id&#xd;
+    ),&#xd;
+    series_json AS (&#xd;
+        SELECT&#xd;
+            series.id,&#xd;
+            estaciones.unid AS estacion_id,&#xd;
+            estaciones.tabla,&#xd;
+            json_build_object(&#xd;
+                &apos;tipo&apos;, &apos;puntual&apos;, &#xd;
+                &apos;id&apos;, series.id, &#xd;
+                &apos;var&apos;, json_build_object(&#xd;
+                    &apos;id&apos;, var.id, &#xd;
+                    &apos;var&apos;, var.var, &#xd;
+                    &apos;nombre&apos;, var.nombre, &#xd;
+                    &apos;abrev&apos;, var.abrev, &#xd;
+                    &apos;type&apos;, var.type, &#xd;
+                    &apos;datatype&apos;, var.datatype, &#xd;
+                    &apos;valuetype&apos;, var.valuetype, &#xd;
+                    &apos;GeneralCategory&apos;, var.&quot;GeneralCategory&quot;, &#xd;
+                    &apos;VariableName&apos;, var.&quot;VariableName&quot;, &#xd;
+                    &apos;SampleMedium&apos;, var.&quot;SampleMedium&quot;, &#xd;
+                    &apos;def_unit_id&apos;, var.def_unit_id, &#xd;
+                    &apos;timeSupport&apos;, var.&quot;timeSupport&quot;, &#xd;
+                    &apos;def_hora_corte&apos;, var.def_hora_corte),&#xd;
+                &apos;procedimiento&apos;, json_build_object(&#xd;
+                    &apos;id&apos;, procedimiento.id, &#xd;
+                    &apos;nombre&apos;, procedimiento.nombre, &#xd;
+                    &apos;abrev&apos;, procedimiento.abrev, &apos;descripcion&apos;, &#xd;
+                    procedimiento.descripcion),&#xd;
+                &apos;unidades&apos;, json_build_object(&#xd;
+                    &apos;id&apos;, unidades.id, &#xd;
+                    &apos;nombre&apos;, unidades.nombre, &#xd;
+                    &apos;abrev&apos;, unidades.abrev, &#xd;
+                    &apos;UnitsID&apos;, unidades.&quot;UnitsID&quot;, &#xd;
+                    &apos;UnitsType&apos;, unidades.&quot;UnitsType&quot;), &#xd;
+                &apos;fuente&apos;, json_build_object(),&#xd;
+                &apos;date_range&apos;, json_build_object(&#xd;
+                    &apos;timestart&apos;, series_date_range.timestart,&#xd;
+                    &apos;timeend&apos;, series_date_range.timeend,&#xd;
+                    &apos;count&apos;, series_date_range.count),&#xd;
+                &apos;pronosticos&apos;, pronos.corridas_array,&#xd;
+                &apos;data_availability&apos;, case when series_date_range.timeend is not null&#xd;
+                    then&#xd;
+                        case when now() - series_date_range.timeend &lt; &apos;1 days&apos;::interval&#xd;
+                                then case when pronos.corridas_array is not null&#xd;
+                                    then 9 -- &apos;RT+S&apos;&#xd;
+                                    else 8 -- &apos;RT&apos;&#xd;
+                                    end&#xd;
+                                when now() - series_date_range.timeend &lt; &apos;3 days&apos;::interval&#xd;
+                                then case when pronos.corridas_array is not null&#xd;
+                                    then 7 -- &apos;NRT+S&apos;&#xd;
+                                    else 6 -- &apos;NRT&apos;&#xd;
+                                    end&#xd;
+                                when (series_date_range.timestart &lt;= &apos;%timeend%&apos;::timestamp) and (series_date_range.timeend &gt;= &apos;%timestart%&apos;::timestamp)&#xd;
+                                then case when pronos.corridas_array is not null&#xd;
+                                    then 5 --&apos;C+S&apos;&#xd;
+                                    else 4 -- &apos;C&apos;&#xd;
+                                    end&#xd;
+                                else case when pronos.corridas_array is not null&#xd;
+                                    then 3 -- &apos;H+S&apos;&#xd;
+                                    else 2 -- &apos;H&apos;&#xd;
+                                    end&#xd;
+                        end&#xd;
+                    when pronos.corridas_array is not null&#xd;
+                    then 1 -- &apos;S&apos;&#xd;
+                    else 0 -- &apos;N&apos;&#xd;
+                end&#xd;
+            ) AS serie&#xd;
+        FROM estaciones&#xd;
+            JOIN redes ON estaciones.tabla = redes.tabla_id&#xd;
+            JOIN series ON series.estacion_id = estaciones.unid&#xd;
+            JOIN var ON series.var_id = var.id&#xd;
+            JOIN procedimiento ON series.proc_id = procedimiento.id&#xd;
+            JOIN unidades ON series.unit_id = unidades.id&#xd;
+            LEFT JOIN series_date_range ON series.id = series_date_range.series_id&#xd;
+            LEFT JOIN pronos ON pronos.series_id=series.id&#xd;
+        WHERE&#xd;
+            series.id=coalesce(%series_id%,series.id)&#xd;
+            AND estaciones.unid=coalesce(%estacion_id%,estaciones.unid)&#xd;
+            AND procedimiento.id=coalesce(%proc_id%,procedimiento.id)&#xd;
+            AND var.id=coalesce(%var_id%,var.id)&#xd;
+            AND unidades.id=coalesce(%unit_id%,unidades.id)&#xd;
+            AND (&apos;%GeneralCategory%&apos;=&apos;NULL&apos; OR var.&quot;GeneralCategory&quot;=&apos;%GeneralCategory%&apos;)&#xd;
+            AND (&apos;%tabla%&apos;=&apos;NULL&apos; OR estaciones.tabla=&apos;%tabla%&apos;)&#xd;
+            AND redes.id=coalesce(%red_id%,redes.id)&#xd;
+            AND estaciones.id_externo=coalesce(%id_externo%,estaciones.id_externo)&#xd;
+            AND (&apos;%date_range_before%&apos;=&apos;1900-01-01&apos; OR (series_date_range.timestart IS NOT NULL AND series_date_range.timestart&gt;=&apos;%date_range_before%&apos;::timestamp))&#xd;
+            AND (&apos;%date_range_after%&apos;=&apos;2100-01-01&apos; OR (series_date_range.timeend IS NOT NULL AND series_date_range.timeend&lt;=&apos;%date_range_after%&apos;::timestamp))&#xd;
+            AND (&apos;%data_availability%&apos;=&apos;NULL&apos; &#xd;
+                OR &apos;%data_availability%&apos;=&apos;a&apos;&#xd;
+                OR (&apos;%data_availability%&apos;=&apos;r&apos; AND series_date_range.timeend IS NOT NULL AND now() - series_date_range.timeend &lt; &apos;1 days&apos;::interval) &#xd;
+                OR (&apos;%data_availability%&apos;=&apos;n&apos; AND series_date_range.timeend IS NOT NULL AND now() - series_date_range.timeend &lt; &apos;3 days&apos;::interval) &#xd;
+                OR (&apos;%data_availability%&apos;=&apos;c&apos; AND series_date_range.timeend IS NOT NULL AND (series_date_range.timestart &lt;= &apos;%timeend%&apos;::timestamp) AND (series_date_range.timeend &gt;= &apos;%timestart%&apos;::timestamp))&#xd;
+                OR (&apos;%data_availability%&apos;=&apos;h&apos; AND series_date_range.timeend IS NOT NULL AND series_date_range.timeend IS NOT NULL)&#xd;
+            )&#xd;
+            AND (CAST (&apos;%has_prono%&apos; AS BOOLEAN) = false or pronos.corridas_array IS NOT NULL)&#xd;
+            AND st_x(estaciones.geom) BETWEEN coalesce(%west%,-180) AND coalesce(%east%,%west%,180) AND st_y(estaciones.geom) BETWEEN coalesce(%south%,-90) AND coalesce(%north%,%south%,90)&#xd;
+    )&#xd;
+    SELECT &#xd;
+        estaciones.unid AS estacion_id, &#xd;
+        estaciones.nombre AS nombre, &#xd;
+        estaciones.id_externo AS id_externo, &#xd;
+        estaciones.geom AS geom, &#xd;
+        estaciones.tabla AS tabla,&#xd;
+        estaciones.pais AS pais,&#xd;
+        estaciones.rio AS rio, &#xd;
+        estaciones.has_obs AS has_obs, &#xd;
+        estaciones.tipo AS tipo, &#xd;
+        estaciones.automatica AS automatica, &#xd;
+        estaciones.habilitar AS habilitar, &#xd;
+        estaciones.propietario AS propietario, &#xd;
+        estaciones.abrev AS abreviatura,&#xd;
+        estaciones.localidad AS localidad, &#xd;
+        estaciones.&quot;real&quot; AS real, &#xd;
+        nivel_alerta.valor AS nivel_alerta, &#xd;
+        nivel_evacuacion.valor AS nivel_evacuacion, &#xd;
+        nivel_aguas_bajas.valor AS nivel_aguas_bajas,&#xd;
+        estaciones.altitud AS altitud,&#xd;
+        redes.public AS public, &#xd;
+        estaciones.cero_ign AS cero_ign, &#xd;
+        redes.id as red_id, &#xd;
+        redes.nombre as red_nombre,&#xd;
+        json_agg(series_json.serie) AS series,&#xd;
+        max((series_json.serie-&gt;&gt;&apos;data_availability&apos;)::int) data_availability&#xd;
+    FROM estaciones&#xd;
+        JOIN redes ON estaciones.tabla::text = redes.tabla_id::text&#xd;
+        JOIN series_json ON series_json.estacion_id = estaciones.unid&#xd;
+        LEFT JOIN alturas_alerta nivel_alerta ON estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado::text = &apos;a&apos;::text&#xd;
+        LEFT JOIN alturas_alerta nivel_evacuacion ON estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado::text = &apos;e&apos;::text&#xd;
+        LEFT JOIN alturas_alerta nivel_aguas_bajas ON estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado::text = &apos;b&apos;::text&#xd;
+    GROUP BY &#xd;
+        estaciones.unid, &#xd;
+        estaciones.nombre, &#xd;
+        estaciones.id_externo, &#xd;
+        estaciones.geom,&#xd;
+        estaciones.tabla,&#xd;
+        estaciones.pais,&#xd;
+        estaciones.rio, &#xd;
+        estaciones.has_obs, &#xd;
+        estaciones.tipo, &#xd;
+        estaciones.automatica, &#xd;
+        estaciones.habilitar, &#xd;
+        estaciones.propietario, &#xd;
+        estaciones.abrev,&#xd;
+        estaciones.localidad, &#xd;
+        estaciones.&quot;real&quot;, &#xd;
+        nivel_alerta.valor, &#xd;
+        nivel_evacuacion.valor, &#xd;
+        nivel_aguas_bajas.valor,&#xd;
+        estaciones.altitud,&#xd;
+        redes.public, &#xd;
+        estaciones.cero_ign, &#xd;
+        redes.id, &#xd;
+        redes.nombre&#xd;
+    ORDER BY &#xd;
+        estaciones.unid
+</sql>
+        <escapeSql>false</escapeSql>
+        <geometry>
+          <name>geom</name>
+          <type>Point</type>
+          <srid>4326</srid>
+        </geometry>
+        <parameter>
+          <name>timeend</name>
+          <defaultValue>2100-01-01</defaultValue>
+          <regexpValidator>^[+-]?\d{4}(-[01]\d(-[0-3]\d([T\s][0-2]\d:[0-5]\d:?([0-5]\d(\.\d+)?)?[+-][0-2]\d:[0-5]\dZ?)?)?)?$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>cal_grupo_id</name>
+          <defaultValue>NULL</defaultValue>
+          <regexpValidator>^\d+$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>GeneralCategory</name>
+          <defaultValue>NULL</defaultValue>
+          <regexpValidator>^[\w\d\s]+$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>south</name>
+          <defaultValue>NULL</defaultValue>
+          <regexpValidator>^[+-]?(\d*\.)?\d+$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>north</name>
+          <defaultValue>NULL</defaultValue>
+          <regexpValidator>^[+-]?(\d*\.)?\d+$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>estacion_id</name>
+          <defaultValue>NULL</defaultValue>
+          <regexpValidator>^[\w\d\s]+$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>proc_id</name>
+          <defaultValue>NULL</defaultValue>
+          <regexpValidator>^[\w\d\s]+$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>date_range_after</name>
+          <defaultValue>2100-01-01</defaultValue>
+          <regexpValidator>^[+-]?\d{4}(-[01]\d(-[0-3]\d([T\s][0-2]\d:[0-5]\d:?([0-5]\d(\.\d+)?)?[+-][0-2]\d:[0-5]\dZ?)?)?)?$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>has_prono</name>
+          <defaultValue>false</defaultValue>
+          <regexpValidator>^[\w\d]+$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>series_id</name>
+          <defaultValue>NULL</defaultValue>
+          <regexpValidator>^[\w\d\s]+$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>red_id</name>
+          <defaultValue>NULL</defaultValue>
+          <regexpValidator>^[\w\d\s]+$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>east</name>
+          <defaultValue>NULL</defaultValue>
+          <regexpValidator>^[+-]?(\d*\.)?\d+$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>data_availability</name>
+          <defaultValue>NULL</defaultValue>
+          <regexpValidator>^[\w\d\s]+$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>cal_id</name>
+          <defaultValue>NULL</defaultValue>
+          <regexpValidator>^\d+$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>date_range_before</name>
+          <defaultValue>1900-01-01</defaultValue>
+          <regexpValidator>^[+-]?\d{4}(-[01]\d(-[0-3]\d([T\s][0-2]\d:[0-5]\d:?([0-5]\d(\.\d+)?)?[+-][0-2]\d:[0-5]\dZ?)?)?)?$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>west</name>
+          <defaultValue>NULL</defaultValue>
+          <regexpValidator>^[+-]?(\d*\.)?\d+$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>tabla</name>
+          <defaultValue>NULL</defaultValue>
+          <regexpValidator>^[\w\d\s]+$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>var_id</name>
+          <defaultValue>NULL</defaultValue>
+          <regexpValidator>^[\w\d\s]+$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>timestart</name>
+          <defaultValue>1900-01-01</defaultValue>
+          <regexpValidator>^[+-]?\d{4}(-[01]\d(-[0-3]\d([T\s][0-2]\d:[0-5]\d:?([0-5]\d(\.\d+)?)?[+-][0-2]\d:[0-5]\dZ?)?)?)?$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>id_externo</name>
+          <defaultValue>NULL</defaultValue>
+          <regexpValidator>^[\w\d\s]+$</regexpValidator>
+        </parameter>
+        <parameter>
+          <name>unit_id</name>
+          <defaultValue>NULL</defaultValue>
+          <regexpValidator>^[\w\d\s]+$</regexpValidator>
+        </parameter>
+      </virtualTable>
+    </entry>
+    <entry key="cachingEnabled">false</entry>
+  </metadata>
+  <store class="dataStore">
+    <id>DataStoreInfoImpl-7c75b6ed:18a1e801f84:-7ffe</id>
+  </store>
+  <serviceConfiguration>false</serviceConfiguration>
+  <simpleConversionEnabled>false</simpleConversionEnabled>
+  <internationalTitle/>
+  <internationalAbstract/>
+  <maxFeatures>0</maxFeatures>
+  <numDecimals>0</numDecimals>
+  <padWithZeros>false</padWithZeros>
+  <forcedDecimal>false</forcedDecimal>
+  <overridingServiceSRS>false</overridingServiceSRS>
+  <skipNumberMatched>false</skipNumberMatched>
+  <circularArcPresent>false</circularArcPresent>
+</featureType>
