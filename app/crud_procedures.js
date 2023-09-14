@@ -66,7 +66,7 @@ internal.CrudProcedure = class  {
                 if(!internal.availableTests.hasOwnProperty(arguments[1][i].testName)) {
                     throw("Bad argument test.class: class not found")
                 }
-                this.tests.push(new internal.availableTests[arguments[1][i].testName]({...arguments[1][i].arguments,files_base_dir: this.files_base_dir},client))
+                this.tests.push(new internal.availableTests[arguments[1][i].testName]({...arguments[1][i].arguments,files_base_dir: this.files_base_dir}))
             }
         }
         this.output = (arguments[0] && arguments[0].output) ? path.resolve(this.files_base_dir,arguments[0].output) : (arguments[0] && arguments[0].options && arguments[0].options.output) ? path.resolve(this.files_base_dir,arguments[0].options.output) : undefined
@@ -1490,7 +1490,6 @@ internal.ComputeQuantilesProcedure = class extends internal.CrudProcedure {
         this.create = arguments[0].create
     }
     async run() {
-        const client = await global.pool.connect()
         const corridas = await CRUD.corrida.read(this.filter,{includeProno:false})
         for(var corrida of corridas) {
             await corrida.getQuantileSeries({
@@ -1500,7 +1499,7 @@ internal.ComputeQuantilesProcedure = class extends internal.CrudProcedure {
             this.quantiles,
             this.labels,
             this.create,
-            client)
+            this.client)
         }
         this.result = corridas
         return this.result
@@ -1543,7 +1542,6 @@ internal.GetAggregatePronosticosProcedure = class extends internal.CrudProcedure
         console.log({filter:this.filter,tipo:this.tipo})
     }
     async run() {
-        const client = await global.pool.connect()
         const corridas = await CRUD.corrida.read(this.filter,{includeProno:false,group_by_qualifier:this.group_by_qualifier})
         const results = []
         for(var corrida of corridas) {
@@ -1565,11 +1563,11 @@ internal.GetAggregatePronosticosProcedure = class extends internal.CrudProcedure
                     },
                     this.date_offset,
                     this.create,
-                    client
+                    this.client
                 )
             } else {
                 console.log("other interval")
-                var series_mensuales = await corrida.getAggregateSeries(this.tipo,this.source_series_id,this.dest_series_id,this.estacion_id,this.dest_fuentes_id,this.source_var_id,this.dest_var_id,this.dest_tipo,this.filter.timestart,this.filter.timeend,this.time_step,this.agg_function,this.precision,this.time_offset,this.utc,this.filter.proc_id,this.create,client)
+                var series_mensuales = await corrida.getAggregateSeries(this.tipo,this.source_series_id,this.dest_series_id,this.estacion_id,this.dest_fuentes_id,this.source_var_id,this.dest_var_id,this.dest_tipo,this.filter.timestart,this.filter.timeend,this.time_step,this.agg_function,this.precision,this.time_offset,this.utc,this.filter.proc_id,this.create,this.client)
 
             }
             results.push({
@@ -1579,7 +1577,6 @@ internal.GetAggregatePronosticosProcedure = class extends internal.CrudProcedure
             })         
         }
         this.result = results
-        client.release()
         return this.result
     }
 }
@@ -1638,8 +1635,7 @@ internal.DeleteObservacionesProcedure = class extends internal.CrudProcedure {
         delete series_filter.timestart
         delete series_filter.timeend
         delete series_filter.id
-        const client = await global.pool.connect()
-        var series = await crud.getSeries(this.tipo,series_filter,{"no_metadata":true},client)
+        var series = await crud.getSeries(this.tipo,series_filter,{"no_metadata":true},this.client)
         this.result = []
         for(var i in series) {
             logger.info("serie id:" + series[i].id)
@@ -1653,11 +1649,11 @@ internal.DeleteObservacionesProcedure = class extends internal.CrudProcedure {
                 unit_id: this.filter.unit_id
             }
             if(this.options && this.options.no_send_data) {
-                var count = await crud.deleteObservaciones(this.tipo,filter,{"no_send_data":true},client)
+                var count = await crud.deleteObservaciones(this.tipo,filter,{"no_send_data":true},this.client)
                 logger.info("deleted " + count + " observaciones")
                 this.result.push(count)
             } else {
-                var deleted = await crud.deleteObservaciones(this.tipo,filter,client)
+                var deleted = await crud.deleteObservaciones(this.tipo,filter,this.client)
                 logger.info("deleted " + deleted.length + " observaciones")
                 this.result.push(...deleted)
             }
@@ -2599,7 +2595,6 @@ internal.validateSequence = function(filename,client) {
 }
 
 internal.runSequence = async function(filename,test_mode=false,client) {
-    client = client ?? await global.pool.connect()
     var procedureSequence = internal.validateSequence(filename,client)
     // console.log(parsed_content)
     if(test_mode) {
@@ -2820,6 +2815,7 @@ if(1==1) {
     .action(async (files,options) => {
         var test_result = true
         var error_log = []
+        const client = await global.pool.connect()
         for(var i in files) {
             var filename = files[i]
             logger.info("~~~ Sequence file: " + filename + " ~~~")
@@ -2835,7 +2831,7 @@ if(1==1) {
                 continue
             }
             try {
-                var result = await internal.runSequence(filename,options.test)
+                var result = await internal.runSequence(filename,options.test,client)
             } catch (e) {
                 logger.error(e)
                 // error_log.push({filename:filename,errors: [e.toString()]})
@@ -2847,6 +2843,7 @@ if(1==1) {
             }
         }
         logger.info("End.")
+        client.release()
         if(test_result===false) {
             if(files.length > 1) {
                 printErrorSummmary(error_log,files.length)

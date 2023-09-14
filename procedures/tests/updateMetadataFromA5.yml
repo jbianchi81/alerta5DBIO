@@ -63,6 +63,7 @@ sequence:
     class_name: estacion
     filter:
       tabla: alturas_prefe
+      estacion_id: 29
 - procedureName: DeleteProcedure
   arguments:
     class_name: accessor
