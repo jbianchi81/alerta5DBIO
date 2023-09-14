@@ -15832,7 +15832,7 @@ ORDER BY cal.cal_id`
 					if(format && format.toLowerCase() == "geojson") {
 						query_arguments.geojson = true
 					}
-					var next_page_url = (req) ? `${req.protocol}://${req.get('host')}${req.path}?${querystring.stringify(query_arguments)}` : `getMonitoredPoints?${querystring.stringify(query_arguments)}`
+					var next_page_url = (config.rest && config.rest.url) ? `${config.rest.url}/getMonitoredPoints?${querystring.stringify(query_arguments)}` : (req) ? `${req.protocol}://${req.get('host')}${req.path}?${querystring.stringify(query_arguments)}` : `getMonitoredPoints?${querystring.stringify(query_arguments)}`
 				}				
 			} else {
 				var full_count = undefined
@@ -16025,7 +16025,7 @@ ORDER BY cal.cal_id`
 				if(format && format == "geojson") {
 					query_arguments.geojson = true
 				}
-				var next_page_url = (req) ? `${req.protocol}://${req.get('host')}${req.path}?${querystring.stringify(query_arguments)}` : `getMonitoredAreas?${querystring.stringify(query_arguments)}`
+				var next_page_url = (config.rest && config.rest.url) ? `${config.rest.url}/getMonitoredAreas?${querystring.stringify(query_arguments)}` : (req) ? `${req.protocol}://${req.get('host')}${req.path}?${querystring.stringify(query_arguments)}` : `getMonitoredAreas?${querystring.stringify(query_arguments)}`
 			}
 			// console.log("crud.getMonitoredPoints: found " + result.rows.length + " monitored series")
 			if(format && format.toLowerCase()=="geojson") {
