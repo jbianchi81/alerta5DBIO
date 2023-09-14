@@ -2880,63 +2880,91 @@ internal.observacion = class extends baseModel {
 		}
 		return this.val_type
 	}
-	getId(pool) {
+	async getId(pool,client) {
+		var release_client = false
+		if(!client) {
+			release_client = true
+			if(pool) {
+				client = await pool.connect()
+			} else {
+				client = await global.pool.connect()
+			}
+		}
 		if(this.tipo == "areal") {
-			return pool.query("\
-				SELECT id FROM observaciones_areal WHERE series_id=$1 AND timestart=$2 AND timeend=$3\
-			",[this.series_id, this.timestart, this.timeend]
-			).then(res=>{
+			try {
+				var res = await client.query("\
+					SELECT id FROM observaciones_areal WHERE series_id=$1 AND timestart=$2 AND timeend=$3\
+				",[this.series_id, this.timestart, this.timeend])
 				if (res.rows.length>0) {
 					this.id = res.rows[0].id
 					return this.id
 				} else {
-					return pool.query("\
-					SELECT max(id)+1 AS id\
-					FROM observaciones_areal\
-					")
-					.then(res=>{
-						this.id = res.rows[0].id
-						return this.id
-					})
+					res = await client.query("\
+						SELECT max(id)+1 AS id\
+						FROM observaciones_areal\
+						")
+					this.id = res.rows[0].id
+					return this.id
 				}
-			})
+			}
+			catch(e) {
+				throw(e)
+			}
+			finally {
+				if(release_client) {
+					client.release()
+				}
+			}
 		} else if (this.tipo == "rast") {
-			return pool.query("\
-				SELECT id FROM observaciones_rast WHERE series_id=$1 AND timestart=$2 AND timeend=$3\
-			",[this.series_id, this.timestart, this.timeend]
-			).then(res=>{
+			try {
+				var res = await client.query("\
+					SELECT id FROM observaciones_rast WHERE series_id=$1 AND timestart=$2 AND timeend=$3\
+				",[this.series_id, this.timestart, this.timeend])
 				if (res.rows.length>0) {
 					this.id = res.rows[0].id
 					return this.id
 				} else {
-					return pool.query("\
-					SELECT max(id)+1 AS id\
-					FROM observaciones_rast\
-					")
-					.then(res=>{
-						this.id = res.rows[0].id
-						return this.id
-					})
+					res = await client.query("\
+						SELECT max(id)+1 AS id\
+						FROM observaciones_rast\
+						")
+					this.id = res.rows[0].id
+					return this.id
 				}
-			})
+			}
+			catch(e) {
+					throw(e)
+				}
+			finally {
+				if(release_client) {
+					client.release()
+				}
+			}
 		} else {
-			return pool.query("\
-				SELECT id FROM observaciones WHERE series_id=$1 AND timestart=$2 AND timeend=$3\
-			",[this.series_id, this.timestart, this.timeend]
-			).then(res=>{
+			try {
+				var res = await client.query("\
+					SELECT id FROM observaciones WHERE series_id=$1 AND timestart=$2 AND timeend=$3\
+				",[this.series_id, this.timestart, this.timeend])
 				if (res.rows.length>0) {
 					this.id = res.rows[0].id
 					return
 				} else {
-					return pool.query("\
+					res = await client.query("\
 					SELECT max(id)+1 AS id\
 					FROM observaciones\
 					")
-					.then(res=>{
-						this.id = res.rows[0].id
-					})
+					this.id = res.rows[0].id
+					return
 				}
-			})
+			}
+			catch(e) {
+				throw(e)
+			}
+			finally {
+				if(release_client) {
+					client.release()
+				}
+			}
 		}
 	}
 	
@@ -8007,8 +8035,8 @@ internal.CRUD = class {
 		if (!(observacion instanceof internal.observacion)) {
 			//~ console.log("create observacion")
 			observacion = new internal.observacion(observacion)
-		} 
-		return observacion.getId(global.pool)
+		}
+		return observacion.getId()
 		.then(()=>{
 			observacion.timestart = (typeof observacion.timestart) == 'string' ? new Date(observacion.timestart) : observacion.timestart
 			observacion.timeend = (typeof observacion.timeend) == 'string' ? new Date(observacion.timeend) : observacion.timeend
@@ -10829,7 +10857,7 @@ internal.CRUD = class {
 					}
 					return serie.observaciones
 				}
-				const upserted = await this.upsertObservaciones(serie.observaciones,'areal',serie_areal.id,undefined,client)
+				const upserted = await this.upsertObservaciones(serie.observaciones,'areal',serie_areal.id,undefined) // removed client, non-transactional
 				console.log("Upserted " + upserted.length + " observaciones")
 				results.push(upserted)
 			}
@@ -10894,7 +10922,7 @@ internal.CRUD = class {
 			if(config.verbose) {
 				console.log("crud.rast2areal: obs:" + JSON.stringify(serie.observaciones))
 			}
-			const upserted = await this.upsertObservaciones(serie.observaciones,undefined,undefined,undefined,client)
+			const upserted = await this.upsertObservaciones(serie.observaciones,undefined,undefined,undefined) // removed client, non-transactional
 			console.log("Upserted " + upserted.length + " observaciones")
 			if(release_client) {
 				client.release()
@@ -11125,7 +11153,7 @@ internal.CRUD = class {
 									return o
 								}
 							})
-							return this.upsertObservaciones(observaciones,undefined,undefined,options,client)
+							return this.upsertObservaciones(observaciones,undefined,undefined,options) // removed client, non-transactional
 							//~ .then(results=>{
 								//~ return results.map(o=>{
 									//~ if(o instanceof Buffer) {
@@ -12113,7 +12141,11 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 	}
 	
 	static async runAsociaciones(filter,options={},client) {
-		client = client ?? await global.pool.connect()
+		var release_client = false
+		if(!client) {
+			release_client = true
+			client = await global.pool.connect()
+		}
 		return this.getAsociaciones(filter,options,client)
 		.then(async asociaciones=>{
 			if(asociaciones.length==0) {
@@ -12164,7 +12196,7 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 							console.log("running aggregateMonthly")
 							const serie = await internal.serie.read({tipo:a.source_tipo,id:a.source_series_id,timestart:filter.timestart,timeend:filter.timeend})
 							const observaciones = serie.aggregateMonthly(filter.timestart,filter.timeend,a.agg_func,a.precision,opt.source_time_support,a.expression,opt.inst)
-							result = await this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id,undefined,client)
+							result = await this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id,undefined) // remove client, non-transactional
 						} else {
 							result =  await this.getRegularSeries(a.source_tipo,a.source_series_id,a.dt,filter.timestart,filter.timeend,opt,client)
 						}
@@ -12185,6 +12217,9 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 			return results
 		})
 		.then(inserts=>{
+			if(release_client) {
+				client.release()
+			}
 			if(!inserts) {
 				return []
 			}
