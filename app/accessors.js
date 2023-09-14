@@ -153,7 +153,6 @@ internal.Accessor = class {
 	}
 
 	async getData(series_id,timestart,timeend,client) {
-		client = client ?? await global.pool.connect()
 		// get observaciones from one series between timestart and timeend
 		if(!series_id || !timestart  || !timeend) {
 			throw("Missing series_id, timestart and/or timeend")
@@ -162,11 +161,10 @@ internal.Accessor = class {
 	}
 
 	async updateData(series_id,timestart,timeend,client) {
-		client = client ?? await global.pool.connect()
 		// get observaciones from one series between timestart and timeend and update
 		return this.getData(series_id,timestart,timeend,client)
 		.then(observaciones=>{
-			return crud.upsertObservaciones(observaciones,undefined,undefined,undefined,client)
+			return crud.upsertObservaciones(observaciones,undefined,undefined,undefined)
 		})
 	}
 
@@ -192,7 +190,6 @@ internal.Accessor = class {
 	}
 
 	async getMetadata(filter={},options={},client) {
-		client = client ?? await global.pool.connect()
 		if(!this.engine.getSeries) {
 			throw("getSeries not implemented for accessor " + this.clase)
 		}
@@ -201,13 +198,12 @@ internal.Accessor = class {
 
 	async updateMetadata(filter={},options={},client) {
 		// updates provider's series metadata. Creates sites (estaciones, areas or escenas) and series. var, procedimiento and unidades must be mapped from source into existing records (else this will throw a foreign key error).
-		client = client ?? await global.pool.connect()
 		if(this.engine.updateSeries) {
-			return this.engine.updateSeries(filter,options,client) //,{all:true})
+			return this.engine.updateSeries(filter,options) //,{all:true})
 		} else if(this.engine.getSeries) {
 			return this.engine.getSeries(filter,options,client)
 			.then(async series=>{
-				const result = await crud.upsertSeries(series,false,true,undefined,client)
+				const result = await crud.upsertSeries(series,false,true,undefined)
 				if(options.refresh_series_json) {
 					crud.refreshSeriesJson()
 					crud.refreshSeriesArealJson()
@@ -228,7 +224,6 @@ internal.Accessor = class {
 	}
 
 	async getSeries(filter={},options={},client) {
-		client = client ?? await global.pool.connect()
 		// timestart,timeend,estacion_id,var_id,series_id,return_raw,use_proxy,tabla_id,fuentes_id,area_id,escena_id,include_geom,id_externo,proc_id,unit_id,tipo="puntual"
 		filter.timestart = timeSteps.DateFromDateOrInterval(filter.timestart)
 		filter.timeend = timeSteps.DateFromDateOrInterval(filter.timeend)
@@ -279,12 +274,11 @@ internal.Accessor = class {
 	 * @returns {CRUD.serie[]}
 	 */
 	async updateSeries(filter={},options={},client) {
-		client = client ?? await global.pool.connect()
 		// timestart,timeend,estacion_id,var_id,series_id,return_raw,use_proxy,tabla_id,fuentes_id,area_id,escena_id,include_geom,id_externo,proc_id,unit_id,tipo="puntual"
 		filter.timestart = timeSteps.DateFromDateOrInterval(filter.timestart)
 		filter.timeend = timeSteps.DateFromDateOrInterval(filter.timeend)
 		if(!this.engine.getSeries) {
-			var updated_observaciones = await this.engine.update(filter,options,client)
+			var updated_observaciones = await this.engine.update(filter,options)
 			var series_id_list = [new Set(updated_observaciones.map(o=>o.series_id))]
 			const series = []
 			for(var series_id of series_id_list) {
@@ -299,7 +293,7 @@ internal.Accessor = class {
 			var types = Array.from(new Set(series.map(s=>s.tipo)))
 			for(var tipo of types) {
 				console.log("refreshing date range of series " + tipo)
-				await CRUD.serie.refreshDateRange(tipo,undefined,client)
+				await CRUD.serie.refreshDateRange(tipo,undefined)
 			}
 			return series
 			// throw("getSeries not defined for this accessor")
@@ -314,7 +308,7 @@ internal.Accessor = class {
 			console.log("Found series_id: " + series[i].id)
 			if(this.engine.updateSerie) {
 				try {
-					series[i].setObservaciones(await this.engine.updateSerie(series[i].id,filter.timestart,filter.timeend,client))
+					series[i].setObservaciones(await this.engine.updateSerie(series[i].id,filter.timestart,filter.timeend))
 					results.push(series[i])
 				} catch(e) {
 					console.error(e)
@@ -328,7 +322,7 @@ internal.Accessor = class {
 				}
 				// console.log(`Updating serie ${series[i].id}`)
 				try {
-					series[i].setObservaciones(await this.engine.update({series_id:series[i].id,tipo:series[i].tipo, timestart:filter.timestart,timeend:filter.timeend,forecast_date: filter.forecast_date},undefined,client))
+					series[i].setObservaciones(await this.engine.update({series_id:series[i].id,tipo:series[i].tipo, timestart:filter.timestart,timeend:filter.timeend,forecast_date: filter.forecast_date},undefined))
 					results.push(series[i])
 				} catch (e) {
 					console.error(e)
@@ -2487,25 +2481,23 @@ internal.ana = class {
 			return false
 		})
 	}
-	async get(filter,options={},client) {
-		client = client ?? await global.pool.connect()
+	async get(filter,options={}) {
 		if(filter && filter.series_id && !Array.isArray(filter.series_id)) {
-			const serie = await CRUD.serie.read({id:filter.series_id, tipo:"puntual"},options,client)
-			return this.getObservaciones(serie.estacion,[serie],filter.timestart,filter.timeend,false,options,client)
+			const serie = await CRUD.serie.read({id:filter.series_id, tipo:"puntual"},options)
+			return this.getObservaciones(serie.estacion,[serie],filter.timestart,filter.timeend,false,options)
 		}
 		options.update=false
-		return this.getDadosANABatch(filter,options,client)
+		return this.getDadosANABatch(filter,options)
 		.then(result=>{
 			return flatten(result).filter(o=>o)
 		})
 	}
-	async getAll(filter,options={},client) {
-		client = client ?? await global.pool.connect()
+	async getAll(filter,options={}) {
 		options.update=false
 		for(var i=0;i<this.config.estacion_ids;i++) {
 			filter.estacion_id = this.config.estacion_ids[i]
 			try {
-				var obs = await this.getDadosANABatch(filter,options,client)
+				var obs = await this.getDadosANABatch(filter,options)
 				observaciones.push(obs)
 			} catch (e) {
 				console.error(e)
@@ -2513,17 +2505,15 @@ internal.ana = class {
 		}
 		return Promise.resolve(observaciones)
 	}
-	async update(filter,options={},client) {
-		client = client ?? await global.pool.connect()
+	async update(filter,options={}) {
 		if(filter && filter.series_id && !Array.isArray(filter.series_id)) {
 			const serie = await CRUD.serie.read({id:filter.series_id, tipo:"puntual"})
-			return this.getObservaciones(serie.estacion,[serie],filter.timestart,filter.timeend,true,options,client)
+			return this.getObservaciones(serie.estacion,[serie],filter.timestart,filter.timeend,true,options)
 		}
 		options.update=true
-		return this.getDadosANABatch(filter,options,client)
+		return this.getDadosANABatch(filter,options)
 	}
-	async updateAll(filter,options={},client) {
-		client = client ?? await global.pool.connect()
+	async updateAll(filter,options={}) {
 		//~ console.log({config:this.config.estacion})
 		options.update=true
 		var observaciones = []
@@ -2531,7 +2521,7 @@ internal.ana = class {
 			filter.estacion_id = this.config.estacion_ids[i]
 			console.log({filter:filter})
 			try {
-				var obs = await this.getDadosANABatch(filter,options,client)
+				var obs = await this.getDadosANABatch(filter,options)
 				observaciones.push(obs)
 			} catch (e) {
 				console.error(e)
@@ -2568,8 +2558,7 @@ internal.ana = class {
 	//~ })
 	}
 
-	async getObservaciones(estacion,series,timestart,timeend,update=false,options,client) {
-		client = client ?? await global.pool.connect()
+	async getObservaciones(estacion,series,timestart,timeend,update=false,options) {
 		var series_id = {}
 		for(var serie of series) {
 			if(serie.var.id==2) {
@@ -2584,26 +2573,26 @@ internal.ana = class {
 		var obs = await this.getDadosANA(estacion.id_externo,timestart,timeend,series_id)  // el ws ignora la hora
 		console.log("got " + obs.length + " observaciones from station " + estacion.id)
 		if(update) {
-			var upserted = await crud.upsertObservaciones(obs,"puntual",undefined,undefined,client)
+			var upserted = await crud.upsertObservaciones(obs,"puntual",undefined,undefined)
 			var length = upserted.length
 			console.log("upserted " + length + " registros for station " + estacion.id)
 			upserted=""
 			obs=""
 			if(options.run_asociaciones) {
-				var result = await crud.runAsociaciones({estacion_id:estacion.id,source_var_id:27,source_proc_id:1,timestart:timestart,timeend:timeend},{inst:true,no_send_data:true},client)
+				var result = await crud.runAsociaciones({estacion_id:estacion.id,source_var_id:27,source_proc_id:1,timestart:timestart,timeend:timeend},{inst:true,no_send_data:true})
 				if(!result) {
 					console.error("No records created from estacion_id="+estacion.id+" var_id=27 for asoc")
 				} else {																		//~ return [...upserted,...result]
 					length+=result.length
 				}
-				result = await crud.runAsociaciones({estacion_id:estacion.id,source_var_id:31,source_proc_id:1,timestart:timestart,timeend:timeend},{no_send_data:true},client)
+				result = await crud.runAsociaciones({estacion_id:estacion.id,source_var_id:31,source_proc_id:1,timestart:timestart,timeend:timeend},{no_send_data:true})
 				if(!result) {
 					console.error("No records created from estacion_id="+estacion.id+" var_id=31 for asoc")
 				} else {
 					//~ return [...upserted,...result]
 					length+=result.length
 				}
-				result = await crud.runAsociaciones({estacion_id:estacion.id,source_var_id:4,source_proc_id:1,timestart:timestart,timeend:timeend},{no_send_data:true},client)
+				result = await crud.runAsociaciones({estacion_id:estacion.id,source_var_id:4,source_proc_id:1,timestart:timestart,timeend:timeend},{no_send_data:true})
 				if(!result) {
 					console.error("no records created from estacion_id="+estacion.id+" var_id=4 for asoc")
 				} else {
@@ -2619,8 +2608,7 @@ internal.ana = class {
 		}
 	}
 
-	async getDadosANABatch(filter,options,client) {
-		client = client ?? await global.pool.connect()
+	async getDadosANABatch(filter,options) {
 		//~ console.log({filter:filter})
 		var getestacionesfilter = {tabla:"red_ana_hidro"}
 		if(filter.estacion_id) {
@@ -2635,7 +2623,7 @@ internal.ana = class {
 		if(filter.timeend) {
 			timeend = new Date(filter.timeend)
 		}
-		return crud.getEstaciones(getestacionesfilter,undefined,client)
+		return crud.getEstaciones(getestacionesfilter,undefined)
 		.then(estaciones=>{
 		  var o = (async ()=>{
 			//~ console.log(estaciones)
@@ -2652,8 +2640,8 @@ internal.ana = class {
 					return
 				}
 				//~ console.log({id_externo:e.id_externo})
-				var series = await crud.getSeries('puntual',{estacion_id:e.id,proc_id:1,var_id:filter.var_id},undefined,client)
-				const obs = await this.getObservaciones(e,series,timestart,timeend,options.update,options,client)
+				var series = await crud.getSeries('puntual',{estacion_id:e.id,proc_id:1,var_id:filter.var_id},undefined)
+				const obs = await this.getObservaciones(e,series,timestart,timeend,options.update,options)
 				// 	//~ console.log({series:series})
 				// 	var series_id = {}
 				// 	series.forEach(s=>{
@@ -2809,9 +2797,8 @@ internal.ana = class {
 			})
 		})
 	}
-	async getSeries(filter={},options={},client) {
-		client = client ?? await global.pool.connect()
-		const estaciones = await this.getSitesANA(this.config.sites_local_file,true,0,0,undefined,client)
+	async getSeries(filter={},options={}) {
+		const estaciones = await this.getSitesANA(this.config.sites_local_file,true,0,0,undefined)
 		const variables = [
 			{var: await CRUD.var.read({id:2}), unidades: await CRUD.unidades.read({id:11}), procedimiento: await CRUD.procedimiento.read({id:1})},
 			{var: await CRUD.var.read({id:4}), unidades: await CRUD.unidades.read({id:10}), procedimiento: await CRUD.procedimiento.read({id:1})},
@@ -2856,14 +2843,13 @@ internal.ana = class {
 					procedimiento: v.procedimiento,
 					unidades: v.unidades
 				})
-				await serie.getId(undefined,client)
+				await serie.getId()
 				series.push(serie)
 			}
 		}
 		return series
 	}
-	async getSitesANA(file,download=false,statusEstacoes=0,origem=1,format="json",client) {
-		client = client ?? await global.pool.connect()
+	async getSitesANA(file,download=false,statusEstacoes=0,origem=1,format="json") {
 		file = (file) ? file : this.config.sites_local_file // "data/ana/ListaEstacoesTelemetricas.xml"
 		if(download) {
 			const writer = fs.createWriteStream(file)
@@ -2912,7 +2898,7 @@ internal.ana = class {
 				habilitar: true,
 				real: true
 			})
-			await estacion.getEstacionId(undefined,client)
+			await estacion.getEstacionId()
 			estaciones.push(estacion)
 		})
 					//~ console.log({estaciones:estaciones})
@@ -3437,12 +3423,10 @@ internal.mch_py = class {
 		})
 	}
 	async getSeries(filter,options={},client) {
-		client = client ?? await global.pool.connect()
 		const series = []
 		return this.getSeriesPage(this.config.url + "/stations",filter,series,(options.return_raw) ? true : false,client)
 	}
 	async getSeriesPage(url,params={},series=[],return_raw=false,client) {
-		client = client ?? await global.pool.connect()
 		return axios.get(url,{headers: { Authorization: `Bearer ${this.config.token}`},accept:"application/json"})
 		.then(async result=>{
 			if(!result) {
@@ -3508,10 +3492,9 @@ internal.mch_py = class {
 		})
 	}
 	async updateSeries(filter,options={},client) {
-		client = client ?? await global.pool.connect()
 		return this.getSeries(filter,options,client)
 		.then(series=>{
-			return crud.upsertSeries(series,options.all,undefined,undefined,client)		
+			return crud.upsertSeries(series,options.all,undefined,undefined)		
 		})
 	}
 	async get(filter,options={},update=false) {
@@ -4765,8 +4748,7 @@ internal.sat2 = class {
 			return false
 		})
 	}
-	async getSeries(filter,options={},client) {
-		client = client ?? await global.pool.connect()
+	async getSeries(filter,options={}) {
 		return this.getSites(filter)
 		.then(async sites=>{
 			var series = []
@@ -4782,16 +4764,14 @@ internal.sat2 = class {
 			return series
 		})
 	}
-	async updateSeries(filter,options={},client) {
-		client = client ?? await global.pool.connect()
+	async updateSeries(filter,options={}) {
 		return this.getSeries(filter)
 		.then(series=>{
-			return crud.upsertSeries(series,false,true,undefined,client) // options.all)
+			return crud.upsertSeries(series,false,true,undefined) // options.all)
 		})
 	}
-	async getSites(filter,client) {  // filter.id_externo = idEquipo, filter.nombre =~ descripcion
+	async getSites(filter) {  // filter.id_externo = idEquipo, filter.nombre =~ descripcion
 		// console.log({filter:filter})
-		client = client ?? await global.pool.connect()
 		var cookieJar = request.jar()
 		return this.AutenticarUsuario(cookieJar)
 		.then(result=> {
@@ -4833,7 +4813,7 @@ internal.sat2 = class {
 					pais: "Argentina",
 					propietario: "RHN"
 				})
-				await estacion_a5.getEstacionId(undefined,client)
+				await estacion_a5.getEstacionId()
 				var series = []
 				for(var sensor of estacion.sensores) {
 					if(sensor.idSensor in this.config.sensores) {
@@ -4851,16 +4831,15 @@ internal.sat2 = class {
 			return estaciones_a5
 		})
 	}
-	async updateSites(filter,options={},client) {
-		client = client ?? await global.pool.connect()
-		return this.getSites(filter,client)
+	async updateSites(filter,options={}) {
+		return this.getSites(filter)
 		.then(async estaciones=>{
 			var estaciones_a5 = []
 			for(var estacion of estaciones) { //for(var i=0;i<estaciones.length;i++) {
 				// estacion = new CRUD.estacion(estacion)
 				// console.log({estacion:estacion})
 				try {
-					var estacion_a5 = await crud.upsertEstacion(estacion,undefined,client)
+					var estacion_a5 = await crud.upsertEstacion(estacion,undefined)
 				} catch (e) {
 					console.error(e)
 					continue
@@ -4872,7 +4851,7 @@ internal.sat2 = class {
 							serie.estacion.id = estacion_a5.id
 							// console.log({serie:serie})
 							try {
-								serie = await crud.upsertSerie(new CRUD.serie(serie),undefined,client)
+								serie = await crud.upsertSerie(new CRUD.serie(serie),undefined)
 							} catch(e) {
 								console.error(e)
 								continue
@@ -5741,7 +5720,6 @@ internal.snih = class {
     //~ "Registro": "/Date(1578670814000)/"
 
 	async getSeries(filter,options,client) {
-		client = client ?? await global.pool.connect()
 		if(filter && filter.id_externo && !Array.isArray(filter.id_externo)) {
 			filter.id_externo = [filter.id_externo]
 		}
@@ -5820,16 +5798,14 @@ internal.snih = class {
 	}
 	
 	async upsertSeries(filter,options={},client) {
-		client = client ?? await global.pool.connect()
 		return this.getSeries(filter,options,client)
 		.then(series=>{
-			return crud.upsertSeries(series,options.all,undefined,undefined,client)
+			return crud.upsertSeries(series,options.all,undefined,undefined)
 		})
 	}
 
-	async updateSeries(filter,options={},client) {
-		client = client ?? await global.pool.connect()
-		return this.upsertSeries(filter,options,client)
+	async updateSeries(filter,options={}) {
+		return this.upsertSeries(filter,options)
 	}
 	//~ "__type": "Compartido.Contenedor.CAsociacionesCN",
     //~ "Estacion": 13858,
@@ -5867,7 +5843,6 @@ internal.snih = class {
 	}
 	
 	async getEstacionMap(client) {
-		client = client ?? await global.pool.connect()
 		return crud.getEstaciones({tabla:"alturas_bdhi"},undefined,client)
 		.then(estaciones=>{
 			this.config.estacion_map = {}
@@ -6166,8 +6141,7 @@ internal.sihn = class {
 		})
 	}
 
-	async updateSeries(filter,options,client) {
-		client = client ?? await global.pool.connect()
+	async updateSeries(filter,options) {
 		const series = Object.keys(this.config.series_map).map(key=>{
 			return new CRUD.serie({
 				tipo: "puntual",
@@ -6178,7 +6152,7 @@ internal.sihn = class {
 				unidades: {id: 11}
 			})
 		})
-		return CRUD.serie.create(series,options,client)
+		return CRUD.serie.create(series,options)
 	}
 }
 
@@ -6311,15 +6285,13 @@ internal.a5 = class {
 			return series
 		}
 	}
-	async updateSeries(filter={},options={},client) {
-		client = client ?? await global.pool.connect()
-		return this.upsertSeries(filter,options,client)
+	async updateSeries(filter={},options={}) {
+		return this.upsertSeries(filter,options)
 	}
-	async upsertSeries(filter={},options={},client) {
-		client = client ?? await global.pool.connect()
+	async upsertSeries(filter={},options={}) {
 		return this.getSeries(filter,options)
 		.then(result=>{
-			return crud.upsertSeries(result,true,true,true,client)
+			return crud.upsertSeries(result,true,true,true)
 		})
 	}
 	async getPronostico(filter={},options={}) {
@@ -6531,11 +6503,10 @@ internal.a5_cubos = class {
 		})
 		
 	}
-	async update(filter={},options,client) {
-		client = client ?? await global.pool.connect()
+	async update(filter={},options) {
 		return this.get(filter,options)
 		.then(observaciones=>{
-			return crud.upsertObservacionesCubo(filter.id,observaciones,client)
+			return crud.upsertObservacionesCubo(filter.id,observaciones)
 		})
 	}
 
@@ -8203,7 +8174,6 @@ internal.api_smn = class {
 	}
 
 	async getSeriesMap(client) {
-		client = client ?? await global.pool.connect()
 		return crud.getSeries("puntual",{tabla_id:"stations",proc_id:1},{no_metadata:true},client)
 		.then(series=>{
 			this.config.series_map = series
@@ -8311,7 +8281,6 @@ internal.api_smn = class {
 	}
 
 	async getSeries(filter={},options={},client) {
-		client = client ?? await global.pool.connect()
 		return this.getSeriesMap(client)
 		.then(()=>{
 			var series = [...this.config.series_map]
@@ -8350,11 +8319,10 @@ internal.api_smn = class {
 		}
 	}
 
-	async updateSerie(series_id,timestart,timeend,client) {
-		client = client ?? await global.pool.connect()
+	async updateSerie(series_id,timestart,timeend) {
 		return this.getSerie(series_id,timestart,timeend)
 		.then(observaciones=>{
-			return crud.upsertObservaciones(observaciones,"puntual",undefined,undefined,client)
+			return crud.upsertObservaciones(observaciones,"puntual",undefined,undefined)
 		})
 	}
 
