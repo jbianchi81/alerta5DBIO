@@ -8449,8 +8449,8 @@ internal.CRUD = class {
 		var disable_trigger = (timeSupport) ? "ALTER TABLE observaciones_areal DISABLE TRIGGER obs_dt_trig;" : ""
 		var enable_trigger = (timeSupport) ? "ALTER TABLE observaciones_areal ENABLE TRIGGER obs_dt_trig;" : ""
 		var release_client = false
-		if(client) {
-			 client = await global.pool.connect()
+		if(!client) {
+			client = await global.pool.connect()
 			release_client = true
 			await client.query("BEGIN")
 		}
@@ -8500,16 +8500,18 @@ internal.CRUD = class {
 			await client.query(enable_trigger) 
 			if(release_client) {
 				await client.query("COMMIT")
-				await client.release()
 			}
 			return observaciones
 		} catch(e) {
 			if(release_client) {
 				await client.query("ROLLBACK")
-				await client.release()
 			}
 			throw(e)
-		}	
+		} finally {
+			if(release_client) {
+				client.release()
+			}
+		}
 	}
 	
 	static async upsertObservacionesFromCSV(tipo="puntual",csvFile) {
@@ -11072,6 +11074,7 @@ internal.CRUD = class {
 		var inst = (options.inst) ? new Boolean(options.inst) : def_inst
 		var min_time_fraction = (options.min_time_fraction) ? parseFloat(options.min_time_fraction) : 1
 		var dt_epoch
+		var release_client = false
 		if(!client) {
 			release_client = true
 			client = await global.pool.connect()

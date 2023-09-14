@@ -2470,7 +2470,7 @@ internal.ons = class {
 internal.ana = class {
 	constructor(config) {
 		this.config = (config) ? config : {}
-		this.config.sites_local_file = (this.config.sites_local_file) ? path.resolve(this.config.sites_local_file) : path.resolve(__dirname,"data/ana/ListaEstacoesTelemetricas.xml")
+		this.config.sites_local_file = (this.config.sites_local_file) ? (fs.existsSync(path.resolve(this.config.sites_local_file))) ? path.resolve(this.config.sites_local_file) : path.resolve(__dirname,"../data/ana/ListaEstacoesTelemetricas.xml") : path.resolve(__dirname,"../data/ana/ListaEstacoesTelemetricas.xml")
 	}
 	test() {
 		return axios.get("http://telemetriaws1.ana.gov.br/serviceANA.asmx")
