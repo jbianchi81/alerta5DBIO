@@ -1380,6 +1380,9 @@ ALTER TABLE ONLY public.cal_out
 -- Name: pronosticos; Type: TABLE; Schema: public; Owner: leyden
 --
 
+
+BEGIN;
+
 CREATE TABLE public.pronosticos_areal (
     id integer NOT NULL,
     cor_id integer NOT NULL,
@@ -1448,7 +1451,6 @@ ALTER TABLE ONLY public.pronosticos_areal
 ALTER TABLE ONLY public.pronosticos_areal
     ADD CONSTRAINT pronosticos_areal_series_id_fkey FOREIGN KEY (series_id) REFERENCES public.series_areal(id) ON DELETE CASCADE;
 
-BEGIN;
 CREATE TABLE series_puntual_prono_date_range (
     series_id integer not null references series(id),
     cor_id integer not null references corridas(id),

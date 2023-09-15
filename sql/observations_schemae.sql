@@ -1712,6 +1712,13 @@ WITH table_constraints_json AS (
     GROUP BY table_constraints.table_name )
 SELECT
     series_areal.id,
+    areas_pluvio.unid as estacion_id,
+    estaciones.tabla as tabla,
+    var.id as var_id,
+    var."GeneralCategory" as "GeneralCategory",
+    procedimiento.id as proc_id,
+    unidades.id as unit_id,
+    fuentes.id as fuentes_id,
     json_build_object(
     'tipo','areal',
     'id',series_areal.id,
@@ -1768,7 +1775,7 @@ SELECT
         'mad_table', fuentes.mad_table,
         'scale_factor', fuentes.scale_factor,
         'data_offset', fuentes.data_offset,
-        'def_extent', fuentes.def_extent,
+        'def_extent', ST_ASGeoJSON(fuentes.def_extent)::json,
         'date_column', fuentes.date_column,
         'def_pixeltype', fuentes.def_pixeltype,
         'abstract', fuentes.abstract,
@@ -1808,6 +1815,13 @@ WITH table_constraints_json AS (
     GROUP BY table_constraints.table_name )
 SELECT
     series_areal.id,
+    areas_pluvio.unid as estacion_id,
+    estaciones.tabla as tabla,
+    var.id as var_id,
+    var."GeneralCategory" as "GeneralCategory",
+    procedimiento.id as proc_id,
+    unidades.id as unit_id,
+    fuentes.id as fuentes_id,
     json_build_object(
     'tipo','areal',
     'id',series_areal.id,
@@ -1863,7 +1877,7 @@ SELECT
         'mad_table', fuentes.mad_table,
         'scale_factor', fuentes.scale_factor,
         'data_offset', fuentes.data_offset,
-        'def_extent', fuentes.def_extent,
+        'def_extent', ST_ASGeoJSON(fuentes.def_extent)::json,
         'date_column', fuentes.date_column,
         'def_pixeltype', fuentes.def_pixeltype,
         'abstract', fuentes.abstract,
