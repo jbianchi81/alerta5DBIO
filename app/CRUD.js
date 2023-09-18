@@ -94,6 +94,9 @@ internal.geometry = class extends baseModel  {
 		switch(arguments.length) {
 			case 1:
 				if(typeof(arguments[0]) === "string") {   // WKT
+					// if(config.verbose) {
+					// 	console.log("reading wkt string geometry")
+					// }
 					var geom = wkt.read(arguments[0]).toJson()
 					this.type = geom.type
 					this.coordinates = geom.coordinates
@@ -510,8 +513,19 @@ internal.area = class extends baseModel  {
 					this.id = arguments[0].id
 					this.nombre = arguments[0].nombre
 					this.geom = (arguments[0].geom) ? new internal.geometry(arguments[0].geom) : undefined
-					this.exutorio = (arguments[0].exutorio) ? (arguments[0].exutorio.geom) ? new internal.geometry(arguments[0].exutorio.geom) : new internal.geometry(arguments[0].exutorio) : null
+					this.exutorio = (arguments[0].exutorio) ? (arguments[0].exutorio.geom) ? new internal.geometry(arguments[0].exutorio.geom) : (arguments[0].exutorio.type && arguments[0].exutorio.coordinates) ? new internal.geometry(arguments[0].exutorio) : null : null
 					this.exutorio_id = arguments[0].exutorio_id
+					if(config.verbose) {
+						// console.log({new_area: 
+						// 	{
+						// 		id: this.id,
+						// 		nombre: this.nombre,
+						// 		geom: this.geom,
+						// 		exutorio: this.exutorio,
+						// 		exutorio_id: this.exutorio_id
+						// 	}
+						// })
+					}
 				}
 				break;
 			default:
@@ -557,7 +571,7 @@ internal.area = class extends baseModel  {
 		return this.id + "," + this.nombre
 	}
 	static async read(filter={},options) {
-		if(filter.id) {
+		if(filter.id && !Array.isArray(filter.id)) {
 			return internal.CRUD.getArea(filter.id,options)
 		}
 		return internal.CRUD.getAreas(filter,options)
@@ -1068,9 +1082,16 @@ internal.unidades = class extends baseModel  {
 internal.fuente = class extends baseModel {
 	constructor() {
         super()  // nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, def_extent, date_column, def_pixeltype, abstract, source
+		// if(config.verbose) {
+		// 	console.log({
+		// 		new_fuente: arguments
+		// 	})
+		// }
+		
 		switch(arguments.length) {
 			case 1:
 				if(typeof(arguments[0]) === "string") {
+					// console.log("new fuente argument length 1 type string")
 					var arg_arr = arguments[0].split(",")
 					this.id = arg_arr[0]
 					this.nombre = arg_arr[1]
@@ -1096,6 +1117,7 @@ internal.fuente = class extends baseModel {
 					this.source = arg_arr[21]
 					this.public = arg_arr[22]
 				} else {
+					// console.log("new fuente argument length 1 type not string")
 					this.id = arguments[0].id
 					this.nombre = arguments[0].nombre
 					this.data_table = arguments[0].data_table
@@ -1123,6 +1145,7 @@ internal.fuente = class extends baseModel {
 				}
 				break;
 			default:
+				console.log("new fuente argument length > 1")
 				this.nombre = arguments[0]
 				this.data_table = arguments[1]
 				this.data_column = arguments[2]
@@ -1291,6 +1314,8 @@ internal.fuente.build_read_query = function(filter) {
 
 internal.serie = class extends baseModel {
 	constructor() {
+		// console.log("New serie:")
+		// console.log(JSON.stringify(arguments[0]))
 		super(...arguments)
 		switch(arguments.length) {
 			case 1:
@@ -1393,7 +1418,7 @@ internal.serie = class extends baseModel {
 				[this.estacion, this["var"], this.procedimiento, this.unidades, this.tipo, this.fuente] = arguments
 				break;
 		}
-		//~ console.log({serie:this})
+		// console.log({serie:this})
 	}
 	toJSON() {
 		return {
@@ -6047,47 +6072,35 @@ internal.CRUD = class {
 			filter.unid = filter.id
 			delete filter.id
 		}
-		const valid_filters = {nombre:"regex_string", unid:"numeric", geom: "geometry", exutorio: "geometry", exutorio_id: "numeric"}
-		var filter_string=""
-		var control_flag=0
-		Object.keys(valid_filters).forEach(key=>{
-			if(filter[key]) {
-				if(/[';]/.test(filter[key])) {
-					console.error("Invalid filter value")
-					control_flag++
-				}
-				if(valid_filters[key] == "regex_string") {
-					var regex = filter[key].replace('\\','\\\\')
-					filter_string += " AND areas_pluvio." + key  + " ~* '" + filter[key] + "'"
-				} else if(valid_filters[key] == "string") {
-					filter_string += " AND areas_pluvio."+ key + "='" + filter[key] + "'"
-				} else if (valid_filters[key] == "boolean") {
-					var boolean = (/^[yYtTvVsS1]/.test(filter[key])) ? "true" : "false"
-					filter_string += " AND areas_pluvio." + key + "=" + boolean + ""
-				} else if (valid_filters[key] == "geometry") {
-					if(! filter[key] instanceof internal.geometry) {
-						console.error("Invalid geometry object")
-						control_flag++
-					}
-					filter_string += "  AND ST_Distance(areas_pluvio." + key + "," + filter[key].toSQL() + ") < 0.001" 
-				} else {
-					filter_string += " AND areas_pluvio."+ key + "=" + filter[key] + ""
-				}
+		const valid_filters = {
+			nombre: {
+				type: "regex_string"
+			},
+			unid: {
+				type: "integer"
+			}, 
+			geom: {
+				type: "geometry",
+			},
+			exutorio: {
+				type: "geometry"
+			},
+			exutorio_id: {
+				type: "integer"
 			}
-		})
+		}
+		var filter_string = internal.utils.control_filter2(valid_filters,filter,"areas_pluvio")
+		if(!filter_string) {
+			throw("Invalid filters")
+		}
 		var join_type = "LEFT"
 		var tabla_id_filter = ""
 		if(filter.tabla_id) {
 			if(/[';]/.test(filter.tabla_id)) {
-				console.error("Invalid filter value")
-				control_flag++
+				throw("Invalid filter value")
 			}
 			join_type = "RIGHT"
 			tabla_id_filter +=  ` AND estaciones.tabla='${filter.tabla_id}'`
-
-		}
-		if(control_flag > 0) {
-			return Promise.reject(new Error("invalid filter value"))
 		}
 		var pagination_clause = (filter.limit) ? `LIMIT ${filter.limit}` : ""
 		pagination_clause += (filter.offset) ? ` OFFSET ${filter.offset}`: ""
@@ -6098,6 +6111,7 @@ internal.CRUD = class {
 			" + join_type + " JOIN estaciones ON (estaciones.unid=areas_pluvio.exutorio_id" + tabla_id_filter + ") \
 			WHERE areas_pluvio.geom IS NOT NULL " + filter_string + " ORDER BY areas_pluvio.id\
 			" + pagination_clause
+			console.log(stmt)
 			return global.pool.query(stmt)
 			.then(res=>{
 				return res.rows.map(r=>{
@@ -6113,6 +6127,7 @@ internal.CRUD = class {
 			" + join_type + " JOIN estaciones ON (estaciones.unid=areas_pluvio.exutorio_id" + tabla_id_filter + ") \
 			WHERE areas_pluvio.geom IS NOT NULL " + filter_string + " ORDER BY id\
 			" + pagination_clause
+			console.log(stmt)
 			return global.pool.query(stmt)
 			.then(res=>{
 				//~ console.log(res)
@@ -7292,12 +7307,19 @@ internal.CRUD = class {
 			const serie = new internal.serie({estacion:s[0],"var":s[1],procedimiento:s[2],unidades: s[3], tipo:"areal", fuente:s[4]})  // estacion,variable,procedimiento,unidades,tipo,fuente
 			serie.date_range = row.date_range
 			serie.id=row.id
+			var observaciones
 			if(timestart && timeend) {
 				options.obs_type = serie["var"].type
-				serie.setObservaciones(await this.getObservacionesRTS("areal",{series_id:row.id,timestart:timestart,timeend:timeend},options,serie))
+				// console.log(JSON.stringify(["areal",{series_id:row.id,timestart:timestart,timeend:timeend},options]))
+				observaciones =  await this.getObservacionesRTS("areal",{series_id:row.id,timestart:timestart,timeend:timeend},options,serie)
 			} else if(timeupdate) {
 				options.obs_type = serie["var"].type
-				serie.setObservaciones(await this.getObservacionesRTS("areal",{series_id:row.id,timeupdate:timeupdate},options,serie))
+				observaciones = await this.getObservacionesRTS("areal",{series_id:row.id,timeupdate:timeupdate},options,serie)
+			}
+			if(options.asArray) {
+				serie.observaciones = observaciones
+			} else {
+				serie.setObservaciones(observaciones)
 			}
 			if(options) {
 				if(options.getStats) {
@@ -7638,49 +7660,10 @@ internal.CRUD = class {
 	}
 
 	static async getSeriesArealesJson(filter={},options={}) {
-		const valid_filters = {
-			id:{
-				path: ["serie","id"],
-				type:"arrInteger"
-			},
-			var_id:{
-				path: ["serie","var","id"],
-				type:"arrInteger"
-			},
-			proc_id:{
-				path: ["serie","procedimiento","id"],
-				type:"arrInteger"
-			},
-			unit_id:{
-				path: ["serie","unidades","id"],
-				type:"arrInteger"
-			},
-			area_id:{
-				path: ["serie","estacion","id"],
-				type:"arrInteger"
-			},
-			estacion_id:{
-				path: ["serie","estacion","id"],
-				type:"arrInteger"
-			},
-			tabla:{
-				path: ["serie","estacion","exutorio","tabla"],
-				type:"string"
-			},
-			tabla_id:{
-				path: ["serie","estacion","exutorio","tabla"],
-				type:"string"
-			},
-			geom:{
-				path: ["serie","estacion","geom"],
-				type: "geometry"
-			},
+		const valid_json_filters = {
 			red_id:{
 				path: ["serie","estacion","exutorio","red_id"],
 				type:"arrInteger"
-			},
-			fuentes_id:{
-				path: ["serie","fuente","id"],
 			},
 			public: {
 				path: ["serie","fuente","public"],
@@ -7699,14 +7682,81 @@ internal.CRUD = class {
 				type: "numeric_min"
 			}
 		}
+		const valid_row_filters = {
+			id:{
+				type:"integer"
+			},
+			var_id:{
+				type:"integer"
+			},
+			GeneralCategory:{
+				type:"string"
+			},
+			proc_id:{
+				type:"integer"
+			},
+			unit_id:{
+				type:"integer"
+			},
+			area_id:{
+				column: "estacion_id",
+				type:"integer"
+			},
+			estacion_id:{
+				type:"integer"
+			},
+			tabla:{
+				type:"string"
+			},
+			tabla_id:{
+				column: "tabla",
+				type:"string"
+			},
+			fuentes_id:{
+				type: "integer",
+			}
+		}
+		if(filter.geom) {
+			const areas_filter = {
+				id: filter.area_id ?? filter.estacion_id,
+				geom: filter.geom
+			}
+			const matching_areas = await internal.area.read(areas_filter,{no_geom:true})
+			if(!matching_areas.length) {
+				// geom matches no areas, dont query series
+				console.log("No areas matched the specified geometry")
+				return []
+			}
+			const matching_areas_id = matching_areas.map(a=>a.id)
+			if (filter.estacion_id) {
+				if(Array.isArray(filter.estacion_id)) {
+					filter.estacion_id.push(...matching_areas_id)
+				} else {
+					filter.estacion_id = [filter.estacion_id, ...matching_areas_id]
+				}
+			} else {
+				filter.estacion_id = matching_areas_id
+			}
+		}
+		console.log(JSON.stringify(filter))
 		if(options.no_geom || !options.include_geom) {
-			const filter_string = internal.utils.control_filter_json(valid_filters,filter,"series_areal_json_no_geom")
-			console.log(filter_string)
-			var result = await global.pool.query("SELECT serie FROM series_areal_json_no_geom WHERE 1=1 " + filter_string)
+			const json_filter_string = internal.utils.control_filter_json(valid_json_filters,filter,"series_areal_json_no_geom")
+			const row_filter_string = internal.utils.control_filter2(valid_row_filters,filter,"series_areal_json_no_geom")
+			if(!row_filter_string) {
+				throw("Invalid filters")
+			}
+			const stmt = "SELECT serie FROM series_areal_json_no_geom WHERE 1=1 " + json_filter_string + " " + row_filter_string
+			console.log(stmt)
+			var result = await global.pool.query(stmt)
 		} else {			
-			const filter_string = internal.utils.control_filter_json(valid_filters,filter,"series_areal_json")
-			console.log(filter_string)
-			var result = await global.pool.query("SELECT serie FROM series_areal_json WHERE 1=1 " + filter_string)
+			const json_filter_string = internal.utils.control_filter_json(valid_json_filters,filter,"series_areal_json")
+			const row_filter_string = internal.utils.control_filter2(valid_row_filters,filter,"series_areal_json")
+			if(!row_filter_string) {
+				throw("Invalid filters")
+			}
+			const stmt = "SELECT serie FROM series_areal_json WHERE 1=1 " + json_filter_string + " " + row_filter_string
+			console.log(stmt)
+			var result = await global.pool.query(stmt)
 		}
 		result = result.rows.map(r=>r.serie)
 		if(options.no_metadata) {
@@ -15522,17 +15572,33 @@ ORDER BY cal.cal_id`
 		var params
 		if(series_id) {
 			if(tipo == "areal") {
-				stmt = "SELECT series_areal.id,fuentes.public \
-				FROM series_areal\
-				JOIN fuentes ON fuentes.id=series_areal.fuentes_id\
-				WHERE series_areal.id = $1"
+				stmt = `SELECT
+					'area' AS tipo,
+					series_areal.id,
+					fuentes.public
+				FROM series_areal
+				JOIN fuentes ON fuentes.id=series_areal.fuentes_id
+				WHERE series_areal.id = $1`
 				params = [ series_id ]
-			} else {
-				stmt = "SELECT series.id,redes.public\
-				FROM series\
-				JOIN estaciones ON series.estacion_id = estaciones.unid\
-				JOIN redes ON estaciones.tabla = redes.tabla_id \
-				WHERE series.id = $1"
+			} else if (tipo == "raster") {
+				stmt = `SELECT 
+					'raster' AS tipo,
+					series_rast.id,
+					fuentes.public
+				FROM series_rast
+				JOIN escenas ON series_rast.escena_id = escenas.id
+				JOIN fuentes ON fuentes.id=series_rast.fuentes_id
+				WHERE series.id = $1`
+				params = [ series_id ]
+			}else {
+				stmt = `SELECT 
+					'puntual' AS tipo,
+					series.id,
+					redes.public
+				FROM series
+				JOIN estaciones ON series.estacion_id = estaciones.unid
+				JOIN redes ON estaciones.tabla = redes.tabla_id
+				WHERE series.id = $1`
 				params = [ series_id ]
 			}
 		} else {
@@ -15558,7 +15624,8 @@ ORDER BY cal.cal_id`
 					throw("El usuario no está autorizado para acceder a esta serie")
 				}
 			}
-			return this.getSerie(result.rows[0].tipo,result.rows[0].id,startdate,enddate,{asArray:true,regular: regular, dt: dt})  // (tipo,id,timestart,timeend,options)
+			// console.log("get serie tipo" + tipo + " id " + result.rows[0].id)
+			return this.getSerie(tipo,result.rows[0].id,startdate,enddate,{asArray:true,regular: regular, dt: dt})  // (tipo,id,timestart,timeend,options)
 			.then(async serie=>{
 				// console.log("got serie at " + Date())
 				if(includeProno) {
@@ -17100,14 +17167,25 @@ internal.utils = {
 		// default_table = "table"
 		var filter_string = " "
 		var control_flag = 0
-		Object.keys(valid_filters).forEach(key=>{
+		loop1: for(var key of Object.keys(valid_filters)) {
 			var table_prefix = (valid_filters[key].table) ? '"' + valid_filters[key].table + '".' :  (default_table) ? '"' + default_table + '".' : ""
 			var column_name = (valid_filters[key].column) ? '"' + valid_filters[key].column + '"' : '"' + key + '"'
 			var fullkey = table_prefix + column_name
 			if(typeof filter[key] != "undefined" && filter[key] !== null) {
-				if(/[';]/.test(filter[key])) {
-					console.error("Invalid filter value")
-					control_flag++
+				if(Array.isArray(filter[key])) {
+					for(var f of filter[key]) {
+						if(/[';]/.test(f)) {
+							console.error("Invalid filter value")
+							control_flag++
+							break loop1	
+						}	
+					}
+				} else {
+					if(/[';]/.test(filter[key])) {
+						console.error("Invalid filter value")
+						control_flag++
+						break loop1
+					}
 				}
 				if(valid_filters[key].type == "regex_string") {
 					var regex = filter[key].replace('\\','\\\\')
@@ -17115,13 +17193,23 @@ internal.utils = {
 				} else if(valid_filters[key].type == "string") {
 					if(valid_filters[key].case_insensitive) {
 						if(Array.isArray(filter[key])) {
-							filter_string += ` AND lower(${fullkey}) IN (${filter[key].map(v=>`lower('${v}')`).join(",")})`
+							if(filter[key].length) {
+								filter_string += ` AND lower(${fullkey}) IN (${filter[key].map(v=>`lower('${v}')`).join(",")})`
+							} else if(valid_filters[key].required) {
+								console.error("Falta valor para filtro obligatorio " + key + " (array vacío)")
+								control_flag++
+							}
 						} else {
 							filter_string += ` AND lower(${fullkey})=lower('${filter[key]}')`
 						}
 					} else {
 						if(Array.isArray(filter[key])) {
-							filter_string += ` AND ${fullkey} IN (${filter[key].map(v=>`'${v}'`).join(",")})`
+							if(filter[key].length) {
+								filter_string += ` AND ${fullkey} IN (${filter[key].map(v=>`'${v}'`).join(",")})`
+							} else if(valid_filters[key].required) {
+								console.error("Falta valor para filtro obligatorio " + key + " (array vacío)")
+								control_flag++
+							}
 						} else {
 							filter_string += " AND "+ fullkey + "='" + filter[key] + "'"
 						}
@@ -17141,6 +17229,8 @@ internal.utils = {
 					if(! filter[key] instanceof internal.geometry) {
 						console.error("Invalid geometry object")
 						control_flag++
+					} else if (filter[key].type == "Point"){
+						filter_string += "  AND ST_Distance(st_transform(" + fullkey + ",4326),st_Buffer(st_transform(" + filter[key].toSQL() + ",4326),0.001)) < 0.000001" 
 					} else {
 						filter_string += "  AND ST_Distance(st_transform(" + fullkey + ",4326),st_transform(" + filter[key].toSQL() + ",4326)) < 0.001" 
 					}
@@ -17175,12 +17265,17 @@ internal.utils = {
 					filter_string += " AND " + fullkey + "<=" + parseFloat(filter[key])
 				} else if (valid_filters[key].type == "integer") {
 					if(Array.isArray(filter[key])) {
-						var values = filter[key].map(v=>parseInt(v)).filter(v=>v.toString()!="NaN")
-						if(!values.length) {
-							console.error("Invalid integer")
+						if(filter[key].length) {
+							var values = filter[key].map(v=>parseInt(v)).filter(v=>v.toString()!="NaN")
+							if(!values.length) {
+								console.error("Invalid integer")
+								control_flag++
+							} else {
+								filter_string += " AND "+ fullkey + " IN (" + values.join(",") + ")"
+							}
+						} else if(valid_filters[key].required) {
+							console.error("Falta valor para filtro obligatorio " + key + " (array vacío)")
 							control_flag++
-						} else {
-							filter_string += " AND "+ fullkey + " IN (" + values.join(",") + ")"
 						}
 					} else {
 						var value = parseInt(filter[key])
@@ -17193,12 +17288,17 @@ internal.utils = {
 					}
 				} else if (valid_filters[key].type == "number" || valid_filters[key].type == "float") {
 					if(Array.isArray(filter[key])) {
-						var values = filter[key].map(v=>parseFloat(v)).filter(v=>v.toString()!="NaN")
-						if(!values.length) {
-							console.error("Invalid float")
+						if(filter[key].length) {
+							var values = filter[key].map(v=>parseFloat(v)).filter(v=>v.toString()!="NaN")
+							if(!values.length) {
+								console.error("Invalid float")
+								control_flag++
+							} else {
+								filter_string += " AND "+ fullkey + " IN (" + values.join(",") + ")"
+							}
+						} else if(valid_filters[key].required) {
+							console.error("Falta valor para filtro obligatorio " + key + " (array vacío)")
 							control_flag++
-						} else {
-							filter_string += " AND "+ fullkey + " IN (" + values.join(",") + ")"
 						}
 					} else {
 						var value = parseFloat(filter[key])
@@ -17217,7 +17317,12 @@ internal.utils = {
 					filter_string += ` AND ${fullkey}='${value.toPostgres()}'::interval`
 				} else if (valid_filters[key].type == 'json_array') {
 					if(Array.isArray(filter[key])) {
-						filter_string += " AND " + fullkey + "::jsonb ?& array[" + filter[key].map(v=>`'${v}'`).join(",") + "]"
+						if(filter[key].length) {
+							filter_string += " AND " + fullkey + "::jsonb ?& array[" + filter[key].map(v=>`'${v}'`).join(",") + "]"
+						} else if(valid_filters[key].required) {
+							console.error("Falta valor para filtro obligatorio " + key + " (array vacío)")
+							control_flag++
+						}
 					} else {
 						filter_string += " AND "+ fullkey + "::jsonb ?& array['" + filter[key] + "']"
 					}
@@ -17244,7 +17349,12 @@ internal.utils = {
 				// qualifiers::jsonb ?& array['1']
 				} else {
 					if(Array.isArray(filter[key])) {
-						filter_string += " AND "+ fullkey + " IN (" + filter[key].join(",") + ")"
+						if(filter[key].length) {
+							filter_string += " AND "+ fullkey + " IN (" + filter[key].join(",") + ")"
+						} else if(valid_filters[key].required) {
+							console.error("Falta valor para filtro obligatorio " + key + " (array vacío)")
+							control_flag++
+						}
 					} else {
 						filter_string += " AND "+ fullkey + "=" + filter[key] + ""
 					}
@@ -17253,7 +17363,7 @@ internal.utils = {
 				console.error("Falta valor para filtro obligatorio " + key)
 				control_flag++
 			}
-		})
+		}
 		if(control_flag > 0) {
 			return null
 		} else {

@@ -47,6 +47,9 @@ function reloadWithPars(evt) {
 			prono_args += "&" + i + "=" + $(".form-control[name=" + i + "]").val()
 		}
 	}
+	if($(".form-control[name=fuentesId]").val() != "") {
+		prono_args += "&fuentesId=" + $(".form-control[name=fuentesId]").val()
+	}
 	$('a#maptab').click()
 	window.location.search = '?varId=' + var_id + '&seriesId=' + series_id + ((ts) ? '&timestart=' + ts : '') + ((te) ? '&timeend=' + te : '') + ((red_id) ? '&redId=' + red_id : '') + ((estacion_id) ? '&estacionId=' + estacion_id : '') + prono_args
 }
@@ -673,6 +676,69 @@ var metadataElements = {
 		endpoint: "obs/puntual/estaciones",
 		objectName: "estacion"
 	},
+	area: {
+		properties: {
+			id: {
+				type: "number",
+				title: "id de área",
+				required: true,
+				disabled: true
+			},
+			nombre: {
+				type: "text",
+				title: "nombre",
+				required: false
+			},
+			longitud_exutorio: {
+				type: "number",
+				step: 0.000000001,
+				title: "longitud del exutorio (sección de cierre)",
+				required: false
+			},
+			latitud_exutorio: {
+				type: "number",
+				step: 0.000000001,
+				title: "latitud del exutorio (sección de cierre)",
+				required: false
+			},
+			geom: {
+				type: "geometry",
+				title: "Geometría (polígono)",
+				required: true
+			},
+			exutorio_id: {
+				type: "number",
+				title: "id de exutorio",
+				required: false,
+				min: 0
+			}
+		},
+		objectName: "area",
+		endpoint: "obs/areal/areas",
+		series_property: "estacion"
+	},
+	escena: {
+		properties: {
+			id: {
+				type: "number",
+				title: "id de escena",
+				required: true,
+				filter: true
+			},
+			nombre: {
+				type: "text",
+				title: "nombre",
+				required: false
+			},
+			geom: {
+				type: "geometry",
+				title: "Geometría (polígono)",
+				required: true
+			}
+		},
+		objectName: "escena",
+		endpoint: "obs/raster/escenas"
+	},
 	"var": {
 		properties: {
 			id: {
@@ -768,6 +834,7 @@ function buildMetadataForm(metadataElement) {
 		console.log("metadataElement " + metadataElement + " not found")
 		return
 	}
+	var series_property = metadataElements[metadataElement].series_property ?? metadataElement
 	return $("<div></div>")
 		.attr('id',metadataElement)
 		.attr('style',"display: block;")
@@ -789,10 +856,10 @@ function buildMetadataForm(metadataElement) {
 					$('<option value="true">verdadero</option>'),
 					$('<option value="false">falso</option>')
 				  );
-				if(global.series[metadataElement][key] !== null) {
-					if(global.series[metadataElement][key].toString() != "") {
+				if(global.series[series_property][key] && global.series[series_property][key] !== null) {
+					if(global.series[series_property][key].toString() != "") {
 						//~ $(input).val('checked',true)
-						$(input).val(global.series[metadataElement][key])
+						$(input).val(global.series[series_property][key])
 					}
 				}
 			//~ } else if (e.type=="interval") {
@@ -816,7 +883,21 @@ function buildMetadataForm(metadataElement) {
 					$(input).attr('step',e.step)
 				}
 			}
-			var value = (key == "longitud") ? global.series[metadataElement].geom.coordinates[0] : (key == "latitud") ? global.series[metadataElement].geom.coordinates[1] : (e.type == "interval") ? interval2string(global.series[metadataElement][key]) : global.series[metadataElement][key]
+			if(key == "longitud") {
+				value = global.series[series_property].geom.coordinates[0]
+			} else if (key == "latitud") {
+				value =global.series[series_property].geom.coordinates[1]
+			} else if (key == "longitud_exutorio") {
+				value = (global.series[series_property].exutorio) ? global.series[series_property].exutorio.coordinates[0] : undefined
+			} else if (key == "latitud_exutorio")  {
+				value = (global.series[series_property].exutorio) ? global.series[series_property].exutorio.coordinates[0] : undefined
+			} else if (e.type == "interval") {
+				value = interval2string(global.series[series_property][key])
+			} else if (e.type == "geometry") {
+				value = JSON.stringify(global.series[series_property][key])
+			} else {
+				value = global.series[series_property][key]
+			}
 			$(input).attr('class', 'confirm edit')
 					.attr('disabled',false)
 					.attr('name',key)

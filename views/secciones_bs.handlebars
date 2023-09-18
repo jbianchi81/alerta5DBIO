@@ -1388,31 +1388,62 @@
 			)
 			
 			if (series.estacion) {
-				$("div#general ul#general").append(
-					$("<li></li>").append(
-						$('<h3 id=p_estacion>Estación <button type=button title=editar id=estacion class="metadata-edit-button" style="display: none;"><i class="material-icons" id=estacion>&#xE254;</i></button></h3>'),
-						$("<ul></ul>").append(
-							$("<li>fuente: <b>" + series.estacion.tabla + "</b></li>"),
-							$("<li>id: <b>" + series.estacion.id + "</b></li>"),
-							$("<li>nombre: <b>" + series.estacion.nombre + "</b></li>"),
-							$("<li>id_externo: <b>" + series.estacion.id_externo + "</b></li>"),
-							$("<li>longitud: <b>" + series.estacion.geom.coordinates[0] + "</b></li>"),
-							$("<li>latitud: <b>" + series.estacion.geom.coordinates[1] + "</b></li>"),
-							$("<li>altitud: <b>" + series.estacion.altitud + "</b></li>"),
-							$("<li>cero de escala: <b>" + series.estacion.cero_ign + "</b></li>"),
-							$("<li>provincia: <b>" + series.estacion.provincia + "</b></li>"),
-							$("<li>pais: <b>" + series.estacion.pais + "</b></li>"),
-							$("<li>rio: <b>" + series.estacion.rio + "</b></li>"),
-							$("<li>automatica: <b>" + series.estacion.automatica + "</b></li>"),
-							$("<li>propietario: <b>" + series.estacion.propietario + "</b></li>"),
-							$("<li>abreviatura: <b>" + series.estacion.abreviatura + "</b></li>"),
-							$("<li>URL: <b>" + series.estacion.URL + "</b></li>"),
-							$("<li>localidad: <b>" + series.estacion.localidad + "</b></li>"),
-							$("<li>real: <b>" + series.estacion.real + "</b></li>"),
-							$("<li>nivel_alerta: <b>" + series.estacion.nivel_alerta + "</b></li>"),
-							$("<li>nivel_evacuacion: <b>" + series.estacion.nivel_evacuacion + "</b></li>"),
-							$("<li>nivel_aguas_bajas: <b>" + series.estacion.nivel_aguas_bajas + "</b></li>")
-				)))
+				if(series.tipo == "puntual") {
+					$("div#general ul#general").append(
+						$("<li></li>").append(
+							$('<h3 id=p_estacion>Estación <button type=button title=editar id=estacion class="metadata-edit-button" style="display: none;"><i class="material-icons" id=estacion>&#xE254;</i></button></h3>'),
+							$("<ul></ul>").append(
+								$("<li>fuente: <b>" + series.estacion.tabla + "</b></li>"),
+								$("<li>id: <b>" + series.estacion.id + "</b></li>"),
+								$("<li>nombre: <b>" + series.estacion.nombre + "</b></li>"),
+								$("<li>id_externo: <b>" + series.estacion.id_externo + "</b></li>"),
+								$("<li>longitud: <b>" + series.estacion.geom.coordinates[0] + "</b></li>"),
+								$("<li>latitud: <b>" + series.estacion.geom.coordinates[1] + "</b></li>"),
+								$("<li>altitud: <b>" + series.estacion.altitud + "</b></li>"),
+								$("<li>cero de escala: <b>" + series.estacion.cero_ign + "</b></li>"),
+								$("<li>provincia: <b>" + series.estacion.provincia + "</b></li>"),
+								$("<li>pais: <b>" + series.estacion.pais + "</b></li>"),
+								$("<li>rio: <b>" + series.estacion.rio + "</b></li>"),
+								$("<li>automatica: <b>" + series.estacion.automatica + "</b></li>"),
+								$("<li>propietario: <b>" + series.estacion.propietario + "</b></li>"),
+								$("<li>abreviatura: <b>" + series.estacion.abreviatura + "</b></li>"),
+								$("<li>URL: <b>" + series.estacion.URL + "</b></li>"),
+								$("<li>localidad: <b>" + series.estacion.localidad + "</b></li>"),
+								$("<li>real: <b>" + series.estacion.real + "</b></li>"),
+								$("<li>nivel_alerta: <b>" + series.estacion.nivel_alerta + "</b></li>"),
+								$("<li>nivel_evacuacion: <b>" + series.estacion.nivel_evacuacion + "</b></li>"),
+								$("<li>nivel_aguas_bajas: <b>" + series.estacion.nivel_aguas_bajas + "</b></li>")
+					)))
+				} else if (series.tipo == "areal") {
+					$("div#general ul#general").append(
+						$("<li></li>").append(
+							$('<h3 id=p_estacion>Área <button type=button title=editar id=area class="metadata-edit-button" style="display: none;"><i class="material-icons" id=area>&#xE254;</i></button></h3>'),
+							$("<ul></ul>").append(
+								$("<li>id: <b>" + series.estacion.id + "</b></li>"),
+								$("<li>nombre: <b>" + series.estacion.nombre + "</b></li>"),
+								$("<li>límite oeste: <b>" + Math.min(...series.estacion.geom.coordinates[0].map(p=>p[0])) + "</b></li>"),
+								$("<li>límite sur: <b>" + Math.min(...series.estacion.geom.coordinates[0].map(p=>p[1])) + "</b></li>"),
+								$("<li>límite este: <b>" + Math.max(...series.estacion.geom.coordinates[0].map(p=>p[0])) + "</b></li>"),
+								$("<li>límite norte: <b>" + Math.max(...series.estacion.geom.coordinates[0].map(p=>p[1])) + "</b></li>"),
+								$("<li>latitud exutorio: <b>" + ((series.estacion.exutorio) ? series.estacion.exutorio.coordinates[0] : "") + "</b></li>"),
+								$("<li>longitud exutorio: <b>" + ((series.estacion.exutorio) ? series.estacion.exutorio.coordinates[1] : "") + "</b></li>"),
+								$("<li>exutorio_id: <b>" + ((series.estacion.exutorio_id) ? series.estacion.exutorio_id : "") + "</b></li>")
+					)))
+
+				} else if(series.tipo == "raster") {
+					$("div#general ul#general").append(
+						$("<li></li>").append(
+							$('<h3 id=p_estacion>Escena <button type=button title=editar id=estacion class="metadata-edit-button" style="display: none;"><i class="material-icons" id=estacion>&#xE254;</i></button></h3>'),
+							$("<ul></ul>").append(
+								$("<li>id: <b>" + series.estacion.id + "</b></li>"),
+								$("<li>nombre: <b>" + series.estacion.nombre + "</b></li>"),
+								$("<li>límite oeste: <b>" + Math.min(series.estacion.geom.coordinates[0].map(p=>p[0])) + "</b></li>"),
+								$("<li>límite sur: <b>" + Math.min(series.estacion.geom.coordinates[0].map(p=>p[1])) + "</b></li>"),
+								$("<li>límite este: <b>" + Math.max(series.estacion.geom.coordinates[0].map(p=>p[0])) + "</b></li>"),
+								$("<li>límite norte: <b>" + Math.max(series.estacion.geom.coordinates[0].map(p=>p[1])) + "</b></li>")
+					)))
+
+				}
 			}
 			
 			if(series["var"]) {
@@ -1476,6 +1507,20 @@
 							$("<li>abreviatura: <b>" + series.unidades.abrev + "</b></li>"),
 							$("<li>unitsID: <b>" + series.unidades.unitsID + "</b></li>"),
 							$("<li>unitsType: <b>" + series.unidades.unitsType + "</b></li>")
+				)))
+			}
+			if (series.fuente) {
+				$("div#general ul#general").append(
+					$("<li></li>").append(
+						$('<h3 id="p_units">Fuente <button type=button title=editar id=fuente class="metadata-edit-button" style="display: none;"><i class="material-icons" id=fuente>&#xE254;</i></button></h3>'),
+						$("<ul></ul>").append(
+							$("<li>id: <b>" + series.fuente.id + "</b></li>"),
+							$("<li>nombre: <b>" + series.fuente.nombre + "</b></li>"),
+							$("<li>tipo: <b>" + series.fuente.tipo + "</b></li>"),
+							$("<li>scale_factor: <b>" + series.fuente.scale_factor + "</b></li>"),
+							$("<li>data_offset: <b>" + series.fuente.data_offset + "</b></li>"),
+							$("<li>abstract: <b>" + series.fuente.abstract + "</b></li>"),
+							$("<li>source: <b>" + series.unidades.source + "</b></li>")
 				)))
 			}
 			if (prono_resumen) {
