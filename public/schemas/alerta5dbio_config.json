@@ -1,0 +1,104 @@
+{
+    "$id": "alerta5dbio_config.json",
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "title": "alerta5dbio_config",
+    "type": "object",
+    "properties": {
+        "log_pool_usage": {
+            "type": "object",
+            "description": "option to log the total, waiting and idle clients of the database pool",
+            "properties": {
+                "activate": {
+                    "type": "boolean"
+                },
+                "interval": {
+                    "type": "integer",
+                    "description": "Interval at which to log pool usage in milliseconds"
+                }
+            },
+            "required": [
+                "activate",
+                "interval"
+            ],
+            "additionalProperties": false
+        },
+        "secciones": {
+            "type": "object",
+            "description": "/secciones web page settings",
+            "properties": {
+                "filters": {
+                    "type": "object",
+                    "description": "Default values for search filters",
+                    "properties": {
+                        "data_availability": {
+                            "type": "object",
+                            "properties": {
+                                "default": {
+                                    "type": "string",
+                                    "enum": ["a","h","n","r"]
+                                }
+                            },
+                            "required": ["default"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": true
+                },
+                "endpoints": {
+                    "type": "object",
+                    "description": "endpoint urls of external services",
+                    "properties": {
+                        "geoserver": {
+                            "type": "object",
+                            "description": "web map service and web feature service endpoints for navigable map",
+                            "properties": {
+                                "wms": {
+                                    "type": "string"
+                                },
+                                "wfs": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": ["wms", "wfs"]
+                        }
+                    },
+                    "additionalProperties": true
+                },
+                "series_page_size": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": true
+        },
+     	"database": {
+            "type": "object",
+            "description": "database connection parameters",
+            "properties": {
+                "user": {
+                    "type": "string"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "database": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+	            "idleTimeoutMillis": {
+                    "type": "integer",
+                    "description": "Time in milliseconds to wait before releasing an idle client (default 10000)"
+                }
+            },
+            "required": ["user","database","password"],
+            "additionalProperties": true
+	    }
+    },
+    "required": [],
+    "additionalProperties": true,
+    "definitions": {}
+}

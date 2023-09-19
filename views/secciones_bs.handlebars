@@ -2,7 +2,7 @@
 <script src="js/series_edit_table.js"></script>
 <div class="container p-3 my-3 border">
 		<section id="mainHeading" style="display: flex;justify-content: space-between;">
-		<h3>Series puntuales</h3>
+		<h3 id="leftHeading">Series puntuales</h3>
 		<h2>visualizador de datos</h2>
 		<div>
 			<a id="selectorToggle" class="btn btn-primary collapsed" data-toggle="collapse" href=".showHideFilters" role="button" aria-expanded="false" aria-controls="selector" style="">ocultar buscador</a>
@@ -41,7 +41,7 @@
 					</select>
 				</div>
 				<div>
-					<label for=seriesId>Estación</label>
+					<label for=estacionId>Estación</label>
 					<select name=estacionId id=estacionId class="form-control" style="font-size: medium;">
 						<option value="" >-- Todas --</option>
 					</select>
@@ -984,10 +984,14 @@
 
 		getFuentesAreal(search_filters)
 
-		loadEstacionesOptions(search_filters)
-
 		if(search_filters.fuentesId) {
+			$("h3#leftHeading").text("Series areales")
+			$("form#selectorform select[name=estacionId]").parent().find("label").text("Área")
 			loadAreasOptions(search_filters)
+			$("form#selectorform select[name=redId]").parent().hide()
+			$("form#selectorform select[name=fuentesId]").parent().removeClass("additionalFilters").show()
+		} else {
+			loadEstacionesOptions(search_filters)
 		}
 
 		getCalibradosGrupos(search_filters)
@@ -1029,9 +1033,9 @@
 		}
 		global.isWriter = {{writer}}
 		
-		// global.monitoredpointsparams = monitoredpointsparams
+		global.monitoredpointsparams = monitoredpointsparams
 			
-		makeSeriesEditTable($("div.tabcontent#tabla_series"),undefined,{{writer}},search_filters,monitoredpointsparams.tipo)
+		makeSeriesEditTable($("div.tabcontent#tabla_series"),undefined,{{writer}},monitoredpointsparams.tipo)
 
 		if(search_filters.seriesId) {
 			loadSerie(search_filters) // ,matched_point)
@@ -1903,18 +1907,19 @@
 		var estaciones_params = {}
 		var selected_fuentesId = $("form#selectorform select[name=fuentesId]").val()
 		if(selected_fuentesId != "") {
-			estaciones_params["fuentes_id"] = selected_fuentesId
-		} else if(search_filters.redId) {
-			estaciones_params["fuentes_id"] = search_filters.fuentesId
+			estaciones_params.fuentes_id = selected_fuentesId
+		} else if(search_filters.fuentesId) {
+			estaciones_params.fuentes_id = search_filters.fuentesId
 		}
 		var selected_varId = $("form#selectorform select[name=varId]").val()
 		if(selected_varId != "") {
-			estaciones_params["var_id"] = selected_varId
+			estaciones_params.var_id = selected_varId
 		} else if(search_filters.varId) {
-			estaciones_params["var_id"] = search_filters.varId
+			estaciones_params.var_id = search_filters.varId
 		}
 		estaciones_params.no_geom = true
-		$.get("obs/areal/series?",estaciones_params)
+		// console.log({estaciones_params:estaciones_params})
+		$.get("obs/areal/series",estaciones_params)
 		.then(data=>{
 			$("body").css("cursor","default")
 			if(!data.length) {

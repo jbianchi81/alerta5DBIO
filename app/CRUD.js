@@ -39,6 +39,7 @@ const logger = require('./logger');
 const { crud } = require('./informe_semanal');
 const { CRUD } = require('./mareas');
 const { valid } = require('node-html-parser');
+const { client } = require('./wmlclient');
 
 const apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
 var schemas = apidoc.components.schemas
@@ -313,7 +314,7 @@ internal.estacion = class extends baseModel  {
 					this.id = arguments[0].id
 					this.nombre = arguments[0].nombre
 					this.id_externo = arguments[0].id_externo
-					this.geom = (arguments[0].hasOwnProperty("geom")) ? new internal.geometry(arguments[0].geom) : undefined
+					this.geom = (arguments[0].hasOwnProperty("geom") && arguments[0].geom != null) ? new internal.geometry(arguments[0].geom) : undefined
 					this.tabla = arguments[0].tabla
 					this.provincia = (arguments[0].hasOwnProperty("provincia")) ? arguments[0].provincia : arguments[0].distrito
 					this.pais = arguments[0].pais
@@ -1864,7 +1865,8 @@ internal.serie = class extends baseModel {
 			console.error("Can't update serie without id")
 			return
 		}
-		const stmt = this.updateQuery(changes)
+		// const stmt = this.updateQuery(changes)
+		console.log(stmt)
 		const result = await global.pool.query(stmt)
 		if(!result.rows.length) {
 			console.error("Serie with specified id not found. Nothing updated")
@@ -1876,21 +1878,34 @@ internal.serie = class extends baseModel {
 	updateQuery(changes={}) {
 		const params = [this.id]
 		const series_table = this.getSeriesTable()
+		const object_properties = {
+			"var_id": "var",
+			"proc_id": "procedimiento",
+			"unit_id": "unidades",
+			"estacion_id": "estacion",
+			"area_id": "estacion",
+			"escena_id": "estacion",
+			"fuentes_id": "fuente"
+		}
 		const updateable_fields = (series_table == "series_areal") ? ["var_id","proc_id","unit_id","area_id","fuentes_id"] : (series_table == "series_rast") ? ["var_id","proc_id","unit_id","escena_id","fuentes_id"] : ["var_id","proc_id","unit_id","estacion_id"]
 		var set_clause = []
 		var set_clause_index = 1
 		for(var key of updateable_fields) {
-			if(changes[key] != null) {
+			if(changes.hasOwnProperty(key) && changes[key] != null) {
 				set_clause_index = set_clause_index + 1
 				set_clause.push(`${key}=\$${set_clause_index}`)
 				params.push(changes[key])
+			} else if(changes.hasOwnProperty(object_properties[key]) && changes[object_properties[key]].id) {
+				set_clause_index = set_clause_index + 1
+				set_clause.push(`${key}=\$${set_clause_index}`)
+				params.push(changes[object_properties[key]].id)
 			}
 		}
 		if(!set_clause.length) {
 			console.error("No changes to update")
 			return pasteIntoSQLQuery(`SELECT * FROM ${series_table} WHERE id=$1`,params) 
 		}
-		return pasteIntoSQLQuery(`UPDATE ${series_table} SET ${set_clause} WHERE id=$1 RETURNING *`,params)
+		return pasteIntoSQLQuery(`UPDATE ${series_table} SET ${set_clause.join(", ")} WHERE id=$1 RETURNING *`,params)
 	}
 
 	static async delete(filter={},options={}) {
@@ -6802,50 +6817,44 @@ internal.CRUD = class {
 		if(!serie.tipo) {
 			serie.tipo = "puntual"
 		}
-		return new Promise((resolve,reject)=>{
-			if(serie.id) {
-				resolve(serie)
+		if(serie.id) { // if id is given, looks for a match
+			const serie_match = await internal.serie.read({tipo:serie.tipo,id:serie.id})
+			if(serie_match) {  // if exists, updates
+				return serie_match.update(serie)
 			} else {
-				resolve(serie.getId(global.pool))
+				console.log("serie " + serie.tipo + " " + serie.id + " not found. Creating")
 			}
-		})
-		.then(()=>{
-			return global.pool.query(this.upsertSerieQuery(serie))
-			.then(result=>{
-				if(result.rows.length == 0) {
-					console.log("nothing inserted")
-					return null
-				}
-				console.log("Upserted serie " + serie.tipo + " id: " + result.rows[0].id)
-				result.rows[0].tipo = serie.tipo
-				return result.rows[0]
+		} else {
+			await serie.getId()
+		}
+		var result = await global.pool.query(this.upsertSerieQuery(serie))
+		if(result.rows.length == 0) {
+			console.log("nothing inserted")
+			return null
+		}
+		console.log("Upserted serie " + serie.tipo + " id: " + result.rows[0].id)
+		result.rows[0].tipo = serie.tipo
+		result = result.rows[0]
+		if(options.series_metadata) {
+			console.log("adding series metadata")
+			return this.initSerie(result)
+		} else {
+			return new internal.serie({
+				tipo: result.tipo,
+				id: result.id, 
+				estacion: { id: result.estacion_id },
+				"var": { id: result.var_id },
+				procedimiento: { id: result.proc_id },
+				unidades: { id: result.unit_id },
+				fuentes: { id: result.fuentes_id}
 			})
-		})
-		.then(result=>{
-			if(options.series_metadata) {
-				console.log("adding series metadata")
-				return this.initSerie(result)
-			} else {
-				return new internal.serie({
-					tipo: result.tipo,
-					id: result.id, 
-					estacion: { id: result.estacion_id },
-					"var": { id: result.var_id },
-					procedimiento: { id: result.proc_id },
-					unidades: { id: result.unit_id },
-					fuentes: { id: result.fuentes_id}
-				})
-			}
-		})
-		.catch(e=>{
-			console.error(e)
-		})
+		}
 	}
 
 	static upsertSerieQuery(serie) {
 		var query = ""
 		var params = []
-		if(serie.tipo == "areal") {
+		if(serie.tipo == "areal") { 
 			if(serie.id) {
 				query = "\
 				INSERT INTO series_areal (area_id,var_id,proc_id,unit_id,fuentes_id)\
@@ -7149,9 +7158,10 @@ internal.CRUD = class {
 			).then(result=>{
 				if(result.rows.length<=0) {
 					console.log("id not found")
-					return new internal.serie(result.rows[0])
+					return
 				}
 				console.log("Deleted series_areal.id=" + result.rows[0].id)
+				return new internal.serie(result.rows[0])
 			}).catch(e=>{
 				throw(e)
 			})
@@ -7163,9 +7173,10 @@ internal.CRUD = class {
 			).then(result=>{
 				if(result.rows.length<=0) {
 					console.log("id not found")
-					return new internal.serie(result.rows[0])
+					return
 				}
 				console.log("Deleted series_rast.id=" + result.rows[0].id)
+				return new internal.serie(result.rows[0])
 			}).catch(e=>{
 				throw(e)
 			})
@@ -7554,19 +7565,19 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getSeriesJson(filter={},options={}) {
+	static async getSeriesJson(filter={},options={},client) {
 		var series
 		if(!filter.tipo || filter.tipo == "puntual") {
-			series = await this.getSeriesPuntualesJson(filter,options)
+			series = await this.getSeriesPuntualesJson(filter,options,client)
 		} else if (filter.tipo == "areal") {
-			series = await this.getSeriesArealesJson(filter,options)
+			series = await this.getSeriesArealesJson(filter,options,client)
 		} else if (filter.tipo == "raster" || filter.tipo == "rast") {
-			series = await this.getSeriesRasterJson(filter,options)
+			series = await this.getSeriesRasterJson(filter,options,client)
 		}
 		return series
 	}
 
-	static async getSeriesPuntualesJson(filter={},options={}) {
+	static async getSeriesPuntualesJson(filter={},options={},client) {
 		const filter_string = internal.utils.control_filter_json({
 				id:{
 					path: ["serie","id"],
@@ -7630,7 +7641,11 @@ internal.CRUD = class {
 				}
 			},filter,"series_json")
 		console.log(filter_string)
-		var result = await global.pool.query("SELECT serie FROM series_json WHERE 1=1 " + filter_string)
+		if(client) {
+			var result = await client.query("SELECT serie FROM series_json WHERE 1=1 " + filter_string)			
+		} else {
+			var result = await global.pool.query("SELECT serie FROM series_json WHERE 1=1 " + filter_string)
+		}
 		result = result.rows.map(r=>r.serie)
 		if(options.no_metadata) {
 			result = result.map(s=>{
@@ -7659,7 +7674,7 @@ internal.CRUD = class {
 		return result.map(s=>new internal.serie(s))		
 	}
 
-	static async getSeriesArealesJson(filter={},options={}) {
+	static async getSeriesArealesJson(filter={},options={},client) {
 		const valid_json_filters = {
 			red_id:{
 				path: ["serie","estacion","exutorio","red_id"],
@@ -7745,17 +7760,20 @@ internal.CRUD = class {
 			if(!row_filter_string) {
 				throw("Invalid filters")
 			}
-			const stmt = "SELECT serie FROM series_areal_json_no_geom WHERE 1=1 " + json_filter_string + " " + row_filter_string
-			console.log(stmt)
-			var result = await global.pool.query(stmt)
+			var stmt = "SELECT serie FROM series_areal_json_no_geom WHERE 1=1 " + json_filter_string + " " + row_filter_string
+			// console.log(stmt)
 		} else {			
 			const json_filter_string = internal.utils.control_filter_json(valid_json_filters,filter,"series_areal_json")
 			const row_filter_string = internal.utils.control_filter2(valid_row_filters,filter,"series_areal_json")
 			if(!row_filter_string) {
 				throw("Invalid filters")
 			}
-			const stmt = "SELECT serie FROM series_areal_json WHERE 1=1 " + json_filter_string + " " + row_filter_string
-			console.log(stmt)
+			var stmt = "SELECT serie FROM series_areal_json WHERE 1=1 " + json_filter_string + " " + row_filter_string
+			// console.log(stmt)
+		}
+		if(client) {
+			var result = await client.query(stmt)
+		} else {
 			var result = await global.pool.query(stmt)
 		}
 		result = result.rows.map(r=>r.serie)
@@ -7784,7 +7802,7 @@ internal.CRUD = class {
 		return result.map(s=>new internal.serie(s))
 	}
 
-	static async getSeriesRasterJson(filter={},options={}) {
+	static async getSeriesRasterJson(filter={},options={},client) {
 		const valid_filters = {
 			id:{
 				path: ["serie","id"],
@@ -7836,7 +7854,12 @@ internal.CRUD = class {
 		}
 		const filter_string = internal.utils.control_filter_json(valid_filters,filter,"series_rast_json")
 		console.log(filter_string)
-		var result = await global.pool.query("SELECT serie FROM series_rast_json WHERE 1=1 " + filter_string)
+		if(client) {
+			var result = await client.query("SELECT serie FROM series_rast_json WHERE 1=1 " + filter_string)
+
+		} else {
+			var result = await global.pool.query("SELECT serie FROM series_rast_json WHERE 1=1 " + filter_string)
+		}
 		result = result.rows.map(r=>r.serie)
 		if(options.no_metadata) {
 			result = result.map(s=>{
@@ -7875,8 +7898,18 @@ internal.CRUD = class {
 			filter.tipo = tipo
 		}
 		if((!filter.timestart || !filter.timeend) && !options.getMonthlyStats && !options.getStats && !options.getPercentiles && options.fromView) {
-			return this.getSeriesJson(filter,options)
-
+			try {
+				var result = await this.getSeriesJson(filter,options,client)
+			} catch(e) {
+				if(release_client) {
+					client.release()
+				}
+				throw(e)
+			}
+			if(release_client) {
+				client.release()
+			}
+			return result
 		}
 		var query = internal.serie.build_read_query(filter,options)
 		// console.log(query)
@@ -7892,7 +7925,7 @@ internal.CRUD = class {
 			delete res.rows[i].count
 		}
 		if(options.no_metadata) {  // RETURN WITH NO METADATA (SOLO IDS)
-			return res.rows.map(r=> {
+			const result = res.rows.map(r=> {
 				//~ delete r.geom
 				//~ console.log(r.geom)
 				if(r.geom) {
@@ -7901,6 +7934,10 @@ internal.CRUD = class {
 				r.tipo = tipo
 				return r
 			})
+			if(release_client) {
+				client.release()
+			}
+			return result
 		}
 		var series = []
 		for(var i = 0; i < res.rows.length; i++) {
@@ -7913,6 +7950,9 @@ internal.CRUD = class {
 					unidades: await this.getUnidad(row.unit_id)
 				})
 			} catch(e) {
+				if(release_client) {
+					client.release()
+				}
 				throw(e)
 			}
 			if(filter.timestart && filter.timeend) {
@@ -7928,6 +7968,9 @@ internal.CRUD = class {
 						serie.setObservaciones(await this.getObservaciones(tipo,{series_id:row.id,timestart:filter.timestart,timeend:filter.timeend}))
 					}
 				} catch(e){
+					if(release_client) {
+						client.release()
+					}	
 					throw(e)
 				}
 				if(options.getWeibullPercentiles) {
@@ -7941,6 +7984,9 @@ internal.CRUD = class {
 					serie.fuente = await this.getFuente(row.fuentes_id)
 					serie.date_range = row.date_range
 				} catch(e){
+					if(release_client) {
+						client.release()
+					}	
 					throw(e)
 				}
 				
@@ -7950,6 +7996,9 @@ internal.CRUD = class {
 					serie.estacion = await this.getEscena(row.escena_id)
 					serie.fuente = await this.getFuente(row.fuentes_id)
 				} catch(e) {
+					if(release_client) {
+						client.release()
+					}	
 					throw(e)
 				}
 				serie.date_range = row.date_range
@@ -7959,6 +8008,9 @@ internal.CRUD = class {
 				try {
 					serie.estacion = await this.getEstacion(row.estacion_id)
 				} catch(e) {
+					if(release_client) {
+						client.release()
+					}	
 					throw(e)
 				}
 				serie.date_range = row.date_range
@@ -7979,6 +8031,9 @@ internal.CRUD = class {
 					ms[i.series_id] = i.stats
 				})
 			} catch(e) {
+				if(release_client) {
+					client.release()
+				}
 				throw(e)
 			}
 			for(var i in series) {
@@ -16008,7 +16063,9 @@ ORDER BY cal.cal_id`
 		} else {
 			var pronos_join = "LEFT OUTER JOIN"
 		}
-		const stmt = `SELECT series_areal.id series_id,
+		const stmt = `SELECT 
+				   'areal' AS tipo,
+				   series_areal.id series_id,
 				   areas_pluvio.nombre,
 				   series_areal.area_id AS estacion_id,
 				   estaciones.rio,
@@ -16077,9 +16134,17 @@ ORDER BY cal.cal_id`
 			if(!result.rows) {
 				//~ console.error("getMonitoredPoints: No rows returned")
 				console.log("getMonitoredAreas: No rows returned")
-				return {
-					is_last_page: true,
-					result: []
+				if(format && format.toLowerCase()=="geojson") {
+					return {
+						"type": "FeatureCollection",
+						is_last_page: true,
+						features: []
+					}
+				} else {
+					return {
+						is_last_page: true,
+						rows: []
+					}
 				}
 			}
 			var is_last_page = (result.rows.length < page_limit)
@@ -16132,7 +16197,8 @@ ORDER BY cal.cal_id`
 				return {
 					"next_page_url": next_page_url,
 					"is_last_page": is_last_page,
-					"result": result.rows
+					"rows": result.rows,
+					"max": result.rows.length
 				}
 			}
 		})

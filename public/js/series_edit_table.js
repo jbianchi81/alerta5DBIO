@@ -1,5 +1,5 @@
 var series_input_fields = ["estacion_id","var_id","proc_id","unit_id"]
-var editable_fields = ["estacion_id","var_id","proc_id","unit_id"]
+var editable_fields = ["estacion_id","var_id","proc_id","unit_id","fuentes_id"]
 var actions = '<a class="add" title="Add/Update" data-toggle="tooltip" style="display:none"><i class="material-icons">&#xE03B;</i></a> ' +
 					'<a class="edit" title="Edit" data-toggle="tooltip"><i class="material-icons">&#xE254;</i></a> ' +
 					'<a class="delete" title="Delete" data-toggle="tooltip"><i class="material-icons">&#xE872;</i></a>' +
@@ -90,6 +90,228 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 			pagination: true,
 			pageSize: 250,
 			pageList: [10, 50, 100, 250, 1000],
+			url: (tipo == "puntual") ? "getMonitoredPoints" : "getMonitoredAreas",
+			columns: (tipo == "puntual") ? [
+				{
+					"title": "",
+					"field": "state",
+					"checkbox": true
+				},
+				{
+					"title": "action",
+					"field": "action",
+					"formatter": "cellAction"
+				},
+				{
+					"title": "series_id",
+					"sortable": true,
+					"field": "series_id",
+					"formatter": "cellAttr"
+				},
+				{
+					"title": "estacion_id",
+					"field": "estacion_id",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "nombre",
+					"field": "nombre",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "geometry",
+					"field": "geom",
+					"formatter": "cellAttrGeometry",
+					"sortable": true
+				},
+				{
+					"title": "río",
+					"field": "rio",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "var_id",
+					"field": "var_id",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "var_name",
+					"field": "var_name",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "proc_id",
+					"field": "proc_id",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "unit_id",
+					"field": "unit_id",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "timestart",
+					"field": "timestart",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "timeend",
+					"field": "timeend",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "count",
+					"field": "count",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "forecast_date",
+					"field": "forecast_date",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "data_availability",
+					"field": "data_availability",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "fuente",
+					"field": "fuente",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "id_externo",
+					"field": "id_externo",
+					"formatter": "cellAttr",
+					"sortable": true
+				}
+			] : [
+				{
+					"title": "",
+					"field": "state",
+					"checkbox": true
+				},
+				{
+					"title": "action",
+					"field": "action",
+					"formatter": "cellAction"
+				},
+				{
+					"title": "series_id",
+					"sortable": true,
+					"field": "series_id",
+					"formatter": "cellAttr"
+				},
+				{
+					"title": "area_id",
+					"sortable": true,
+					"field": "estacion_id",
+					"formatter": "cellAttr"
+				},
+				{
+					"title": "nombre",
+					"sortable": true,
+					"field": "nombre",
+					"formatter": "cellAttr"
+				},
+				{
+					"title": "geometry",
+					"field": "geom",
+					"formatter": "cellAttrGeometryAreal",
+					"sortable": true
+				},
+				{
+					"title": "fuentes_id",
+					"field": "fuentes_id",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "río",
+					"field": "rio",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "var_id",
+					"field": "var_id",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "var_name",
+					"field": "var_name",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "proc_id",
+					"field": "proc_id",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "unit_id",
+					"field": "unit_id",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "timestart",
+					"field": "timestart",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "timeend",
+					"field": "timeend",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "count",
+					"field": "count",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "forecast_date",
+					"field": "forecast_date",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "data_availability",
+					"field": "data_availability",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "tabla",
+					"field": "tabla",
+					"formatter": "cellAttr",
+					"sortable": true
+				},
+				{
+					"title": "id_externo",
+					"field": "id_externo",
+					"formatter": "cellAttr",
+					"sortable": true
+				}			
+			],
 			onSort: ()=> {
 				$(container).find("a[data-toggle=popover]").popover("hide")
 				$("body").find("div.popover").hide()
@@ -471,23 +693,23 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 			//~ $(container).find("table.series_edit_table tbody").find(".cancel:visible").click()
 			var seriesId = $(this).parents("tr").attr("data-uniqueid")
 			var url = "secciones?seriesId="+seriesId
-			var extraparams = ["varId","redId","cal_grupo_id","cal_id"]  // SELECT
+			var extraparams = ["varId","redId","cal_grupo_id","cal_id","fuentesId","data_availability"]  // SELECT
 			extraparams.forEach(key=>{
-				var value = $("form#selectorForm div.form-group select[name="+key+"]").val()
+				var value = $("form#selectorForm select[name="+key+"]").val()
 				if(value) {
 					url += "&" + key + "=" + value
 				}
 			})
 			extraparams = ["timestart","timeend"]						// INPUT 
 			extraparams.forEach(key=>{
-				var value = $("form#selectorForm div.form-group input[name="+key+"]").val()
+				var value = $("form#selectorForm input[name="+key+"]").val()
 				if(value) {
 					url += "&" + key + "=" + value
 				}
 			})
 			extraparams = ["has_prono"]									// CHECKBOX
 			extraparams.forEach(key=>{
-				if($("form#selectorForm div.form-group input[name="+key+"]").prop('checked')) {
+				if($("form#selectorForm input[name="+key+"]").prop('checked')) {
 					url += "&" + key + "=on"
 				}
 			})
@@ -700,7 +922,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 		//~ .join("")
 	})
 	if(urlParams.get("fuentesId")) {
-		$.get("obs/fuentes",fuentes=>{
+		$.get("obs/areal/fuentes",fuentes=>{
 			seriesOptions.fuentes_id = fuentes.map(fuente=>{
 				var selected = ""
 				//~ var selected = (urlParams.get('redId')) ? (red.id == urlParams.get('redId')) ? "selected" : "" : ""
@@ -863,6 +1085,8 @@ function makeSeriesObj(input) {
 				seriesObj.procedimiento = {id: valor}
 			} else if($(this).attr("name") == "unit_id") {
 				seriesObj.unidades = {id: valor}
+			} else if($(this).attr("name") == "fuentes_id") {
+				seriesObj.fuente = {id: valor}
 			}
 			//~ seriesObj[$(this).attr("name")] = $(this).val() //("div#myModal form#confirm input.confirm[name="+$(this).attr("name")+"]").val($(this).val())
 		}
@@ -888,6 +1112,43 @@ function cellAttrGeometry(value) {
 		return '<a 	style="cursor:pointer" data-toggle=popover data-placement=top title="acción"></a>'
 	}
 }
+function cellAttrGeometry(value) {
+	if(value) {
+		return '<a 	style="cursor:pointer" data-toggle=popover data-placement=top title="acción">' + value.coordinates.map(c=>c.toString()).join(",") + '</a>'
+	} else {
+		return '<a 	style="cursor:pointer" data-toggle=popover data-placement=top title="acción"></a>'
+	}
+}
+function cellAttrGeometryAreal(value) {
+	if(value) {
+		return '<a 	style="cursor:pointer" data-toggle=popover data-placement=top title="acción">' + getGeometryBounds(value,true) + '</a>'
+	} else {
+		return '<a 	style="cursor:pointer" data-toggle=popover data-placement=top title="acción"></a>'
+	}
+}
+
+function getGeometryBounds(geometry,to_string) {
+	if(!geometry || !geometry.coordinates || !Array.isArray(geometry.coordinates)) {
+		console.error("Invalid geometry")
+		if(to_string) {
+			return ""
+		} else {
+			return
+		}
+	}
+	const bounds = [
+		Math.min(...geometry.coordinates[0].map(p=>p[0])),
+		Math.min(...geometry.coordinates[0].map(p=>p[1])),
+		Math.max(...geometry.coordinates[0].map(p=>p[0])),
+		Math.max(...geometry.coordinates[0].map(p=>p[1]))
+	]
+	if(to_string) {
+		return `bounds: LL: (${bounds[0]},${bounds[1]}), UR: (${bounds[2]},${bounds[3]})`
+	} else {
+		return bounds
+	}
+}
+
 
 function geomSorter(a, b) {
 	const a_coor = a.coordinates // a.split(",").map(c=>parseFloat(c))  
