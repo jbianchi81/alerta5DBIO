@@ -52,6 +52,10 @@
 						<option value="" ></option>
 					</select>
 				</div>
+				<div hidden>
+					<label for=procId>Procedimiento</label>
+					<input name=procId id=procId class="form-control" style="font-size: medium;" />
+				</div>
 				<div>
 					<label for=timestart>Inicio</label>
 					<input type="date" pattern="^\d{4}-\d{2}-\d{2}$" maxlength=10 minlength=10 name=timestart id=timestart placeholder="YYYY-MM-DD" class="form-control" style="font-size: medium;" />
@@ -817,8 +821,14 @@
 		})
 		if(search_filters.fuentesId) {
 			search_filters.tipo = "areal"
+			if(!search_filters.procId && default_config.filters_areal && default_config.filters_areal.procId) {
+				search_filters.procId = default_config.filters_areal.procId.default
+			}
 		} else {
 			search_filters.tipo = "puntual"
+			if(!search_filters.procId && default_config.filters_puntual && default_config.filters_puntual.procId) {
+				search_filters.procId = default_config.filters_puntual.procId.default
+			}
 		}
 		global.search_filters = search_filters
 
@@ -990,6 +1000,7 @@
 			loadAreasOptions(search_filters)
 			$("form#selectorform select[name=redId]").parent().hide()
 			$("form#selectorform select[name=fuentesId]").parent().removeClass("additionalFilters").show()
+			$("form#chooseaddseries input[name=tipo]").val("areal")
 		} else {
 			loadEstacionesOptions(search_filters)
 		}
@@ -1183,6 +1194,9 @@
 			var estaciones_feature_type = "point"
 			monitoredpointsparams.tipo = "puntual"
 		}
+		if(search_filters.procId) {
+			monitoredpointsparams.proc_id = search_filters.procId
+		}
 		monitoredpointsparams.timestart=$("input#timestart").val()
 		monitoredpointsparams.timeend=$("input#timeend").val()
 		if (search_filters.data_availability) {
@@ -1230,6 +1244,7 @@
 					var query = {...monitoredpointsparams}
 					query.search = params.term
 					query.geojson = undefined
+					query.no_geom = true
 					query.limit = global.default_config.series_page_size // 250
 					query.offset = (params.page) ? (params.page - 1) * global.default_config.series_page_size : 0 
 					return query
@@ -1375,6 +1390,9 @@
 			$("body").css("cursor","default")
 			$("section#selector").collapse("hide")
 			$("section#series_banner").html('<h2 style="text-align: center">' + series.var.nombre + ' en ' + series.estacion.nombre + '</h2>').collapse("show")
+			if(series.tipo == "areal") {
+				$("section#series_banner h2").append(` (${series.fuente.nombre})`)
+			}
 			gSeries = series
 			var obs_stats = getSerieStats(series.observaciones)
 			// series.request_params = {estacion_id:matched_point.properties.estacion_id, var_id:matched_point.properties.var_id, timestart:timestart, timeend:timeend, includeProno:true,proc_id:matched_point.properties.proc_id}
@@ -1570,8 +1588,32 @@
 			gSeries.estacion.geoJSON = getGeomAsGeoJSON(series)
 
 			var feature = (new ol.format.GeoJSON()).readFeatures(gSeries.estacion.geoJSON)
-			global.map.getView().setCenter(feature[0].getGeometry().getCoordinates())
-			global.map.getView().setZoom(8)
+			if(gSeries.tipo == "areal") {
+				global.map.getView().fit(feature[0].getGeometry(), {padding: [170, 50, 30, 150]})
+				var symbolStyle = new ol.style.Style({
+						stroke: new ol.style.Stroke({
+						color: 'black',
+						width: 3,
+					}),
+					fill: new ol.style.Fill({
+						color: 'rgba(0, 0, 0, 0.1)',
+					}),
+					//~ size: 60
+				})
+				if(global.map.getView().getZoom() > 16) {
+					global.map.getView().setZoom(8)
+				}
+			} else {
+				global.map.getView().setCenter(feature[0].getGeometry().getCoordinates())
+				global.map.getView().setZoom(8)
+				var symbolStyle = new ol.style.Style({
+					image: new ol.style.Icon({
+						anchor: [0.5, 1],
+						src: 'img/map_pin_small.png',
+						//~ size: 60
+					})
+				});
+			}
 			var labelStyle = new ol.style.Style({
 				text: new ol.style.Text({
 				font: '10px Calibri,sans-serif',
@@ -1585,13 +1627,6 @@
 				})
 				})
 			});
-			var pointStyle = new ol.style.Style({
-				image: new ol.style.Icon({
-				anchor: [0.5, 1],
-				src: 'img/map_pin_small.png',
-				//~ size: 60
-				})
-			});
 			var layer = new ol.layer.Vector({
 				source: new ol.source.Vector({
 					projection: 'EPSG:4326',
@@ -1599,7 +1634,7 @@
 				}),
 				style: function(feature) {
 					labelStyle.getText().setText(feature.get('nombre'));
-					return [labelStyle,pointStyle];
+					return [labelStyle,symbolStyle];
 				},
 				zIndex: 10
 			})
@@ -1634,7 +1669,7 @@
 			makeObsEditTable($("div.tabcontent#tabla"),gSeries,{{writer}}) //series_def)
 
 			// write REST API endpoints for data download (Descargas tab)
-			var getRequestUrl = "getSeriesBySiteAndVar?estacion_id=" + series.estacion.id + "&var_id=" + series.var.id + "&timestart=" + timestart.toISOString().substring(0,10) + "&timeend=" + timeend.toISOString().substring(0,10) + "&includeProno=true"; // "obs/puntual/series/" + series.id + "?timestart=" + timestart.toISOString().substring(0,10) + "&timeend=" timeend.toISOString().substring(0,10)
+			var getRequestUrl = "getSeriesBySiteAndVar?series_id=" + series.id + "&tipo=" + series.tipo + "&timestart=" + timestart.toISOString().substring(0,10) + "&timeend=" + timeend.toISOString().substring(0,10) + "&includeProno=true"; // "obs/puntual/series/" + series.id + "?timestart=" + timestart.toISOString().substring(0,10) + "&timeend=" timeend.toISOString().substring(0,10)
 			$("a#descargarJson").attr('href',getRequestUrl).text(getRequestUrl)
 			var getObsCSVUrl = "obs/" + series.tipo + "/series/" + series.id + "/observaciones?" + "&timestart=" + timestart.toISOString().substring(0,10) + "&timeend=" + timeend.toISOString().substring(0,10) + "&format=csv" // "getObservaciones?tipo=puntual&series_id=" + urlParams.get('seriesId') + "&timestart=" + timestart.toISOString().substring(0,10) + "&timeend=" + timeend.toISOString().substring(0,10) + "&format=csv"
 			$("a#descargarCSV").attr('href',getObsCSVUrl).text(getObsCSVUrl)
@@ -2098,14 +2133,30 @@
 								fontColor = stylePars[data_availability_string].fontColor
 							} 
 						}
+						console.log("append row: " + s.id + ", " + f.properties.nombre)
 						$("div#popup-content table tbody").append(
-							$("<tr id=" + s.id + " name=\"" + f.properties.nombre + "\"><td>" + f.properties.tabla + "</td><td>" + f.properties.estacion_id + "</td><td>" + f.properties.nombre + "</td><td>" + s.var.nombre + "</td><td>" + s.id + "</td><td>"+obs+"</td><td>"+sim+"</td></tr>")
-							.css({'background-color': bgcolor, 'outline': outline, 'outline-offset':"-3px", 'color': fontColor})
-							.attr({"data-toggle":"popover", "data-placement":"top", "title": "acción"})
+							$("<tr></tr>")
+								.attr("id",s.id)
+								.attr("name",f.properties.nombre)
+								.attr({"data-toggle":"popover", "data-placement":"top", "title": "acción"})
+								.css({'background-color': bgcolor, 'outline': outline, 'outline-offset':"-3px", 'color': fontColor})
+								.append(
+									$("<td></td>").text(f.properties.tabla),
+									$("<td></td>").text(f.properties.estacion_id),
+									$("<td></td>").text(f.properties.nombre),
+									$("<td></td>").text(s.var.nombre),
+									$("<td></td>").text(s.id),
+									$("<td></td>").text(obs),
+									$("<td></td>").text(sim)
+								)
+						)
+							// $("<tr id=" + s.id + " name=\"" + f.properties.nombre + "\"><td>" + f.properties.tabla + "</td><td>" + f.properties.estacion_id + "</td><td>" + f.properties.nombre + "</td><td>" + s.var.nombre + "</td><td>" + s.id + "</td><td>"+obs+"</td><td>"+sim+"</td></tr>")
+							// .css({'background-color': bgcolor, 'outline': outline, 'outline-offset':"-3px", 'color': fontColor})
+							// .attr({"data-toggle":"popover", "data-placement":"top", "title": "acción"})
 							//~ .on('click',function(evt) {
 								//~ $('div#popup-content tr[data-toggle="popover"]').popover('dispose')
 							//~ })
-						)
+						// )
 					}
 				}
 				$('div#popup-content tr[data-toggle="popover"]').popover({
@@ -2178,21 +2229,39 @@
 					fontColor = stylePars[data_availability].fontColor
 				} 
 			}
+
+			// console.log("append row: " + f.get('series_id') + ", " + f.get('nombre'))
 			$("div#popup-content table tbody").append(
-				$("<tr id=" + f.get('series_id') + "><td>" + f.get('fuente') + "</td><td>" + f.get('estacion_id') + "</td><td>" + f.get('nombre') + "</td><td>" + f.get('var_name') + "</td><td>" + f.get('series_id') + "</td><td>"+obs+"</td><td>"+sim+"</td></tr>")
-				.css({'background-color': bgcolor, 'outline': outline, 'outline-offset':"-3px", 'color': fontColor})
-				.attr({"data-toggle":"popover", "data-placement":"top", "title": "acción"})
+				$("<tr></tr>")
+					.attr("id",f.get('series_id'))
+					.attr("name",f.get('nombre'))
+					.attr({"data-toggle":"popover", "data-placement":"top", "title": "acción"})
+					.css({'background-color': bgcolor, 'outline': outline, 'outline-offset':"-3px", 'color': fontColor})
+					.append(
+						$("<td></td>").text(f.get('fuente')),
+						$("<td></td>").text(f.get('estacion_id')),
+						$("<td></td>").text(f.get('nombre')),
+						$("<td></td>").text(f.get('var_name')),
+						$("<td></td>").text(f.get('series_id')),
+						$("<td></td>").text(obs),
+						$("<td></td>").text(sim)
+					)
+			)
+			// $("div#popup-content table tbody").append(
+			//	$("<tr id=" + f.get('series_id') + "><td>" + f.get('fuente') + "</td><td>" + f.get('estacion_id') + "</td><td>" + f.get('nombre') + "</td><td>" + f.get('var_name') + "</td><td>" + f.get('series_id') + "</td><td>"+obs+"</td><td>"+sim+"</td></tr>")
+			//	.css({'background-color': bgcolor, 'outline': outline, 'outline-offset':"-3px", 'color': fontColor})
+			//	.attr({"data-toggle":"popover", "data-placement":"top", "title": "acción"})
 				//~ .on('click',function(evt) {
 					//~ $('div#popup-content tr[data-toggle="popover"]').popover('dispose')
 				//~ })
-			)
+			//)
 		})
 		$('div#popup-content tr[data-toggle="popover"]').popover({
 			html: true,
 			template: '<div class="popover" role="tooltip"><div class="arrow"></div><h3 class="popover-header"></h3><div class="popover-body"></div></div>',
 			trigger: "click",
 			content: function() {
-				return "<div class=popovercontent id="+$(this).attr('id')+"></div>"
+				return "<div class=popovercontent id="+$(this).attr('id')+" name="+$(this).attr('name')+"></div>"
 			}
 		})
 		.on('show.bs.popover', function (evt) {
@@ -2208,7 +2277,8 @@
 			if($("div#chart_container")[0].hasAttribute("data-highcharts-chart")) {
 				$("div#"+$(evt.target).attr('id')+".popovercontent").append(
 					$("<button>Agregar a gráfico</button>").attr({
-						id: $(evt.target).attr('id')
+						id: $(evt.target).attr('id'),
+						name: $(evt.target).attr('name')
 					}).on('click',addToChart)
 				)
 			}

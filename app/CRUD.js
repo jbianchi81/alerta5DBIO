@@ -3029,7 +3029,7 @@ internal.observacion = class extends baseModel {
 			descripcion: (this.descripcion) ? this.descripcion : null,
 			unit_id: (this.unit_id) ? parseInt(this.unit_id) : null,
 			timeupdate: (this.timeupdate) ? this.timeupdate.toISOString() : null,
-			valor: (this.valor) ? this.valor : null, // (this.valor != null) ? (this.tipo == "rast" || this.tipo == "raster") ? this.rasterToJSON() : parseFloat(this.valor) : null,
+			valor: (this.valor !== undefined) ? this.valor : null, // (this.valor != null) ? (this.tipo == "rast" || this.tipo == "raster") ? this.rasterToJSON() : parseFloat(this.valor) : null,
 			stats: (this.stats) ? this.stats : null
 		}
 	}
@@ -3089,10 +3089,12 @@ internal.observacion = class extends baseModel {
 		// console.log(observacion)
 		return new this(observacion)
 	}
-	toCSV(sep=",") {
+	toCSV(options={}) {
+		var sep = options.sep ?? ","
 		var format_string_1 = ",%.2f,%d,%d,%d,%.2f,%.2f,%s,%.2f,%.2f".replace(/\,/g,sep)
 		var stats_string = (this.stats) ? sprintf(format_string_1, this.stats.percentage_of_average,this.stats.rank,this.stats.count,this.stats.month,this.stats.historical_monthly_mean,this.stats.weibull_percentile, this.stats.percentile_category.name, this.stats.percentile_category.range[0], this.stats.percentile_category.range[1]) : ""
-		return this.id + sep + ((this.tipo) ? this.tipo : "puntual") + sep + this.series_id + sep + ((this.timestart) ? this.timestart.toISOString() : "") + sep + ((this.timeend) ? this.timeend.toISOString() : "") + sep + this.nombre + sep + ((this.descripcion) ? this.descripcion : "") + sep + ((this.unit_id) ? this.unit_id : "") + sep + ((this.timeupdate) ? this.timeupdate.toISOString() : "") + sep + ((parseFloat(this.valor).toString() !== 'NaN') ? this.valor.toString() : "") + stats_string
+		const result = [this.id,((this.tipo) ? this.tipo : "puntual"),this.series_id,((this.timestart) ? this.timestart.toISOString() : ""),((this.timeend) ? this.timeend.toISOString() : ""),this.nombre,((this.descripcion) ? this.descripcion : ""),((this.unit_id) ? this.unit_id : ""),((this.timeupdate) ? this.timeupdate.toISOString() : ""),((parseFloat(this.valor).toString() !== 'NaN') ? this.valor.toString() : "")].join(sep) + stats_string
+		return result 
 	}
 	toCSVless(include_id=true) {
 		//~ return this.series_id + "," + ((this.timestart) ? this.timestart.toISOString() : "null") + "," +  ((parseFloat(this.valor)) ? this.valor.toString() : "null")
@@ -9792,20 +9794,15 @@ internal.CRUD = class {
 		var observaciones = []
 		for(var i = 0; i < result.rows.length; i++) {
 			var obs=result.rows[i]
+			// console.log(JSON.stringify(obs))
 			if(tipo.toLowerCase()=="rast") {
 				const observacion = new internal.observacion({tipo:tipo, series_id:obs.series_id, timestart:obs.timestart, timeend:obs.timeend, nombre:obs.nombre, descripcion:obs.descripcion, unit_id: obs.unit_id, timeupdate: obs.timeupdate, valor:obs.valor, stats: {count: obs.count, mean: obs.mean, stddev: obs.stddev, min: obs.min, max: obs.max}})
 				observacion.id = obs.id
 				observaciones.push(observacion)
-			} else if (options) {
-				if(options.asArray) {
-					observaciones.push([obs.timestart, obs.timeend, obs.valor, obs.id])
-				} else {
-					const observacion = new internal.observacion(tipo, obs.series_id, obs.timestart, obs.timeend, obs.nombre, obs.descripcion, obs.unit_id, obs.timeupdate, obs.valor)
-					observacion.id = obs.id
-					observaciones.push(observacion)
-				}
+			} else if (options && options.asArray) {
+				observaciones.push([obs.timestart, obs.timeend, obs.valor, obs.id])
 			} else {
-				const observacion = new internal.observacion(tipo, obs.series_id, obs.timestart, obs.timeend, obs.nombre, obs.descripcion, obs.unit_id, obs.timeupdate, obs.valor)
+				const observacion = new internal.observacion({tipo:tipo, series_id:obs.series_id, timestart:obs.timestart, timeend:obs.timeend, nombre:obs.nombre, descripcion:obs.descripcion, unit_id:obs.unit_id, timeupdate:obs.timeupdate, valor:obs.valor})
 				observacion.id = obs.id
 				observaciones.push(observacion)
 			}
@@ -15864,20 +15861,8 @@ ORDER BY cal.cal_id`
 		} else if (filter.has_prono) {
 			pronos_query = "JOIN (select max(series_prono_last.fecha_emision) fecha_emision,series.estacion_id,series.var_id,series.unit_id from series_prono_last,series WHERE series_prono_last.series_id=series.id " + public_filter + " group by series.estacion_id,series.var_id,series.unit_id)"
 		}
-		var pagination = false
-		var page_limit
-		var page_offset
-		var limit_string = ""
+		var [page_limit,pagination,page_offset,limit_string] = internal.utils.getLimitString(filter.limit,filter.offset)
 
-		if(filter.limit) {
-			page_limit = parseInt(filter.limit)
-			pagination = true
-			limit_string = `LIMIT ${page_limit}`
-			page_offset = (filter.offset) ? parseInt(filter.offset) : 1
-			if(filter.offset) {
-				limit_string += ` OFFSET ${page_offset}`
-			}
-		}
 		// console.log({redes_filter: redes_filter})
 		const stmt = internal.utils.pasteIntoSQLQuery("SELECT \
 					'puntual' AS tipo,\
@@ -16006,7 +15991,7 @@ ORDER BY cal.cal_id`
 		})
 	}
 	
-	static async getMonitoredAreas(format="json",filter={},req) {
+	static async getMonitoredAreas(format="json",filter={},req,options={}) {
 		var page_limit = filter.limit ?? config.pagination.default_limit
 		page_limit = parseInt(page_limit)
 		if (page_limit > config.pagination.max_limit) {
@@ -16028,11 +16013,58 @@ ORDER BY cal.cal_id`
 				"geom": {type: "geometry", table: "areas_pluvio"},
 				"public": {type: "boolean", table: "fuentes"},
 				"cal_id": {type: "integer", table: "series_prono_date_range_last"},
-				"cal_grupo_id": {type: "integer", table: "series_prono_date_range_last"}
+				"cal_grupo_id": {type: "integer", table: "series_prono_date_range_last"},
+				"search": {
+					type: "search", 
+					table: "areas_pluvio", 
+					columns: [
+						{name: "tabla", table: "estaciones"},
+						{name: "nombre"},
+						{name: "unid"},
+						{name: "id_externo", table: "estaciones"},
+						{name: "rio", table: "estaciones"},
+						{name: "nombre", table: "var"},
+						{name: "nombre", table: "fuentes"}
+					],
+					case_insensitive: true
+				}
 			},
 			filter,
 			"areas_pluvio"
 		)
+		var order_by_string = internal.utils.build_order_by_clause(
+			{
+				series_id:{table: "series_areal", column: "id"},
+				area_id:{table: "series_areal",column: "area_id"},
+				nombre:{table: "areas_pluvio"},
+				geom:{function: "st_xmin(areas_pluvio.geom)"},
+				longitud:{function: "st_xmin(areas_pluvio.geom)"},
+				latitud:{function: "st_ymin(areas_pluvio.geom)"},
+				rio:{table: "estaciones"},
+				var_id:{table: "series_areal"},
+				var_name:{table: "var", column: "nombre"},
+				proc_id:{table: "series_areal"},
+				unit_id:{table: "series_areal"},
+				timestart:{table: "series_areal_date_range"},
+				timeend:{table: "series_areal_date_range"},
+				count:{table: "series_areal_date_range"},
+				forecast_date:{table: "series_prono_date_range_last", column: "forecast_date"},
+				data_availability:{},
+				tabla:{table: "estaciones", column: "tabla"},
+				fuentes_id:{table: "series_areal"},
+				id_externo:{table: "estaciones"}
+			},
+			options.sort,
+			undefined,
+			[
+				"area_id",
+				"fuentes_id",
+				"var_id",
+				"proc_id"
+			],
+			options.order
+		)
+		var [limit,pagination,page_offset,limit_string] = internal.utils.getLimitString(page_limit,filter.offset)
 		if(filter.data_availability && ["h","n","c","r"].indexOf(filter.data_availability) >= 0) {
 			filter.has_obs = true
 		}
@@ -16109,7 +16141,8 @@ ORDER BY cal.cal_id`
 					estaciones.tabla as fuente,
 					estaciones.id_externo id_externo,
 				   st_asgeojson(areas_pluvio.geom)::json AS geom,
-				   fuentes.public
+				   fuentes.public,
+				   count(*) OVER() AS full_count
 			FROM series_areal
 			JOIN areas_pluvio ON series_areal.area_id = areas_pluvio.unid
 			JOIN fuentes ON series_areal.fuentes_id = fuentes.id
@@ -16122,12 +16155,8 @@ ORDER BY cal.cal_id`
 				AND series_prono_date_range_last.series_id=series_areal.id
 			)
 			WHERE 1=1 ${filter_string}
-			ORDER BY 
-				series_areal.area_id,
-				series_areal.var_id,
-				series_areal.proc_id
-			LIMIT ${page_limit}
-			OFFSET ${page_offset}`
+			${order_by_string}
+			${limit_string}`
 		// console.log(internal.utils.pasteIntoSQLQuery(stmt,[filter.timestart,filter.timeend]))
 		return global.pool.query(stmt,[filter.timestart,filter.timeend])
 		.then(result=>{
@@ -16147,17 +16176,24 @@ ORDER BY cal.cal_id`
 					}
 				}
 			}
-			var is_last_page = (result.rows.length < page_limit)
-			if(is_last_page) {
-				var next_page_url = undefined
+			if(pagination) {
+				var full_count = (result.rows.length) ? result.rows[0].full_count : undefined
+				var is_last_page = (result.rows.length < limit)
+				if(is_last_page) {
+					var next_page_url = undefined
+				} else {
+					var query_arguments = {...filter}
+					query_arguments.offset = page_offset + limit
+					query_arguments.limit = limit
+					if(format && format.toLowerCase() == "geojson") {
+						query_arguments.geojson = true
+					}
+					var next_page_url = (config.rest && config.rest.url) ? `${config.rest.url}/getMonitoredAreas?${querystring.stringify(query_arguments)}` : (req) ? `${req.protocol}://${req.get('host')}${req.path}?${querystring.stringify(query_arguments)}` : `getMonitoredAreas?${querystring.stringify(query_arguments)}`
+				}				
 			} else {
-				var query_arguments = {...filter}
-				query_arguments.offset = page_offset + page_limit
-				query_arguments.limit = page_limit
-				if(format && format == "geojson") {
-					query_arguments.geojson = true
-				}
-				var next_page_url = (config.rest && config.rest.url) ? `${config.rest.url}/getMonitoredAreas?${querystring.stringify(query_arguments)}` : (req) ? `${req.protocol}://${req.get('host')}${req.path}?${querystring.stringify(query_arguments)}` : `getMonitoredAreas?${querystring.stringify(query_arguments)}`
+				var full_count = undefined
+				var is_last_page = undefined
+				var next_page_url = undefined
 			}
 			// console.log("crud.getMonitoredPoints: found " + result.rows.length + " monitored series")
 			if(format && format.toLowerCase()=="geojson") {
@@ -16165,6 +16201,7 @@ ORDER BY cal.cal_id`
 				   "type": "FeatureCollection",
 				   "next_page_url": next_page_url,
 				   "is_last_page": is_last_page,
+				   "total": full_count,
 				   "features": result.rows.map(row=> {
 					   return {
 						   "type": "Feature",
@@ -16198,7 +16235,7 @@ ORDER BY cal.cal_id`
 					"next_page_url": next_page_url,
 					"is_last_page": is_last_page,
 					"rows": result.rows,
-					"max": result.rows.length
+				    "total": full_count
 				}
 			}
 		})
@@ -17916,6 +17953,20 @@ internal.utils = {
 			} 
 			return observacion_pulse
 		})
+	},
+	getLimitString(limit,offset) {
+		if(limit) {
+			var page_limit = parseInt(limit)
+			var pagination = true
+			var limit_string = `LIMIT ${page_limit}`
+			var page_offset = (offset) ? parseInt(offset) : 1
+			if(offset) {
+				limit_string += ` OFFSET ${page_offset}`
+			}
+			return [page_limit,pagination,page_offset,limit_string]
+		} else {
+			return [undefined,false,undefined,""]
+		}
 	}
 }
 

@@ -39,10 +39,18 @@
                                 }
                             },
                             "required": ["default"],
-                            "additionalProperties": false
+                            "additionalProperties": true
                         }
                     },
                     "additionalProperties": true
+                },
+                "filters_puntual": {
+                    "type": "object",
+                    "description": "Default values for point series filters"
+                },
+                "filters_areal": {
+                    "type": "object",
+                    "description": "Default values for areal series filters"
                 },
                 "endpoints": {
                     "type": "object",

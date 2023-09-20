@@ -30,9 +30,11 @@ function reloadWithPars(evt) {
 	var ts = $("input#timestart").val()
 	var te = $("input#timeend").val()
 	var series_id = evt.currentTarget.id
+	var GeneralCategory = $("select#GeneralCategory").val()
 	var var_id = $("select#varId").val()
 	var red_id = $("select#redId").val()
 	var estacion_id = $("select#estacionId").val()
+	var proc_id = $("input#procId").val()
 	var prono_args = ""
 	if($(".form-control[name=has_prono]").prop("checked")) {
 		prono_args = "&has_prono=true" 
@@ -51,7 +53,7 @@ function reloadWithPars(evt) {
 		prono_args += "&fuentesId=" + $(".form-control[name=fuentesId]").val()
 	}
 	$('a#maptab').click()
-	window.location.search = '?varId=' + var_id + '&seriesId=' + series_id + ((ts) ? '&timestart=' + ts : '') + ((te) ? '&timeend=' + te : '') + ((red_id) ? '&redId=' + red_id : '') + ((estacion_id) ? '&estacionId=' + estacion_id : '') + prono_args
+	window.location.search = '?GeneralCategory=' + GeneralCategory + '&varId=' + var_id + '&seriesId=' + series_id + ((ts) ? '&timestart=' + ts : '') + ((te) ? '&timeend=' + te : '') + ((red_id) ? '&redId=' + red_id : '') + ((estacion_id) ? '&estacionId=' + estacion_id : '') + '&proc_id=' + proc_id + prono_args
 }
 
 function addToChart(evt) {
@@ -290,11 +292,11 @@ function polygonStyleFunction(feature, resolution) {
 	} else if (stylePars[data_availability]) {
 		altPolygonStyles[data_availability] = new ol.style.Style({
 			stroke: new ol.style.Stroke({
-			color: stylePars[data_availability].stroke,
-			width: 3
+			color: [...stylePars[data_availability].fill.slice(0,3),1],
+			width: 2
 			}),
 			fill: new ol.style.Fill({
-			color: stylePars[data_availability].fill
+			 color: [...stylePars[data_availability].fill.slice(0,3),0.001]
 			}),
 			zIndex: stylePars[data_availability].zIndex
 		})

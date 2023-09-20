@@ -3793,7 +3793,7 @@ function getMonitoredAreas (req,res) { // geojson=false
 	}
 	
 	var format = (geojson) ? "geojson" : undefined
-	crud.getMonitoredAreas(format,filter,req) // filter.var_id,filter.fuentes_id)
+	crud.getMonitoredAreas(format,filter,req,options) // filter.var_id,filter.fuentes_id)
 	.then(areas=>{
 		res.send(areas)
 	})
