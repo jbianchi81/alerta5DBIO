@@ -1556,8 +1556,12 @@ internal.serie = class extends baseModel {
 			throw "arr2csv: Array incorrecto" 
 		}
 		var lines = arr.map(line=> {
-			console.log(line)
-			return [line.codigo_de_estacion, line.codigo_de_variable, line.dia, line.mes, line.anio, line.hora, line.minuto, ...line.valor].join(",")
+			// console.log(line)
+			if(Array.isArray(line.valor)) {
+				return [line.codigo_de_estacion, line.codigo_de_variable, line.dia, line.mes, line.anio, line.hora, line.minuto, ...line.valor].join(",")
+			} else {
+				return [line.codigo_de_estacion, line.codigo_de_variable, line.dia, line.mes, line.anio, line.hora, line.minuto, line.valor].join(",")
+			}
 		})
 		return lines.join("\n")
 	}
@@ -7663,7 +7667,7 @@ internal.CRUD = class {
 					unit_id: s.unidades.id,
 					unit_nombre: s.unidades.nombre,
 					id_externo: s.estacion.id_externo,
-					tabla: s.tabla,
+					tabla: s.estacion.tabla,
 					geom: s.geom,
 					red_nombre: s.estacion.red_nombre,
 					public: s.estacion.public,
@@ -7672,6 +7676,7 @@ internal.CRUD = class {
 					count: s.date_range.count
 				}
 			})
+			return result
 		}
 		return result.map(s=>new internal.serie(s))		
 	}
@@ -7755,7 +7760,7 @@ internal.CRUD = class {
 				filter.estacion_id = matching_areas_id
 			}
 		}
-		console.log(JSON.stringify(filter))
+		// console.log(JSON.stringify(filter))
 		if(options.no_geom || !options.include_geom) {
 			const json_filter_string = internal.utils.control_filter_json(valid_json_filters,filter,"series_areal_json_no_geom")
 			const row_filter_string = internal.utils.control_filter2(valid_row_filters,filter,"series_areal_json_no_geom")
@@ -7800,6 +7805,7 @@ internal.CRUD = class {
 					count: s.date_range.count
 				}
 			})
+			return result
 		}
 		return result.map(s=>new internal.serie(s))
 	}
@@ -7884,6 +7890,7 @@ internal.CRUD = class {
 					count: s.date_range.count
 				}
 			})
+			return result
 		}
 		return result.map(s=>new internal.serie(s))
 	}
@@ -7901,6 +7908,8 @@ internal.CRUD = class {
 		}
 		if((!filter.timestart || !filter.timeend) && !options.getMonthlyStats && !options.getStats && !options.getPercentiles && options.fromView) {
 			try {
+				console.log("get series json")
+				console.log(JSON.stringify({options:options}))
 				var result = await this.getSeriesJson(filter,options,client)
 			} catch(e) {
 				if(release_client) {

@@ -1058,10 +1058,14 @@
 			
 			//~ descarga listado estaciones/var
 		var getMonitoredPointsUrl = get_monitored_url + "?geojson=true"
+		if(search_filters.fuentesId) {
+			getMonitoredPointsUrl += "&fuentes_id=" + search_filters.fuentesId
+			$("#descargarPoints").attr("download","monitoredAreas.geojson")
+		} else {
+			$("#descargarPoints").attr("download","monitoredPoints.geojson")
+		}
 		$("#descargarPoints").attr('href',getMonitoredPointsUrl).html(getMonitoredPointsUrl)
-
 	})
-
 	function setGeneralCategoryOption(generalCategory) {
 		if(generalCategory) {
 			$(`form#selectorform select[name=generalCategory] option[value="${generalCategory}"]`).attr("selected","selected")
