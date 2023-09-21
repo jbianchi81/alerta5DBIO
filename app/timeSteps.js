@@ -76,6 +76,10 @@ internal.createInterval = function(value) {
 	}
 }
 
+internal.interval2iso8601String = function(interval) {
+	return moment.duration(interval).toString()
+}
+
 internal.interval2string = function(interval) {
 	if(!interval) {
 		return "00:00:00"

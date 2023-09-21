@@ -1,4 +1,5 @@
 require('./setGlobal')
+const api_config = global.config.api ?? {}
 const xmlbuilder = require('xmlbuilder2')
 // const { Pool } = require('pg')
 // const config = require('config');
@@ -20,7 +21,7 @@ internal.series2waterml2 = class {
     constructor() {
         // this.crud = arguments[0]
         this.codelists = {}
-        this.base_url = (global.config && global.config.api && global.config.api.base_url) ? global.config.api.base_url : "https://alerta.ina.gob.ar/a5"
+        this.base_url = api_config.base_url ?? ""
         
         // templates
         this.templates = {
@@ -62,7 +63,13 @@ internal.series2waterml2 = class {
     //m = getCode('data_types','term','Continuous')
 
     getGeomTimeZoneOffset(geom,date=new Date(),format) {
-        var tz_name = find(geom.coordinates[1],geom.coordinates[0])
+        if(geom.type == "Point") {
+            var tz_name = find(geom.coordinates[1],geom.coordinates[0])
+        } else if(geom.type == "Polygon") {
+            var tz_name = find(Math.min(...geom.coordinates[0].map(p=>p[0])),Math.min(...geom.coordinates[0].map(p=>p[1])))
+        } else {
+            throw("Invalid geom type")
+        }
         if(!tz_name.length) {
             throw("timezone not found")
         }
@@ -99,6 +106,7 @@ internal.series2waterml2 = class {
             index++
             let observation = JSON.parse(JSON.stringify(this.templates.observation))
             observation["om:OM_Observation"]["@gml:id"] = `obs.id.${index}`
+            observation["om:OM_Observation"]["om:metadata"]["gmd:MD_Metadata"]["gmd:identificationInfo"]["@xlink:href"] = `${this.base_url}/obs/${serie.tipo}/series/${serie.id}`
             var timestart_min, timeend_max
             if(serie.observaciones && serie.observaciones.length) {
                 timestart_min = serie.observaciones.reduce((a,o)=>(o.timestart < a) ? o.timestart : a,serie.observaciones[0].timestart)
@@ -119,7 +127,13 @@ internal.series2waterml2 = class {
                 }
             }
             if(serie.var && serie.var.timeSupport && timeSteps.interval2epochSync(serie.var.timeSupport)) {
-                observation["om:OM_Observation"]["om:procedure"]["wml2:ObservationProcess"]["wml2:aggregationDuration"] = timeSteps.interval2string(series[0].var.timeSupport) 
+                observation["om:OM_Observation"]["om:procedure"]["wml2:ObservationProcess"]["wml2:aggregationDuration"] = timeSteps.interval2iso8601String(series[0].var.timeSupport) 
+            }
+            if(serie.fuente && serie.fuente.id) {
+                observation["om:OM_Observation"]["om:procedure"]["wml2:ObservationProcess"]["wml2:input"] = {
+                    "@xlink:href": `${this.base_url}/obs/fuentes/${serie.fuente.id}`,
+                    "@xlink:title": serie.fuente.nombre
+                }
             }
             if(serie.var && serie.var.id) {
                 observation["om:OM_Observation"]["om:observedProperty"] =  {
@@ -128,15 +142,8 @@ internal.series2waterml2 = class {
                 }
             }
             if(serie.estacion && serie.estacion.id) {
-                observation["om:OM_Observation"]["om:featureOfInterest"]["wml2:MonitoringPoint"] = {
-                    "@gml:id": `monitoring_point.id.${index}`,
-                    "gml:identifier": {
-                        "@codeSpace":`${this.base_url}/obs/estaciones`,
-                        "#text": serie.estacion.id
-                    },
-                    "sa:sampledFeature": "", // <- related concept does not exist (most similar: estacion.rio)
-                    "sa:parameter": [],
-                    "sams:shape":{
+                if(serie.estacion.geom.type == "Point") {
+                    var shape = {
                         "gml:Point": {
                             "@gml:id":`point.id.${index}`,
                             "gml:pos": {
@@ -144,7 +151,38 @@ internal.series2waterml2 = class {
                                 "#text" : `${serie.estacion.geom.coordinates[1]} ${serie.estacion.geom.coordinates[0]}`
                             }
                         }
+                    }
+                } else if (serie.estacion.geom.type == "Polygon") {
+                    var shape = {
+                        "gml:Polygon": {
+                            "@gml:id":`polygon.id.${index}`,
+                            "@srsName":"EPSG:4326",
+                            "gml:interior": {
+                                "gml:LinearRing": serie.estacion.geom.coordinates.map(ring=>{
+                                    return {
+                                        "gml:pos": ring.map(point=>{
+                                            return {
+                                                "#text" : `${point[1]} ${point[0]}`
+                                            }    
+                                        })
+                                    }
+                                })
+                            }
+                        }
+                    }
+                } else {
+                    throw("Invalid geom type")
+                }
+                var codespace = (serie.tipo == "puntual") ? `${this.base_url}/obs/estaciones` : (serie.tipo == "areal") ? `${this.base_url}/obs/areas` : (serie.tipo == "raster") ? `${this.base_url}/obs/escenas` : `${this.base_url}/obs/estaciones`
+                observation["om:OM_Observation"]["om:featureOfInterest"]["wml2:MonitoringPoint"] = {
+                    "@gml:id": `monitoring_point.id.${index}`,
+                    "gml:identifier": {
+                        "@codeSpace": codespace,
+                        "#text": serie.estacion.id
                     },
+                    "sa:sampledFeature": "", // <- related concept does not exist (most similar: estacion.rio)
+                    "sa:parameter": [],
+                    "sams:shape": shape,
                     "wml2:monitoringType": {
                         "@xlink:href": "http://codes.wmo.int/wmdr/ApplicationArea/hydrology","@xlink:title": "Hydrology"
                     },
@@ -242,7 +280,7 @@ internal.series2waterml2 = class {
                     console.error("Warning: missing interpolation type")
                 }
                 if(serie.var && serie.var.timeSupport && timeSteps.interval2epochSync(serie.var.timeSupport)) {
-                    observation["om:OM_Observation"]["om:result"]["wml2:MeasurementTimeseries"]["wml2:defaultPointMetadata"]["wml2:DefaultTVPMeasurementMetadata"]["wml2:aggregationDuration"] = timeSteps.interval2string(series[0].var.timeSupport)
+                    observation["om:OM_Observation"]["om:result"]["wml2:MeasurementTimeseries"]["wml2:defaultPointMetadata"]["wml2:DefaultTVPMeasurementMetadata"]["wml2:aggregationDuration"] = timeSteps.interval2iso8601String(series[0].var.timeSupport)
                 }
                 for(var observacion of serie.observaciones) {
                     // var point = {..point_template}
@@ -291,6 +329,8 @@ var collection_template = {
         "@xmlns:sa": "http://www.opengis.net/sampling/2.0",
         "@xmlns:sams": "http://www.opengis.net/samplingSpatial/2.0",
         "@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+        "@xmlns:gco": "http://www.isotc211.org/2005/gco",
+        "@xmlns:gmd": "http://www.isotc211.org/2005/gmd",
         "@xsi:schemaLocation": "http://www.opengis.net/waterml/2.0 http://schemas.opengis.net/waterml/2.0/waterml2.xsd",
         "gml:description": "",
         "wml2:metadata": {
@@ -307,6 +347,70 @@ var collection_template = {
 var observation_template = {
     "om:OM_Observation": {
         "@gml:id":"",
+        "om:metadata": {
+            "gmd:MD_Metadata": {
+                "gmd:contact": {
+                    "gmd:CI_ResponsibleParty": {
+                        "gmd:organisationName": {
+                            "gco:CharacterString": api_config.organisationName
+                        },
+                        "gmd:contactInfo": {
+                            "gmd:CI_Contact": {
+                                "gmd:phone": {
+                                    "gmd:CI_Telephone": {
+                                        "gmd:voice": {
+                                            "gco:CharacterString": api_config.phone
+                                        }
+                                    }
+                                },
+                                "gmd:address": {
+                                    "gmd:CI_Address": {
+                                        "gmd:deliveryPoint": {
+                                            "gco:CharacterString": api_config.address
+                                        },
+                                        "gmd:city": {
+                                            "gco:CharacterString": api_config.city
+                                        },
+                                        "gmd:administrativeArea": {
+                                            "gco:CharacterString": api_config.administrativeArea
+                                        },
+                                        "gmd:postalCode": {
+                                            "gco:CharacterString": api_config.postalCode
+                                        },
+                                        "gmd:country": {
+                                            "gco:CharacterString": api_config.country
+                                        },
+                                        "gmd:electronicMailAddress": {
+                                            "gco:CharacterString": api_config.email
+                                        }
+                                    }
+                                },
+                                "gmd:onlineResource": {
+                                    "gmd:CI_OnlineResource": {
+                                        "gmd:linkage": {
+                                            "gmd:URL": api_config.onlineResource
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "gmd:role": {
+                            "gmd:CI_RoleCode": {
+                                "@codeList": "http://standards.iso.org/iso/19115/resources/Codelist/cat/codelists.xml#CI_RoleCode",
+                                "@codeListValue": api_config.role,
+                                "@codeSpace": "http://standards.iso.org/iso/19115"
+                            }
+                        }
+                    }
+                },
+                "gmd:dateStamp": {
+                    "gco:DateTime": new Date().toISOString()
+                },
+                "gmd:identificationInfo": {
+                    "@xlink:href": ""
+                }
+            }
+        },
         "om:phenomenonTime": {
             "gml:TimePeriod": {
                 "@gml:id": "",

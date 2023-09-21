@@ -104,7 +104,48 @@
             },
             "required": ["user","database","password"],
             "additionalProperties": true
-	    }
+	    },
+        "api": {
+            "type": "object",
+            "description": "rest api metadata",
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "organisationName": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "address": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "administrativeArea": {
+                    "type": "string"
+                },
+                "postalCode": {
+                    "type": "string"
+                },
+                "country": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "onlineResource": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            },
+            "required": ["base_url"],
+            "additionalProperties": false
+        }
     },
     "required": [],
     "additionalProperties": true,
