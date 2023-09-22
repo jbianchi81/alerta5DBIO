@@ -676,7 +676,8 @@ var metadataElements = {
 			}
 		},
 		endpoint: "obs/puntual/estaciones",
-		objectName: "estacion"
+		objectName: "estacion",
+		"object_property": "estaciones"
 	},
 	area: {
 		properties: {
@@ -717,7 +718,8 @@ var metadataElements = {
 		},
 		objectName: "area",
 		endpoint: "obs/areal/areas",
-		series_property: "estacion"
+		series_property: "estacion",
+		object_property: "areas"
 	},
 	escena: {
 		properties: {
@@ -1547,6 +1549,12 @@ function onSubmitMetadataSearch(event,metadataElement) {
 		return response.json()
 	}).then(content=>{
 		//~ console.log(content)
+		if(metadataElement.object_property) {
+			if(!content[metadataElement.object_property]) {
+				throw("response property " + metadataElement.object_property + " not found")
+			}
+			content = content[metadataElement.object_property]
+		}
 		alert("Se encontraron " + content.length + " resultados de " + metadataElement.objectName)
 		$(this).find("button[type=submit]").prop('disabled',false)
 		return content

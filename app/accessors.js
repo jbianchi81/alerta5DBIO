@@ -5302,7 +5302,7 @@ internal.fdx = class {
 		if(config) {
 			this.config = config
 		} else {
-			this.config = config.fdx
+			this.config = global.config.fdx
 		}
 	}
 	async get (filter={}, options) {

@@ -1055,5 +1055,18 @@
 			}
 		},
 		"series_page_size": 250
+	},
+	"api": {
+		"base_url": "locahost:3005",
+		"organisationName": "My Organisation",
+		"phone": "+1234567890",
+		"address": "My Address 12345",
+		"city": "My City",
+		"administrativeArea": "My Province",
+		"postalCode": "P1234",
+		"country": "My Country",
+		"email": "my@email.com",
+		"onlineResource": "localhost:3005/yaml/apidocs_v3_1.yml",
+		"role": "publisher"
 	}
 }

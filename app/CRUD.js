@@ -7668,7 +7668,7 @@ internal.CRUD = class {
 					unit_nombre: s.unidades.nombre,
 					id_externo: s.estacion.id_externo,
 					tabla: s.estacion.tabla,
-					geom: s.geom,
+					geom: s.estacion.geom,
 					red_nombre: s.estacion.red_nombre,
 					public: s.estacion.public,
 					timestart: s.date_range.timestart,
@@ -7909,7 +7909,7 @@ internal.CRUD = class {
 		if((!filter.timestart || !filter.timeend) && !options.getMonthlyStats && !options.getStats && !options.getPercentiles && options.fromView) {
 			try {
 				console.log("get series json")
-				console.log(JSON.stringify({options:options}))
+				// console.log(JSON.stringify({options:options}))
 				var result = await this.getSeriesJson(filter,options,client)
 			} catch(e) {
 				if(release_client) {

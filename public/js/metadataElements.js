@@ -1481,7 +1481,8 @@ var metadataElements = {
 			}
 		},
 		nameProperty: "nombre",
-		geomFilter: "bbox"
+		geomFilter: "bbox",
+		"object_property": "areas"
 	},
 	escena: {
 		properties: {

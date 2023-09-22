@@ -142,7 +142,8 @@ alter materialized view series_rast_guardadas_date_range owner to matviews;
 alter materialized view series_json owner to matviews;
 alter materialized view series_areal_json owner to matviews;
 alter materialized view series_areal_json_no_geom owner to matviews;
-grant select on fuentes,areas_pluvio,unidades,procedimiento,var,alturas_alerta,redes,estaciones,series,series_areal,series_rast,observaciones,observaciones_areal,observaciones_rast to matviews;
+alter materialized view series_rast_json owner to matviews;
+grant select on fuentes,areas_pluvio,unidades,procedimiento,var,alturas_alerta,redes,estaciones,series,series_areal,series_rast,observaciones,observaciones_areal,observaciones_rast,escenas,table_constraints to matviews;
 grant select on observaciones_guardadas,observaciones_areal_guardadas,observaciones_rast_guardadas to matviews;
 
 COMMIT;
