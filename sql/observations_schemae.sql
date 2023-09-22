@@ -1713,12 +1713,20 @@ WITH table_constraints_json AS (
 SELECT
     series_areal.id,
     areas_pluvio.unid as estacion_id,
+    areas_pluvio.nombre as nombre,
     estaciones.tabla as tabla,
+    estaciones.id_externo as id_externo,
+    estaciones.rio as rio,
+    redes.id as red_id,
     var.id as var_id,
+    var.nombre as var_nombre,
     var."GeneralCategory" as "GeneralCategory",
     procedimiento.id as proc_id,
     unidades.id as unit_id,
     fuentes.id as fuentes_id,
+    fuentes.nombre as fuentes_nombre,
+    fuentes.public as public,
+    st_asgeojson(st_envelope(areas_pluvio.geom)) as extent,
     json_build_object(
     'tipo','areal',
     'id',series_areal.id,
@@ -1792,6 +1800,7 @@ SELECT
 FROM series_areal
 JOIN areas_pluvio ON (series_areal.area_id = areas_pluvio.unid)
 LEFT JOIN estaciones ON (areas_pluvio.exutorio_id = estaciones.unid)
+LEFT JOIN redes ON (estaciones.tabla = redes.tabla_id)
 JOIN var ON (series_areal.var_id = var.id)
 JOIN procedimiento ON (series_areal.proc_id = procedimiento.id)
 JOIN unidades ON (series_areal.unit_id = unidades.id)

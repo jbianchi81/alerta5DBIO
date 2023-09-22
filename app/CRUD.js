@@ -7736,30 +7736,51 @@ internal.CRUD = class {
 			},
 			fuentes_id:{
 				type: "integer",
+			},
+			series_id: {type: "integer", table: "series_areal_json", column:"id"},
+			area_id: {type: "integer", table: "series_areal_json", column: "estacion_id"},
+			red_id: {type: "integer", table: "series_areal_json", column:"red_id"},
+			geom: {type: "geometry", table: "series_areal_json", column: "extent"},
+			public: {type: "boolean", table: "series_areal_json"},
+			cal_id: {type: "integer", table: "series_prono_date_range_last"},
+			cal_grupo_id: {type: "integer", table: "series_prono_date_range_last"},
+			search: {
+				type: "search", 
+				table: "series_areal_json", 
+				columns: [
+					{name: "tabla"},
+					{name: "nombre"},
+					{name: "estacion_id"},
+					{name: "id_externo"},
+					{name: "rio"},
+					{name: "var_nombre"},
+					{name: "fuentes_nombre"}
+				],
+				case_insensitive: true
 			}
 		}
-		if(filter.geom) {
-			const areas_filter = {
-				id: filter.area_id ?? filter.estacion_id,
-				geom: filter.geom
-			}
-			const matching_areas = await internal.area.read(areas_filter,{no_geom:true})
-			if(!matching_areas.length) {
-				// geom matches no areas, dont query series
-				console.log("No areas matched the specified geometry")
-				return []
-			}
-			const matching_areas_id = matching_areas.map(a=>a.id)
-			if (filter.estacion_id) {
-				if(Array.isArray(filter.estacion_id)) {
-					filter.estacion_id.push(...matching_areas_id)
-				} else {
-					filter.estacion_id = [filter.estacion_id, ...matching_areas_id]
-				}
-			} else {
-				filter.estacion_id = matching_areas_id
-			}
-		}
+		// if(filter.geom) {
+		// 	const areas_filter = {
+		// 		id: filter.area_id ?? filter.estacion_id,
+		// 		geom: filter.geom
+		// 	}
+		// 	const matching_areas = await internal.area.read(areas_filter,{no_geom:true})
+		// 	if(!matching_areas.length) {
+		// 		// geom matches no areas, dont query series
+		// 		console.log("No areas matched the specified geometry")
+		// 		return []
+		// 	}
+		// 	const matching_areas_id = matching_areas.map(a=>a.id)
+		// 	if (filter.estacion_id) {
+		// 		if(Array.isArray(filter.estacion_id)) {
+		// 			filter.estacion_id.push(...matching_areas_id)
+		// 		} else {
+		// 			filter.estacion_id = [filter.estacion_id, ...matching_areas_id]
+		// 		}
+		// 	} else {
+		// 		filter.estacion_id = matching_areas_id
+		// 	}
+		// }
 		// console.log(JSON.stringify(filter))
 		if(options.no_geom || !options.include_geom) {
 			const json_filter_string = internal.utils.control_filter_json(valid_json_filters,filter,"series_areal_json_no_geom")
@@ -13657,7 +13678,15 @@ ORDER BY cal.cal_id`
 		if(includeCorr) {
 			var series_id
 			if(series_prono_last && series_prono_last.length) {
-				const series_ids = Array.from(new Set(flatten(series_prono_last.map(p=> p.series.map(s=>s.id)))))
+				const series_ids = Array.from(new Set(flatten(series_prono_last.map(p=> {
+					console.log(p)
+					if(p.series) {
+						return p.series.map(s=>s.id)
+					} else {
+						console.log("series missing from series_prono_last, returning series_id")
+						return p.series_id
+					}
+				}))))
 				if(series_ids.length) {
 					series_id = series_ids
 				}
@@ -16000,6 +16029,112 @@ ORDER BY cal.cal_id`
 		})
 	}
 	
+	static async getMonitoredAreas2(format="json",filter={},req,options={}) {
+		var page_limit = filter.limit ?? config.pagination.default_limit
+		page_limit = parseInt(page_limit)
+		if (page_limit > config.pagination.max_limit) {
+			throw(new Error("limit exceeds maximum records per page (" + config.pagination.max_limit) + ")")
+		}
+		var page_offset = filter.offset ?? 0
+		page_offset = parseInt(page_offset)
+		var filter_string = internal.utils.control_filter2(
+			{
+				"series_id": {type: "integer", table: "series_areal_json", column:"id"},
+				"var_id": {type: "integer", table: "series_areal_json"},
+				"proc_id": {type: "integer", table: "series_areal_json"},
+				"unit_id": {type: "integer", table: "series_areal_json"},
+				"estacion_id": {type: "integer", table: "series_areal_json"},
+				"area_id": {type: "integer", table: "series_areal_json", column: "estacion_id"},
+				"fuentes_id": {type: "integer", table: "series_areal_json"},
+				"red_id": {type: "integer", table: "series_areal_json", column:"red_id"},
+				"proc_id": {type: "integer", table: "series_areal_json"},
+				"geom": {type: "geometry", table: "series_areal_json", column: "extent"},
+				"public": {type: "boolean", table: "series_areal_json"},
+				"cal_id": {type: "integer", table: "series_prono_date_range_last"},
+				"cal_grupo_id": {type: "integer", table: "series_prono_date_range_last"},
+				"search": {
+					type: "search", 
+					table: "series_areal_json", 
+					columns: [
+						{name: "tabla"},
+						{name: "nombre"},
+						{name: "estacion_id"},
+						{name: "id_externo"},
+						{name: "rio"},
+						{name: "var_nombre"},
+						{name: "fuentes_nombre"}
+					],
+					case_insensitive: true
+				}
+			},
+			filter,
+			"series_areal_json"
+		)
+		var order_by_string = internal.utils.build_order_by_clause(
+			{
+				series_id:{table: "series_areal", column: "id"},
+				area_id:{table: "series_areal",column: "area_id"},
+				nombre:{table: "areas_pluvio"},
+				geom:{function: "st_xmin(areas_pluvio.geom)"},
+				longitud:{function: "st_xmin(areas_pluvio.geom)"},
+				latitud:{function: "st_ymin(areas_pluvio.geom)"},
+				rio:{table: "estaciones"},
+				var_id:{table: "series_areal"},
+				var_name:{table: "var", column: "nombre"},
+				proc_id:{table: "series_areal"},
+				unit_id:{table: "series_areal"},
+				timestart:{table: "series_areal_date_range"},
+				timeend:{table: "series_areal_date_range"},
+				count:{table: "series_areal_date_range"},
+				forecast_date:{table: "series_prono_date_range_last", column: "forecast_date"},
+				data_availability:{},
+				tabla:{table: "estaciones", column: "tabla"},
+				fuentes_id:{table: "series_areal"},
+				id_externo:{table: "estaciones"}
+			},
+			options.sort,
+			undefined,
+			[
+				"area_id",
+				"fuentes_id",
+				"var_id",
+				"proc_id"
+			],
+			options.order
+		)
+		var [limit,pagination,page_offset,limit_string] = internal.utils.getLimitString(page_limit,filter.offset)
+		if(filter.data_availability && ["h","n","c","r"].indexOf(filter.data_availability) >= 0) {
+			filter.has_obs = true
+		}
+		if(filter.has_obs) {
+			if(filter.data_availability) {
+				switch(filter.data_availability.toLowerCase().substring(0,1)) {
+					case "r":
+						filter_string += " AND now() - series_areal_date_range.timeend < '1 days'::interval"
+						break;
+					case "n":
+						filter_string +=  " AND now() - series_areal_date_range.timeend < '3 days'::interval"
+						break;
+					case "c":
+						filter_string += " AND (series_areal_date_range.timestart <= coalesce($2,now())) and (series_areal_date_range.timeend >= coalesce($1,now()-'90 days'::interval))"
+						break;
+					case "h":
+						break;
+					default:
+						break;
+				}
+			}
+			var series_range_join = ""
+		} else {
+			var series_range_join = "LEFT OUTER"
+		}
+		if(filter.has_prono) {
+			var pronos_join = "JOIN"
+		} else {
+			var pronos_join = "LEFT OUTER JOIN"
+		}
+	}
+
 	static async getMonitoredAreas(format="json",filter={},req,options={}) {
 		var page_limit = filter.limit ?? config.pagination.default_limit
 		page_limit = parseInt(page_limit)
