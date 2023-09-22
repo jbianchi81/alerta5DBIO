@@ -1869,8 +1869,8 @@ internal.serie = class extends baseModel {
 			console.error("Can't update serie without id")
 			return
 		}
-		// const stmt = this.updateQuery(changes)
-		console.log(stmt)
+		const stmt = this.updateQuery(changes)
+		// console.log(stmt)
 		const result = await global.pool.query(stmt)
 		if(!result.rows.length) {
 			console.error("Serie with specified id not found. Nothing updated")
