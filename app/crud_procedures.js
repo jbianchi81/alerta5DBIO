@@ -126,7 +126,7 @@ internal.CrudProcedure = class  {
         if(!this.output) {
             throw("output path not specified")
         }
-        await this.writeFile(this.output,data,format)
+        await this.writeFile(this.output,data,format,this.options.pretty)
     }
     async writeResult(output_format) {
         if(!this.result) {
@@ -151,18 +151,18 @@ internal.CrudProcedure = class  {
                             filename_ = filename_.replace(/\{\{.+?\}\}/,"")
                             filename_ = `${filename_}.metadata`
                             var output = path.resolve(base_path,filename_)
-                            await this.writeFile(output,item,"json") // output_format)
+                            await this.writeFile(output,item,"json",this.options.pretty) // output_format)
                             continue
                         }
                         // console.log(item instanceof CRUD.observacion)
                         var filename_ = filename.toString()
                         filename_ = replacePlaceholders(filename_,item)
                         var output = path.resolve(base_path,filename_)
-                        await this.writeFile(output,item,output_format)
+                        await this.writeFile(output,item,output_format,this.options.pretty)
                     }
                 } else {
                     var output = path.resolve(base_path,filename)
-                    await this.writeFile(output,results[i],output_format)
+                    await this.writeFile(output,results[i],output_format,this.options.pretty)
                 }
             }
         } else if(this.output) {
@@ -171,12 +171,16 @@ internal.CrudProcedure = class  {
             throw("missing output or options.output_individual_files")
         }
     }
-    async writeFile(output,data,output_format) {
+    async writeFile(output,data,output_format,pretty=false) {
         output_format = (output_format) ? output_format : this.output_format
         output = (output) ? output : this.output
         data = (data) ? data : this.result
         if(output_format=="json") {
-            await writeFile(output,JSON.stringify(data))
+            if(pretty) {
+                await writeFile(output,JSON.stringify(data,undefined,4))
+            } else {
+                await writeFile(output,JSON.stringify(data))
+            }
         } else if(output_format=="csv") {
             if(!data.toCSV) {
                 if(Array.isArray(data)) {
@@ -474,7 +478,9 @@ internal.PropertyExistsTest = class extends internal.CrudProcedureTest {
                     value = false
                     reason = `Result item ${i} must be an Object"`
                     break
-                } else if(!result[i].hasOwnProperty(this.property_name)) {
+                }
+                var property_value = getDeepValue(result[i],this.property_name)
+                if(property_value === undefined) {
                     value = false
                     reason = `Result item ${i} must have own property ${this.property_name}`
                     break
@@ -483,9 +489,12 @@ internal.PropertyExistsTest = class extends internal.CrudProcedureTest {
         } else if (result instanceof Object === false) {
             value = false
             reason = "Result must be an Object or array of Objects"
-        } else if(!result.hasOwnProperty(this.property_name)) {
-            value = false
-            reason = `Result must have own property ${this.property_name}`
+        } else {
+            var property_value = getDeepValue(result,this.property_name)
+            if(property_value === undefined) {
+                value = false
+                reason = `Result must have own property ${this.property_name}`
+            }
         }
         return {
             value: value,
@@ -537,7 +546,6 @@ internal.PropertyIsUndefinedTest = class extends internal.CrudProcedureTest {
     }
 }
 
-
 internal.PropertyEqualsTest = class extends internal.CrudProcedureTest {
     /**
      *  tests if result is an Object or Array of Object and has a certain property with a defined value. If it is an Array, the item at the selected index is evaluated (defaults to 0) unless all=true.
@@ -546,6 +554,10 @@ internal.PropertyEqualsTest = class extends internal.CrudProcedureTest {
      * @param {any} args.property_value
      * @param {Integer} [args.index=0]
      * @param {Boolean} [args.all=false]
+     * @param {Boolean} [args.or_greater]
+     * @param {Boolean} [args.or_smaller]
+     * @param {Boolean} [args.one_of]
+     * @param {string} args.parent_property
     */
     constructor(args) {
         super(args)
@@ -553,13 +565,32 @@ internal.PropertyEqualsTest = class extends internal.CrudProcedureTest {
         if(!args.property_name) {
             throw("Missing required parameter test.params.property_name")
         }
-        if(!args.property_value) {
+        if(args.property_value === undefined) {
             throw("Missing required parameter test.params.property_value")
         }
         this.index = (args.index) ? args.index : 0
         this.property_name = args.property_name
         this.property_value = args.property_value
+        this.parent_property = args.parent_property
         this.all = (args.all) ? args.all : false
+        this.or_greater = (args.or_greater) ? args.or_greater : false
+        this.or_smaller = (args.or_smaller) ? args.or_smaller : false
+        if((this.or_greater || this.or_smaller) && parseFloat(this.property_value).toString() == "NaN") {
+            // try parse as Date
+            try {
+                this.property_value = DateFromDateOrInterval(this.property_value)
+            } catch (e) {
+                throw("Bad argument property_value: can't be parsed as float or Date")
+            }
+        }
+        if(!this.or_greater && !this.or_smaller && args.one_of) {
+            this.one_of = true
+            if(!Array.isArray(this.property_value)) {
+                throw("Bad argument property_value: must be an array")
+            }
+        } else {
+            this.one_of = false
+        }
     }
     run(result) {
         var value = true
@@ -569,22 +600,31 @@ internal.PropertyEqualsTest = class extends internal.CrudProcedureTest {
                 value = false
                 reason = `Result array must be of length >= 1`
             } else if(this.all) {
-                for(var i in result) {
+                loop1:for(var i in result) {
                     if(i.toString() == "metadata") {
                         continue
                     }
-                    if (result[i] instanceof Object === false) {
+                    if(result[i] instanceof Object === false) {
                         value = false
                         reason = `Result item ${i} must be an Object`
                         break
-                    } else if(!result[i].hasOwnProperty(this.property_name)) {
-                        value = false
-                        reason = `Result item ${i} must have own property ${this.property_name}`
-                        break
-                    } else if(getDeepValue(result[i],this.property_name) != this.property_value) {
-                        value = false
-                        reason = `Result item ${i} property ${this.property_name} must equal ${this.property_value.toString()}. Instead, ${result[i][this.property_name].toString()} was found`
-                        break
+                    } else {
+                        if(this.parent_property) {
+                            var fail_reason = this.checkParentProperty(result[i],`Result index ${i}`)
+                            if(fail_reason) {
+                                value = false
+                                reason = fail_reason
+                                break
+                            }
+                        } else {
+                            var property_value = getDeepValue(result[i],this.property_name)
+                            var fail_reason = this.isEqual(property_value,`Result item ${i}`)
+                            if(fail_reason) {
+                                value = false
+                                reason = fail_reason
+                                break
+                            }
+                        }
                     }
                 }
             } else if(this.index + 1 > result.length) {
@@ -593,26 +633,178 @@ internal.PropertyEqualsTest = class extends internal.CrudProcedureTest {
             } else if(result[this.index] instanceof Object === false) {
                 value = false
                 reason = "Result must be an Object or array of Objects"
-            } else if(JSON.stringify(getDeepValue(result[this.index],this.property_name)) != JSON.stringify(this.property_value)) {
-                value = false
-                reason = `Result item ${this.index} property ${this.property_name} must equal ${JSON.stringify(this.property_value)}. Instead, ${JSON.stringify(getDeepValue(result[this.index],this.property_name))} was found`
-            }
+            } else {
+                if(this.parent_property) {
+                    var fail_reason = this.checkParentProperty(result[this.index],`Result index ${this.index}`)
+                    if(fail_reason) {
+                        value = false
+                        reason = fail_reason
+                    }
+                } else {
+                    var property_value = getDeepValue(result[this.index],this.property_name)
+                    var fail_reason = this.isEqual(property_value,`Result item ${this.index}`)
+                    if(fail_reason) {
+                        value = false
+                        reason = fail_reason
+                    }
+                }
+            }                      
         } else if (result instanceof Object === false) {
             value = false
             reason = "Result must be an Object or array of Objects"
         // } else if(!result.hasOwnProperty(this.property_name)) {
         //     value = false
         //     reason = "Result object must have own property " + this.property_name
-        } else if(getDeepValue(result,this.property_name) != this.property_value) {
-            value = false
-            reason = "Result object property " + this.property_name + " must equal " + this.property_value.toString()
+        } else {
+            if(this.parent_property) {
+                var fail_reason = this.checkParentProperty(result,`Result`,this.all,this.index)
+                if(fail_reason) {
+                    value = false
+                    reason = fail_reason
+                }
+            } else {
+                var property_value = getDeepValue(result,this.property_name)
+                var fail_reason = this.isEqual(property_value,"Result object")
+                if(fail_reason) {
+                    value = false
+                    reason = fail_reason
+                }
+            }
         }
         return {
             value: value,
             reason: reason
         }
     }
+
+    isEqual(value,name="Result object") {
+        var compare_value = this.property_value
+        if(value === undefined) {
+            return `${name} must have own property ${this.property_name}`
+        }
+        if(compare_value instanceof Date) {
+            try {
+                value = DateFromDateOrInterval(value)
+            } catch (e) {
+                return `${name} property ${this.property_name} must be parseable into Date type`
+            }
+            // converts date to epoch to compare
+            compare_value = compare_value.getTime()
+            value = value.getTime()
+        }
+        if(JSON.stringify(value) != JSON.stringify(compare_value)) {
+            if(this.or_greater) {
+                if(value < compare_value) {
+                    return `${name} property ${this.property_name} must be equal or greater than ${compare_value.toString()}`
+                }
+            } else if(this.or_smaller) {
+                if(value > compare_value) {
+                    return `${name} property ${this.property_name} must be equal or smaller than ${compare_value.toString()}`
+                }
+            } else if (this.one_of) {
+                // console.log("is " + value + " one of " + JSON.stringify(compare_value))
+                if(compare_value.map(v=>JSON.stringify(v)).indexOf(JSON.stringify(value)) < 0) {
+                    return `${name} ${this.property_name} must be one of ${compare_value.map(v=>JSON.stringify(v)).join(", ")}. Instead, ${value} was found`                      
+                }
+            } else {
+                return `${name} property ${this.property_name} must equal ${compare_value.toString()}`
+            }
+        }
+        return
+    }
+
+    checkParentProperty(node,name="Result object",all=true,index=0) {
+        var parent_property_value = getDeepValue(node,this.parent_property)
+        if(parent_property_value === undefined) {
+            return `${name} property ${this.parent_property} not found`
+        }
+        if(parent_property_value instanceof Object === false) {
+            return `${name} property ${this.parent_property} must be an Object or Array`
+        }
+        if(Array.isArray(parent_property_value)) {
+            if(all) {
+                for(var j in parent_property_value) {
+                    var property_value = getDeepValue(parent_property_value[j],this.property_name)
+                    var fail_reason = this.isEqual(property_value,`${name} property ${this.parent_property} item ${j}`)
+                    if(fail_reason) {
+                        return fail_reason
+                    }            
+                }
+            } else if (parent_property_value.length < index + 1) {
+                return `${name} property ${this.parent_property} item ${index} out of range`
+            } else {
+                var property_value = getDeepValue(parent_property_value[index],this.property_name)
+                var fail_reason = this.isEqual(property_value,`${name} property ${this.parent_property} item ${index}`)
+                if(fail_reason) {
+                    return fail_reason
+                }
+            }
+        } else {
+            var property_value = getDeepValue(parent_property_value,this.property_name)
+            var fail_reason = this.isEqual(property_value,`${name} property ${this.parent_property}`)
+            if(fail_reason) {
+                return fail_reason
+            }  
+        }
+    }
 }
+
+internal.PropertyIsEqualOrGreaterThanTest = class extends internal.PropertyEqualsTest {
+    /**
+      *  tests if result is an Object or Array of Object and has a certain property with a defined value. If it is an Array, the item at the selected index is evaluated (defaults to 0) unless all=true.
+      * @param {Object} args
+      * @param {string} args.property_name
+      * @param {any} args.property_value
+      * @param {Integer} [args.index=0]
+      * @param {Boolean} [args.all=false]
+     */
+     constructor(args) {
+        args.or_greater = true
+        args.or_smaller = false
+        args.one_of = false
+        console.log(JSON.stringify(args))
+         super(args)
+         this.testName = "PropertyIsEqualOrGreaterThanTest"
+     }
+ }
+ 
+
+internal.PropertyIsEqualOrSmallerThanTest = class extends internal.PropertyEqualsTest {
+     /**
+       *  tests if result is an Object or Array of Object and has a certain property with a defined value. If it is an Array, the item at the selected index is evaluated (defaults to 0) unless all=true.
+       * @param {Object} args
+       * @param {string} args.property_name
+       * @param {any} args.property_value
+       * @param {Integer} [args.index=0]
+       * @param {Boolean} [args.all=false]
+      */
+          constructor(args) {
+            args.or_smaller = true
+            args.or_greater = false
+            args.one_of = false
+            super(args)
+            this.testName = "PropertyIsEqualOrSmallerThanTest"
+        }
+  }
+
+internal.PropertyEqualsOneOfTest = class extends internal.PropertyEqualsTest {
+    /**
+      *  tests if result is an Object or Array of Object and has a certain property with a defined value. If it is an Array, the item at the selected index is evaluated (defaults to 0) unless all=true.
+      * @param {Object} args
+      * @param {string} args.property_name
+      * @param {any} args.property_value
+      * @param {Integer} [args.index=0]
+      * @param {Boolean} [args.all=false]
+     */
+    constructor(args) {
+        args.or_smaller = false
+        args.or_greater = false
+        args.one_of = true
+        super(args)
+        this.testName = "PropertyEqualsOneOfTest"
+    }
+}
+
 
 internal.PropertyAggEqualsTest = class extends internal.CrudProcedureTest {
     /**
@@ -892,12 +1084,15 @@ internal.PropertyIsInstanceOfTest = class extends internal.CrudProcedureTest {
         if(result instanceof Object === false) {
             value = false
             reason = "Result must be an Object or array of Objects"
-        } else if(!result.hasOwnProperty(this.property_name)) {
-            value = false
-            reason = "Result object must have own property " + this.property_name
-        } else if(result[this.property_name] instanceof this.class === false) {
-            value = false
-            reason = "Result object property " + this.property_name + " must be an instance of class " + this.class_name
+        } else {
+            var property_value = getDeepValue(result,this.property_name)
+            if(property_value == undefined) {
+                value = false
+                reason = "Result object must have own property " + this.property_name
+            } else if(property_value instanceof this.class === false) {
+                value = false
+                reason = "Result object property " + this.property_name + " must be an instance of class " + this.class_name
+            }
         }
         return [value, reason]
     }
@@ -1503,6 +1698,25 @@ internal.ComputeQuantilesProcedure = class extends internal.CrudProcedure {
         }
         this.result = corridas
         return this.result
+    }
+}
+
+internal.UpdateSeriesPronoDateRangeProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "UpdateSeriesPronoDateRangeProcedure"
+        if(!arguments[0]) {
+            throw("Missing arguments")
+        }
+        this.filter = arguments[0].filter ?? {}
+    }
+    async run() {
+        if(this.options.group_by_qualifier) {
+            await crud.updateSeriesPronoDateRangeByQualifier(this.filter,this.options)
+        } else {
+            await crud.updateSeriesPronoDateRange(this.filter,this.options)
+        }
+        return
     }
 }
 
@@ -2212,6 +2426,12 @@ internal.ReadProcedure = class extends internal.CrudProcedure {
         if(this.filter.timeupdate) {
             this.filter.timeupdate = DateFromDateOrInterval(this.filter.timeupdate)
         }
+        if(this.filter.date_range_before) {
+            this.filter.date_range_before = DateFromDateOrInterval(this.filter.date_range_before)
+        }
+        if(this.filter.date_range_after) {
+            this.filter.date_range_after = DateFromDateOrInterval(this.filter.date_range_after)
+        }
         // if(!arguments[0].elements) {
         //     if(!arguments[0].jsonfile) {
         //         throw("Missing argument 'elements' or 'jsonfile'")
@@ -2477,7 +2697,8 @@ const availableCrudProcedures = {
     "UpdateFromFileProcedure": internal.UpdateFromFileProcedure,
     "MapSitesFromAccessorProcedure": internal.MapSitesFromAccessorProcedure,
     "ReadVariablesFromAccessorProcedure": internal.ReadVariablesFromAccessorProcedure,
-    "GetSeriesBySiteAndVarProcedure": internal.GetSeriesBySiteAndVarProcedure
+    "GetSeriesBySiteAndVarProcedure": internal.GetSeriesBySiteAndVarProcedure,
+    "UpdateSeriesPronoDateRangeProcedure": internal.UpdateSeriesPronoDateRangeProcedure
 }
 
 internal.availableTests = {
@@ -2494,7 +2715,10 @@ internal.availableTests = {
     "ResultIsInstanceOfTest": internal.ResultIsInstanceOfTest,
     "OutputFileTest": internal.OutputFileTest,
     "PropertyIsValidDateTest": internal.PropertyIsValidDateTest,
-    "PropertyAggEqualsTest": internal.PropertyAggEqualsTest
+    "PropertyAggEqualsTest": internal.PropertyAggEqualsTest,
+    "PropertyIsEqualOrSmallerThanTest": internal.PropertyIsEqualOrSmallerThanTest,
+    "PropertyIsEqualOrGreaterThanTest": internal.PropertyIsEqualOrGreaterThanTest,
+    "PropertyEqualsOneOfTest": internal.PropertyEqualsOneOfTest
 }
 
 internal.CrudProcedureSequenceRunner = class {

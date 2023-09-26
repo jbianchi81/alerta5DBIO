@@ -88,6 +88,9 @@
                     },
                     {
                         "$ref": "getaggregatepronosticosprocedure.json"
+                    },
+                    {
+                        "$ref": "updateseriespronodaterangeprocedure.json"
                     }
                 ]
             }

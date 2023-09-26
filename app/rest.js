@@ -7763,6 +7763,9 @@ function getOptions(req) {
 		if(req.body.no_id) {
 			options.no_id = (req.body.no_id.toString().toLowerCase() == 'true')
 		}
+		if(req.body.no_data) {
+			options.no_data = (req.body.no_data.toString().toLowerCase() == 'true')
+		}
 		if(req.body.pagination) {
 			options.pagination = (req.body.pagination.toString().toLowerCase() == 'true')
 		}
@@ -7884,6 +7887,9 @@ function getOptions(req) {
 		}
 		if(req.query.no_id) {
 			options.no_id = (req.query.no_id.toString().toLowerCase() == 'true')
+		}
+		if(req.query.no_data) {
+			options.no_data = (req.query.no_data.toString().toLowerCase() == 'true')
 		}
 		if(req.query.return_raw) {
 			options.return_raw = (req.query.return_raw.toString().toLowerCase() == 'true')

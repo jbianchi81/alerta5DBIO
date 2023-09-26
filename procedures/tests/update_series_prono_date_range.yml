@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json 
+sequence:
+- procedureName: UpdateSeriesPronoDateRangeProcedure
+  arguments:
+    filter: {}
+- procedureName: UpdateSeriesPronoDateRangeProcedure
+  arguments:
+    filter: {}
+    options:
+      group_by_qualifier: true

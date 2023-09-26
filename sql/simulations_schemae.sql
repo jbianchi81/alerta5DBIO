@@ -1655,4 +1655,24 @@ ORDER BY
     series_prono_date_range.series_id,
     series_prono_date_range.cor_id;
 
+CREATE OR REPLACE VIEW series_prono_date_range_last_grouped AS 
+SELECT
+    series_id,
+    series_table,
+    json_agg(
+        json_build_object(
+            'begin_date',begin_date,
+            'end_date',end_date,
+            'count',count,
+            'cal_id',cal_id,
+            'forecast_date',forecast_date,
+            'public',public,
+            'cal_grupo_id',cal_grupo_id
+           )
+    ) 
+    FROM series_prono_date_range_last 
+    GROUP BY
+        series_id,
+        series_table;
+
 COMMIT;

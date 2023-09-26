@@ -1,0 +1,33 @@
+{
+    "$id": "updateseriespronodaterangeprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "UpdateSeriesPronoDateRangeProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "UpdateSeriesPronoDateRangeProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "filter": {
+                    "descrition": "filter to select which series prono to update",
+                    "type": "object",
+                    "properties": {
+                        "tipo": {
+                            "type": "string",
+                            "enum": ["puntual","areal","raster"]
+                        },
+                        "cor_id": {"type":"integer"},
+                        "series_id": {"type": "integer"},
+                        "estacion_id": {"type": "integer"},
+                        "tabla": {"type": "string"},
+                        "var_id": {"type": "integer"}                 
+                    },
+                    "additionalProperties": true
+                }
+            }
+        }
+    }
+}

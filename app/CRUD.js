@@ -1830,8 +1830,13 @@ internal.serie = class extends baseModel {
 	}
 
 	getSeriesTable() {
-		return (this.tipo == "areal") ? "series_areal" : (this.tipo == "rast" || this.tipo == "raster") ? "series_rast" : "series"
+		return (this.tipo.toUpperCase() == "AREAL") ? "series_areal" : (this.tipo.toUpperCase() == "RAST" || this.tipo.toUpperCase() == "RASTER") ? "series_rast" : "series"
 	}
+
+	static 	getSeriesTable(tipo) {
+		return (tipo.toUpperCase() == "AREAL") ? "series_areal" : (tipo.toUpperCase() == "RAST" || tipo.toUpperCase() == "RASTER") ? "series_rast" : "series"
+	}
+
 
 	async create(options) {
 		const result = await internal.CRUD.upsertSerie(this,options)
@@ -2390,188 +2395,571 @@ internal.serie.build_read_query = function(filter={},options={}) {
 	var table
 	var tipo
 	var order_string
+	// 					FILTERS
 	if(!filter.tipo) {
 		tipo = "puntual"
 	} else {
 		tipo = filter.tipo
 	}
-	if(!filter.id && filter.series_id) {
-		filter.id = filter.series_id
-		delete filter.series_id
+	if(!filter.series_id && filter.id) {
+		filter.series_id = filter.id
 	}
-	var date_range_table = (options.guardadas) ? "series_areal_guardadas_date_range" : "series_areal_date_range"
+	var valid_filters = {
+		id:{
+			type: "integer",
+			table: "series"
+		},estacion_id:{
+			type:"integer",
+			table: "series"
+		},var_id:{
+			type:"integer",
+			table: "series"
+		},proc_id:{
+			type:"integer",
+			table: "series"
+		},unit_id:{
+			type: "integer",
+			table: "series"
+		},public: {
+			type:"boolean_only_true"
+		},date_range_before: {
+			column: "timestart",
+			type: "timeend",
+			table: "date_range"
+		},date_range_after: {
+			column: "timeend",
+			type: "timestart",
+			table: "date_range"
+		},
+		count: {
+			type: "numeric_min",
+			table: "date_range"
+		},
+		data_availability: {
+			type: "data_availability",
+			table: "date_range"
+		}
+	}
+	// 					DATE RANGE / DATA AVAILABILITY FILTER
+	var date_range_table = internal.serie.getDateRangeTable(tipo,options)
+	var series_range_join = (filter.has_obs || (filter.data_availability && ["h","c","n","r"].indexOf(filter.data_availability.toLowerCase()) >= 0)) ? "INNER" : "LEFT OUTER"
+	var date_range_query = `
+		${series_range_join} JOIN (
+			SELECT 
+				"${date_range_table}".*,
+				CASE WHEN "${date_range_table}".timeend IS NOT NULL
+					THEN 
+						CASE WHEN now() - "${date_range_table}".timeend < '1 days'::interval
+							THEN 'RT'
+						WHEN now() - "${date_range_table}".timeend < '3 days'::interval
+							THEN 'NRT'
+						WHEN ("${date_range_table}".timestart <= coalesce(${(filter.timeend) ? ("'" + filter.timeend.toISOString() + "'") : "NULL"},now())) AND ("${date_range_table}".timeend >= coalesce(${(filter.timestart) ? ("'" + filter.timestart.toISOString() + "'") : "NULL"},now()-'90 days'::interval))
+							THEN 'C'
+						ELSE 'H'
+						END
+					ELSE 'N'
+				END AS data_availability
+			FROM "${date_range_table}"
+		) AS date_range ON (
+			series.id=date_range.series_id
+		)`
+	//					PRONOS FILTERS
+	var pronos_filter_string = internal.utils.control_filter2(
+		{
+			public: {type: "boolean"},
+			cal_id: {type: "integer"},
+			cal_grupo_id: {type: "integer"}		
+		},
+		filter,
+		"series_prono_date_range_last"
+	)
+	if(filter.has_prono) {
+		var pronos_join = "JOIN"
+	} else {
+		var pronos_join = "LEFT OUTER JOIN"
+	}
+	var pronos_grouped_query = `${pronos_join} (SELECT
+		series_id,
+		series_table,
+		json_agg(
+			json_build_object(
+				'begin_date',begin_date,
+				'end_date',end_date,
+				'count',count,
+				'cal_id',cal_id,
+				'forecast_date',forecast_date,
+				'public',public,
+				'cal_grupo_id',cal_grupo_id
+			   )
+		) AS pronosticos
+		FROM series_prono_date_range_last 
+		WHERE 1=1
+		${pronos_filter_string}
+		GROUP BY
+			series_id,
+			series_table
+	) AS pronos ON (
+		pronos.series_id=series.id
+		AND pronos.series_table='${internal.serie.getSeriesTable(tipo)}'
+	)`
+	//					SORT
+	var sort_fields = {
+		series_id:{column: "id",
+			table: "series"},
+		estacion_id:{
+			table: "series"},
+		var_id:{
+			table: "series"},
+		var_name:{table: "var", column: "nombre"},
+		proc_id:{
+			table: "series"},
+		unit_id:{
+			table: "series"},
+		timestart:{
+			table: "date_range"},
+		timeend:{
+			table: "date_range"},
+		count:{
+			table: "date_range"},
+		forecast_date:{
+			table: "pronos"},
+		data_availability:{
+			table: "date_range"}
+	}
+	//						PAGINATION
+	var page_limit = filter.limit ?? config.pagination.default_limit
+	page_limit = parseInt(page_limit)
+	if (page_limit > config.pagination.max_limit) {
+		throw(new Error("limit exceeds maximum records per page (" + config.pagination.max_limit) + ")")
+	}
+	var [limit,pagination,page_offset,limit_string] = internal.utils.getLimitString(page_limit,filter.offset)
 	var properties
+	//				JOIN CLAUSES
+	var join_clauses = [
+		`JOIN var 
+		ON (var.id=series.var_id)`,
+		`JOIN procedimiento 
+		ON (procedimiento.id=series.proc_id)`,
+		`JOIN unidades
+		ON (unidades.id=series.unit_id)`,
+		pronos_grouped_query,
+		date_range_query
+	]
+	// 				SELECT FIELDS
+	if(options.no_metadata) {
+		var select_fields = [
+			`'${tipo}' AS tipo`,
+			"series.id AS id",
+			"procedimiento.nombre AS proc_nombre",
+			"var.id AS var_id",
+			"var.nombre AS var_nombre",
+			`var."GeneralCategory" AS "GeneralCategory"`,
+			"unidades.id AS unit_id",
+			"unidades.nombre AS unit_nombre",
+			`date_range.timestart AS timestart`,
+			`date_range.timeend AS timeend`,
+			`date_range.count AS count`,
+			`date_range.data_availability AS data_availability`
+		]
+	} else {
+		var select_fields = [
+			`'${tipo}' AS tipo`,
+			"series.id AS id",
+			`json_build_object(
+				'id', procedimiento.id, 
+				'nombre', procedimiento.nombre, 
+				'abrev', procedimiento.abrev,
+				'descripcion', procedimiento.descripcion
+			) AS procedimiento`,
+			`json_build_object(
+				'id', var.id, 
+				'var', var.var, 
+				'nombre', var.nombre, 
+				'abrev', var.abrev, 
+				'type', var.type, 
+				'datatype', var.datatype, 
+				'valuetype', var.valuetype,
+				'GeneralCategory', var."GeneralCategory",
+				'VariableName', var."VariableName", 
+				'SampleMedium', var."SampleMedium", 
+				'def_unit_id', var.def_unit_id, 
+				'timeSupport', var."timeSupport", 
+				'def_hora_corte', var.def_hora_corte
+			) AS var`,
+			`json_build_object(
+				'id', unidades.id, 
+				'nombre', unidades.nombre, 
+				'abrev', unidades.abrev, 
+				'UnitsID', unidades."UnitsID", 
+				'UnitsType', unidades."UnitsType"
+			) AS unidades`,
+			`json_build_object(
+				'timestart', date_range.timestart, 
+				'timeend', date_range.timeend, 
+				'count', date_range.count,
+				'data_availability', date_range.data_availability
+			) AS date_range`,
+			`pronos.pronosticos AS pronosticos`
+		]
+	}
+	// 						TYPE SPECIFIC PARAMETERS
 	if(tipo.toUpperCase() == "AREAL" ) {
-		valid_filters = {
-			id:{
-				type: "integer",
-				table: "series_areal"
-			},area_id:{
-				type:"integer",
-				table: "series_areal"
-			},var_id:{
-				type:"integer",
-				table: "series_areal"
-			},proc_id:{
-				type:"integer",
-				table: "series_areal"
-			},unit_id:{
-				type: "integer",
-				table: "series_areal"
-			},fuentes_id:{
-				type:"integer",
-				table: "series_areal"
+		valid_filters = {...valid_filters,...{
+			fuentes_id:{
+				type:"integer"
 			},public: {
 				type:"boolean_only_true",
 				table: "fuentes"
-			},date_range_before: {
-				column: "timestart",
-				type: "timeend",
-				table: date_range_table
-			},date_range_after: {
-				column: "timeend",
-				type: "timestart",
-				table: date_range_table
-			},
-			count: {
-				type: "numeric_min",
-				table: date_range_table
 			},
 			tabla_id:{
 				type:"string",
 				table: "estaciones",
 				column: "tabla"
+			},
+			red_id: {
+				type: "integer",
+				table: "redes",
+				column: "id"
+			},
+			geom: {
+				type: "geometry", 
+				table: "areas_pluvio"
+			},
+			search: {
+				type: "search", 
+				table: "areas_pluvio", 
+				columns: [
+					{name: "tabla", table: "estaciones"},
+					{name: "nombre"},
+					{name: "unid"},
+					{name: "id_externo", table: "estaciones"},
+					{name: "rio", table: "estaciones"},
+					{name: "nombre", table: "var"},
+					{name: "nombre", table: "fuentes"}
+				],
+				case_insensitive: true
+			},
+			exutorio_id: {
+				type: "integer",
+				table: "areas_pluvio"
+			}
+		}}
+		sort_fields = {sort_fields,...{
+			nombre:{table: "areas_pluvio"},
+			geom:{function: "st_xmin(areas_pluvio.geom)"},
+			longitud:{function: "st_xmin(areas_pluvio.geom)"},
+			latitud:{function: "st_ymin(areas_pluvio.geom)"},
+			rio:{table: "estaciones"},
+			tabla:{table: "estaciones", column: "tabla"},
+			fuentes_id:{table: "series"},
+			id_externo:{table: "estaciones"}
+		}}
+		table = "series_areal"
+		join_clauses = [...join_clauses,...[
+			`JOIN fuentes 
+				ON (fuentes.id=series.fuentes_id)`,
+			`JOIN areas_pluvio 
+				ON (areas_pluvio.id=series.area_id)`,
+			`LEFT JOIN estaciones 
+				ON (estaciones.unid = areas_pluvio.exutorio_id)`
+		]]
+		if(options.no_metadata) {
+			select_fields = [...select_fields,...[
+				"area_id AS estacion_id",
+				"areas_pluvio.nombre AS estacion_nombre",
+				"fuentes.id AS fuentes_id",
+				"fuentes.nombre AS fuentes_nombre"
+			]]
+		} else {
+			select_fields.push(
+				`json_build_object(
+					'id', fuentes.id, 
+					'nombre', fuentes.nombre, 
+					'data_table', fuentes.data_table,
+					'data_column', fuentes.data_column, 
+					'tipo', fuentes.tipo, 
+					'def_proc_id', fuentes.def_proc_id, 
+					'def_dt', fuentes.def_dt, 
+					'hora_corte', fuentes.hora_corte, 
+					'def_unit_id', fuentes.def_unit_id,
+					'def_var_id', fuentes.def_var_id, 
+					'fd_column', fuentes.fd_column, 
+					'mad_table', fuentes.mad_table, 
+					'scale_factor', fuentes.scale_factor, 
+					'data_offset', fuentes.data_offset, 
+				 	'def_extent', st_asgeojson(fuentes.def_extent)::json, 
+					'date_column', fuentes.date_column, 
+					'def_pixeltype', fuentes.def_pixeltype, 
+					'abstract', fuentes.abstract, 
+					'source', fuentes.source, 
+					'public', fuentes.public
+				) AS fuente`
+			)
+			if(options.include_geom && !options.no_geom) {
+				select_fields.push(
+					`json_build_object(
+						'id', areas_pluvio.unid, 
+						'nombre', areas_pluvio.nombre, 
+						'geom', st_asgeojson(areas_pluvio.geom)::json, 
+						'exutorio', json_build_object(
+							'id', estaciones.unid,
+							'geom', st_asgeojson(estaciones.geom)::json,
+							'tabla', estaciones.tabla
+						)
+					) AS estacion`
+				)
+			} else {
+				select_fields.push(`json_build_object(
+					'id', areas_pluvio.unid, 
+					'nombre', areas_pluvio.nombre, 
+					'exutorio', json_build_object(
+						'id', estaciones.unid,
+						'geom', st_asgeojson(estaciones.geom)::json,
+						'tabla', estaciones.tabla
+					)
+				) AS estacion`)
 			}
 		}
-		table = `series_areal join (select id f_id,nombre fuentes_nombre,public from fuentes) fuentes on (fuentes.f_id=series_areal.fuentes_id) join (select unid id,nombre area_nombre,exutorio_id from areas_pluvio) areas on (areas.id=series_areal.area_id) join (select id,nombre var_nombre from var) var on (var.id=series_areal.var_id) join (select id,nombre proc_nombre from procedimiento) procedimiento on (procedimiento.id=series_areal.proc_id) join (select id,nombre unit_nombre from unidades) unidades on (unidades.id=series_areal.unit_id)\
-			left join ${date_range_table} on (series_areal.id=${date_range_table}.series_id)\
-			left join estaciones ON (estaciones.unid = areas.exutorio_id)`
-		properties = ["series_areal.id","area_id","area_nombre","proc_id","proc_nombre","var_id","var_nombre","unit_id","unit_nombre","fuentes_id","fuentes_nombre",`${date_range_table}.timestart`,`${date_range_table}.timeend`,`${date_range_table}.count`]
-		order_string = " ORDER BY series_areal.id"
 	} else if (tipo.toUpperCase() == "RASTER" || tipo.toUpperCase() == "RAST") {
-		var date_range_table = (options.guardadas) ? "series_rast_guardadas_date_range" : "series_rast_date_range"
-		valid_filters = {
-			id:{
-				type:"integer",
-				table: "series_rast"
-			},escena_id:{
-				type:"integer",
-				table: "series_rast"
-			},var_id:{
-				type:"integer",
-				table: "series_rast"
-			},proc_id:{
-				type: "integer",
-				table: "series_rast"
-			},unit_id:{
-				type: "integer",
-				table: "series_rast"
-			},fuentes_id:{
-				type:"integer",
-				table: "series_rast"
-			},public: {
+		valid_filters = {...valid_filters,...{
+			fuentes_id:{
+				type:"integer"
+			},
+			public: {
 				type:"boolean_only_true",
 				table: "fuentes"
+			},
+			geom: {
+				type: "geometry", 
+				table: "escenas"
+			},
+			search: {
+				type: "search", 
+				table: "escenas", 
+				columns: [
+					{name: "nombre"},
+					{name: "id"},
+					{name: "nombre", table: "var"},
+					{name: "nombre", table: "fuentes"}
+				],
+				case_insensitive: true
 			}
-		}
-		table = `series_rast join (select id f_id,nombre fuentes_nombre,public from fuentes) fuentes on (fuentes.f_id=series_rast.fuentes_id) join (select id,nombre escena_nombre from escenas) escenas on (escenas.id=series_rast.escena_id) join (select id,nombre var_nombre from var) var on (var.id=series_rast.var_id) join (select id,nombre proc_nombre from procedimiento) procedimiento on (procedimiento.id=series_rast.proc_id) join (select id,nombre unit_nombre from unidades) unidades on (unidades.id=series_rast.unit_id)\
-		left join ${date_range_table} on (series_rast.id=${date_range_table}.series_id)`
-		properties = ["series_rast.id","nombre","escena_id","escena_nombre","proc_id","proc_nombre","var_id","var_nombre", "unit_id","unit_nombre", "fuentes_id","fuentes_nombre","public",`${date_range_table}.timestart`,`${date_range_table}.timeend`,`${date_range_table}.count`]
-		order_string = " ORDER BY series_rast.id"
+		}}
+		sort_fields = {sort_fields,...{
+			nombre:{table: "escenas"},
+			geom:{function: "st_xmin(escenas.geom)"},
+			longitud:{function: "st_xmin(escenas.geom)"},
+			latitud:{function: "st_ymin(escenas.geom)"},
+			fuentes_id:{table: "series"}
+		}}
+		table = "series_rast"
+		join_clauses = [...join_clauses,...[
+			`JOIN fuentes 
+				ON (fuentes.id=series.fuentes_id)`,
+			`JOIN escenas 
+				ON (escenas.id=series.escena_id)`
+		]]
+		if(options.no_metadata) {
+			select_fields = [...select_fields,...[
+				"escenas.id AS estacion_id",
+				"series.nombre",
+				"escenas.nombre AS estacion_nombre",
+				"fuentes.id AS fuentes_id",
+				"fuentes.nombre AS fuentes_nombre"
+			]]
+		} else {
+			select_fields.push(
+				`json_build_object(
+					'id', fuentes.id, 
+					'nombre', fuentes.nombre, 
+					'data_table', fuentes.data_table,
+					'data_column', fuentes.data_column, 
+					'tipo', fuentes.tipo, 
+					'def_proc_id', fuentes.def_proc_id, 
+					'def_dt', fuentes.def_dt, 
+					'hora_corte', fuentes.hora_corte, 
+					'def_unit_id', fuentes.def_unit_id,
+					'def_var_id', fuentes.def_var_id, 
+					'fd_column', fuentes.fd_column, 
+					'mad_table', fuentes.mad_table, 
+					'scale_factor', fuentes.scale_factor, 
+					'data_offset', fuentes.data_offset, 
+				 	'def_extent', st_asgeojson(fuentes.def_extent)::json, 
+					'date_column', fuentes.date_column, 
+					'def_pixeltype', fuentes.def_pixeltype, 
+					'abstract', fuentes.abstract, 
+					'source', fuentes.source, 
+					'public', fuentes.public
+				) AS fuente`
+			)
+			if(options.include_geom && !options.no_geom) {
+				select_fields.push(
+					`json_build_object(
+						'id', escenas.id, 
+						'nombre', escenas.nombre, 
+						'geom', st_asgeojson(escenas.geom)::json
+					) AS estacion`
+				)
+			} else {
+				select_fields.push(`json_build_object(
+					'id', escenas.id, 
+					'nombre', escenas.nombre
+				) AS estacion`)
+			}
+		}		
+		table = "series_rast"
 	} else if (tipo.toUpperCase() == "PUNTUAL") {
-		filter.red_id = (filter.red_id) ? filter.red_id : (filter.fuentes_id) ? filter.fuentes_id : undefined 
-		var date_range_table = (options.guardadas) ? "series_guardadas_date_range" : "series_date_range"
-		valid_filters = {
-			"id":{
-				type:"arrInteger",
-				table: "series"
-			},
-			var_id:{
-				type:"arrInteger",
-				table:"series"
-			},
-			proc_id:{
-				type:"arrInteger",
-				table: "series"
-			},
-			unit_id:{
-				type:"arrInteger",
-				table:"series"
-			},
+		filter.red_id = (filter.red_id) ? filter.red_id : (filter.fuentes_id) ? filter.fuentes_id : undefined
+		valid_filters = {...valid_filters,...{
 			estacion_id:{
-				type:"arrInteger",
+				type:"integer",
 				table: "series"
 			},
 			tabla_id:{
 				type:"string",
-				table: "redes"
+				table: "estaciones",
+				column: "tabla",
+				alias: "tabla"
 			},
-			id_externo:{
-				type:"string",
+			red_id: {
+				type: "integer",
+				table: "redes",
+				column: "id"
+			},
+			geom: {
+				type: "geometry", 
 				table: "estaciones"
-			},
-			geom:{
-				type: "geometry",
-				table: "estaciones"
-			},
-			red_id:{
-				type:"arrInteger",
-				table:"redes"
 			},
 			public: {
-				type:"boolean_only_true",
+				type: "boolean_only_true",
 				table: "redes"
 			},
-			timestart_min: {
-				column: "timestart",
-				type: "date_min",
-				table: date_range_table
-			},date_range_before: {
-				column: "timestart",
-				type: "timeend",
-				table: date_range_table
-			},date_range_after: {
-				column: "timeend",
-				type: "timestart",
-				table: date_range_table
-			},
-			count: {
-				type: "numeric_min",
-				table: date_range_table
+			search: {
+				type: "search", 
+				table: "estaciones", 
+				columns: [
+					{name: "tabla"},
+					{name: "nombre"},
+					{name: "unid"},
+					{name: "id_externo"},
+					{name: "rio"},
+					{name: "distrito"},
+					{name: "propietario", table: "estaciones"},
+					{name: "ubicacion"},
+					{name: "localidad", table: "estaciones"},
+					{name: "nombre", table: "var"}
+				],
+				case_insensitive: true
 			}
-		}
-		table = `series join (select unid,id_externo,tabla,geom,nombre estacion_nombre from estaciones) estaciones on (series.estacion_id=estaciones.unid) join (select id red_id,tabla_id,nombre red_nombre,public from redes) redes on (redes.tabla_id = estaciones.tabla) join (select id,nombre var_nombre from var) var on (var.id=series.var_id) join (select id,nombre proc_nombre from procedimiento) procedimiento on (procedimiento.id=series.proc_id) join (select id,nombre unit_nombre from unidades ) unidades on (unidades.id=series.unit_id)\
-		left join ${date_range_table} on (series.id=${date_range_table}.series_id)`
-		properties = ["series.id","estacion_id","estacion_nombre","proc_id","proc_nombre","var_id","var_nombre","unit_id","unit_nombre","id_externo","tabla","st_asgeojson(geom) geom","red_nombre","public",`${date_range_table}.timestart`,`${date_range_table}.timeend`,`${date_range_table}.count`]
-		if(filter.geom) {
-			filter.geom = new internal.geometry(filter.geom)
-		}
-		order_string = " ORDER BY series.id"
+		}}
+		sort_fields = {sort_fields,...{
+			nombre:{table: "estaciones"},
+			rio:{table: "estaciones"},
+			propietario:{table: "estaciones"},
+			localidad:{table: "estaciones"},
+			ubicacion:{table: "estaciones"},
+			geom:{function: "st_x(estaciones.geom)"},
+			longitud:{function: "st_x(estaciones.geom)"},
+			latitud:{function: "st_y(estaciones.geom)"},
+			tabla:{table: "estaciones", column: "tabla"},
+			id_externo:{table: "estaciones"}
+		}}
+		table = "series"
+		join_clauses = [...join_clauses,...[
+			`JOIN estaciones 
+				ON (estaciones.unid=series.estacion_id)`,
+			`JOIN redes
+				ON (redes.tabla_id = estaciones.tabla)`,
+			`LEFT OUTER JOIN alturas_alerta AS nivel_alerta 
+				ON (estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado='a')`,
+			`LEFT OUTER JOIN alturas_alerta AS nivel_evacuacion 
+				ON (estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado='e')`,
+			`LEFT OUTER JOIN alturas_alerta AS nivel_aguas_bajas 
+				ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b')`
+		]]
+		if(options.no_metadata) {
+			select_fields = [...select_fields,...[
+				"estacion_id AS estacion_id",
+				"estaciones.nombre AS estacion_nombre",
+				"estaciones.id_externo AS id_externo",
+				"estaciones.tabla AS tabla",
+				"st_asgeojson(geom) AS geom",
+				"redes.nombre AS red_nombre",
+				"redes.public AS public"
+			]]
+		} else {
+			// if(options.include_geom && !options.no_geom) {
+			// 	select_fields.push(
+			// 		`json_build_object(
+			// 			'id', estaciones.unid, 
+			// 			'nombre', estaciones.nombre, 
+			// 			'id_externo', estaciones.id_externo, 
+			// 			'geom', st_asgeojson(estaciones.geom::geometry)::json, 
+			// 			'tabla', estaciones.tabla, 
+			// 			'pais', estaciones.pais, 
+			// 			'rio', estaciones.rio, 
+			// 			'has_obs', estaciones.has_obs, 
+			// 			'tipo', estaciones.tipo, 
+			// 			'automatica', estaciones.automatica, 
+			// 			'habilitar', estaciones.habilitar, 
+			// 			'propietario', estaciones.propietario, 
+			// 			'abreviatura', estaciones.abrev, 
+			// 			'localidad', estaciones.localidad, 
+			// 			'real', estaciones."real", 
+			// 			'nivel_alerta', nivel_alerta.valor, 
+			// 			'nivel_evacuacion', nivel_evacuacion.valor, 
+			// 			'nivel_aguas_bajas', nivel_aguas_bajas.valor, 
+			// 			'altitud', estaciones.altitud, 
+			// 			'public', redes.public, 
+			// 			'cero_ign', estaciones.cero_ign, 
+			// 			'red_id', redes.id, 
+			// 			'red_nombre', redes.nombre
+			// 		) AS estacion`
+			// 	)
+			// } else {
+				select_fields.push(`json_build_object(
+					'id', estaciones.unid, 
+					'nombre', estaciones.nombre, 
+					'id_externo', estaciones.id_externo, 
+					'geom', st_asgeojson(estaciones.geom::geometry)::json,
+					'longitude', st_x(estaciones.geom::geometry),
+					'latitude', st_y(estaciones.geom::geometry),
+					'tabla', estaciones.tabla, 
+					'pais', estaciones.pais, 
+					'rio', estaciones.rio, 
+					'has_obs', estaciones.has_obs, 
+					'tipo', estaciones.tipo, 
+					'automatica', estaciones.automatica, 
+					'habilitar', estaciones.habilitar, 
+					'propietario', estaciones.propietario, 
+					'abreviatura', estaciones.abrev, 
+					'localidad', estaciones.localidad, 
+					'real', estaciones."real", 
+					'nivel_alerta', nivel_alerta.valor, 
+					'nivel_evacuacion', nivel_evacuacion.valor, 
+					'nivel_aguas_bajas', nivel_aguas_bajas.valor, 
+					'altitud', estaciones.altitud, 
+					'public', redes.public, 
+					'cero_ign', estaciones.cero_ign, 
+					'red_id', redes.id, 
+					'red_nombre', redes.nombre
+				) AS estacion`)
+			// }
+		}		
 	} else {
 		console.error("invalid tipo")
 		throw "invalid tipo"
 	}
 	var filter_string=internal.utils.control_filter2(valid_filters,filter)
-
-	return "SELECT  " + properties.join(",") + "  FROM " + table + " WHERE 1=1 " + filter_string + order_string
-		// .then(res=>{
-		// 	for(var i in res.rows) {
-		// 		res.rows[i].date_range = {timestart: res.rows[i].timestart, timeend: res.rows[i].timeend, count: res.rows[i].count}
-		// 		delete res.rows[i].timestart
-		// 		delete res.rows[i].timeend
-		// 		delete res.rows[i].count
-		// 	}
-		// 	if(options.no_metadata) {  // RETURN WITH NO METADATA (SOLO IDS)
-		// 		return res.rows.map(r=> {
-		// 			//~ delete r.geom
-		// 			//~ console.log(r.geom)
-		// 			if(r.geom) {
-		// 				r.geom = JSON.parse(r.geom)
-		// 			} 
-		// 			r.tipo = tipo
-		// 			return r
-		// 		})
-		// 	}
+	var order_string = internal.utils.build_order_by_clause(sort_fields,options.sort,"series",["estacion_id","var_id","proc_id"],options.order)
+	select_fields.push(`count(*) OVER() AS total`)
+	return `SELECT  ${select_fields.join(", \n")}  
+		FROM ${table} AS series 
+		${join_clauses.join("\n")}
+		WHERE 1=1
+		${filter_string}
+		${order_string}
+		${limit_string}`	
 }
 
 
@@ -7927,67 +8315,81 @@ internal.CRUD = class {
 		if(tipo) {
 			filter.tipo = tipo
 		}
-		if((!filter.timestart || !filter.timeend) && !options.getMonthlyStats && !options.getStats && !options.getPercentiles && options.fromView) {
-			try {
-				console.log("get series json")
-				// console.log(JSON.stringify({options:options}))
-				var result = await this.getSeriesJson(filter,options,client)
-			} catch(e) {
-				if(release_client) {
-					client.release()
-				}
-				throw(e)
-			}
-			if(release_client) {
-				client.release()
-			}
-			return result
-		}
+		// if((!filter.timestart || !filter.timeend) && !options.getMonthlyStats && !options.getStats && !options.getPercentiles && options.fromView) {
+		// 	try {
+		// 		console.log("get series json")
+		// 		// console.log(JSON.stringify({options:options}))
+		// 		var result = await this.getSeriesJson(filter,options,client)
+		// 	} catch(e) {
+		// 		if(release_client) {
+		// 			client.release()
+		// 		}
+		// 		throw(e)
+		// 	}
+		// 	if(release_client) {
+		// 		client.release()
+		// 	}
+		// 	return result
+		// }
 		var query = internal.serie.build_read_query(filter,options)
 		// console.log(query)
 		try {
 			var res = await client.query(query)
 		} catch(e) {
-			throw(e)
-		}
-		for(var i in res.rows) {
-			res.rows[i].date_range = {timestart: res.rows[i].timestart, timeend: res.rows[i].timeend, count: res.rows[i].count}
-			delete res.rows[i].timestart
-			delete res.rows[i].timeend
-			delete res.rows[i].count
-		}
-		if(options.no_metadata) {  // RETURN WITH NO METADATA (SOLO IDS)
-			const result = res.rows.map(r=> {
-				//~ delete r.geom
-				//~ console.log(r.geom)
-				if(r.geom) {
-					r.geom = JSON.parse(r.geom)
-				} 
-				r.tipo = tipo
-				return r
-			})
 			if(release_client) {
 				client.release()
 			}
-			return result
+			throw(e)
 		}
+		// for(var i in res.rows) {
+		// 	res.rows[i].date_range = {timestart: res.rows[i].timestart, timeend: res.rows[i].timeend, count: res.rows[i].count}
+		// 	delete res.rows[i].timestart
+		// 	delete res.rows[i].timeend
+		// 	delete res.rows[i].count
+		// }
+		//				GET PAGE PROPERTIES
+		var [total, is_last_page, next_offset] = internal.utils.getPageProperties(filter.limit,filter.offset,res.rows)
+		
+		if(options.no_metadata) {  // RETURN WITH NO METADATA (SOLO IDS)
+			if(release_client) {
+				client.release()
+			}
+			if(options.pagination) {
+				return {
+					rows: res.rows,
+					total: total,
+					is_last_page: is_last_page,
+					next_offset: next_offset // (is_last_page) ? undefined : offset + filter.limit
+				}
+			} else {
+				return res.rows
+			}
+		}
+		// 	const result = res.rows.map(r=> {
+		// 		//~ delete r.geom
+		// 		//~ console.log(r.geom)
+		// 		if(r.geom) {
+		// 			r.geom = JSON.parse(r.geom)
+		// 		} 
+		// 		r.tipo = tipo
+		// 		return r
+		// 	})
+		// 	if(release_client) {
+		// 		client.release()
+		// 	}
+		// 	return result
+		// }
 		var series = []
-		for(var i = 0; i < res.rows.length; i++) {
-			var row=res.rows[i]
+		for(var row of res.rows) {
 			try {
-				var serie = new internal.serie({
-					id:row.id,
-					var: await this.getVar(row.var_id),
-					procedimiento: await this.getProcedimiento(row.proc_id), 
-					unidades: await this.getUnidad(row.unit_id)
-				})
+				var serie = new internal.serie(row)
 			} catch(e) {
 				if(release_client) {
 					client.release()
 				}
 				throw(e)
 			}
-			if(filter.timestart && filter.timeend) {
+			if(filter.timestart && filter.timeend && !options.no_data) {
 				options.print_observaciones = true
 				try {
 					if(options.guardadas) {
@@ -8009,46 +8411,46 @@ internal.CRUD = class {
 					serie.getWeibullPercentiles()
 				}
 			} 
-			if(tipo && tipo.toUpperCase() == "AREAL") {
-				tipo = "areal"
-				try {
-					serie.estacion = await this.getArea(row.area_id,{no_geom:true})
-					serie.fuente = await this.getFuente(row.fuentes_id)
-					serie.date_range = row.date_range
-				} catch(e){
-					if(release_client) {
-						client.release()
-					}	
-					throw(e)
-				}
+			// if(tipo && tipo.toUpperCase() == "AREAL") {
+			// 	tipo = "areal"
+			// 	try {
+			// 		serie.estacion = await this.getArea(row.area_id,{no_geom:true})
+			// 		serie.fuente = await this.getFuente(row.fuentes_id)
+			// 		serie.date_range = row.date_range
+			// 	} catch(e){
+			// 		if(release_client) {
+			// 			client.release()
+			// 		}	
+			// 		throw(e)
+			// 	}
 				
-			} else if (tipo && (tipo.toUpperCase() == "RAST" || tipo.toUpperCase() == "RASTER")) {
-				tipo="raster"
-				try {
-					serie.estacion = await this.getEscena(row.escena_id)
-					serie.fuente = await this.getFuente(row.fuentes_id)
-				} catch(e) {
-					if(release_client) {
-						client.release()
-					}	
-					throw(e)
-				}
-				serie.date_range = row.date_range
-				//~ const s = new internal.serie(row.area_id, row.var_id, row.proc_id, row.unit_id, "areal", row.fuentes_id)		
-			} else { // puntual
-				tipo="puntual"
-				try {
-					serie.estacion = await this.getEstacion(row.estacion_id)
-				} catch(e) {
-					if(release_client) {
-						client.release()
-					}	
-					throw(e)
-				}
-				serie.date_range = row.date_range
-				//~ const s = new internal.serie(row.estacion_id, row.var_id, row.proc_id, row.unit_id, "puntual")
-			}
-			serie.tipo = tipo
+			// } else if (tipo && (tipo.toUpperCase() == "RAST" || tipo.toUpperCase() == "RASTER")) {
+			// 	tipo="raster"
+			// 	try {
+			// 		serie.estacion = await this.getEscena(row.escena_id)
+			// 		serie.fuente = await this.getFuente(row.fuentes_id)
+			// 	} catch(e) {
+			// 		if(release_client) {
+			// 			client.release()
+			// 		}	
+			// 		throw(e)
+			// 	}
+			// 	serie.date_range = row.date_range
+			// 	//~ const s = new internal.serie(row.area_id, row.var_id, row.proc_id, row.unit_id, "areal", row.fuentes_id)		
+			// } else { // puntual
+			// 	tipo="puntual"
+			// 	try {
+			// 		serie.estacion = await this.getEstacion(row.estacion_id)
+			// 	} catch(e) {
+			// 		if(release_client) {
+			// 			client.release()
+			// 		}	
+			// 		throw(e)
+			// 	}
+			// 	serie.date_range = row.date_range
+			// 	//~ const s = new internal.serie(row.estacion_id, row.var_id, row.proc_id, row.unit_id, "puntual")
+			// }
+			// serie.tipo = tipo
 			if(options.getStats) {
 				await serie.getStats(client)	
 			}
@@ -8097,7 +8499,16 @@ internal.CRUD = class {
 		if(release_client) {
 			await client.release()
 		}
-		return series
+		if(options.pagination) {
+			return {
+				rows: series,
+				total: total,
+				is_last_page: is_last_page,
+				next_offset: next_offset // (is_last_page) ? undefined : offset + filter.limit
+			}
+		} else {
+			return series
+		}
 	}
 
 	static async getPercentiles(tipo="puntual",series_id,percentiles,isPublic) {
@@ -16028,112 +16439,6 @@ ORDER BY cal.cal_id`
 			}
 		})
 	}
-	
-	static async getMonitoredAreas2(format="json",filter={},req,options={}) {
-		var page_limit = filter.limit ?? config.pagination.default_limit
-		page_limit = parseInt(page_limit)
-		if (page_limit > config.pagination.max_limit) {
-			throw(new Error("limit exceeds maximum records per page (" + config.pagination.max_limit) + ")")
-		}
-		var page_offset = filter.offset ?? 0
-		page_offset = parseInt(page_offset)
-		var filter_string = internal.utils.control_filter2(
-			{
-				"series_id": {type: "integer", table: "series_areal_json", column:"id"},
-				"var_id": {type: "integer", table: "series_areal_json"},
-				"proc_id": {type: "integer", table: "series_areal_json"},
-				"unit_id": {type: "integer", table: "series_areal_json"},
-				"estacion_id": {type: "integer", table: "series_areal_json"},
-				"area_id": {type: "integer", table: "series_areal_json", column: "estacion_id"},
-				"fuentes_id": {type: "integer", table: "series_areal_json"},
-				"red_id": {type: "integer", table: "series_areal_json", column:"red_id"},
-				"proc_id": {type: "integer", table: "series_areal_json"},
-				"geom": {type: "geometry", table: "series_areal_json", column: "extent"},
-				"public": {type: "boolean", table: "series_areal_json"},
-				"cal_id": {type: "integer", table: "series_prono_date_range_last"},
-				"cal_grupo_id": {type: "integer", table: "series_prono_date_range_last"},
-				"search": {
-					type: "search", 
-					table: "series_areal_json", 
-					columns: [
-						{name: "tabla"},
-						{name: "nombre"},
-						{name: "estacion_id"},
-						{name: "id_externo"},
-						{name: "rio"},
-						{name: "var_nombre"},
-						{name: "fuentes_nombre"}
-					],
-					case_insensitive: true
-				}
-			},
-			filter,
-			"series_areal_json"
-		)
-		var order_by_string = internal.utils.build_order_by_clause(
-			{
-				series_id:{table: "series_areal", column: "id"},
-				area_id:{table: "series_areal",column: "area_id"},
-				nombre:{table: "areas_pluvio"},
-				geom:{function: "st_xmin(areas_pluvio.geom)"},
-				longitud:{function: "st_xmin(areas_pluvio.geom)"},
-				latitud:{function: "st_ymin(areas_pluvio.geom)"},
-				rio:{table: "estaciones"},
-				var_id:{table: "series_areal"},
-				var_name:{table: "var", column: "nombre"},
-				proc_id:{table: "series_areal"},
-				unit_id:{table: "series_areal"},
-				timestart:{table: "series_areal_date_range"},
-				timeend:{table: "series_areal_date_range"},
-				count:{table: "series_areal_date_range"},
-				forecast_date:{table: "series_prono_date_range_last", column: "forecast_date"},
-				data_availability:{},
-				tabla:{table: "estaciones", column: "tabla"},
-				fuentes_id:{table: "series_areal"},
-				id_externo:{table: "estaciones"}
-			},
-			options.sort,
-			undefined,
-			[
-				"area_id",
-				"fuentes_id",
-				"var_id",
-				"proc_id"
-			],
-			options.order
-		)
-		var [limit,pagination,page_offset,limit_string] = internal.utils.getLimitString(page_limit,filter.offset)
-		if(filter.data_availability && ["h","n","c","r"].indexOf(filter.data_availability) >= 0) {
-			filter.has_obs = true
-		}
-		if(filter.has_obs) {
-			if(filter.data_availability) {
-				switch(filter.data_availability.toLowerCase().substring(0,1)) {
-					case "r":
-						filter_string += " AND now() - series_areal_date_range.timeend < '1 days'::interval"
-						break;
-					case "n":
-						filter_string +=  " AND now() - series_areal_date_range.timeend < '3 days'::interval"
-						break;
-					case "c":
-						filter_string += " AND (series_areal_date_range.timestart <= coalesce($2,now())) and (series_areal_date_range.timeend >= coalesce($1,now()-'90 days'::interval))"
-						break;
-					case "h":
-						break;
-					default:
-						break;
-				}
-			}
-			var series_range_join = ""
-		} else {
-			var series_range_join = "LEFT OUTER"
-		}
-		if(filter.has_prono) {
-			var pronos_join = "JOIN"
-		} else {
-			var pronos_join = "LEFT OUTER JOIN"
-		}
-	}
 
 	static async getMonitoredAreas(format="json",filter={},req,options={}) {
 		var page_limit = filter.limit ?? config.pagination.default_limit
@@ -17282,6 +17587,45 @@ ORDER BY cal.cal_id`
 }
 
 internal.utils = {
+	getPageProperties: function(limit,offset,rows) {
+		if(!limit) {
+			return [undefined,undefined,undefined]
+		}
+		offset = (offset) ? offset : 0 
+		var total = (rows.length) ? rows[0].total : 0
+		var is_last_page = (rows.length < limit || offset + limit >= total) ? true : false
+		var next_offset = (is_last_page) ? undefined : offset + limit
+		return [total, is_last_page, next_offset]
+	},
+	get_data_availability_string: function(data_availability,has_obs) {
+		var filter_string = ""
+		if(data_availability && ["h","n","c","r"].indexOf(data_availability) >= 0) {
+			has_obs = true
+		}
+		if(has_obs) {
+			if(data_availability) {
+				switch(data_availability.toLowerCase().substring(0,1)) {
+					case "r":
+						filter_string += " AND now() - date_range.timeend < '1 days'::interval"
+						break;
+					case "n":
+						filter_string +=  " AND now() - date_range.timeend < '3 days'::interval"
+						break;
+					case "c":
+						filter_string += " AND (date_range.timestart <= coalesce($2,now())) and (date_range.timeend >= coalesce($1,now()-'90 days'::interval))"
+						break;
+					case "h":
+						break;
+					default:
+						break;
+				}
+			}
+			var series_range_join = ""
+		} else {
+			var series_range_join = "LEFT OUTER"
+		}
+		return [filter_string,series_range_join]
+	},
 	validate_with_model: function (instance,model) {
 		if(!schemas.hasOwnProperty(model)) {
 			throw("model " + model + " no encontrado en schema")
@@ -17594,6 +17938,19 @@ internal.utils = {
 						filter_string += " AND " + fullkey  + " ~* '" + filter[key] + "'"
 					}
 				// qualifiers::jsonb ?& array['1']
+				} else if(valid_filters[key].type == "data_availability") {
+					var d_a_values = ["H","C","NRT","RT"]
+					if(filter[key].toLowerCase() == "r" || filter[key].toLowerCase() == "rt") {
+						d_a_values = ["RT"]
+					} else if(filter[key].toLowerCase() == "n" || filter[key].toLowerCase() == "nrt") {
+						d_a_values = ["NRT","RT"]
+					} else if(filter[key].toLowerCase() == "c") {
+						d_a_values = ["C","NRT","RT"]
+					} else if(filter[key].toLowerCase() == "h") {
+						d_a_values = ["H","C","NRT","RT"]
+					} 
+					var d_a_values_string = d_a_values.map(v=>`'${v}'`).join(",")
+					filter_string += `AND ${fullkey} IN (${d_a_values_string})`
 				} else {
 					if(Array.isArray(filter[key])) {
 						if(filter[key].length) {
