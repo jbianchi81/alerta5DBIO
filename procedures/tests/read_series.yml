@@ -595,3 +595,796 @@ sequence:
       property_name: estacion.id
       property_value: 363
       index: 1
+- procedureName: ReadProcedure
+  # puntual con pronos
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      proc_id: [1,2,6]
+      has_prono: true
+      limit: 2500
+    output: ../../tmp/series_puntual_con_prono.json
+    options:
+      pretty: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      property_name: pronosticos
+      min_length: 1
+      all: true
+- procedureName: ReadProcedure
+  # puntual con pronos sin metadata
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      proc_id: [1,2,6]
+      has_prono: true
+      limit: 2500
+    output: ../../tmp/series_puntual_con_prono_no_md.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      property_name: geom.coordinates
+      min_length: 2
+      max_length: 2
+      all: true
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: geom.type
+      property_value: Point
+  - testName: PropertyIsEqualOrGreaterThanTest
+    arguments:
+      property_name: forecast_date
+      property_value:
+        years: -1
+      all: true
+- procedureName: ReadProcedure
+  # areal con pronos
+  arguments:
+    class_name: serie
+    filter:
+      tipo: areal
+      has_prono: true
+      limit: 2500
+    output: ../../tmp/series_areal_con_prono.json
+    options:
+      pretty: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      property_name: pronosticos
+      min_length: 1
+      all: true
+- procedureName: ReadProcedure
+  # areal con pronos sin metadata
+  arguments:
+    class_name: serie
+    filter:
+      tipo: areal
+      has_prono: true
+      limit: 2500
+    output: ../../tmp/series_areal_con_prono_no_md.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: PropertyIsEqualOrGreaterThanTest
+    arguments:
+      property_name: forecast_date
+      property_value:
+        years: -1
+      all: true
+- procedureName: ReadProcedure
+  # puntual con pronos filter by cal_id
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      cal_id: 492
+      limit: 2500
+    output: ../../tmp/series_areal_filter_cal_id.json
+    options:
+      pretty: true
+  tests:
+  - testName: PropertyIsEqualOrGreaterThanTest
+    arguments:
+      parent_property: pronosticos
+      property_name: forecast_date
+      property_value:
+        years: -1
+      all: true
+  - testName: PropertyEqualsTest
+    arguments:
+      parent_property: pronosticos
+      property_name: cal_id
+      property_value: 492
+      all: true
+- procedureName: ReadProcedure
+  # puntual con pronos filter by cal_id no md
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      cal_id: 492
+      limit: 2500
+    output: ../../tmp/series_areal_filter_cal_id_no_md.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: PropertyIsEqualOrGreaterThanTest
+    arguments:
+      property_name: forecast_date
+      property_value:
+        years: -1
+      all: true
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 6
+      max_length: 6
+- procedureName: ReadProcedure
+  # puntual con pronos filter by cal_grupo_id
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      cal_grupo_id: 1
+      limit: 2500
+    output: ../../tmp/series_areal_filter_cal_grupo_id.json
+    options:
+      pretty: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      property_name: pronosticos
+      min_length: 1
+      max_length: 1
+      all: true
+  - testName: PropertyIsEqualOrGreaterThanTest
+    arguments:
+      parent_property: pronosticos
+      property_name: forecast_date
+      property_value:
+        years: -1
+      all: true
+  - testName: PropertyEqualsTest
+    arguments:
+      parent_property: pronosticos
+      property_name: cal_grupo_id
+      property_value: 1
+      all: true
+- procedureName: ReadProcedure
+  # puntual con pronos filter by cal_grupo_id no md
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      cal_grupo_id: 1
+      limit: 2500
+    output: ../../tmp/series_areal_filter_cal_grupo_id_no_md.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: PropertyIsEqualOrGreaterThanTest
+    arguments:
+      property_name: forecast_date
+      property_value:
+        years: -1
+      all: true
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 40
+- procedureName: ReadProcedure
+  # puntual filter by geom box
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      geom: "-58,-33,-57,-32"
+      limit: 2500
+    output: ../../tmp/series_puntual_bbox.json
+    options:
+      pretty: true
+      include_geom: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+  - testName: PropertyIsEqualOrGreaterThanTest
+    arguments:
+      property_name: estacion.geom.coordinates.0
+      property_value: -58
+      all: true
+  - testName: PropertyIsEqualOrSmallerThanTest
+    arguments:
+      property_name: estacion.geom.coordinates.0
+      property_value: -57
+      all: true
+  - testName: PropertyIsEqualOrGreaterThanTest
+    arguments:
+      property_name: estacion.geom.coordinates.1
+      property_value: -33
+      all: true
+  - testName: PropertyIsEqualOrSmallerThanTest
+    arguments:
+      property_name: estacion.geom.coordinates.1
+      property_value: -32
+      all: true
+- procedureName: ReadProcedure
+  # puntual filter by geom point
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      geom: "-57.65,-32.69"
+      limit: 2500
+    output: ../../tmp/series_puntual_point.json
+    options:
+      pretty: true
+      include_geom: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: estacion.geom.coordinates.0
+      property_value: -57.65
+      all: true
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: estacion.geom.coordinates.1
+      property_value: -32.69
+      all: true
+- procedureName: ReadProcedure
+  # areal filter by geom box (intersects)
+  arguments:
+    class_name: serie
+    filter:
+      tipo: areal
+      var_id: 15
+      fuentes_id: 3
+      geom: "-58,-33,-57,-32"
+      limit: 2500
+    output: ../../tmp/series_areal_bbox.json
+    options:
+      pretty: true
+      include_geom: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 6
+      max_length: 6
+- procedureName: ReadProcedure
+  # areal filter by geom point (contains)
+  arguments:
+    class_name: serie
+    filter:
+      tipo: areal
+      var_id: 15
+      fuentes_id: 3
+      geom: "-57.65,-32.69"
+      limit: 2500
+    output: ../../tmp/series_areal_point.json
+    options:
+      pretty: true
+      include_geom: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: ReadProcedure
+  # puntual sort by estacion asc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      var_id: 2
+      proc_id: 1
+      unit_id: 11
+      limit: 250
+    output: ../../tmp/series_sorted_estacion.json
+    options:
+      pretty: true
+      no_metadata: true
+      sort: estacion_id
+      order: asc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 250
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: estacion_id
+- procedureName: ReadProcedure
+  # puntual sort by var asc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      estacion_id: 2830
+      proc_id: 1
+      unit_id: 11
+      limit: 250
+    output: ../../tmp/series_sorted_var.json
+    options:
+      pretty: true
+      no_metadata: true
+      sort: var_id
+      order: asc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 250
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: var_id
+- procedureName: ReadProcedure
+  # puntual sort by proc asc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      estacion_id: 2830
+      var_id: 2
+      unit_id: 11
+      limit: 250
+    output: ../../tmp/series_sorted_proc.json
+    options:
+      pretty: true
+      no_metadata: true
+      sort: proc_id
+      order: asc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 250
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: proc_id
+- procedureName: ReadProcedure
+  # puntual sort by unit asc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      estacion_id: 2830
+      proc_id: [1,2]
+      limit: 250
+    output: ../../tmp/series_sorted_unit.json
+    options:
+      pretty: true
+      no_metadata: true
+      sort: unit_id
+      order: asc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 250
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: unit_id
+- procedureName: ReadProcedure
+  # puntual sort by serie asc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 250
+    output: ../../tmp/series_sorted.json
+    options:
+      pretty: true
+      no_metadata: true
+      sort: id
+      order: asc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 250
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: id
+- procedureName: ReadProcedure
+  # puntual sort by var_name asc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      tabla: sat2
+      limit: 2500
+    output: ../../tmp/series_sorted.json
+    options:
+      pretty: true
+      sort: var_name
+      order: asc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 2500
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: var.nombre
+- procedureName: ReadProcedure
+  # puntual sort by timestart asc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      tabla: sat2
+      has_obs: true
+      limit: 2500
+    output: ../../tmp/series_sorted.json
+    options:
+      pretty: true
+      sort: timestart
+      order: asc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 2500
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: date_range.timestart
+- procedureName: ReadProcedure
+  # puntual sort by timeend asc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      tabla: sat2
+      has_obs: true
+      limit: 2500
+    output: ../../tmp/series_sorted.json
+    options:
+      pretty: true
+      sort: timeend
+      order: asc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 2500
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: date_range.timeend
+- procedureName: ReadProcedure
+  # puntual sort by count asc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      tabla: sat2
+      has_obs: true
+      limit: 2500
+    output: ../../tmp/series_sorted.json
+    options:
+      pretty: true
+      no_metadata: true
+      sort: count
+      order: asc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 2500
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: count
+- procedureName: ReadProcedure
+  # puntual sort by forecast_date asc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      has_prono: true
+      limit: 2500
+    output: ../../tmp/series_sorted.json
+    options:
+      pretty: true
+      no_metadata: true
+      sort: forecast_date
+      order: asc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 2500
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: forecast_date
+- procedureName: ReadProcedure
+  # puntual sort by data_availability asc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 2500
+    output: ../../tmp/series_sorted.json
+    options:
+      pretty: true
+      no_metadata: true
+      sort: data_availability
+      order: asc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 2500
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: data_availability
+- procedureName: ReadProcedure
+  # puntual sort by estacion desc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      var_id: 2
+      proc_id: 1
+      unit_id: 11
+      limit: 250
+    output: ../../tmp/series_sorted_estacion.json
+    options:
+      pretty: true
+      no_metadata: true
+      sort: estacion_id
+      order: desc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 250
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: estacion_id
+      order: desc
+- procedureName: ReadProcedure
+  # puntual sort by var desc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      estacion_id: 2830
+      proc_id: 1
+      unit_id: 11
+      limit: 250
+    output: ../../tmp/series_sorted_var.json
+    options:
+      pretty: true
+      no_metadata: true
+      sort: var_id
+      order: desc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 250
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: var_id
+      order: desc
+- procedureName: ReadProcedure
+  # puntual sort by proc desc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      estacion_id: 2830
+      var_id: 2
+      unit_id: 11
+      limit: 250
+    output: ../../tmp/series_sorted_proc.json
+    options:
+      pretty: true
+      no_metadata: true
+      sort: proc_id
+      order: desc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 250
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: proc_id
+      order: desc
+- procedureName: ReadProcedure
+  # puntual sort by unit desc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      estacion_id: 2830
+      proc_id: [1,2]
+      limit: 250
+    output: ../../tmp/series_sorted_unit.json
+    options:
+      pretty: true
+      no_metadata: true
+      sort: unit_id
+      order: desc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 250
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: unit_id
+      order: desc
+- procedureName: ReadProcedure
+  # puntual sort by serie desc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 250
+    output: ../../tmp/series_sorted.json
+    options:
+      pretty: true
+      no_metadata: true
+      sort: id
+      order: desc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 250
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: id
+      order: desc
+- procedureName: ReadProcedure
+  # puntual sort by var_name desc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      tabla: sat2
+      limit: 2500
+    output: ../../tmp/series_sorted.json
+    options:
+      pretty: true
+      sort: var_name
+      order: desc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 2500
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: var.nombre
+      order: desc
+- procedureName: ReadProcedure
+  # puntual sort by timestart desc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      tabla: sat2
+      has_obs: true
+      limit: 2500
+    output: ../../tmp/series_sorted.json
+    options:
+      pretty: true
+      sort: timestart
+      order: desc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 2500
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: date_range.timestart
+      order: desc
+- procedureName: ReadProcedure
+  # puntual sort by timeend desc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      tabla: sat2
+      has_obs: true
+      limit: 2500
+    output: ../../tmp/series_sorted.json
+    options:
+      pretty: true
+      sort: timeend
+      order: desc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 2500
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: date_range.timeend
+      order: desc
+- procedureName: ReadProcedure
+  # puntual sort by count desc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      tabla: sat2
+      has_obs: true
+      limit: 2500
+    output: ../../tmp/series_sorted.json
+    options:
+      pretty: true
+      no_metadata: true
+      sort: count
+      order: desc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 2500
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: count
+      order: desc
+- procedureName: ReadProcedure
+  # puntual sort by forecast_date desc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      has_prono: true
+      limit: 2500
+    output: ../../tmp/series_sorted.json
+    options:
+      pretty: true
+      no_metadata: true
+      sort: forecast_date
+      order: desc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 2500
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: forecast_date
+      order: desc
+- procedureName: ReadProcedure
+  # puntual sort by data_availability desc
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 2500
+    output: ../../tmp/series_sorted.json
+    options:
+      pretty: true
+      no_metadata: true
+      sort: data_availability
+      order: desc
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 2500
+  - testName: ArrayIsOrderedTest
+    arguments:
+      property_name: data_availability
+      order: desc
+
+

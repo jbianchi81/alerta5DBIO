@@ -1837,6 +1837,9 @@ internal.serie = class extends baseModel {
 		return (tipo.toUpperCase() == "AREAL") ? "series_areal" : (tipo.toUpperCase() == "RAST" || tipo.toUpperCase() == "RASTER") ? "series_rast" : "series"
 	}
 
+	static getFeatureIdColumn(tipo) {
+		return (tipo.toUpperCase() == "AREAL") ? "area_id" : (tipo.toUpperCase() == "RAST" || tipo.toUpperCase() == "RASTER") ? "escena_id" : "estacion_id"
+	}
 
 	async create(options) {
 		const result = await internal.CRUD.upsertSerie(this,options)
@@ -2446,7 +2449,10 @@ internal.serie.build_read_query = function(filter={},options={}) {
 	var date_range_query = `
 		${series_range_join} JOIN (
 			SELECT 
-				"${date_range_table}".*,
+				"${date_range_table}".series_id::int,
+				"${date_range_table}".timestart::timestamptz,
+				"${date_range_table}".timeend::timestamptz,
+				"${date_range_table}".count::int,
 				CASE WHEN "${date_range_table}".timeend IS NOT NULL
 					THEN 
 						CASE WHEN now() - "${date_range_table}".timeend < '1 days'::interval
@@ -2457,7 +2463,7 @@ internal.serie.build_read_query = function(filter={},options={}) {
 							THEN 'C'
 						ELSE 'H'
 						END
-					ELSE 'N'
+					ELSE NULL
 				END AS data_availability
 			FROM "${date_range_table}"
 		) AS date_range ON (
@@ -2473,16 +2479,20 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		filter,
 		"series_prono_date_range_last"
 	)
-	if(filter.has_prono) {
+	if(filter.has_prono || filter.cal_id || filter.cal_grupo_id) {
 		var pronos_join = "JOIN"
 	} else {
 		var pronos_join = "LEFT OUTER JOIN"
 	}
 	var pronos_grouped_query = `${pronos_join} (SELECT
-		series_id,
 		series_table,
+		estacion_id,
+		var_id,
+		max(forecast_date)::timestamptz AS forecast_date,
 		json_agg(
 			json_build_object(
+				'series_id', series_id,
+				'series_table', series_table,
 				'begin_date',begin_date,
 				'end_date',end_date,
 				'count',count,
@@ -2496,18 +2506,22 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		WHERE 1=1
 		${pronos_filter_string}
 		GROUP BY
-			series_id,
-			series_table
+			series_table,
+			estacion_id,
+			var_id
 	) AS pronos ON (
-		pronos.series_id=series.id
+		pronos.estacion_id=series.${internal.serie.getFeatureIdColumn(tipo)}
+		AND pronos.var_id=series.var_id
 		AND pronos.series_table='${internal.serie.getSeriesTable(tipo)}'
 	)`
 	//					SORT
 	var sort_fields = {
-		series_id:{column: "id",
+		id:{column: "id",
 			table: "series"},
-		estacion_id:{
-			table: "series"},
+		estacion_id: {
+			table: "series",
+			column: internal.serie.getFeatureIdColumn(tipo),
+		},
 		var_id:{
 			table: "series"},
 		var_name:{table: "var", column: "nombre"},
@@ -2524,7 +2538,11 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		forecast_date:{
 			table: "pronos"},
 		data_availability:{
-			table: "date_range"}
+			table: null}
+	}
+	sort_fields[internal.serie.getFeatureIdColumn(tipo)] = {
+		table: "series",
+		column: internal.serie.getFeatureIdColumn(tipo)
 	}
 	//						PAGINATION
 	var page_limit = filter.limit ?? config.pagination.default_limit
@@ -2550,6 +2568,7 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		var select_fields = [
 			`'${tipo}' AS tipo`,
 			"series.id AS id",
+			"procedimiento.id AS proc_id",
 			"procedimiento.nombre AS proc_nombre",
 			"var.id AS var_id",
 			"var.nombre AS var_nombre",
@@ -2559,7 +2578,18 @@ internal.serie.build_read_query = function(filter={},options={}) {
 			`date_range.timestart AS timestart`,
 			`date_range.timeend AS timeend`,
 			`date_range.count AS count`,
-			`date_range.data_availability AS data_availability`
+			`CASE WHEN date_range.data_availability IS NOT NULL
+			THEN CASE WHEN pronos.forecast_date IS NOT NULL
+				THEN date_range.data_availability || '+S'::text
+				ELSE date_range.data_availability
+				END
+			ELSE CASE WHEN pronos.forecast_date IS NOT NULL
+				THEN 'S'
+				ELSE 'N'
+				END
+			END
+			AS data_availability`,
+			`pronos.forecast_date AS forecast_date`
 		]
 	} else {
 		var select_fields = [
@@ -2597,8 +2627,18 @@ internal.serie.build_read_query = function(filter={},options={}) {
 				'timestart', date_range.timestart, 
 				'timeend', date_range.timeend, 
 				'count', date_range.count,
-				'data_availability', date_range.data_availability
+				'data_availability', CASE WHEN date_range.data_availability IS NOT NULL
+					THEN CASE WHEN pronos.forecast_date IS NOT NULL
+						THEN date_range.data_availability || '+S'::text
+						ELSE date_range.data_availability
+						END
+					ELSE CASE WHEN pronos.forecast_date IS NOT NULL
+						THEN 'S'
+						ELSE 'N'
+						END
+					END
 			) AS date_range`,
+			`pronos.forecast_date AS forecast_date`,
 			`pronos.pronosticos AS pronosticos`
 		]
 	}
@@ -2644,7 +2684,7 @@ internal.serie.build_read_query = function(filter={},options={}) {
 				table: "areas_pluvio"
 			}
 		}}
-		sort_fields = {sort_fields,...{
+		sort_fields = {...sort_fields,...{
 			nombre:{table: "areas_pluvio"},
 			geom:{function: "st_xmin(areas_pluvio.geom)"},
 			longitud:{function: "st_xmin(areas_pluvio.geom)"},
@@ -2659,13 +2699,13 @@ internal.serie.build_read_query = function(filter={},options={}) {
 			`JOIN fuentes 
 				ON (fuentes.id=series.fuentes_id)`,
 			`JOIN areas_pluvio 
-				ON (areas_pluvio.id=series.area_id)`,
+				ON (areas_pluvio.unid=series.area_id)`,
 			`LEFT JOIN estaciones 
 				ON (estaciones.unid = areas_pluvio.exutorio_id)`
 		]]
 		if(options.no_metadata) {
 			select_fields = [...select_fields,...[
-				"area_id AS estacion_id",
+				"series.area_id AS estacion_id",
 				"areas_pluvio.nombre AS estacion_nombre",
 				"fuentes.id AS fuentes_id",
 				"fuentes.nombre AS fuentes_nombre"
@@ -2745,7 +2785,7 @@ internal.serie.build_read_query = function(filter={},options={}) {
 				case_insensitive: true
 			}
 		}}
-		sort_fields = {sort_fields,...{
+		sort_fields = {...sort_fields,...{
 			nombre:{table: "escenas"},
 			geom:{function: "st_xmin(escenas.geom)"},
 			longitud:{function: "st_xmin(escenas.geom)"},
@@ -2852,7 +2892,7 @@ internal.serie.build_read_query = function(filter={},options={}) {
 				case_insensitive: true
 			}
 		}}
-		sort_fields = {sort_fields,...{
+		sort_fields = {...sort_fields,...{
 			nombre:{table: "estaciones"},
 			rio:{table: "estaciones"},
 			propietario:{table: "estaciones"},
@@ -2879,11 +2919,11 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		]]
 		if(options.no_metadata) {
 			select_fields = [...select_fields,...[
-				"estacion_id AS estacion_id",
+				"series.estacion_id AS estacion_id",
 				"estaciones.nombre AS estacion_nombre",
 				"estaciones.id_externo AS id_externo",
 				"estaciones.tabla AS tabla",
-				"st_asgeojson(geom) AS geom",
+				"st_asgeojson(estaciones.geom)::json AS geom",
 				"redes.nombre AS red_nombre",
 				"redes.public AS public"
 			]]
@@ -2951,7 +2991,9 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		throw "invalid tipo"
 	}
 	var filter_string=internal.utils.control_filter2(valid_filters,filter)
+	// console.log({filter:filter,filter_string:filter_string})
 	var order_string = internal.utils.build_order_by_clause(sort_fields,options.sort,"series",["estacion_id","var_id","proc_id"],options.order)
+	// console.log({order_string:order_string,sort:options.sort,order:options.order})
 	select_fields.push(`count(*) OVER() AS total`)
 	return `SELECT  ${select_fields.join(", \n")}  
 		FROM ${table} AS series 
@@ -17736,7 +17778,7 @@ internal.utils = {
 				if(valid_fields[key].function) {
 					sort_by_fields.push(`${valid_fields[key].function}${order_string}`)
 				} else {
-					var table = valid_fields[key].table ?? default_table
+					var table = (valid_fields[key].table !== undefined) ? valid_fields[key].table : default_table
 					var column = valid_fields[key].column ?? key
 					if(table) {
 						sort_by_fields.push(`"${table}"."${column}"${order_string}`)

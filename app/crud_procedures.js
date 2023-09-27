@@ -396,6 +396,7 @@ internal.ArrayLengthTest = class extends internal.CrudProcedureTest {
         this.min_length = (args.min_length) ? args.min_length : 1
         this.max_length = args.max_length
         this.property_name = (args.property_name) ? args.property_name : undefined
+        this.all = args.all ? args.all : false
     }
     run(result) {
         var value = true
@@ -408,51 +409,166 @@ internal.ArrayLengthTest = class extends internal.CrudProcedureTest {
                         reason: "Result must be of length>0"
                     }
                 } else {
-                    var array =result[0][this.property_name] 
+                    if(this.all) {
+                        for(var i in result) {
+                            var property_value = getDeepValue(result[i],this.property_name)
+                            var fail_reason = this.checkArrayLength(property_value,`Result index ${i} property ${this.property_name}`)
+                            if(fail_reason) {
+                                return {
+                                    value: false,
+                                    reason: fail_reason
+                                }
+                            }
+                        }
+                        return {
+                            value: true
+                        }
+                    } else {
+                        var property_value = getDeepValue(result[0],this.property_name)
+                        if(property_value === undefined) {
+                            return {
+                                value: false,
+                                reason: `Result index 0 property ${this.property_name} is undefined`
+                            }  
+                        }
+                        var array = property_value 
+                    }
                 }
             } else {
-               var array = result[this.property_name]
+               var array = getDeepValue(result,this.property_name)
             }
         } else {
             var array = result
         }
-        if(!array) {
+        var fail_reason = this.checkArrayLength(array)
+        if(fail_reason) {
             return {
                 value: false,
-                reason: "Result is undefined"
+                reason: fail_reason
             }
         }
+        return {
+            value: true
+        }
+    }
+
+    checkArrayLength(array,name="Result") {
+        if(array === undefined) {
+            return `${name} is undefined`
+        }
         if(!Array.isArray(array)) {
-            return {
-                value: false,
-                reason: "Result must be an Array"
-            }
+            return `${name} must be an Array`
         }
         if(this.min_length!=null && this.max_length!=null && this.min_length==this.max_length) {
             if(array.length!=this.min_length) {
-                return {
-                    value: false,
-                    reason: `Result array length (${array.length}) must be equal to ${this.min_length}`
-                }
+                return `${name} array length (${array.length}) must be equal to ${this.min_length}`
             }
         }
         if(array.length<this.min_length) {
-            return {
-                value: false,
-                reason: `Result array length (${array.length}) must be equal or greater than ${this.min_length}`
-            }
+            return `${name} array length (${array.length}) must be equal or greater than ${this.min_length}`
         }
         if(this.max_length && array.length > this.max_length) {
-            return {
-                value: false,
-                reason: `Result array length (${array.length}) must be equal or lower than ${this.max_length}`
+            return `${name} array length (${array.length}) must be equal or lower than ${this.max_length}`
+        }
+        return
+    }
+}
+
+internal.ArrayIsOrderedTest = class extends internal.CrudProcedureTest {
+    /**
+     *  Tests if array is ordered by a property.
+     * @param {Object} args
+     * @param {string} args.property_name 
+     * @param {string} args.order // asc (default) or desc 
+     * @param {string} args.parent_property
+     * @param {string} args.all
+     *  */
+    constructor(args) {
+        super(args)
+        this.testName = "ArrayIsOrderedTest"
+        if(!args.property_name) {
+            throw("Missing required parameter test.params.property_name")
+        }
+        this.property_name = args.property_name
+        this.desc = (args.order && args.order.toLowerCase() == "desc") ? true : false
+        this.parent_property = args.parent_property
+        this.all = args.all
+    }
+    run(result) {
+        var value = true
+        var reason
+        if(result instanceof Array) {
+            if(this.parent_property) {
+                for(var i in result) {
+                    if(result[i] instanceof Object === false) {
+                        value = false
+                        reason = `Result item ${i} must be an Object"`
+                        break
+                    }
+                    var parent_value = getDeepValue(result[i],this.parent_property)
+                    var fail_reason  = this.checkArrayOrder(parent_value,`Result item ${i} property ${this.parent_property}`)
+                    if(fail_reason) {
+                        value = false
+                        reason = fail_reason
+                        break
+                    }
+                }
+            } else {
+                var fail_reason = this.checkArrayOrder(result,`Result`)
+                if(fail_reason) {
+                    value = false
+                    reason = fail_reason
+                }
             }
+        } else if (result instanceof Object === false) {
+            value = false
+            reason = "Result must be an Object or array of Objects"
+        } else if(this.parent_property) {
+            var parent_value = getDeepValue(result,this.parent_property)
+            var fail_reason = this.checkArrayOrder(result,`Result property ${this.parent_property}`)
+            if(fail_reason) {
+                value = false
+                reason = fail_reason
+            }
+        } else {
+            value = false
+            reason = `Result must be an array or parent property must be indicated`
         }
         return {
             value: value,
             reason: reason
         }
     }
+
+    checkArrayOrder(node,name="Result") {
+        if(node === undefined) {
+            return `${name} undefined`
+        }
+        if(!Array.isArray(node)) {
+            return `${name} must be an array"`
+        }
+        for(var j=1;j<node.length;j++) {
+            var property_value_precedent = getDeepValue(node[j-1],this.property_name)
+            var property_value = getDeepValue(node[j],this.property_name)
+            if(typeof property_value_precedent == "string" && typeof property_value == "string") {
+                var compared = property_value_precedent.localeCompare(property_value)
+            } else if (property_value_precedent instanceof Date && property_value instanceof Date) {
+                var compared = (property_value_precedent.getTime() < property_value.getTime()) ? -1 : (property_value_precedent.getTime() == property_value.getTime()) ? 0 : 1
+            } else {
+                var compared = (property_value_precedent < property_value) ? -1 : (property_value_precedent == property_value) ? 0 : 1
+            }
+            if(this.desc) {
+                if(compared == -1) {
+                    return `${name} item ${j}: property ${this.property_name} is greater than precedent`
+                }
+            } else {
+                if(compared == 1) {
+                    return `${name} item ${j}: property ${this.property_name} is smaller than precedent`
+                }
+            }
+        }
+        return
+    }    
 }
 
 internal.PropertyExistsTest = class extends internal.CrudProcedureTest {
@@ -2407,44 +2523,44 @@ internal.ReadProcedure = class extends internal.CrudProcedure {
         if(!this.class) {
             throw("Bad parameter test.params.class_name: " + arguments[0].class_name + " is undefined")
         }
-        this.filter = (arguments[0].filter) ? arguments[0].filter : {}
-        if(this.filter.timestart) {
-            this.filter.timestart = DateFromDateOrInterval(this.filter.timestart)
-        }
-        if(this.filter.timeend) {
-            this.filter.timeend = DateFromDateOrInterval(this.filter.timeend)
-        }
-        if(this.filter.begin_position) {
-            this.filter.begin_position = DateFromDateOrInterval(this.filter.begin_position)
-        }
-        if(this.filter.end_position) {
-            this.filter.end_position = DateFromDateOrInterval(this.filter.end_position)
-        }
-        if(this.filter.forecast_date) {
-            this.filter.forecast_date = DateFromDateOrInterval(this.filter.forecast_date)
-        }
-        if(this.filter.timeupdate) {
-            this.filter.timeupdate = DateFromDateOrInterval(this.filter.timeupdate)
-        }
-        if(this.filter.date_range_before) {
-            this.filter.date_range_before = DateFromDateOrInterval(this.filter.date_range_before)
-        }
-        if(this.filter.date_range_after) {
-            this.filter.date_range_after = DateFromDateOrInterval(this.filter.date_range_after)
-        }
-        // if(!arguments[0].elements) {
-        //     if(!arguments[0].jsonfile) {
-        //         throw("Missing argument 'elements' or 'jsonfile'")
-        //     }
-        //     this.elements = fs.readFileSync(arguments[0].jsonfile,"utf-8")
-        //     this.elements = JSON.parse(this.elements)
-        // }
-        // if(Array.isArray(this.elements)) {
-        //     this.elements = arguments[0].elements.map(e=> new this.class(e))
-        // } else {
-        //     this.elements = [new this.class(arguments[0])]
-        // }
+        this.filter = this.parseFilter(arguments[0].filter)
     }
+
+    parseFilter(filter={}) {
+        if(filter.timestart) {
+            filter.timestart = DateFromDateOrInterval(filter.timestart)
+        }
+        if(filter.timeend) {
+            filter.timeend = DateFromDateOrInterval(filter.timeend)
+        }
+        if(filter.begin_position) {
+            filter.begin_position = DateFromDateOrInterval(filter.begin_position)
+        }
+        if(filter.end_position) {
+            filter.end_position = DateFromDateOrInterval(filter.end_position)
+        }
+        if(filter.forecast_date) {
+            filter.forecast_date = DateFromDateOrInterval(filter.forecast_date)
+        }
+        if(filter.timeupdate) {
+            filter.timeupdate = DateFromDateOrInterval(filter.timeupdate)
+        }
+        if(filter.date_range_before) {
+            filter.date_range_before = DateFromDateOrInterval(filter.date_range_before)
+        }
+        if(filter.date_range_after) {
+            filter.date_range_after = DateFromDateOrInterval(filter.date_range_after)
+        }
+        if(filter.geom) {
+            if(typeof filter.geom == 'string') {
+                filter.geom = new CRUD.geometry('BOX',filter.geom)
+            } else {
+                filter.geom = new CRUD.geometry(filter.geom)
+            }
+        }
+        return filter
+    }
+
     async run() {
         this.result = await this.class.read(this.filter,this.options)
         if(this.options.columns) {
@@ -2718,7 +2834,8 @@ internal.availableTests = {
     "PropertyAggEqualsTest": internal.PropertyAggEqualsTest,
     "PropertyIsEqualOrSmallerThanTest": internal.PropertyIsEqualOrSmallerThanTest,
     "PropertyIsEqualOrGreaterThanTest": internal.PropertyIsEqualOrGreaterThanTest,
-    "PropertyEqualsOneOfTest": internal.PropertyEqualsOneOfTest
+    "PropertyEqualsOneOfTest": internal.PropertyEqualsOneOfTest,
+    "ArrayIsOrderedTest": internal.ArrayIsOrderedTest
 }
 
 internal.CrudProcedureSequenceRunner = class {

@@ -657,6 +657,9 @@ internal.control_filter3 = function (model, filter, default_table, crud) {
 
 internal.getDeepValue = function(obj, path){
     for (var i=0, path=path.split('.'), len=path.length; i<len; i++){
+		if(obj === null) {
+			return
+		}
         obj = obj[path[i]];
         if(typeof obj == 'undefined') {
             break
