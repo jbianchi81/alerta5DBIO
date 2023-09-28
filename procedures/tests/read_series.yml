@@ -263,7 +263,7 @@ sequence:
   - testName: PropertyEqualsOneOfTest
     arguments:
       property_name: date_range.data_availability
-      property_value: ["H","C","NRT","RT"]
+      property_value: ["H","C","NRT","RT","H+S","C+S","NRT+S","RT+S"]
       all: true
   - testName: PropertyIsEqualOrGreaterThanTest
     arguments:
@@ -289,7 +289,7 @@ sequence:
   - testName: PropertyEqualsOneOfTest
     arguments:
       property_name: date_range.data_availability
-      property_value: ["C","NRT","RT"]
+      property_value: ["C","NRT","RT","C+S","NRT+S","RT+S"]
       all: true
   - testName: PropertyIsEqualOrGreaterThanTest
     arguments:
@@ -326,7 +326,7 @@ sequence:
   - testName: PropertyEqualsOneOfTest
     arguments:
       property_name: date_range.data_availability
-      property_value: ["C","NRT","RT"]
+      property_value: ["C","NRT","RT","C+S","NRT+S","RT+S"]
       all: true
   - testName: PropertyIsEqualOrGreaterThanTest
     arguments:
@@ -354,7 +354,7 @@ sequence:
   - testName: PropertyEqualsOneOfTest
     arguments:
       property_name: date_range.data_availability
-      property_value: ["NRT","RT"]
+      property_value: ["NRT","RT","NRT+S","RT+S"]
       all: true
   - testName: PropertyIsEqualOrGreaterThanTest
     arguments:
@@ -382,7 +382,7 @@ sequence:
   - testName: PropertyEqualsOneOfTest
     arguments:
       property_name: date_range.data_availability
-      property_value: ["RT"]
+      property_value: ["RT","RT+S"]
       all: true
   - testName: PropertyIsEqualOrGreaterThanTest
     arguments:
@@ -415,7 +415,7 @@ sequence:
   - testName: PropertyEqualsOneOfTest
     arguments:
       property_name: date_range.data_availability
-      property_value: ["RT"]
+      property_value: ["RT","RT+S"]
       all: true
   - testName: PropertyIsEqualOrGreaterThanTest
     arguments:
@@ -553,9 +553,10 @@ sequence:
     class_name: serie
     filter:
       tipo: areal
+      fuentes_id: 3
       data_availability: r
       limit: 50
-      offset: 50
+      offset: 200
     output: ../../tmp/series_areal_page_2.json
     options:
       pretty: true
@@ -571,7 +572,7 @@ sequence:
   - testName: PropertyIsEqualOrSmallerThanTest
     arguments:
       property_name: total
-      property_value: 99
+      property_value: 216
   - testName: ArrayLengthTest
     arguments:
       property_name: rows
@@ -593,7 +594,7 @@ sequence:
     arguments:
       parent_property: rows
       property_name: estacion.id
-      property_value: 363
+      property_value: 444
       index: 1
 - procedureName: ReadProcedure
   # puntual con pronos
@@ -637,42 +638,6 @@ sequence:
     arguments:
       property_name: geom.type
       property_value: Point
-  - testName: PropertyIsEqualOrGreaterThanTest
-    arguments:
-      property_name: forecast_date
-      property_value:
-        years: -1
-      all: true
-- procedureName: ReadProcedure
-  # areal con pronos
-  arguments:
-    class_name: serie
-    filter:
-      tipo: areal
-      has_prono: true
-      limit: 2500
-    output: ../../tmp/series_areal_con_prono.json
-    options:
-      pretty: true
-  tests:
-  - testName: ArrayLengthTest
-    arguments:
-      property_name: pronosticos
-      min_length: 1
-      all: true
-- procedureName: ReadProcedure
-  # areal con pronos sin metadata
-  arguments:
-    class_name: serie
-    filter:
-      tipo: areal
-      has_prono: true
-      limit: 2500
-    output: ../../tmp/series_areal_con_prono_no_md.json
-    options:
-      pretty: true
-      no_metadata: true
-  tests:
   - testName: PropertyIsEqualOrGreaterThanTest
     arguments:
       property_name: forecast_date
@@ -735,7 +700,7 @@ sequence:
       tipo: puntual
       cal_grupo_id: 1
       limit: 2500
-    output: ../../tmp/series_areal_filter_cal_grupo_id.json
+    output: ../../tmp/series_puntual_filter_cal_grupo_id.json
     options:
       pretty: true
   tests:
@@ -1386,5 +1351,251 @@ sequence:
     arguments:
       property_name: data_availability
       order: desc
-
-
+- procedureName: ReadProcedure
+  # puntual search id
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 2500
+      search: 1206
+      id: [1206]
+    output: ../../tmp/series_searched.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: ReadProcedure
+  # puntual search id mismatch
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 2500
+      search: 1207
+      id: [1206]
+    output: ../../tmp/series_searched.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: EmptyArrayTest
+    arguments: {}
+- procedureName: ReadProcedure
+  # puntual search by tabla
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 2500
+      search: estaciones_virtuales
+      id: [1206]
+    output: ../../tmp/series_searched.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: ReadProcedure
+  # puntual search by tabla mismatch
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 2500
+      search: alturas_prefe
+      id: [1206]
+    output: ../../tmp/series_searched.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: EmptyArrayTest
+    arguments: {}
+- procedureName: ReadProcedure
+  # puntual search by estacion.nombre
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 2500
+      search: santa rosa
+      id: [1206]
+    output: ../../tmp/series_searched.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: ReadProcedure
+  # puntual search by estacion.id
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 2500
+      search: 357
+      id: [1206]
+    output: ../../tmp/series_searched.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: ReadProcedure
+  # puntual search by estacion.id_externo
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 2500
+      search: 3030
+      id: [1]
+    output: ../../tmp/series_searched.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: ReadProcedure
+  # puntual search by estacion.rio
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 2500
+      search: GUALEGUAYCHU
+      id: [1]
+    output: ../../tmp/series_searched.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: ReadProcedure
+  # puntual search by estacion.distrito
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 2500
+      search: Entre Rios
+      id: [1]
+    output: ../../tmp/series_searched.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: ReadProcedure
+  # puntual search by estacion.pais
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 2500
+      search: Argentina
+      id: [1]
+    output: ../../tmp/series_searched.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: ReadProcedure
+  # puntual search by estacion.propietario
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 2500
+      search: SSRH
+      id: [102]
+    output: ../../tmp/series_searched.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: ReadProcedure
+  # puntual search by estacion.ubicacion
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 2500
+      search: partido
+      id: [36]
+    output: ../../tmp/series_searched.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: ReadProcedure
+  # puntual search by estacion.localidad
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 2500
+      search: quilmes
+      id: [26201]
+    output: ../../tmp/series_searched.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: ReadProcedure
+  # puntual search by estacion.var.nombre
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      limit: 2500
+      search: altura hidrométrica
+      id: [26201]
+    output: ../../tmp/series_searched.json
+    options:
+      pretty: true
+      no_metadata: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1

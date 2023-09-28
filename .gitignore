@@ -32,4 +32,5 @@ views/layouts/main_abs.handlebars
 .vscode
 sql/__pycache__
 public/rast
+public/planillas
 procedures/tests/outputs

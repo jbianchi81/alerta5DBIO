@@ -2638,7 +2638,7 @@ internal.UpdateProcedure = class extends internal.CrudProcedure {
         if(elements != null && !Array.isArray(elements)) {
             elements = [elements]
         }
-        if(!elements.length) {
+        if(!elements || !elements.length) {
             console.log("No elements matched filter criteria")
             return []
         } 

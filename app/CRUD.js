@@ -280,6 +280,34 @@ internal.red.build_read_query = function (filter) {
 
 internal.estacion = class extends baseModel  {
 	static _table_name = "estaciones"
+	static _foreign_key_fields = {
+		tabla: {type: "string", table: "redes", column: "tabla_id"}
+	}
+	static _fields = {
+		id: {type: "integer", primary_key: true},
+		nombre: {type: "string"},
+		id_externo: {type: "string"},
+		geom: {type: "object"},
+		provincia: {type: "string"},
+		pais: {type: "string"},
+		rio: {type: "string"},
+		has_obs: {type: "boolean"},
+		tipo: {type: "string"},
+		automatica: {type: "boolean"},
+		habilitar: {type: "boolean"},
+		propietario: {type: "string"},
+		abreviatura: {type: "string"},
+		URL: {type: "string"},
+		localidad: {type: "string"},
+		real: {type: "boolean"},
+		nivel_alerta: {type: "number"},
+		nivel_evacuacion: {type: "number"},
+		nivel_aguas_bajas: {type: "number"},
+		altitud: {type: "number"},
+		public: {type: "boolean"},
+		cero_ign: {type: "number"},
+		ubicacion: {type: "string"}
+	}
 	constructor() {
         super()
 		switch(arguments.length) {
@@ -488,6 +516,10 @@ internal.estacion = class extends baseModel  {
 	}
 	static async create(data,options) {
 		return internal.CRUD.upsertEstaciones(data,options)
+	}
+	async update(fields={}) {
+		this.set(fields)
+		return internal.CRUD.updateEstacion(this)
 	}
 	async delete() {
 		return internal.CRUD.deleteEstacion(this.id)
@@ -2669,6 +2701,7 @@ internal.serie.build_read_query = function(filter={},options={}) {
 				type: "search", 
 				table: "areas_pluvio", 
 				columns: [
+					{name: "id", table: "series"},
 					{name: "tabla", table: "estaciones"},
 					{name: "nombre"},
 					{name: "unid"},
@@ -2777,6 +2810,7 @@ internal.serie.build_read_query = function(filter={},options={}) {
 				type: "search", 
 				table: "escenas", 
 				columns: [
+					{name: "id", table: "series"},
 					{name: "nombre"},
 					{name: "id"},
 					{name: "nombre", table: "var"},
@@ -2878,15 +2912,17 @@ internal.serie.build_read_query = function(filter={},options={}) {
 				type: "search", 
 				table: "estaciones", 
 				columns: [
+					{name: "id", table: "series"},
 					{name: "tabla"},
 					{name: "nombre"},
 					{name: "unid"},
 					{name: "id_externo"},
 					{name: "rio"},
 					{name: "distrito"},
-					{name: "propietario", table: "estaciones"},
+					{name: "pais"},
+					{name: "propietario"},
 					{name: "ubicacion"},
-					{name: "localidad", table: "estaciones"},
+					{name: "localidad"},
 					{name: "nombre", table: "var"}
 				],
 				case_insensitive: true

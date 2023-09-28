@@ -94,7 +94,7 @@ app.use(express.urlencoded())
 //~ app.use(passport.initialize());
 //~ app.use(passport.session());
 //~ app.use(flash());
-//~ app.use('/planillas',auth.isWriter);
+app.use('/planillas',auth.isWriter);
 app.use(express.static('public', {
 	setHeaders: function (res, path, stat) {
 		res.set('x-timestamp', Date.now())
