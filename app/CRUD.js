@@ -12955,10 +12955,14 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 			return serie.observaciones.map(o=>{
 				o.series_id = (dest_series_id) ? dest_series_id : null
 				var valor = parseFloat(o.valor)
+				if(valor === undefined || valor == null || valor.toString() == 'NaN') {
+					return
+				}
 				o.valor = eval(expresion)
-				//console.log(`convert: ${valor} -> ${o.valor}`)
+				console.log(`convert: ${valor} -> ${o.valor}`)
 				return o
 			})
+			.filter(o=>o)
 		})
 		.then(observaciones=>{
 			if(dest_series_id) {
