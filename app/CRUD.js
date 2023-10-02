@@ -2574,7 +2574,7 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		column: internal.serie.getFeatureIdColumn(tipo)
 	}
 	//						PAGINATION
-	var page_limit = filter.limit ?? config.pagination.default_limit
+	var page_limit = (filter.limit) ? filter.limit : (config.pagination && config.pagination.default_limit) ? config.pagination.default_limit : undefined
 	page_limit = parseInt(page_limit)
 	if (page_limit > config.pagination.max_limit) {
 		throw(new Error("limit exceeds maximum records per page (" + config.pagination.max_limit) + ")")
@@ -12967,7 +12967,7 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 					return
 				}
 				o.valor = eval(expresion)
-				console.log(`convert: ${valor} -> ${o.valor}`)
+				// console.log(`convert: ${valor} -> ${o.valor}`)
 				return o
 			})
 			.filter(o=>o)
