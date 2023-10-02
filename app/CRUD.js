@@ -17526,7 +17526,7 @@ ORDER BY cal.cal_id`
 					console.log("crud.pruneObs: no series found")
 					return
 				}
-				series = series.filter(s=>s.date_range.timestart && s.date_range.timestart < new Date(filter.timeend) && s.date_range.timeend && s.date_range.timeend >= new Date(filter.timestart))
+				series = series.filter(s=>s.date_range && s.date_range.timestart && s.date_range.timestart < new Date(filter.timeend) && s.date_range.timeend && s.date_range.timeend >= new Date(filter.timestart))
 				var results = []
 				var accum_deletes = 0
 				console.log("about to prune " + series.length + " series")
