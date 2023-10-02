@@ -2576,7 +2576,7 @@ internal.serie.build_read_query = function(filter={},options={}) {
 	//						PAGINATION
 	var page_limit = (filter.limit) ? filter.limit : (config.pagination && config.pagination.default_limit) ? config.pagination.default_limit : undefined
 	page_limit = parseInt(page_limit)
-	if (page_limit > config.pagination.max_limit) {
+	if (config.pagination && config.pagination.max_limit && page_limit > config.pagination.max_limit) {
 		throw(new Error("limit exceeds maximum records per page (" + config.pagination.max_limit) + ")")
 	}
 	var [limit,pagination,page_offset,limit_string] = internal.utils.getLimitString(page_limit,filter.offset)
