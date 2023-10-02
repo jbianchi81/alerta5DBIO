@@ -1675,17 +1675,17 @@ SELECT
         series_id,
         series_table;
 
-create or replace view corridas_series as SELECT corridas.id AS cor_id,
-    corridas.cal_id,
-    corridas.date,
-    series.estacion_id,
-    series.id AS series_id,
-    series.var_id,
-    series.proc_id,
-    series.unit_id
-   FROM corridas
-     JOIN calibrados_series_out ON corridas.cal_id = calibrados_series_out.cal_id
-     JOIN series ON calibrados_series_out.series_id = series.id
-  ORDER BY corridas.cal_id, corridas.date, series.id;
+-- create or replace view corridas_series as SELECT corridas.id AS cor_id,
+--     corridas.cal_id,
+--     corridas.date,
+--     series.estacion_id,
+--     series.id AS series_id,
+--     series.var_id,
+--     series.proc_id,
+--     series.unit_id
+--    FROM corridas
+--      JOIN calibrados_series_out ON corridas.cal_id = calibrados_series_out.cal_id
+--      JOIN series ON calibrados_series_out.series_id = series.id
+--   ORDER BY corridas.cal_id, corridas.date, series.id;
 
 COMMIT;

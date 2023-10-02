@@ -2443,9 +2443,6 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		id:{
 			type: "integer",
 			table: "series"
-		},estacion_id:{
-			type:"integer",
-			table: "series"
 		},var_id:{
 			type:"integer",
 			table: "series"
@@ -2677,6 +2674,11 @@ internal.serie.build_read_query = function(filter={},options={}) {
 	// 						TYPE SPECIFIC PARAMETERS
 	if(tipo.toUpperCase() == "AREAL" ) {
 		valid_filters = {...valid_filters,...{
+			estacion_id: {
+				type: "integer",
+				table: "areas_pluvio",
+				column: "unid"
+			},
 			fuentes_id:{
 				type:"integer"
 			},public: {
@@ -2795,6 +2797,11 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		}
 	} else if (tipo.toUpperCase() == "RASTER" || tipo.toUpperCase() == "RAST") {
 		valid_filters = {...valid_filters,...{
+			estacion_id:{
+				type: "integer",
+				table: "escenas",
+				column: "id"
+			},
 			fuentes_id:{
 				type:"integer"
 			},
@@ -2887,7 +2894,8 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		valid_filters = {...valid_filters,...{
 			estacion_id:{
 				type:"integer",
-				table: "series"
+				table: "estaciones",
+				column: "unid"
 			},
 			tabla_id:{
 				type:"string",

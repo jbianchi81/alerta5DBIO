@@ -13,6 +13,7 @@ procedures/daily
 procedures/hourly
 procedures/weekly
 procedures/monthly
+procedures/tests_a6
 cron
 tmp
 app/crud_engine.js
