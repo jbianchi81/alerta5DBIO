@@ -8390,7 +8390,7 @@ internal.CRUD = class {
 		return result.map(s=>new internal.serie(s))
 	}
 	
-	static async getSeries(tipo,filter={},options={},client) {
+	static async getSeries(tipo,filter={},options={},client,req) {
 		//~ console.log(options)
 		// console.log({filter:filter})
 		var release_client = false
@@ -8435,6 +8435,7 @@ internal.CRUD = class {
 		// }
 		//				GET PAGE PROPERTIES
 		var [total, is_last_page, next_offset] = internal.utils.getPageProperties(filter.limit,filter.offset,res.rows)
+		var next_page_url = internal.utils.makeGetSeriesNextPageUrl(tipo,next_offset,req,filter,options)
 		
 		if(options.no_metadata) {  // RETURN WITH NO METADATA (SOLO IDS)
 			if(release_client) {
@@ -8449,6 +8450,43 @@ internal.CRUD = class {
 				}
 			} else {
 				return res.rows
+			}
+		}
+		if(options.format && options.format.toLowerCase() == "geojson") {
+			return {
+				"type": "FeatureCollection",
+				"features": res.rows.map(row=> {
+					return {
+						type: "Feature",
+						id: row.id,
+						geometry: row.estacion.geom,
+						properties: {
+							tipo: tipo,
+							series_id: row.id,
+							nombre: row.estacion.nombre,
+							estacion_id: row.estacion.id,
+							rio: row.estacion.rio,
+							var_id: row.var.id,
+							proc_id: row.procedimiento.id,
+							unit_id: row.unidades.id,
+							var_name: row.var.name,
+							GeneralCategory: row.var.GeneralCategory,
+							timestart: (row.date_range) ? row.date_range.timestart : null,
+							timeend: (row.date_range) ? row.date_range.timeend : null,
+							count: (row.date_range) ? row.date_range.count : null,
+							forecast_date: row.forecast_date,
+							data_availability: row.data_availability,
+							fuente: (row.fuente) ? row.fuente.nombre : (row.estacion.tabla) ? row.estacion.tabla : null,
+							id_externo: row.estacion.id_externo,
+							public: (row.fuente) ? row.fuente.public : (row.estacion.public !== undefined) ? row.estacion.public : null
+						}
+					}
+				}),
+				"limit": filter.limit,
+				"offset": filter.offset,
+				"is_last_page" : is_last_page,
+				"next_page_url": next_page_url,
+				"total": total				   
 			}
 		}
 		// 	const result = res.rows.map(r=> {
@@ -16245,540 +16283,6 @@ ORDER BY cal.cal_id`
 			//~ console.error({error:e})
 		//~ })
 	}
-	
-	static async getMonitoredPoints(format="json",filter,req,options={}) {
-		// filter.solohidro = true
-		// var hidrovars= [].concat.apply([],config.crud.default_vars.hidro.map(p=> p.var_id)) //[2,4,22,23,24,25,26,35,36,39,40,48,33,49,50,51,52,67]
-		// if(filter.var_id) {
-		// 	if(hidrovars.indexOf(filter.var_id) < 0) {
-		// 		filter.solohidro = false
-		// 	}
-		// 	if(filter.var_id == -1) {
-		// 		filter.var_id = undefined
-		// 		filter.solometeo = true
-		// 	}
-		// } 
-		// console.log({filter:filter})
-		var filter_string = internal.utils.control_filter2({
-				"var_id": {type: "integer"},
-				"proc_id": {type: "integer"},
-				"unit_id": {type: "integer"},
-				"estacion_id": {type: "integer"},
-				"proc_id": {type: "integer"},
-				"tabla": {type: "string",table:"estaciones"},
-				"geom": {type: "geometry", table: "estaciones"},
-				"search": {
-					type: "search", 
-					table: "estaciones", 
-					columns: [
-						{name: "tabla"},
-						{name: "nombre"},
-						{name: "unid"},
-						{name: "id_externo"},
-						{name: "rio"},
-						{name: "nombre", table: "var"}
-					],
-					case_insensitive: true
-				}
-			},filter,"series")
-		var redes_filter = internal.utils.control_filter2({
-				"red_id": {type: "integer", table: "redes", column: "id"},
-				"public": {type: "boolean", table: "redes"}
-			},{red_id:filter.red_id})
-		var var_filter = internal.utils.control_filter2({
-				"GeneralCategory": {type: "string", table: "var"}
-			},{GeneralCategory:filter.GeneralCategory})
-		
-		var order_by_string = internal.utils.build_order_by_clause(
-			{
-				series_id:{table: "series", column: "id"},
-				estacion_id:{table: "series"},
-				nombre:{table: "estaciones"},
-				geom:{function: "st_x(estaciones.geom)"},
-				longitud:{function: "st_x(estaciones.geom)"},
-				latitud:{function: "st_y(estaciones.geom)"},
-				rio:{table: "estaciones"},
-				var_id:{table: "series"},
-				var_name:{table: "var", column: "nombre"},
-				proc_id:{table: "series"},
-				unit_id:{table: "series"},
-				timestart:{table: "series_date_range"},
-				timeend:{table: "series_date_range"},
-				count:{table: "series_date_range"},
-				forecast_date:{table: "pronos", column: "fecha_emision"},
-				data_availability:{},
-				fuente:{table: "estaciones", column: "tabla"},
-				id_externo:{table: "estaciones"}
-			},
-			options.sort,
-			undefined,
-			[
-				"estacion_id",
-				"var_id",
-				"proc_id"
-			],
-			options.order
-		)
-		// var hidro_filter = " AND (" + config.crud.default_vars.hidro.map(p=> {
-		// 	return "(proc_id=" + p.proc_id + " AND var_id IN (" + p.var_id.join(",") + "))"
-		// }).join(" OR ") + ")"  
-		// // " AND ((var_id=2 and proc_id=1) OR (var_id=4 and proc_id=2) OR (var_id=4 AND proc_id=1) OR (var_id=26 and proc_id=1) OR (var_id=39 AND proc_id=1) OR (var_id=40 AND proc_id=1) OR (var_id=40 AND proc_id=5) OR (var_id=22 AND proc_id=1) OR (var_id=23 AND proc_id=1) OR (var_id=24 AND proc_id=1) OR (var_id=25 AND proc_id=1) OR (var_id=48 AND proc_id=1) OR (var_id=48 AND proc_id=5)  OR (var_id=33 AND proc_id=1) OR (var_id=52 AND proc_id=1) OR (var_id=49 AND proc_id=1) OR (var_id=50 AND proc_id=1) OR (var_id=51 AND proc_id=1) OR (var_id=67 AND proc_id=1) OR (var_id=35 AND proc_id=4) OR (var_id=36 AND proc_id=4))"
-		// var meteo_filter = " AND (" + config.crud.default_vars.meteo.map(p=> {
-		// 	return "(proc_id=" + p.proc_id + " AND var_id IN (" + p.var_id.join(",") + "))"
-		// }).join(" OR ") + ")"
-		// " AND var_id IN (27,31,34,38,16,1,13,5,43,11,17,12,10,18,9,6,7,53,54,55,56,57,58,59,14,60,61,62,63) AND proc_id=1 "
-		// var filter_string = (filter.solohidro) ? hidro_filter  : (filter.solometeo) ?  meteo_filter : " AND proc_id<=2 "
-		// valid_filters.forEach(f=>{
-		// 	if(filter[f]) {
-		// 		filter_string += " AND series." + f + "=" + parseInt(filter[f]) + " "
-		// 	}
-		// })
-		// if(filter.geom) {
-		// 	// console.log(JSON.stringify(filter.geom))
-		// 	if(!filter.geom.type) {
-		// 		return Promise.reject("Bad parameter geom")
-		// 	}
-		// 	filter_string += " AND estaciones.geom <-> " + filter.geom.toSQL() + " < 0.01"
-		// 	// console.log(filter.geom.toSQL())
-		// }
-		// var redes_filter = ""
-		// var public_filter = ""
-		// if(filter.red_id) {
-		// 	if(parseInt(filter.red_id).toString() == "NaN") {
-		// 		return Promise.reject("Bad red_id")
-		// 	}
-		// 	redes_filter = " AND redes.id=" + parseInt(filter.red_id) + " "
-		// }
-		// if(filter.public) {
-		// 	redes_filter += " AND redes.public=true "
-		// 	public_filter += " AND series_prono_last.public=true "
-		// }
-		var series_range_join = ""
-		var series_range_filter = ""
-		if(filter.data_availability && ["h","n","c","r"].indexOf(filter.data_availability) >= 0) {
-			filter.has_obs = true
-		}
-		if(filter.has_obs) {
-			if(filter.data_availability) {
-				switch(filter.data_availability.toLowerCase().substring(0,1)) {
-					case "r":
-						series_range_filter = " AND now() - series_date_range.timeend < '1 days'::interval"
-						break;
-					case "n":
-						series_range_filter =  " AND now() - series_date_range.timeend < '3 days'::interval"
-						break;
-					case "c":
-						series_range_filter = " AND (series_date_range.timestart <= coalesce($2,now())) and (series_date_range.timeend >= coalesce($1,now()-'90 days'::interval))"
-						break;
-					case "h":
-						series_range_filter = ""
-						break;
-					default:
-						series_range_filter = ""
-						break;
-				}
-			}
-		} else {
-			series_range_join = "LEFT OUTER"
-		}
-		var public_filter = internal.utils.control_filter2({
-				public: {type: "boolean", table: "series_prono_last"}
-			},
-			{public:filter.public}
-		)
-		var pronos_query = "LEFT OUTER JOIN (select max(series_prono_last.fecha_emision) fecha_emision,series.estacion_id,series.var_id,series.unit_id from series_prono_last,series WHERE series_prono_last.series_id=series.id " + public_filter + " group by series.estacion_id,series.var_id,series.unit_id)"
-		if(filter.cal_id) {
-			if(parseInt(filter.cal_id).toString() == "NaN") {
-				return Promise.reject("Bad parameter: cal_id must be an integer")
-			}
-			pronos_query = "JOIN (select series_prono_last.fecha_emision,series.estacion_id,series.var_id,series.unit_id from series_prono_last,series WHERE series_prono_last.series_id=series.id AND series_prono_last.cal_id=" + parseInt(filter.cal_id) + " " + public_filter + ")"
-		} else if (filter.cal_grupo_id) {
-			if(parseInt(filter.cal_grupo_id).toString() == "NaN") {
-				return Promise.reject("Bad parameter: cal_grupo_id must be an integer")
-			}
-			pronos_query = "JOIN (select series_prono_last.fecha_emision,series.estacion_id,series.var_id,series.unit_id from series_prono_last,series,calibrados WHERE series_prono_last.series_id=series.id AND series_prono_last.cal_id=calibrados.id AND calibrados.grupo_id=" + parseInt(filter.cal_grupo_id) + " " + public_filter + ")"
-		} else if (filter.has_prono) {
-			pronos_query = "JOIN (select max(series_prono_last.fecha_emision) fecha_emision,series.estacion_id,series.var_id,series.unit_id from series_prono_last,series WHERE series_prono_last.series_id=series.id " + public_filter + " group by series.estacion_id,series.var_id,series.unit_id)"
-		}
-		var [page_limit,pagination,page_offset,limit_string] = internal.utils.getLimitString(filter.limit,filter.offset)
-
-		// console.log({redes_filter: redes_filter})
-		const stmt = internal.utils.pasteIntoSQLQuery("SELECT \
-					'puntual' AS tipo,\
-					series.id series_id,\
-				   estaciones.nombre,\
-				   series.estacion_id,\
-				   estaciones.rio,\
-				   estaciones.tabla,\
-				   redes.id red_id,\
-				   series.var_id,\
-				   series.proc_id,\
-				   series.unit_id,\
-				   var.nombre var_name,\
-				   var.\"GeneralCategory\" \"GeneralCategory\",\
-				   series_date_range.timestart,\
-					series_date_range.timeend,\
-					COALESCE(series_date_range.count, 0) AS count,\
-					pronos.fecha_emision forecast_date,\
-					case when series_date_range.timeend is not null\
-					then \
-						case when now() - series_date_range.timeend < '1 days'::interval \
-							 then case when pronos.fecha_emision is not null \
-								  then 'RT+S'\
-								  else 'RT'\
-								  end\
-							 when now() - series_date_range.timeend < '3 days'::interval\
-							 then case when pronos.fecha_emision is not null \
-								  then 'NRT+S'\
-								  else 'NRT'\
-								  end\
-							 when (series_date_range.timestart <= coalesce($2,now())) and (series_date_range.timeend >= coalesce($1,now()-'90 days'::interval))\
-							 then case when pronos.fecha_emision is not null \
-								  then 'C+S'\
-								  else 'C'\
-								  end\
-							 else case when pronos.fecha_emision is not null \
-								  then'H+S' \
-								  else 'H'\
-								  end\
-						end\
-					when pronos.fecha_emision is not null \
-					then 'S'\
-					else 'N'\
-					end AS data_availability,\
-					estaciones.tabla fuente,\
-					estaciones.id_externo id_externo,\
-				   st_asgeojson(geom)::json geom,\
-				   redes.public,\
-				   count(*) OVER() AS full_count\
-			FROM series\
-			JOIN var ON  (var.id = series.var_id " + var_filter + ")\
-			JOIN estaciones ON (series.estacion_id=estaciones.unid  " + filter_string + ")\
-			JOIN redes ON (estaciones.tabla = redes.tabla_id " + redes_filter + ")\
-			" + series_range_join + " JOIN series_date_range on (series_date_range.series_id=series.id" + series_range_filter + ")\
-			" + pronos_query + " pronos ON (pronos.estacion_id=series.estacion_id AND pronos.var_id=series.var_id AND pronos.unit_id=series.unit_id)\
-			" + order_by_string + "\
-			" + limit_string,[filter.timestart,filter.timeend]) // ORDER BY series.estacion_id,series.var_id,series.proc_id
-		// console.log(stmt)
-		return global.pool.query(stmt)
-		.then(result=>{
-			if(!result.rows) {
-				//~ console.error("getMonitoredPoints: No rows returned")
-				throw("getMonitoredPoints: No rows returned")
-			}
-			if(pagination) {
-				var full_count = (result.rows.length) ? result.rows[0].full_count : undefined
-				var is_last_page = (result.rows.length < page_limit)
-				if(is_last_page) {
-					var next_page_url = undefined
-				} else {
-					var query_arguments = {...filter}
-					query_arguments.offset = page_offset + page_limit
-					query_arguments.limit = page_limit
-					if(format && format.toLowerCase() == "geojson") {
-						query_arguments.geojson = true
-					}
-					var next_page_url = (config.rest && config.rest.url) ? `${config.rest.url}/getMonitoredPoints?${querystring.stringify(query_arguments)}` : (req) ? `${req.protocol}://${req.get('host')}${req.path}?${querystring.stringify(query_arguments)}` : `getMonitoredPoints?${querystring.stringify(query_arguments)}`
-				}				
-			} else {
-				var full_count = undefined
-				var is_last_page = undefined
-				var next_page_url = undefined
-			}
-			// console.log("crud.getMonitoredPoints: found " + result.rows.length + " monitored series")
-			if(format && format.toLowerCase()=="geojson") {
-				return {
-				   "type": "FeatureCollection",
-				   "features": result.rows.map(row=> {
-					   return {
-						   "type": "Feature",
-						   "id": row.series_id,
-						   "geometry": row.geom,
-						   "properties": {
-							   "series_id": row.series_id,
-							   "nombre": row.nombre,
-							   estacion_id: row.estacion_id,
-							   rio: row.rio,
-							   var_id: row.var_id,
-							   proc_id: row.proc_id,
-							   unit_id: row.unit_id,
-							   var_name: row.var_name,
-							   GeneralCategory: row.GeneralCategory,
-							   timestart: row.timestart,
-							   timeend: row.timeend,
-							   count: row.count,
-							   forecast_date: row.forecast_date,
-							   data_availability: row.data_availability,
-							   fuente: row.fuente,
-							   id_externo: row.id_externo,
-							   public: row.public
-						   }
-					   }
-				   }),
-				   "is_last_page" : is_last_page,
-				   "next_page_url": next_page_url,
-				   "total": full_count				   
-				}
-			} else {
-				return {
-					"rows": result.rows,
-					"is_last_page" : is_last_page,
-				    "next_page_url": next_page_url,
-				    "total": full_count
-				}
-			}
-		})
-	}
-
-	static async getMonitoredAreas(format="json",filter={},req,options={}) {
-		var page_limit = filter.limit ?? config.pagination.default_limit
-		page_limit = parseInt(page_limit)
-		if (page_limit > config.pagination.max_limit) {
-			throw(new Error("limit exceeds maximum records per page (" + config.pagination.max_limit) + ")")
-		}
-		var page_offset = filter.offset ?? 0
-		page_offset = parseInt(page_offset)
-		var filter_string = internal.utils.control_filter2(
-			{
-				"series_id": {type: "integer", table: "series_areal", column:"id"},
-				"var_id": {type: "integer", table: "series_areal"},
-				"proc_id": {type: "integer", table: "series_areal"},
-				"unit_id": {type: "integer", table: "series_areal"},
-				"estacion_id": {type: "integer", table: "series_areal", column: "area_id"},
-				"area_id": {type: "integer", table: "series_areal"},
-				"fuentes_id": {type: "integer", table: "series_areal"},
-				"red_id": {type: "integer", table: "redes", column:"id"},
-				"proc_id": {type: "integer", table: "series_areal"},
-				"geom": {type: "geometry", table: "areas_pluvio"},
-				"public": {type: "boolean", table: "fuentes"},
-				"cal_id": {type: "integer", table: "series_prono_date_range_last"},
-				"cal_grupo_id": {type: "integer", table: "series_prono_date_range_last"},
-				"search": {
-					type: "search", 
-					table: "areas_pluvio", 
-					columns: [
-						{name: "tabla", table: "estaciones"},
-						{name: "nombre"},
-						{name: "unid"},
-						{name: "id_externo", table: "estaciones"},
-						{name: "rio", table: "estaciones"},
-						{name: "nombre", table: "var"},
-						{name: "nombre", table: "fuentes"}
-					],
-					case_insensitive: true
-				}
-			},
-			filter,
-			"areas_pluvio"
-		)
-		var order_by_string = internal.utils.build_order_by_clause(
-			{
-				series_id:{table: "series_areal", column: "id"},
-				area_id:{table: "series_areal",column: "area_id"},
-				nombre:{table: "areas_pluvio"},
-				geom:{function: "st_xmin(areas_pluvio.geom)"},
-				longitud:{function: "st_xmin(areas_pluvio.geom)"},
-				latitud:{function: "st_ymin(areas_pluvio.geom)"},
-				rio:{table: "estaciones"},
-				var_id:{table: "series_areal"},
-				var_name:{table: "var", column: "nombre"},
-				proc_id:{table: "series_areal"},
-				unit_id:{table: "series_areal"},
-				timestart:{table: "series_areal_date_range"},
-				timeend:{table: "series_areal_date_range"},
-				count:{table: "series_areal_date_range"},
-				forecast_date:{table: "series_prono_date_range_last", column: "forecast_date"},
-				data_availability:{},
-				tabla:{table: "estaciones", column: "tabla"},
-				fuentes_id:{table: "series_areal"},
-				id_externo:{table: "estaciones"}
-			},
-			options.sort,
-			undefined,
-			[
-				"area_id",
-				"fuentes_id",
-				"var_id",
-				"proc_id"
-			],
-			options.order
-		)
-		var [limit,pagination,page_offset,limit_string] = internal.utils.getLimitString(page_limit,filter.offset)
-		if(filter.data_availability && ["h","n","c","r"].indexOf(filter.data_availability) >= 0) {
-			filter.has_obs = true
-		}
-		if(filter.has_obs) {
-			if(filter.data_availability) {
-				switch(filter.data_availability.toLowerCase().substring(0,1)) {
-					case "r":
-						filter_string += " AND now() - series_areal_date_range.timeend < '1 days'::interval"
-						break;
-					case "n":
-						filter_string +=  " AND now() - series_areal_date_range.timeend < '3 days'::interval"
-						break;
-					case "c":
-						filter_string += " AND (series_areal_date_range.timestart <= coalesce($2,now())) and (series_areal_date_range.timeend >= coalesce($1,now()-'90 days'::interval))"
-						break;
-					case "h":
-						break;
-					default:
-						break;
-				}
-			}
-			var series_range_join = ""
-		} else {
-			var series_range_join = "LEFT OUTER"
-		}
-		if(filter.has_prono) {
-			var pronos_join = "JOIN"
-		} else {
-			var pronos_join = "LEFT OUTER JOIN"
-		}
-		const stmt = `SELECT 
-				   'areal' AS tipo,
-				   series_areal.id series_id,
-				   areas_pluvio.nombre,
-				   series_areal.area_id AS estacion_id,
-				   estaciones.rio,
-				   estaciones.tabla,
-				   redes.id red_id,
-				   series_areal.var_id,
-				   series_areal.proc_id,
-				   series_areal.unit_id,
-				   var.nombre var_name,
-				   series_areal_date_range.timestart,
-					series_areal_date_range.timeend,
-					COALESCE(series_areal_date_range.count, 0) AS count,
-					series_prono_date_range_last.forecast_date,
-					case when series_areal_date_range.timeend is not null
-					then 
-						case when now() - series_areal_date_range.timeend < '1 days'::interval 
-							 then case when series_prono_date_range_last.forecast_date is not null 
-								  then 'RT+S'
-								  else 'RT'
-								  end
-							 when now() - series_areal_date_range.timeend < '3 days'::interval
-							 then case when series_prono_date_range_last.forecast_date is not null 
-								  then 'NRT+S'
-								  else 'NRT'
-								  end
-							 when (series_areal_date_range.timestart <= coalesce($2,now())) and (series_areal_date_range.timeend >= coalesce($1,now()-'90 days'::interval))
-							 then case when series_prono_date_range_last.forecast_date is not null 
-								  then 'C+S'
-								  else 'C'
-								  end
-							 else case when series_prono_date_range_last.forecast_date is not null 
-								  then'H+S' 
-								  else 'H'
-								  end
-						end
-					when series_prono_date_range_last.forecast_date is not null 
-					then 'S'
-					else 'N'
-					end AS data_availability,
-					series_areal.fuentes_id,
-					estaciones.tabla as fuente,
-					estaciones.id_externo id_externo,
-				   st_asgeojson(areas_pluvio.geom)::json AS geom,
-				   fuentes.public,
-				   count(*) OVER() AS full_count
-			FROM series_areal
-			JOIN areas_pluvio ON series_areal.area_id = areas_pluvio.unid
-			JOIN fuentes ON series_areal.fuentes_id = fuentes.id
-			LEFT JOIN estaciones ON areas_pluvio.exutorio_id = estaciones.unid
-			LEFT JOIN redes ON estaciones.tabla = redes.tabla_id
-			JOIN var ON  var.id = series_areal.var_id
-			${series_range_join} JOIN series_areal_date_range ON series_areal_date_range.series_id=series_areal.id
-			${pronos_join} series_prono_date_range_last ON (
-				series_prono_date_range_last.series_table='series_areal'
-				AND series_prono_date_range_last.series_id=series_areal.id
-			)
-			WHERE 1=1 ${filter_string}
-			${order_by_string}
-			${limit_string}`
-		// console.log(internal.utils.pasteIntoSQLQuery(stmt,[filter.timestart,filter.timeend]))
-		return global.pool.query(stmt,[filter.timestart,filter.timeend])
-		.then(result=>{
-			if(!result.rows) {
-				//~ console.error("getMonitoredPoints: No rows returned")
-				console.log("getMonitoredAreas: No rows returned")
-				if(format && format.toLowerCase()=="geojson") {
-					return {
-						"type": "FeatureCollection",
-						is_last_page: true,
-						features: []
-					}
-				} else {
-					return {
-						is_last_page: true,
-						rows: []
-					}
-				}
-			}
-			if(pagination) {
-				var full_count = (result.rows.length) ? result.rows[0].full_count : undefined
-				var is_last_page = (result.rows.length < limit)
-				if(is_last_page) {
-					var next_page_url = undefined
-				} else {
-					var query_arguments = {...filter}
-					query_arguments.offset = page_offset + limit
-					query_arguments.limit = limit
-					if(format && format.toLowerCase() == "geojson") {
-						query_arguments.geojson = true
-					}
-					var next_page_url = (config.rest && config.rest.url) ? `${config.rest.url}/getMonitoredAreas?${querystring.stringify(query_arguments)}` : (req) ? `${req.protocol}://${req.get('host')}${req.path}?${querystring.stringify(query_arguments)}` : `getMonitoredAreas?${querystring.stringify(query_arguments)}`
-				}				
-			} else {
-				var full_count = undefined
-				var is_last_page = undefined
-				var next_page_url = undefined
-			}
-			// console.log("crud.getMonitoredPoints: found " + result.rows.length + " monitored series")
-			if(format && format.toLowerCase()=="geojson") {
-				return {
-				   "type": "FeatureCollection",
-				   "next_page_url": next_page_url,
-				   "is_last_page": is_last_page,
-				   "total": full_count,
-				   "features": result.rows.map(row=> {
-					   return {
-						   "type": "Feature",
-						   "id": row.series_id,
-						   "geometry": row.geom,
-						   "properties": {
-							   "series_id": row.series_id,
-							   "nombre": row.nombre,
-							   estacion_id: row.estacion_id,
-							   rio: row.rio,
-							   var_id: row.var_id,
-							   proc_id: row.proc_id,
-							   unit_id: row.unit_id,
-							   fuentes_id: row.fuentes_id,
-							   var_name: row.var_name,
-							   timestart: row.timestart,
-							   timeend: row.timeend,
-							   count: row.count,
-							   forecast_date: row.forecast_date,
-							   data_availability: row.data_availability,
-							   fuente: row.fuente,
-							   id_externo: row.id_externo,
-							   public: row.public
-						   }
-					   }
-				   })
-				   
-				}
-			} else {
-				return {
-					"next_page_url": next_page_url,
-					"is_last_page": is_last_page,
-					"rows": result.rows,
-				    "total": full_count
-				}
-			}
-		})
-	}
 
 	static async getMonitoredVars(tipo="puntual",GeneralCategory) {
 		var filter_string = internal.utils.control_filter2(
@@ -16833,80 +16337,6 @@ ORDER BY cal.cal_id`
 		})
 	}
 	
-	// static async getMonitoredAreas(format="json",var_id,fuentes_id) {
-	// 	return global.pool.query(
-	// 		"SELECT series_areal.id series_id,\
-	// 			   areas_pluvio.nombre,\
-	// 			   areas_pluvio.unid area_id,\
-	// 			   var_id,\
-	// 			   fuentes_id,\
-	// 			   proc_id,\
-	// 			   unit_id,\
-	// 			   var.nombre var_name,\
-	// 			   fuentes.nombre fuentes_name,\
-	// 			   series_areal_date_range.timestart,\
-	// 				series_areal_date_range.timeend,\
-	// 				COALESCE(series_areal_date_range.count, 0),\
-	// 				case when series_areal_date_range.timeend is not null\
-	// 				then \
-	// 					case when now() - series_areal_date_range.timeend < '1 days'::interval \
-	// 						 then  'RT'\
-	// 						 when now() - series_areal_date_range.timeend < '3 days'::interval\
-	// 						 then 'NRT'\
-	// 						 else 'H'\
-	// 					end\
-	// 				else 'N'\
-	// 				end AS data_availability,\
-	// 			   st_asgeojson(geom)::json geom\
-	// 		FROM series_areal\
-	// 		JOIN areas_pluvio ON (series_areal.area_id=areas_pluvio.unid AND areas_pluvio.activar=true AND areas_pluvio.mostrar=true AND series_areal.var_id=$1 AND series_areal.fuentes_id=$2)\
-	// 		join var ON  (var.id = series_areal.var_id)\
-	// 		join fuentes ON (fuentes.id = series_areal.fuentes_id)\
-	// 		LEFT OUTER JOIN series_areal_date_range on (series_areal_date_range.series_id=series_areal.id)\
-	// 		ORDER BY area_id,var_id,fuentes_id,proc_id",[var_id,fuentes_id])
-	// 	.then(result=>{
-	// 		if(!result.rows) {
-	// 			console.error("crud.getMonitoredAreas: query error")
-	// 			return
-	// 		}
-	// 		if(format.toLowerCase()=="geojson") {
-	// 			return {
-	// 			   "type": "FeatureCollection",
-	// 			   "features": result.rows.map(row=> {
-	// 				   return {
-	// 					   "type": "Feature",
-	// 					   "id": row.series_id,
-	// 					   "geometry": row.geom,
-	// 					   "properties": {
-	// 						   "series_id": row.series_id,
-	// 						   "nombre": row.nombre,
-	// 						   area_id: row.area_id,
-	// 						   var_id: row.var_id,
-	// 						   fuentes_id: row.fuentes_id,
-	// 						   proc_id: row.proc_id,
-	// 						   unit_id: row.unit_id,
-	// 						   var_name: row.var_name,
-	// 						   fuentes_name: row.fuentes_name,
-	// 						   timestart: row.timestart,
-	// 						   timeend: row.timeend,
-	// 						   count: row.count,
-	// 						   data_availability: row.data_availability
-	// 					   }
-	// 				   }
-	// 			   })
-	// 			}
-	// 		} else {
-	// 			return result.rows
-	// 		}
-	// 	})
-	// 	.catch(e=>{
-	// 		if(config.verbose) {
-	// 			console.error(e)
-	// 		} else {
-	// 			console.error(e.toString())
-	// 		}
-	// 	})
-	// }
 	
 	// tabprono
 	
@@ -17677,14 +17107,19 @@ ORDER BY cal.cal_id`
 }
 
 internal.utils = {
+	makeGetSeriesNextPageUrl: function(tipo="puntual",next_offset,req,filter={},options={}) {
+		var query_arguments = (req) ? {...req.query} : {...filter,...options}
+		query_arguments.offset = next_offset
+		return (config.rest && config.rest.url) ? `${config.rest.url}/obs/${tipo}/series?${querystring.stringify(query_arguments)}` : (req) ? `${req.protocol}://${req.get('host')}${req.path}?${querystring.stringify(query_arguments)}` : `obs/${tipo}/series?${querystring.stringify(query_arguments)}`
+	},
 	getPageProperties: function(limit,offset,rows) {
 		if(!limit) {
 			return [undefined,undefined,undefined]
 		}
 		offset = (offset) ? offset : 0 
 		var total = (rows.length) ? rows[0].total : 0
-		var is_last_page = (rows.length < limit || offset + limit >= total) ? true : false
-		var next_offset = (is_last_page) ? undefined : offset + limit
+		var is_last_page = (rows.length < limit || parseInt(offset) + parseInt(limit) >= total) ? true : false
+		var next_offset = (is_last_page) ? undefined : parseInt(offset) + parseInt(limit)
 		return [total, is_last_page, next_offset]
 	},
 	get_data_availability_string: function(data_availability,has_obs) {

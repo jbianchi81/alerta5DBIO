@@ -90,7 +90,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 			pagination: true,
 			pageSize: 250,
 			pageList: [10, 50, 100, 250, 1000],
-			url: (tipo == "puntual") ? "getMonitoredPoints" : "getMonitoredAreas",
+			url: (tipo == "puntual") ? "obs/puntual/series" : "obs/areal/series",
 			columns: (tipo == "puntual") ? [
 				{
 					"title": "",
@@ -622,7 +622,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 			$("div#myModalSeries span#exportcsv a").attr('href',gurl).html("All " + data.length + " rows to download as CSV").on("click", e=>{
 				//~ $("#myModal").modal("hide")
 			})
-			var exportjsonurl = window.location.origin + window.location.pathname.replace(/[^/]*$/,"") + "getMonitoredPoints?" + Object.keys(global.monitoredpointsparams).map(k=> k + "=" + global.monitoredpointsparams[k]).join("&")
+			var exportjsonurl = window.location.origin + window.location.pathname.replace(/[^/]*$/,"") + "obs/" + global.monitoredpointsparams.tipo  + "/series?" + Object.keys(global.monitoredpointsparams).map(k=> k + "=" + global.monitoredpointsparams[k]).join("&")
 			$("div#myModalSeries span#exportjson input#exportjsonurlseries").val(exportjsonurl).removeAttr("disabled")
 			$("div#myModalSeries span#exportcsv").show()
 			$("div#myModalSeries span#exportjson").show()

@@ -1886,7 +1886,7 @@ function cellAttrGeom(value) {
 
 function cellAction(value,row,index,field) {
 	var download_url = (row.tipo == "areal") ? "obs/areal/series/" : "obs/puntual/series/"
-	download_url += row.series_id.toString()
+	download_url += row.id.toString()
 	return global.isWriter ? '<a class="add" title="Add/Update" data-toggle="tooltip" style="display:none"><i class="material-icons">&#xE03B;</i></a> ' +
 		'<a class="edit" title="Edit" data-toggle="tooltip"><i class="material-icons">&#xE254;</i></a> ' +
 		'<a class="delete" title="Delete" data-toggle="tooltip"><i class="material-icons">&#xE872;</i></a>' +

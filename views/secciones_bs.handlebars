@@ -418,7 +418,7 @@
 				</li>
 				<li>
 					<b>Estaciones de monitoreo (GeoJSON):    </b>
-					<a id=descargarPoints download="secciones.GeoJSON" href="getMonitoredPoints?geojson=true">getMonitoredPoints?geojson=true</a>
+					<a id=descargarPoints download="secciones.GeoJSON" href="obs/puntual/series?format=geojson">obs/puntual/series?format=geojson</a>
 				</li>
 				<li>
 					<b>Cuantiles diarios (JSON):    </b>
@@ -1057,7 +1057,7 @@
 		
 			
 			//~ descarga listado estaciones/var
-		var getMonitoredPointsUrl = get_monitored_url + "?geojson=true"
+		var getMonitoredPointsUrl = get_monitored_url + "?format=geojson"
 		if(search_filters.fuentesId) {
 			getMonitoredPointsUrl += "&fuentes_id=" + search_filters.fuentesId
 			$("#descargarPoints").attr("download","monitoredAreas.geojson")
@@ -1188,13 +1188,13 @@
 		}
 		if(search_filters.fuentesId) {
 			monitoredpointsparams.fuentes_id = search_filters.fuentesId
-			var get_monitored_url = "getMonitoredAreas"
+			var get_monitored_url = "obs/areal/series"
 			var estaciones_feature_type = "polygon"
 			monitoredpointsparams.tipo = "areal"
 		} else if(monitoredpointsparams.tipo == "areal") {
 			alert("Falta fuentesId. Por favor seleccione uno para realizar la búsqueda de series areales")
 		} else {
-			var get_monitored_url = "getMonitoredPoints"
+			var get_monitored_url = "obs/puntual/series"
 			var estaciones_feature_type = "point"
 			monitoredpointsparams.tipo = "puntual"
 		}
@@ -1247,7 +1247,7 @@
     			data: function (params) {
 					var query = {...monitoredpointsparams}
 					query.search = params.term
-					query.geojson = undefined
+					query.format = undefined
 					query.no_geom = true
 					query.limit = global.default_config.series_page_size // 250
 					query.offset = (params.page) ? (params.page - 1) * global.default_config.series_page_size : 0 
@@ -1272,7 +1272,7 @@
 		})
 	}
 	function getMonitoredPoints(get_monitored_url,monitoredpointsparams,estaciones_feature_type) {
-		const params = {geojson: true, ...monitoredpointsparams}
+		const params = {format: "geojson", pagination: "true", ...monitoredpointsparams}
 		$.get(get_monitored_url,params)
 		.then(points=>{
 			$("body").css("cursor","default")

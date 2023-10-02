@@ -228,10 +228,6 @@ app.get('/getMonitoredVars',auth.isPublic,getMonitoredVars)
 app.post('/getMonitoredVars',auth.isPublic,getMonitoredVars)
 app.get('/getMonitoredFuentes',auth.isPublic,getMonitoredFuentes)
 app.post('/getMonitoredFuentes',auth.isPublic,getMonitoredFuentes)
-app.get('/getMonitoredPoints',auth.isPublic,getMonitoredPoints)
-app.post('/getMonitoredPoints',auth.isPublic,getMonitoredPoints)
-app.get('/getMonitoredAreas',auth.isPublic,getMonitoredAreas)
-app.post('/getMonitoredAreas',auth.isPublic,getMonitoredAreas)
 //~ app.get('/getObsDiarios',auth.isPublic,getObsDiarios)
 //~ app.post('/getObsDiarios',auth.isPublic,getObsDiarios)
 //~ app.get('/updateObsDiarios',updateObsDiarios)
@@ -3718,92 +3714,6 @@ function getSeriesBySiteAndVar(req,res) {  //	estacion_id,var_id,timestart,timee
 	})
 }
 
-function getMonitoredPoints (req,res) { // geojson=false
-	var geojson = false
-	if(req.body) {
-		if(req.body.geojson) {
-			geojson = true
-		}
-	}
-	if(req.query) {
-		if(req.query.geojson) {
-			geojson = true
-		}
-	}
-	try {
-		var filter = getFilter(req)
-		var options = getOptions(req)
-	} catch (e) {
-		if(config.verbose) {
-			console.error(e)
-		} else {
-			console.error(e.toString())
-		}
-		res.status(400).send({message:"query error",error:e.toString()})
-		return
-	}
-	var promise
-	if(geojson) {
-		promise = crud.getMonitoredPoints("GeoJSON",filter,req,options)
-	} else {
-		promise = crud.getMonitoredPoints(null,filter,req,options)
-	}
-	promise.then(points=>{
-		res.send(points)
-	})
-	.catch(e=>{
-		if(config.verbose) {
-			console.error(e)
-		} else {
-			console.error(e.toString())
-		}
-		res.status(400).send(e.toString())
-	})
-}
-
-function getMonitoredAreas (req,res) { // geojson=false
-	var geojson = false
-	if(req.body) {
-		if(req.body.geojson) {
-			geojson = true
-		}
-	}
-	if(req.query) {
-		if(req.query.geojson) {
-			geojson = true
-		}
-	}
-	try {
-		var filter = getFilter(req)
-		var options = getOptions(req)
-	} catch (e) {
-		console.error(e)
-		res.status(400).send({message:"query error",error:e.toString()})
-		return
-	}
-	// if(!filter.var_id && !filter.series_id) {
-	// 	console.error("Missing var_id or series_id")
-	// 	res.status(400).send("Missing var_id or series_id")
-	// 	return
-	// }
-	if(!filter.fuentes_id && !filter.series_id) {
-		console.error("Missing fuentes_id or series_id")
-		res.status(400).send("Missing fuentes_id or series_id")
-		return
-	}
-	
-	var format = (geojson) ? "geojson" : undefined
-	crud.getMonitoredAreas(format,filter,req,options) // filter.var_id,filter.fuentes_id)
-	.then(areas=>{
-		res.send(areas)
-	})
-	.catch(e=>{
-		console.error(e)
-		res.status(500).send("Server error. Please contact the administrator")
-	})
-}
-
-
 function getMonitoredVars (req,res) { 
 	try {
 		var filter = getFilter(req)
@@ -3853,138 +3763,138 @@ function getMonitoredFuentes (req,res) {
 
 // VIEWS
 
-function seccionesView(req,res) {
-	if(!req.query.seriesId) {
-		crud.getMonitoredPoints("GeoJSON")
-		.then(points=>{
-			//~ console.log(points)
-			var options = points.features.map(p=>{
-				return {series_id:p.properties.series_id, name: p.properties.estacion_id + ": " + ((p.properties.rio) ? p.properties.rio + "@" : "") + ((p.properties.nombre) ? p.properties.nombre.substring(0,30) : p.properties.estacion_id) + " (" + p.properties.var_name + ") [" + p.properties.series_id + "]",selected:false}				
-			})
-			//~ var options = points.map(p=>{
-				//~ return {series_id:p.series_id, name: p.estacion_id + ": " + ((p.rio) ? p.rio + "@" : "") + ((p.nombre) ? p.nombre.substring(0,18) : p.estacion_id) + " (" + p.var_name + ") [" + p.series_id + "]",selected:false}
-			//~ })
-			res.render('secciones_bs',{secciones:options, points:JSON.stringify(points)})
-		})
-		.catch(e=>{
-			console.error(e)
-			res.status(500).send("server error")
-		})
-	} else {
-		crud.getMonitoredPoints("GeoJSON")
-		.then(points=>{
-			//~ console.log(points)
-			var flag=false
-			var matched_point
-			var options = points.features.map(p=>{
-				var selected=false
-				if(p.properties.series_id == req.query.seriesId) {
-					console.log(p.properties)
-					flag=true
-					selected=true
-					matched_point=p
-				} 
-				return {series_id:p.properties.series_id, name: p.properties.estacion_id + ": " + ((p.properties.rio) ? p.properties.rio + "@" : "") + ((p.properties.nombre) ? p.properties.nombre.substring(0,30) : p.properties.estacion_id) + " (" + p.properties.var_name + ") [" + p.properties.series_id + "]",selected:selected}				
-			})
-			if(!flag) {
-				res.status(400).send("seriesId not found")
-				return
-			}
-			var timestart, timeend
-			if(!req.query.timestart) {
-				timestart = new Date()
-				timestart.setDate(timestart.getDate() - 90)
-			} else {
-				timestart = new Date(req.query.timestart)
-				console.log("timestart from querystring")
-			}
-			if(!req.query.timeend) {
-				timeend = new Date()
-				timeend.setDate(timeend.getDate() +15)
-			} else {
-				timeend = new Date(req.query.timeend)
-				console.log("timeend from querystring")
-			}
-			console.log({estacion_id:matched_point.properties.estacion_id, var_id: matched_point.properties.var_id, ts:timestart, ts:timeend})
-			crud.getSeriesBySiteAndVar(matched_point.properties.estacion_id, matched_point.properties.var_id, timestart, timeend, true) // , true, "1 days")
-			.then(series=>{
-				var obs_stats
-				if(series.observaciones.length > 0) {
-					var o_timestart = series.observaciones[0][0]
-					var o_timeend = series.observaciones[0][1]
-					var minval = series.observaciones[0][2]
-					var maxval = series.observaciones[0][2]
-					var sum=0
-					series.observaciones.map(o=> {
-						o_timestart = (o[0] < o_timestart) ? o[0] : o_timestart
-						o_timeend = (o[1] > o_timeend) ? o[1] : o_timeend
-						minval = (o[2] < minval) ? o[2] : minval
-						maxval = (o[2] > maxval) ? o[2] : maxval
-						sum = sum + o[2]
-					})
-					obs_stats = {timestart: o_timestart, timeend: o_timeend, count: series.observaciones.length, min: minval, max: maxval, avg: sum/series.observaciones.length}
-				}
-				var prono_resumen = []
-				var index = 0
-				if(series.pronosticos) {
-					for(var i=0;i<series.pronosticos.length;i++) {
-						if(series.pronosticos[i].corrida) {
-							prono_resumen[index] = {
-								cal_id: series.pronosticos[i].id,
-								nombre: series.pronosticos[i].nombre,
-								modelo: series.pronosticos[i].modelo,
-								activar: series.pronosticos[i].activar,
-								selected: series.pronosticos[i].selected,
-								cor_id: series.pronosticos[i].corrida.id,
-								forecast_date: series.pronosticos[i].corrida.date,
-								count: series.pronosticos[i].corrida.series.length,
-								fecha_fin: series.pronosticos[i].corrida.series[series.pronosticos[i].corrida.series.length-1][0]
-							}
-							i++
-						}
-					}
-				}
-				var general = {id:series.id, tipo: series.tipo, estacion: series.estacion, variable: series["var"], procedimiento: series.procedimiento, unidades: series.unidades, obs_stats: obs_stats, prono_resumen: prono_resumen}
-				// mapa
-				var geom = {
-					type:"Feature", 
-					geometry: series.estacion.geom, 
-					properties: { 
-						id: series.estacion.id,
-						nombre: series.estacion.nombre,
-						id_externo: series.estacion.id_externo,
-						longitud: series.estacion.geom.coordinates[0],
-						latitud: series.estacion.geom.coordinates[1],
-						provincia: series.estacion.provincia,
-						pais: series.estacion.pais,
-						rio: series.estacion.rio,
-						automatica: series.estacion.automatica,
-						propietario: series.estacion.propietario,
-						abreviatura: series.estacion.abreviatura,
-						URL: series.estacion.URL,
-						localidad: series.estacion.localidad,
-						real: series.estacion.real,
-						nivel_alerta: series.estacion.nivel_alerta,
-						nivel_evacuacion: series.estacion.nivel_evacuacion
-					}
-				}
-				// render
-				//~ console.log("rendering secciones at " + Date())
-				res.render('secciones_bs',{points:JSON.stringify(points), secciones:options, dates:{timestart:timestart.toISOString(), timeend:timeend.toISOString()}, general: general, geom: JSON.stringify(geom), data: JSON.stringify(series)})
-			})
-			.catch(e=>{
-				console.error(e)
-				res.status(500).send("server error")
-			})
-		})
-		.catch(e=>{
-			console.error(e)
-			res.status(500).send("server error")
-		})
+// function seccionesView(req,res) {
+// 	if(!req.query.seriesId) {
+// 		crud.getMonitoredPoints("GeoJSON")
+// 		.then(points=>{
+// 			//~ console.log(points)
+// 			var options = points.features.map(p=>{
+// 				return {series_id:p.properties.series_id, name: p.properties.estacion_id + ": " + ((p.properties.rio) ? p.properties.rio + "@" : "") + ((p.properties.nombre) ? p.properties.nombre.substring(0,30) : p.properties.estacion_id) + " (" + p.properties.var_name + ") [" + p.properties.series_id + "]",selected:false}				
+// 			})
+// 			//~ var options = points.map(p=>{
+// 				//~ return {series_id:p.series_id, name: p.estacion_id + ": " + ((p.rio) ? p.rio + "@" : "") + ((p.nombre) ? p.nombre.substring(0,18) : p.estacion_id) + " (" + p.var_name + ") [" + p.series_id + "]",selected:false}
+// 			//~ })
+// 			res.render('secciones_bs',{secciones:options, points:JSON.stringify(points)})
+// 		})
+// 		.catch(e=>{
+// 			console.error(e)
+// 			res.status(500).send("server error")
+// 		})
+// 	} else {
+// 		crud.getMonitoredPoints("GeoJSON")
+// 		.then(points=>{
+// 			//~ console.log(points)
+// 			var flag=false
+// 			var matched_point
+// 			var options = points.features.map(p=>{
+// 				var selected=false
+// 				if(p.properties.series_id == req.query.seriesId) {
+// 					console.log(p.properties)
+// 					flag=true
+// 					selected=true
+// 					matched_point=p
+// 				} 
+// 				return {series_id:p.properties.series_id, name: p.properties.estacion_id + ": " + ((p.properties.rio) ? p.properties.rio + "@" : "") + ((p.properties.nombre) ? p.properties.nombre.substring(0,30) : p.properties.estacion_id) + " (" + p.properties.var_name + ") [" + p.properties.series_id + "]",selected:selected}				
+// 			})
+// 			if(!flag) {
+// 				res.status(400).send("seriesId not found")
+// 				return
+// 			}
+// 			var timestart, timeend
+// 			if(!req.query.timestart) {
+// 				timestart = new Date()
+// 				timestart.setDate(timestart.getDate() - 90)
+// 			} else {
+// 				timestart = new Date(req.query.timestart)
+// 				console.log("timestart from querystring")
+// 			}
+// 			if(!req.query.timeend) {
+// 				timeend = new Date()
+// 				timeend.setDate(timeend.getDate() +15)
+// 			} else {
+// 				timeend = new Date(req.query.timeend)
+// 				console.log("timeend from querystring")
+// 			}
+// 			console.log({estacion_id:matched_point.properties.estacion_id, var_id: matched_point.properties.var_id, ts:timestart, ts:timeend})
+// 			crud.getSeriesBySiteAndVar(matched_point.properties.estacion_id, matched_point.properties.var_id, timestart, timeend, true) // , true, "1 days")
+// 			.then(series=>{
+// 				var obs_stats
+// 				if(series.observaciones.length > 0) {
+// 					var o_timestart = series.observaciones[0][0]
+// 					var o_timeend = series.observaciones[0][1]
+// 					var minval = series.observaciones[0][2]
+// 					var maxval = series.observaciones[0][2]
+// 					var sum=0
+// 					series.observaciones.map(o=> {
+// 						o_timestart = (o[0] < o_timestart) ? o[0] : o_timestart
+// 						o_timeend = (o[1] > o_timeend) ? o[1] : o_timeend
+// 						minval = (o[2] < minval) ? o[2] : minval
+// 						maxval = (o[2] > maxval) ? o[2] : maxval
+// 						sum = sum + o[2]
+// 					})
+// 					obs_stats = {timestart: o_timestart, timeend: o_timeend, count: series.observaciones.length, min: minval, max: maxval, avg: sum/series.observaciones.length}
+// 				}
+// 				var prono_resumen = []
+// 				var index = 0
+// 				if(series.pronosticos) {
+// 					for(var i=0;i<series.pronosticos.length;i++) {
+// 						if(series.pronosticos[i].corrida) {
+// 							prono_resumen[index] = {
+// 								cal_id: series.pronosticos[i].id,
+// 								nombre: series.pronosticos[i].nombre,
+// 								modelo: series.pronosticos[i].modelo,
+// 								activar: series.pronosticos[i].activar,
+// 								selected: series.pronosticos[i].selected,
+// 								cor_id: series.pronosticos[i].corrida.id,
+// 								forecast_date: series.pronosticos[i].corrida.date,
+// 								count: series.pronosticos[i].corrida.series.length,
+// 								fecha_fin: series.pronosticos[i].corrida.series[series.pronosticos[i].corrida.series.length-1][0]
+// 							}
+// 							i++
+// 						}
+// 					}
+// 				}
+// 				var general = {id:series.id, tipo: series.tipo, estacion: series.estacion, variable: series["var"], procedimiento: series.procedimiento, unidades: series.unidades, obs_stats: obs_stats, prono_resumen: prono_resumen}
+// 				// mapa
+// 				var geom = {
+// 					type:"Feature", 
+// 					geometry: series.estacion.geom, 
+// 					properties: { 
+// 						id: series.estacion.id,
+// 						nombre: series.estacion.nombre,
+// 						id_externo: series.estacion.id_externo,
+// 						longitud: series.estacion.geom.coordinates[0],
+// 						latitud: series.estacion.geom.coordinates[1],
+// 						provincia: series.estacion.provincia,
+// 						pais: series.estacion.pais,
+// 						rio: series.estacion.rio,
+// 						automatica: series.estacion.automatica,
+// 						propietario: series.estacion.propietario,
+// 						abreviatura: series.estacion.abreviatura,
+// 						URL: series.estacion.URL,
+// 						localidad: series.estacion.localidad,
+// 						real: series.estacion.real,
+// 						nivel_alerta: series.estacion.nivel_alerta,
+// 						nivel_evacuacion: series.estacion.nivel_evacuacion
+// 					}
+// 				}
+// 				// render
+// 				//~ console.log("rendering secciones at " + Date())
+// 				res.render('secciones_bs',{points:JSON.stringify(points), secciones:options, dates:{timestart:timestart.toISOString(), timeend:timeend.toISOString()}, general: general, geom: JSON.stringify(geom), data: JSON.stringify(series)})
+// 			})
+// 			.catch(e=>{
+// 				console.error(e)
+// 				res.status(500).send("server error")
+// 			})
+// 		})
+// 		.catch(e=>{
+// 			console.error(e)
+// 			res.status(500).send("server error")
+// 		})
 		
 		
-	}
-}
+// 	}
+// }
 
 
 // funciones estadisticas
@@ -6981,7 +6891,7 @@ function send_output(options,data,res) {
 				}
 			}
 		}
-	} else if (options.pretty) {
+	} else if (!options.format && options.pretty) {
 		if(options.no_send_data) {
 			if(Array.isArray(data)) {
 				output = JSON.stringify({records:data.length},null,2)
@@ -7027,6 +6937,12 @@ function send_output(options,data,res) {
 								return d.valor
 							}
 						})})
+					}
+				} else if(data.type && data.type == "FeatureCollection") {
+					if(options.pretty) {
+						output = JSON.stringify(data,null,4)
+					} else {
+						output = JSON.stringify(data)
 					}
 				} else {
 					if(data.geom) {
