@@ -17,19 +17,19 @@
 				</div>
 			</div>
 		</div>
-		<table class="series_edit_table bootstraped"  data-pagination="true" data-search="true" data-unique-id="series_id" data-height=720 data-multiple-select-row="true" data-maintain-meta-data="true" data-sort-name="estacion_id" data-page-size=250 data-page-list="[]" data-sort-stable=true data-side-pagination="server" data-query-params="queryParams" data-url="getMonitoredPoints" query-params-type="limit">
+		<table class="series_edit_table bootstraped"  data-pagination="true" data-search="true" data-unique-id="series_id" data-height=720 data-multiple-select-row="true" data-maintain-meta-data="true" data-sort-name="estacion_id" data-page-size=250 data-page-list="[]" data-sort-stable=true data-side-pagination="server" data-query-params="queryParams" data-url="obs/puntual/series" query-params-type="limit">
 		  <thead>
 			<tr>
 			  <th data-checkbox="true" data-field="state"></th>
 			  <th data-field="action" data-formatter="cellAction">action</th>
 			  <th data-sortable="true" data-field="series_id" data-formatter="cellAttr">series_id</th>
 			  <th data-sortable="true" data-field="estacion_id" data-formatter="cellAttr">estacion_id</th>
-			  <th data-sortable="true" data-field="nombre" data-formatter="cellAttr">nombre</th>
+			  <th data-sortable="true" data-field="estacion_nombre" data-formatter="cellAttr">nombre</th>
 			  <th data-sortable="true" data-field="geom" data-formatter="cellAttrGeometry" data-sorter="geomSorter">geometría</th>
 			  <!-- <th data-sortable="true" data-field="latitud" data-formatter="cellAttrLat">latitud</th> -->
 			  <th data-sortable="true" data-field="rio" data-formatter="cellAttr">rio</th>
 			  <th data-sortable="true" data-field="var_id" data-formatter="cellAttr">var_id</th>
-			  <th data-sortable="true" data-field="var_name" data-formatter="cellAttr">var_name</th>
+			  <th data-sortable="true" data-field="var_nombre" data-formatter="cellAttr">var_nombre</th>
 			  <th data-sortable="true" data-field="proc_id" data-formatter="cellAttr">proc_id</th>
 			  <th data-sortable="true" data-field="unit_id" data-formatter="cellAttr">unit_id</th>
 			  <th data-sortable="true" data-field="timestart" data-formatter="cellAttr">timestart</th>
@@ -37,7 +37,7 @@
 			  <th data-sortable="true" data-field="count" data-formatter="cellAttr">count</th>
 			  <th data-sortable="true" data-field="forecast_date" data-formatter="cellAttr">forecast_date</th>
 			  <th data-sortable="true" data-field="data_availability" data-formatter="cellAttr">data_availability</th>
-			  <th data-sortable="true" data-field="fuente" data-formatter="cellAttr">fuente</th>
+			  <th data-sortable="true" data-field="fuentes_nombre" data-formatter="cellAttr">fuente</th>
 			  <th data-sortable="true" data-field="id_externo" data-formatter="cellAttr">id_externo</th>
 			</tr>
 		  </thead>

@@ -2473,6 +2473,14 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		}
 	}
 	// 					DATE RANGE / DATA AVAILABILITY FILTER
+	var timestart = (filter.timestart) ? new Date(filter.timestart) : undefined
+	if (timestart && timestart.toString() == "Invalid Date") {
+		throw("Invalid timestart)")
+	}
+	var timeend = (filter.timeend) ? new Date(filter.timeend) : undefined
+	if (timeend && timeend.toString() == "Invalid Date") {
+		throw("Invalid timeend)")
+	}	
 	var date_range_table = internal.serie.getDateRangeTable(tipo,options)
 	var series_range_join = (filter.has_obs || (filter.data_availability && ["h","c","n","r"].indexOf(filter.data_availability.toLowerCase()) >= 0)) ? "INNER" : "LEFT OUTER"
 	var date_range_query = `
@@ -2488,7 +2496,7 @@ internal.serie.build_read_query = function(filter={},options={}) {
 							THEN 'RT'
 						WHEN now() - "${date_range_table}".timeend < '3 days'::interval
 							THEN 'NRT'
-						WHEN ("${date_range_table}".timestart <= coalesce(${(filter.timeend) ? ("'" + filter.timeend.toISOString() + "'") : "NULL"},now())) AND ("${date_range_table}".timeend >= coalesce(${(filter.timestart) ? ("'" + filter.timestart.toISOString() + "'") : "NULL"},now()-'90 days'::interval))
+						WHEN ("${date_range_table}".timestart <= coalesce(${(timeend) ? ("'" + timeend.toISOString() + "'") : "NULL"},now())) AND ("${date_range_table}".timeend >= coalesce(${(timestart) ? ("'" + timestart.toISOString() + "'") : "NULL"},now()-'90 days'::interval))
 							THEN 'C'
 						ELSE 'H'
 						END
@@ -2574,12 +2582,7 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		column: internal.serie.getFeatureIdColumn(tipo)
 	}
 	//						PAGINATION
-	var page_limit = (filter.limit) ? filter.limit : (config.pagination && config.pagination.default_limit) ? config.pagination.default_limit : undefined
-	page_limit = parseInt(page_limit)
-	if (config.pagination && config.pagination.max_limit && page_limit > config.pagination.max_limit) {
-		throw(new Error("limit exceeds maximum records per page (" + config.pagination.max_limit) + ")")
-	}
-	var [limit,pagination,page_offset,limit_string] = internal.utils.getLimitString(page_limit,filter.offset)
+	var [limit,pagination,page_offset,limit_string] = internal.utils.getLimitString(filter.limit,filter.offset)
 	var properties
 	//				JOIN CLAUSES
 	var join_clauses = [
@@ -2597,6 +2600,7 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		var select_fields = [
 			`'${tipo}' AS tipo`,
 			"series.id AS id",
+			"series.id AS series_id",
 			"procedimiento.id AS proc_id",
 			"procedimiento.nombre AS proc_nombre",
 			"var.id AS var_id",
@@ -2968,7 +2972,7 @@ internal.serie.build_read_query = function(filter={},options={}) {
 				"estaciones.id_externo AS id_externo",
 				"estaciones.tabla AS tabla",
 				"st_asgeojson(estaciones.geom)::json AS geom",
-				"redes.nombre AS red_nombre",
+				"redes.nombre AS fuentes_nombre",
 				"redes.public AS public"
 			]]
 		} else {
@@ -8393,31 +8397,31 @@ internal.CRUD = class {
 	static async getSeries(tipo,filter={},options={},client,req) {
 		//~ console.log(options)
 		// console.log({filter:filter})
+		if(tipo) {
+			filter.tipo = tipo
+		}
+		filter.limit = (filter.limit) ? filter.limit : (config.pagination && config.pagination.default_limit) ? config.pagination.default_limit : undefined
+		filter.limit = parseInt(filter.limit)
+		if (config.pagination && config.pagination.max_limit && filter.limit > config.pagination.max_limit) {
+			throw(new Error("limit exceeds maximum records per page (" + config.pagination.max_limit) + ")")
+		}
+		if(filter.limit !== undefined) {
+			options.pagination = true
+		}
 		var release_client = false
 		if(!client) {
 			client = await global.pool.connect()
 			release_client = true
 		}
-		if(tipo) {
-			filter.tipo = tipo
+		try {
+			var query = internal.serie.build_read_query(filter,options)
+		} 
+		catch(e) {
+			if(release_client) {
+				client.release()
+			}
+			throw(e)
 		}
-		// if((!filter.timestart || !filter.timeend) && !options.getMonthlyStats && !options.getStats && !options.getPercentiles && options.fromView) {
-		// 	try {
-		// 		console.log("get series json")
-		// 		// console.log(JSON.stringify({options:options}))
-		// 		var result = await this.getSeriesJson(filter,options,client)
-		// 	} catch(e) {
-		// 		if(release_client) {
-		// 			client.release()
-		// 		}
-		// 		throw(e)
-		// 	}
-		// 	if(release_client) {
-		// 		client.release()
-		// 	}
-		// 	return result
-		// }
-		var query = internal.serie.build_read_query(filter,options)
 		// console.log(query)
 		try {
 			var res = await client.query(query)
@@ -8435,8 +8439,11 @@ internal.CRUD = class {
 		// }
 		//				GET PAGE PROPERTIES
 		var [total, is_last_page, next_offset] = internal.utils.getPageProperties(filter.limit,filter.offset,res.rows)
-		var next_page_url = internal.utils.makeGetSeriesNextPageUrl(tipo,next_offset,req,filter,options)
-		
+		if(!is_last_page) {
+			var next_page_url = internal.utils.makeGetSeriesNextPageUrl(tipo,next_offset,req,filter,options)
+		} else {
+			var next_page_url = undefined
+		}
 		if(options.no_metadata) {  // RETURN WITH NO METADATA (SOLO IDS)
 			if(release_client) {
 				client.release()
@@ -8453,6 +8460,9 @@ internal.CRUD = class {
 			}
 		}
 		if(options.format && options.format.toLowerCase() == "geojson") {
+			if(release_client) {
+				client.release()
+			}
 			return {
 				"type": "FeatureCollection",
 				"features": res.rows.map(row=> {
@@ -8462,6 +8472,7 @@ internal.CRUD = class {
 						geometry: row.estacion.geom,
 						properties: {
 							tipo: tipo,
+							id: row.id,
 							series_id: row.id,
 							nombre: row.estacion.nombre,
 							estacion_id: row.estacion.id,
@@ -8469,13 +8480,13 @@ internal.CRUD = class {
 							var_id: row.var.id,
 							proc_id: row.procedimiento.id,
 							unit_id: row.unidades.id,
-							var_name: row.var.name,
+							var_nombre: row.var.nombre,
 							GeneralCategory: row.var.GeneralCategory,
 							timestart: (row.date_range) ? row.date_range.timestart : null,
 							timeend: (row.date_range) ? row.date_range.timeend : null,
 							count: (row.date_range) ? row.date_range.count : null,
 							forecast_date: row.forecast_date,
-							data_availability: row.data_availability,
+							data_availability: row.date_range.data_availability,
 							fuente: (row.fuente) ? row.fuente.nombre : (row.estacion.tabla) ? row.estacion.tabla : null,
 							id_externo: row.estacion.id_externo,
 							public: (row.fuente) ? row.fuente.public : (row.estacion.public !== undefined) ? row.estacion.public : null
@@ -14218,7 +14229,7 @@ ORDER BY cal.cal_id`
 			var series_id
 			if(series_prono_last && series_prono_last.length) {
 				const series_ids = Array.from(new Set(flatten(series_prono_last.map(p=> {
-					console.log(p)
+					// console.log(p)
 					if(p.series) {
 						return p.series.map(s=>s.id)
 					} else {
@@ -16267,7 +16278,7 @@ ORDER BY cal.cal_id`
 					return this.getCalibrados(estacion_id,var_id,true,startdate,enddate,undefined,undefined,undefined,isPublic,undefined,undefined,undefined,forecast_date,undefined,series_sim.map(s=>s.id),undefined,serie.tipo)
 					.then(calibrados=>{
 						serie.pronosticos = calibrados
-						console.log("getSeriesBySiteAndVar with prono of length"  + serie.pronosticos.length)
+						console.log("getSeriesBySiteAndVar with prono of length "  + serie.pronosticos.length)
 						return serie
 					})
 				} else {
@@ -17108,6 +17119,9 @@ ORDER BY cal.cal_id`
 
 internal.utils = {
 	makeGetSeriesNextPageUrl: function(tipo="puntual",next_offset,req,filter={},options={}) {
+		if(next_offset === undefined || next_offset == null) {
+			return undefined
+		}
 		var query_arguments = (req) ? {...req.query} : {...filter,...options}
 		query_arguments.offset = next_offset
 		return (config.rest && config.rest.url) ? `${config.rest.url}/obs/${tipo}/series?${querystring.stringify(query_arguments)}` : (req) ? `${req.protocol}://${req.get('host')}${req.path}?${querystring.stringify(query_arguments)}` : `obs/${tipo}/series?${querystring.stringify(query_arguments)}`

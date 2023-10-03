@@ -417,8 +417,8 @@
 					<a id=descargarMnemos download="observaciones.csv" href="obs/puntual/series/{id}?timestart=&timeend=&format=mnemos">obs/puntual/series/{id}?timestart=&amp;timeend=&amp;format=mnemos</a>
 				</li>
 				<li>
-					<b>Estaciones de monitoreo (GeoJSON):    </b>
-					<a id=descargarPoints download="secciones.GeoJSON" href="obs/puntual/series?format=geojson">obs/puntual/series?format=geojson</a>
+					<b>Series (GeoJSON):    </b>
+					<a id=descargarPoints download="series.geojson" href="obs/puntual/series?format=geojson">obs/puntual/series?format=geojson</a>
 				</li>
 				<li>
 					<b>Cuantiles diarios (JSON):    </b>
@@ -788,7 +788,6 @@
 		if(activeTab){
 			$('a[href="' + activeTab + '"]').tab('show');
 		}
-		$("form#selectorform select#estacionId").select2();  // Add browse filter to select
 		$("form#selectorform select#seriesId").select2();  // Add browse filter to select
 		$("form#selectorform select#varId").select2();  // Add browse filter to select
 		$("form#selectorform select#redId").select2();  // Add browse filter to select
@@ -807,6 +806,8 @@
 			var key = s.name
 			if (urlParams.get(key)) {
 				search_filters[key] = urlParams.get(key)
+			} else if (urlParams.get('fuentesId') && urlParams.get('fuentesId') != "" && default_config.filters_areal && default_config.filters_areal[key]) {
+				search_filters[key] = default_config.filters_areal[key].default
 			} else if (default_config.filters[key]) {
 				search_filters[key] = default_config.filters[key].default
 			}
@@ -815,6 +816,8 @@
 			var key = s.name
 			if (urlParams.get(key)) {
 				search_filters[key] = urlParams.get(key)
+			} else if (urlParams.get('fuentesId') && urlParams.get('fuentesId') != "" && default_config.filters_areal && default_config.filters_areal[key]) {
+				search_filters[key] = default_config.filters_areal[key].default
 			} else if (default_config.filters[key]) {
 				search_filters[key] = default_config.filters[key].default
 			}
@@ -848,6 +851,9 @@
 				$("input[name=" + i + "]").val(search_filters[i])
 				bbox_data[i] = search_filters[i]
 			} 
+		}
+		if(search_filters.estacionId) {
+			$("form#selectorform select[name=estacionId]").append("<option value=" + search_filters.estacionId + " selected />")
 		}
 		 
 		document.getElementById('popup').style.display = "block"
@@ -997,13 +1003,14 @@
 		if(search_filters.fuentesId) {
 			$("h3#leftHeading").text("Series areales")
 			$("form#selectorform select[name=estacionId]").parent().find("label").text("Área")
-			loadAreasOptions(search_filters)
+			// loadAreasOptions(search_filters)
 			$("form#selectorform select[name=redId]").parent().hide()
 			$("form#selectorform select[name=fuentesId]").parent().removeClass("additionalFilters").show()
 			$("form#chooseaddseries input[name=tipo]").val("areal")
-		} else {
-			loadEstacionesOptions(search_filters)
-		}
+		} 
+		// else {
+			//loadEstacionesOptions(search_filters)
+		//}
 
 		getCalibradosGrupos(search_filters)
 		
@@ -1033,6 +1040,7 @@
 		var gSeries, gPoints
 
 		var [get_monitored_url, monitoredpointsparams,estaciones_feature_type] = getMonitoredPointParams(search_filters)
+		setEstacionIdSelect(get_monitored_url,monitoredpointsparams)
 		setChooseAddSeriesSelect(get_monitored_url,monitoredpointsparams)
 		
 		if(global.default_config.use_wms) {
@@ -1046,7 +1054,7 @@
 		
 		global.monitoredpointsparams = monitoredpointsparams
 			
-		makeSeriesEditTable($("div.tabcontent#tabla_series"),undefined,{{writer}},monitoredpointsparams.tipo)
+		makeSeriesEditTable($("div.tabcontent#tabla_series"),undefined,{{writer}},monitoredpointsparams.tipo,global.default_config.series_page_size)
 
 		if(search_filters.seriesId) {
 			loadSerie(search_filters) // ,matched_point)
@@ -1057,13 +1065,13 @@
 		
 			
 			//~ descarga listado estaciones/var
-		var getMonitoredPointsUrl = get_monitored_url + "?format=geojson"
-		if(search_filters.fuentesId) {
-			getMonitoredPointsUrl += "&fuentes_id=" + search_filters.fuentesId
-			$("#descargarPoints").attr("download","monitoredAreas.geojson")
-		} else {
-			$("#descargarPoints").attr("download","monitoredPoints.geojson")
-		}
+		var getMonitoredPointsUrl = get_monitored_url + "?format=geojson&" + new URLSearchParams(global.monitoredpointsparams).toString()
+//		if(search_filters.fuentesId) {
+//			getMonitoredPointsUrl += "&fuentes_id=" + search_filters.fuentesId
+//			$("#descargarPoints").attr("download","series.geojson")
+//		} else {
+//			$("#descargarPoints").attr("download","series.geojson")
+//		}
 		$("#descargarPoints").attr('href',getMonitoredPointsUrl).html(getMonitoredPointsUrl)
 	})
 	function setGeneralCategoryOption(generalCategory) {
@@ -1231,11 +1239,61 @@
 		// if(search_filters.limit) {
 		//	monitoredpointsparams.limit = search_filters.limit
 		//} else
-		if (global.default_config.series_page_size) {
-			monitoredpointsparams.limit = global.default_config.series_page_size
-		}
+		//if (global.default_config.series_page_size) {
+		//	monitoredpointsparams.limit = global.default_config.series_page_size
+		//}
 		global.monitoredpointsparams = monitoredpointsparams
 		return [get_monitored_url,monitoredpointsparams,estaciones_feature_type]
+	}
+
+	function setEstacionIdSelect(url,monitoredpointsparams) {
+		$("form#selectorform select#estacionId").select2({
+			minimumInputLength: 3,
+			ajax: {
+   				url: url, //?' + new URLSearchParams(monitoredpointsparams).toString(),
+    			dataType: 'json',
+    			data: function (params) {
+					var query = {...monitoredpointsparams}
+					query.search = params.term
+					query.no_metadata = true
+					query.pagination = true
+					query.format = undefined
+					query.no_geom = true
+					query.limit = global.default_config.series_page_size // 250
+					query.offset = (params.page) ? (params.page - 1) * global.default_config.series_page_size : 0 
+					return query
+				},
+				processResults: function (data) {
+					// Transforms the top-level key of the response object from 'items' to 'results'
+					const results = {}
+					for(var r of data.rows) {
+						if(results[r.estacion_id]) {
+							continue
+						}
+						if(r.tipo == "puntual") {
+							results[r.estacion_id] = {
+								id: r.estacion_id,
+								text: `${r.estacion_id}: ${(r.rio) ? r.rio : ""}@${r.estacion_nombre} (${r.var_nombre}) [${r.series_id}]`
+							} 
+						} else {
+							results[r.estacion_id] = {
+								id: r.estacion_id,
+								text: `${r.estacion_id}: ${r.estacion_nombre} (${r.var_nombre}) [${r.series_id}]`
+							}				
+						}
+					}
+					return {
+						results: Object.keys(results).map(key=>{
+							return results[key]
+						}),
+						pagination: {
+							more: (data.is_last_page) ? false : true
+						} 
+					}
+				},
+				delay: 500
+  			}
+		})
 	}
 
 	function setChooseAddSeriesSelect(url,monitoredpointsparams) {
@@ -1247,6 +1305,8 @@
     			data: function (params) {
 					var query = {...monitoredpointsparams}
 					query.search = params.term
+					query.no_metadata = true
+					query.pagination = true
 					query.format = undefined
 					query.no_geom = true
 					query.limit = global.default_config.series_page_size // 250
@@ -1259,7 +1319,7 @@
 						results: data.rows.map(r=>{
 							return {
 								id: r.series_id,
-								text: `${r.estacion_id}: ${r.rio}@${r.nombre} (${r.var_name}) [${r.series_id}]`
+								text: `${r.estacion_id}: ${(r.rio) ? r.rio : ""}@${r.estacion_nombre} (${r.var_nombre}) [${r.series_id}]`
 							} 
 						}),
 						pagination: {
@@ -1272,7 +1332,7 @@
 		})
 	}
 	function getMonitoredPoints(get_monitored_url,monitoredpointsparams,estaciones_feature_type) {
-		const params = {format: "geojson", pagination: "true", ...monitoredpointsparams}
+		const params = {format: "geojson", pagination: true, include_geom: true, ...monitoredpointsparams}
 		$.get(get_monitored_url,params)
 		.then(points=>{
 			$("body").css("cursor","default")
@@ -1308,7 +1368,7 @@
 					global.map.updateSize()
 				})
 
-				if(points.next_page_url) {
+				if(!points.is_last_page && points.next_page_url) {
 					loadPointsNextPage(points.next_page_url,points,sourceEstaciones,{{writer}})
 				}
 			}
@@ -1961,12 +2021,12 @@
 		$.get("obs/areal/series",estaciones_params)
 		.then(data=>{
 			$("body").css("cursor","default")
-			if(!data.length) {
+			if(!data.rows.length) {
 				alert("No se encontraron series para la fuente y variable solicitada")
 				return
 			}
 			var estaciones_options = {}
-			for(var serie of data) {
+			for(var serie of data.rows) {
 				if(estaciones_options.hasOwnProperty(serie.estacion.id)) {
 					continue
 				}
@@ -2120,6 +2180,7 @@
 						var sim = "no"
 						var fontColor = "white"
 						if(data_availability !== null) {
+							// if(parseInt(dataAvailability).toString() != "NaN") {
 							obs = (data_availability >= 8) ? "RT" : (data_availability >= 6) ? "NRT" : (data_availability >= 4) ? "C" : (data_availability >= 2) ? "H" : ""
 							sim = (data_availability % 2 == 1) ? "S" : ""
 							var data_availability_string = (obs != "") ? (sim != "") ? `${obs}+${sim}` : `${obs}` : (sim != "") ? `${sim}` : "N"
@@ -2131,6 +2192,12 @@
 							} else {
 								sim = "sí"
 							}
+							// } else {
+							// 	obs = (["H","C","NRT","RT","H+S","C+S","NRT+S","RT+S"].indexOf(data_availability) >= 0) ? "sí" : "no"
+							// 	sim = /\+S$/.test(data_availability) ? "sí" : "no"
+							// 	var data_availability_string = data_availability
+							// }
+							
 							if(stylePars[data_availability_string]) {
 								bgcolor = "#" + stylePars[data_availability_string].fill.map(c=> rgbToHex(c)).join("").substring(0,6)
 								outline = '3px solid #' + stylePars[data_availability_string].stroke.map(c=> rgbToHex(c)).join("").substring(0,6)
@@ -2225,7 +2292,7 @@
 			var sim = "no"
 			var fontColor = "white"
 			if(data_availability) {
-				obs = (data_availability.indexOf("H") > -1  || data_availability.indexOf("T") > -1 ) ? data_availability.replace(/\+.*$/,"") : "no"
+				obs = (data_availability.indexOf("H") > -1  || data_availability.indexOf("C") > -1 || data_availability.indexOf("T") > -1 ) ? data_availability.replace(/\+.*$/,"") : "no"
 				sim = (data_availability.indexOf("S") > -1) ? "sí" : "no"
 				if(stylePars[data_availability]) {
 					bgcolor = "#" + stylePars[data_availability].fill.map(c=> rgbToHex(c)).join("").substring(0,6)
@@ -2245,7 +2312,7 @@
 						$("<td></td>").text(f.get('fuente')),
 						$("<td></td>").text(f.get('estacion_id')),
 						$("<td></td>").text(f.get('nombre')),
-						$("<td></td>").text(f.get('var_name')),
+						$("<td></td>").text(f.get('var_nombre')),
 						$("<td></td>").text(f.get('series_id')),
 						$("<td></td>").text(obs),
 						$("<td></td>").text(sim)

@@ -8,7 +8,7 @@ var actions = '<a class="add" title="Add/Update" data-toggle="tooltip" style="di
 					'<a class="download title="Download" data-toggle="tooltip"><i class="material-icons">download</i></a>'
 var public_actions = '<a class="view" title="View" data-toggle="tooltip"><i class="material-icons">place</i></a>' + 
 					'<a class="download title="Download" data-toggle="tooltip"><i class="material-icons">download</i></a>'
-function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual") {
+function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual",series_page_size=250) {
 	if(monitoringPoints) {
 		var features = monitoringPoints.features.map(f=>{
 			//~ console.log({feature:f})
@@ -88,7 +88,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 		global.series_table_bs = $(container).find("table.series_edit_table").bootstrapTable(
 		{
 			pagination: true,
-			pageSize: 250,
+			pageSize: series_page_size,
 			pageList: [10, 50, 100, 250, 1000],
 			url: (tipo == "puntual") ? "obs/puntual/series" : "obs/areal/series",
 			columns: (tipo == "puntual") ? [
@@ -116,7 +116,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 				},
 				{
 					"title": "nombre",
-					"field": "nombre",
+					"field": "estacion_nombre",
 					"formatter": "cellAttr",
 					"sortable": true
 				},
@@ -139,8 +139,8 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 					"sortable": true
 				},
 				{
-					"title": "var_name",
-					"field": "var_name",
+					"title": "var_nombre",
+					"field": "var_nombre",
 					"formatter": "cellAttr",
 					"sortable": true
 				},
@@ -188,7 +188,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 				},
 				{
 					"title": "fuente",
-					"field": "fuente",
+					"field": "fuentes_nombre",
 					"formatter": "cellAttr",
 					"sortable": true
 				},
@@ -224,7 +224,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 				{
 					"title": "nombre",
 					"sortable": true,
-					"field": "nombre",
+					"field": "estacion_nombre",
 					"formatter": "cellAttr"
 				},
 				{
@@ -252,8 +252,8 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 					"sortable": true
 				},
 				{
-					"title": "var_name",
-					"field": "var_name",
+					"title": "var_nombre",
+					"field": "var_nombre",
 					"formatter": "cellAttr",
 					"sortable": true
 				},
@@ -300,7 +300,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual")
 					"sortable": true
 				},
 				{
-					"title": "tabla",
+					"title": "fuentes_nombre",
 					"field": "tabla",
 					"formatter": "cellAttr",
 					"sortable": true
@@ -1172,5 +1172,7 @@ function queryParams(params) {
 	for(var key of Object.keys(global.monitoredpointsparams)) {
 		params[key] = global.monitoredpointsparams[key]
 	}
+	params.no_metadata = true
+	params.pagination = true
     return params
 }

@@ -2388,7 +2388,7 @@ function getSeries(req,res) {
 	}
 	var tipo = (filter.tipo) ? filter.tipo : "puntual"
 	filter.tipo = undefined
-	options.fromView = true
+	// options.fromView = true
 	crud.getSeries(tipo,filter,options)
 	.then(result=>{
 		console.log("Results: " + result.length)
