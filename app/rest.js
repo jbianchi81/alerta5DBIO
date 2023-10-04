@@ -2389,6 +2389,14 @@ function getSeries(req,res) {
 	var tipo = (filter.tipo) ? filter.tipo : "puntual"
 	filter.tipo = undefined
 	// options.fromView = true
+	filter.limit = (filter.limit) ? filter.limit : (config.pagination && config.pagination.default_limit) ? config.pagination.default_limit : undefined
+	filter.limit = parseInt(filter.limit)
+	if (config.pagination && config.pagination.max_limit && filter.limit > config.pagination.max_limit) {
+		throw(new Error("limit exceeds maximum records per page (" + config.pagination.max_limit) + ")")
+	}
+	if(filter.limit !== undefined) {
+		options.pagination = true
+	}
 	crud.getSeries(tipo,filter,options)
 	.then(result=>{
 		console.log("Results: " + result.length)

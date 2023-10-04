@@ -8400,14 +8400,6 @@ internal.CRUD = class {
 		if(tipo) {
 			filter.tipo = tipo
 		}
-		filter.limit = (filter.limit) ? filter.limit : (config.pagination && config.pagination.default_limit) ? config.pagination.default_limit : undefined
-		filter.limit = parseInt(filter.limit)
-		if (config.pagination && config.pagination.max_limit && filter.limit > config.pagination.max_limit) {
-			throw(new Error("limit exceeds maximum records per page (" + config.pagination.max_limit) + ")")
-		}
-		if(filter.limit !== undefined) {
-			options.pagination = true
-		}
 		var release_client = false
 		if(!client) {
 			client = await global.pool.connect()
