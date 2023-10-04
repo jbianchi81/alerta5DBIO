@@ -17471,17 +17471,24 @@ internal.utils = {
 				// qualifiers::jsonb ?& array['1']
 				} else if(valid_filters[key].type == "data_availability") {
 					var d_a_values = ["H","C","NRT","RT"]
+					var apply_filter = false
 					if(filter[key].toLowerCase() == "r" || filter[key].toLowerCase() == "rt") {
 						d_a_values = ["RT"]
+						apply_filter = true
 					} else if(filter[key].toLowerCase() == "n" || filter[key].toLowerCase() == "nrt") {
 						d_a_values = ["NRT","RT"]
+						apply_filter = true
 					} else if(filter[key].toLowerCase() == "c") {
 						d_a_values = ["C","NRT","RT"]
+						apply_filter = true
 					} else if(filter[key].toLowerCase() == "h") {
 						d_a_values = ["H","C","NRT","RT"]
+						apply_filter = true
 					} 
-					var d_a_values_string = d_a_values.map(v=>`'${v}'`).join(",")
-					filter_string += `AND ${fullkey} IN (${d_a_values_string})`
+					if(apply_filter) {
+						var d_a_values_string = d_a_values.map(v=>`'${v}'`).join(",")
+						filter_string += `AND ${fullkey} IN (${d_a_values_string})`
+					}
 				} else {
 					if(Array.isArray(filter[key])) {
 						if(filter[key].length) {

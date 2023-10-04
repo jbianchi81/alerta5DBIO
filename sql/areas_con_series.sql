@@ -121,7 +121,7 @@ WITH pronos AS (
             AND ('%GeneralCategory%'='NULL' OR var."GeneralCategory"='%GeneralCategory%')
             AND ('%tabla%'='NULL' OR estaciones.tabla='%tabla%')
             AND ('%red_id%'='NULL' OR redes.id=%red_id%)
-            AND ('%id_externo'='NULL' OR estaciones.id_externo=%id_externo%)
+            AND ('%id_externo%'='NULL' OR estaciones.id_externo=%id_externo%)
             AND ('%date_range_before%'='1900-01-01' OR (series_areal_date_range.timestart IS NOT NULL AND series_areal_date_range.timestart>='%date_range_before%'::timestamp))
             AND ('%date_range_after%'='2100-01-01' OR (series_areal_date_range.timeend IS NOT NULL AND series_areal_date_range.timeend<='%date_range_after%'::timestamp))
             AND ('%data_availability%'='NULL' 
@@ -132,7 +132,7 @@ WITH pronos AS (
                 OR ('%data_availability%'='h' AND series_areal_date_range.timeend IS NOT NULL AND series_areal_date_range.timeend IS NOT NULL)
             )
             AND (CAST ('%has_prono%' AS BOOLEAN) = false or pronos.corridas_array IS NOT NULL)
-            AND ST_Intersects(areas_pluvio.geom, ST_MakeEnvelope(coalesce(%west%,-180), coalesce(%south%,-90), coalesce(%east%,%west%,180), coalesce(%north%,90), 4326))
+            AND ST_Intersects(areas_pluvio.geom, ST_MakeEnvelope(coalesce(%west%,-180), coalesce(%south%,-90), coalesce(%east%,180), coalesce(%north%,90), 4326))
     )
     SELECT 
         areas_pluvio.unid AS estacion_id, 

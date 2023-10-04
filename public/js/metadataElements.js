@@ -1008,7 +1008,8 @@ var metadataElements = {
 			no_metadata: true
 		},
 		nameProperty: "estacion_nombre",
-		geomFilter: "geom"
+		geomFilter: "geom",
+		object_property: "rows"
 	},
 	seriesAreales: {
 		properties: {
@@ -1195,7 +1196,8 @@ var metadataElements = {
 		fixedParameters: {
 			no_metadata: true
 		},
-		nameProperty: "id"
+		nameProperty: "id",
+		object_property: "rows"
 	},
 	seriesRaster: {
 		properties: {

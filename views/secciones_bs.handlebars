@@ -739,7 +739,7 @@
 	$("div#maplegend").hide()
 	var global = {}
 	$("a[data-toggle=tab]").click(evt=>{
-		window.dispatchEvent(new Event('resize'));
+		setTimeout(()=>window.dispatchEvent(new Event('resize')),500)
 	})
 	$("section#selector").on('show.bs.collapse',()=>{
 		$("a#selectorToggle").text("ocultar buscador")
@@ -989,11 +989,21 @@
 		$("form#selectorform select[name=generalCategory]").change(event=>{
 			var generalCategory = $("form#selectorform select[name=generalCategory]").val()
 			getVarList(search_filters.varId,estaciones_tipo,generalCategory)
+			$("form#selectorform select[name=seriesId]").val("")
 		})
 
 
 		$("form#selectorform select[name=varId]").change(event=>{
+			$("form#selectorform select[name=seriesId]").val("")
 			$(event.target).parents("form").submit()
+		})
+
+		$("form#selectorform select[name=fuentesId]").change(event=>{
+			$("form#selectorform select[name=seriesId]").val("")
+		})
+
+		$("form#selectorform select[name=redId]").change(event=>{
+			$("form#selectorform select[name=seriesId]").val("")
 		})
 
 		getFuentesPuntual(search_filters)
