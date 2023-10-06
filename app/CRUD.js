@@ -11533,27 +11533,23 @@ internal.CRUD = class {
 			for(var i=0;i<result.rows.length;i++) {
 				const serie_areal = result.rows[i]
 				//~ console.log([series_id,timestart,timeend,serie_areal.area_id])
-				const serie = await this.rastExtractByArea(series_id,timestart,timeend,serie_areal.area_id,options,client)
+				try {
+					var serie = await this.rastExtractByArea(series_id,timestart,timeend,serie_areal.area_id,options,client)
+				} catch(e) {
+					console.error(e)
+					continue
+				}
 				if(!serie) {
 					console.log("serie rast no encontrada")
-					if(release_client) {
-						client.release()
-					}	
-					return
+					continue
 				}
 				if(!serie.observaciones) {
 					console.log("observaciones no encontradas")
-					if(release_client) {
-						client.release()
-					}
-					return
+					continue
 				}
 				if(serie.observaciones.length == 0) {
 					console.log("observaciones no encontradas")
-					if(release_client) {
-						client.release()
-					}
-					return
+					continue
 				}
 				console.log("Found serie_areal.id:" + serie_areal.id)
 				serie.observaciones = serie.observaciones.map(obs=> {
@@ -11565,15 +11561,14 @@ internal.CRUD = class {
 					if(release_client) {
 						client.release()
 					}
-					return serie.observaciones
+					results.push(serie.observaciones)
+					continue
 				}
 				try {
 					var upserted = await internal.observaciones.create(serie.observaciones) //,'areal',serie_areal.id,undefined) // removed client, non-transactional
 				} catch(e) {
-					if(release_client) {
-						client.release()
-					}
-					throw(e)
+					console.error(e)
+					continue
 				}
 				console.log("Upserted " + upserted.length + " observaciones")
 				results.push(upserted)
