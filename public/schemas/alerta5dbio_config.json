@@ -74,6 +74,18 @@
                 },
                 "series_page_size": {
                     "type": "integer"
+                },
+                "wms_areas": {
+                    "type": "object",
+                    "properties": {
+                        "layers": {
+                            "type": "string"
+                        },
+                        "endpoint": {
+                            "type": "string"
+                        }
+                    },
+                    "required": ["layers","endpoint"]
                 }
             },
             "additionalProperties": true

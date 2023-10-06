@@ -193,6 +193,13 @@
 				<input type="checkbox" id="toggleDraw" class="toggleDraw" hidden>
 					{{!-- <span class="slider"></span> --}}
 				</input>
+				<label for="toggleAreasLayerVisibility" class="switch1" id="toggleAreasLayerVisibilityLabel" title="mostrar/ocultar capa de áreas" style="position: absolute; right: 30px; top:30px" hidden>
+					<img src="img/areas.png" />
+				</label>
+				<input type="checkbox" id="toggleAreasLayerVisibility" class="toggleAreasLayerVisibility" hidden>
+					{{!-- <span class="slider"></span> --}}
+				</input>
+
 			</div>
 		</div>
 		<div class="tab-pane container tabcontent" id="tabla_series">
@@ -905,14 +912,6 @@
 					  url: "https://api.mapbox.com/styles/v1/jbianchi/ckyso80451sba14thm4lenny3/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiamJpYW5jaGkiLCJhIjoiY2prbWttdmJvMDJiNTNwb2V0NzU0NDdmaCJ9.u5_KzyKkY9FRfCcJjAF6gA"
 				  })
 			  }),
-//			  new ol.layer.Tile({
-//				  source: new ol.source.TileWMS({
-//					  extent: [-70,-40,-40,-10],
-//					  url: "https://alerta.ina.gob.ar/geoserver/wms",
-//					  params: { 'LAYERS': 'public2:areas_pluvio_test', 'TILED': true},
-//					  serverType: 'geoserver'
-//				  })
-//			  }),
 			  box_layer
 			],
 			overlays: [global.overlay],
@@ -922,6 +921,28 @@
 			  zoom: 5
 			})
 		});
+		if(default_config.wms_areas) {
+			global.areas_layer = new ol.layer.Tile({
+				source: new ol.source.TileWMS({
+				extent: [-70,-40,-40,-10],
+					url: default_config.wms_areas.endpoint,
+					params: { 'LAYERS': default_config.wms_areas.layers, 'TILED': true},
+					serverType: 'geoserver'
+				})
+			})
+			map.addLayer(global.areas_layer)			
+			$("label#toggleAreasLayerVisibilityLabel").removeAttr("hidden")
+			$("input.toggleAreasLayerVisibility").on("change", ()=>{
+				if(global.areas_layer) {
+					var visible = global.areas_layer.getVisible()
+					if(visible) {
+						global.areas_layer.setVisible(false)
+					} else {
+						global.areas_layer.setVisible(true)
+					}
+				}
+			})
+		}
 		global.map = map
 		var toggleDraw = document.getElementById("toggleDrawLabel")
 		// var toggleDraw = document.createElement("input")
