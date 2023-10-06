@@ -74,8 +74,7 @@ ts_data as (
           to_json(ts_data.valor)::text timeseries,
           ts_data.timestart,
           ts_data.timeend,
-          case when ts_data.valor[1][2]::real-ts_data.valor[array_length(valor,1)][2]::real > 0.01 then 'baja'  when ts_data.valo
-r[1][2]::real-ts_data.valor[array_length(valor,1)][2]::real > -0.01 then 'permanece' else 'crece' end AS tendencia,
+          case when ts_data.valor[1][2]::real-ts_data.valor[array_length(valor,1)][2]::real > 0.01 then 'baja'  when ts_data.valor[1][2]::real-ts_data.valor[array_length(valor,1)][2]::real > -0.01 then 'permanece' else 'crece' end AS tendencia,
       case when var_id in (2,67) then 
          case when nivel_de_alerta is null then 'x'
          when max_valor < coalesce(nivel_de_aguas_bajas,-9999) then 'l'

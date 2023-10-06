@@ -2774,6 +2774,37 @@ internal.GetSeriesBySiteAndVarProcedure = class extends internal.CrudProcedure {
     }
 }
 
+internal.RastToArealProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "RastToArealProcedure"
+        if(!arguments[0].filter) {
+            throw("Missing filter")
+        }
+        if(!arguments[0].filter.series_id) {
+            throw("missing filter.series_id [of series_rast]")
+        }
+        if(!arguments[0].filter.timestart) {
+            throw("missing filter.timestart")
+        }
+        if(!arguments[0].filter.timeend) {
+            throw("missing filter.timeend")
+        }
+        this.area_id = arguments[0].filter.area_id ?? "all"
+        this.series_id = arguments[0].filter.series_id
+        this.timestart = DateFromDateOrInterval(arguments[0].filter.timestart)
+        this.timeend = DateFromDateOrInterval(arguments[0].filter.timeend)
+        // options:
+        // - no_insert
+        // - funcion
+        // - only_obs
+    }
+    async run() {
+        this.result = await crud.rast2areal(this.series_id,this.timestart,this.timeend,this.area_id,this.options)
+        return this.result
+    }
+}
+
 ////////////////////////////////////////
 
 const availableCrudProcedures = {
@@ -2814,7 +2845,8 @@ const availableCrudProcedures = {
     "MapSitesFromAccessorProcedure": internal.MapSitesFromAccessorProcedure,
     "ReadVariablesFromAccessorProcedure": internal.ReadVariablesFromAccessorProcedure,
     "GetSeriesBySiteAndVarProcedure": internal.GetSeriesBySiteAndVarProcedure,
-    "UpdateSeriesPronoDateRangeProcedure": internal.UpdateSeriesPronoDateRangeProcedure
+    "UpdateSeriesPronoDateRangeProcedure": internal.UpdateSeriesPronoDateRangeProcedure,
+    "RastToArealProcedure": internal.RastToArealProcedure
 }
 
 internal.availableTests = {

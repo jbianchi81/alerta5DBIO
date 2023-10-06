@@ -11371,19 +11371,44 @@ internal.CRUD = class {
 	}
 
 	static async rastExtractByArea(series_id,timestart,timeend,area,options={},client) {
+		var release_client = false
 		if(!client) {
 			release_client = true
 			client = await global.pool.connect()
 		}
 		if(!timestart || !timeend) {
+			if(release_client) {
+				client.release()
+			}
 			return Promise.reject("falta timestart y/o timeend")
 		}
 		if(parseInt(area).toString() != "NaN") {
-			area = await this.getArea(parseInt(area),undefined,client)
+			try {
+				area = await this.getArea(parseInt(area),undefined,client)
+			}catch(e) {
+				if(release_client) {
+					client.release()
+				}
+				throw(e)	
+			}
 		} else {
 			area = new internal.area({geom:area})
 		}
-		const serie = await this.getSerie("rast",series_id,undefined,undefined,undefined,undefined,undefined,client)
+		if(!area) {
+			if(release_client) {
+				client.release()
+			}
+			throw new Error("Area not found")
+		}
+		try {
+			var serie = await this.getSerie("rast",series_id,undefined,undefined,undefined,undefined,undefined,
+			client)
+		} catch(e) {
+			if(release_client) {
+				client.release()
+			}
+			throw(e)
+		}
 		if(!serie) {
 			console.error("serie no encontrada")
 			if(release_client) {
@@ -11425,7 +11450,14 @@ internal.CRUD = class {
 				ORDER BY timestart;"
 		var args = [area.geom.toString(),serie.fuente.def_srid,series_id,timestart,timeend] // [serie.fuente.hora_corte,serie.fuente.def_dt, area.geom.toString(),serie.fuente.def_srid,timestart,timeend]
 			// console.log(internal.utils.pasteIntoSQLQuery(stmt,args))
-		const result = await client.query(stmt,args)
+		try{ 
+			var result = await client.query(stmt,args)
+		} catch(e) {
+			if(release_client) {
+				client.release()
+			}
+			throw(e)
+		}
 		if(!result.rows) {
 			console.log("No raster values found")
 			if(options.only_obs) {
@@ -11474,6 +11506,7 @@ internal.CRUD = class {
 	}
 	
 	static async rast2areal(series_id,timestart,timeend,area,options={},client) {
+		var release_client = false
 		if(!client) {
 			release_client = true
 			client = await global.pool.connect()
@@ -11481,7 +11514,14 @@ internal.CRUD = class {
 		if(area == "all") {
 			var query = "SELECT series_areal.id,series_areal.area_id FROM series_areal,series_rast,areas_pluvio WHERE series_rast.id=$1 AND series_rast.fuentes_id=series_areal.fuentes_id AND areas_pluvio.unid=series_areal.area_id AND areas_pluvio.activar=TRUE ORDER BY series_areal.id"
 			// console.log(internal.utils.pasteIntoSQLQuery(query,[series_id]))
-			var result = await client.query(query,[series_id])
+			try {
+				var result = await client.query(query,[series_id])
+			} catch(e) {
+				if(release_client) {
+					client.release()
+				}
+				throw(e)	
+			}
 			if(result.rows.length == 0) {
 				console.log("No se encontraron series areal")
 				if(release_client) {
@@ -11518,6 +11558,7 @@ internal.CRUD = class {
 				console.log("Found serie_areal.id:" + serie_areal.id)
 				serie.observaciones = serie.observaciones.map(obs=> {
 					obs.series_id = serie_areal.id
+					obs.tipo = "areal" // just to ensure
 					if(release_client) {
 						client.release()
 					}
@@ -11529,7 +11570,14 @@ internal.CRUD = class {
 					}
 					return serie.observaciones
 				}
-				const upserted = await this.upsertObservaciones(serie.observaciones,'areal',serie_areal.id,undefined) // removed client, non-transactional
+				try {
+					var upserted = await internal.observaciones.create(serie.observaciones) //,'areal',serie_areal.id,undefined) // removed client, non-transactional
+				} catch(e) {
+					if(release_client) {
+						client.release()
+					}
+					throw(e)
+				}
 				console.log("Upserted " + upserted.length + " observaciones")
 				results.push(upserted)
 			}
@@ -11580,9 +11628,6 @@ internal.CRUD = class {
 			console.log("Found serie_areal.id:" + serie_areal.id)
 			serie.observaciones = serie.observaciones.map(obs=> {
 				obs.series_id = serie_areal.id
-				if(release_client) {
-					client.release()
-				}
 				return obs
 			})
 			if(options.no_insert) {
@@ -11594,7 +11639,14 @@ internal.CRUD = class {
 			if(config.verbose) {
 				console.log("crud.rast2areal: obs:" + JSON.stringify(serie.observaciones))
 			}
-			const upserted = await this.upsertObservaciones(serie.observaciones,undefined,undefined,undefined) // removed client, non-transactional
+			try {
+				var upserted = await internal.observaciones.create(serie.observaciones) // this.upsertObservaciones(serie.observaciones,undefined,undefined,undefined) // removed client, non-transactional
+			} catch(e) {
+				if(release_client) {
+					client.release()
+				}
+				throw(e)
+			}
 			console.log("Upserted " + upserted.length + " observaciones")
 			if(release_client) {
 				client.release()
