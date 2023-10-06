@@ -11559,9 +11559,6 @@ internal.CRUD = class {
 				serie.observaciones = serie.observaciones.map(obs=> {
 					obs.series_id = serie_areal.id
 					obs.tipo = "areal" // just to ensure
-					if(release_client) {
-						client.release()
-					}
 					return obs
 				})
 				if(options.no_insert) {
