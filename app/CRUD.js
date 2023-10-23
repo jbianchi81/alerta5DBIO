@@ -11240,14 +11240,14 @@ internal.CRUD = class {
 			if(!serie) {
 				console.error("serie no encontrada")
 				if(release_client) {
-					client_release()
+					client.release()
 				}
 				return
 			}
 			if(!serie.id) {
 				console.log("serie no encontrada")
 				if(release_client) {
-					client_release()
+					client.release()
 				}
 				return
 			}
@@ -11259,7 +11259,7 @@ internal.CRUD = class {
 			options.funcion = (!options.funcion) ? "SUM" : options.funcion.toUpperCase()
 			if(valid_func.indexOf(options.funcion) < 0) {
 				if(release_client) {
-					client_release()
+					client.release()
 				}
 				return Promise.reject("'funcion' inválida. Opciones: 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE'")
 			}
@@ -11268,7 +11268,7 @@ internal.CRUD = class {
 			if(valid_formats.map(f=> (f == options.format.toLowerCase()) ? 1 : 0).reduce( (a,b)=>a+b) == 0) {
 				console.error("Invalid format:" + options.format)
 				if(release_client) {
-					client_release()
+					client.release()
 				}
 				return
 			}
@@ -11333,14 +11333,14 @@ internal.CRUD = class {
 				if(!result.rows) {
 					console.log("No raster values found")
 					if(release_client) {
-						client_release()
+						client.release()
 					}
 					return serie
 				}
 				if(result.rows.length == 0) {
 					console.log("No raster values found")
 					if(release_client) {
-						client_release()
+						client.release()
 					}
 					return serie
 				}
@@ -11348,7 +11348,7 @@ internal.CRUD = class {
 				if(!result.rows[0].valor) {
 					console.log("No raster values unioned")
 					if(release_client) {
-						client_release()
+						client.release()
 					}
 					return serie
 				}
@@ -11356,13 +11356,13 @@ internal.CRUD = class {
 				obs.time_sum = result.rows[0].time_sum
 				serie.observaciones = [obs]
 				if(release_client) {
-					client_release()
+					client.release()
 				}
 				return serie
 			})
 			.catch(e=>{
 				if(release_client) {
-					client_release()
+					client.release()
 				}
 				console.error(e)
 				return serie

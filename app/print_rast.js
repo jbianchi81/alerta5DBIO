@@ -153,7 +153,7 @@ internal.print_rast = function(options,serie,obs) {
         fname = replace_patron_nombre(obs,options.patron_nombre)
     }
 	const filename = path.resolve(__dirname, location, fname)
-	console.log("rest.print_rast: filename: " +filename)
+	console.log("rest.print_rast: location: " + location + ", filename: " +filename)
 	return fs.writeFile(filename, obs.valor,{encoding:"utf8"})
 	.then(()=>{
 		var addMD = exec('gdal_edit.py -mo "series_id=' + obs.series_id + '" -mo "timestart=' + obs.timestart.toISOString() + '" -mo "timeend=' + obs.timeend.toISOString() + '" ' + filename)
@@ -195,6 +195,10 @@ internal.print_rast_series = async function (serie,options={}) {
     var results = []
     for (var i = 0; i < serie.observaciones.length ; i++) {
         const obs = serie.observaciones[i]
+        if(!obs.valor) {
+            console.error("Undefined valor in serie.observaciones[" + i + "]. Skipping.")
+            continue
+        }
         try {
             var result = await internal.print_rast(options,serie,obs)
         }

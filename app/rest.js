@@ -61,6 +61,7 @@ const mareas = Mareas.CRUD // new Mareas.CRUD(global.pool)
 // print_rast
 const printRast = require('./print_rast')
 const print_rast = printRast.print_rast
+const print_rast_series = printRast.print_rast_series
 
 // MEMORY USAGE LOG
 fs.writeFileSync("logs/memUsage.log","#timestamp,rss,heapTotal,heapUsed,external\n")
@@ -115,8 +116,6 @@ const LocalStrategy = require('passport-local').Strategy;
 //~ const BasicStrategy = require('passport-http').BasicStrategy
 
 const formidable = require('formidable')
-const { makeBrowseAsync } = require('./print_rast')
-const { relativeTimeThreshold } = require('moment-timezone')
 const { default: axios } = require('axios')
 
 
@@ -3116,12 +3115,12 @@ function getRastObs(req,res) {      // GENERA ARCHIVOS GTIFF Y DEVUELVE LISTADO 
 		}
 		console.log("Got observaciones: " + serie.observaciones.length + " records.")
 		return printRast.print_rast_series(serie,options)
-		var promises=[]
-		for (var i = 0; i < serie.observaciones.length ; i++) {
-			const obs = serie.observaciones[i]
-			promises.push(print_rast(options,serie,obs))
-		}
-		return Promise.all(promises)
+		// var promises=[]
+		// for (var i = 0; i < serie.observaciones.length ; i++) {
+		// 	const obs = serie.observaciones[i]
+		// 	promises.push(print_rast(options,serie,obs))
+		// }
+		// return Promise.all(promises)
 	})
 	.then(result=>{
 		console.log("Results: " + result.length)
@@ -3138,7 +3137,7 @@ function getRastObs(req,res) {      // GENERA ARCHIVOS GTIFF Y DEVUELVE LISTADO 
 	})
 }
 
-function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL Y ENVIA JSON CON LISTADO DE URLS Y METADATOS //
+async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL Y ENVIA JSON CON LISTADO DE URLS Y METADATOS //
 	try {
 		var filter = getFilter(req)
 		var options = getOptions(req)
@@ -3152,72 +3151,88 @@ function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL Y ENVI
 		res.status(400).send({message:"query error",error:"Faltan parámetros: series_id, timestart, timeend"})
 		return
 	}
-	crud.rastExtract(filter.series_id,filter.timestart,filter.timeend,options,filter.public)
-	.then(serie=>{
-		if(!serie) {
-			console.error("No se encontró la serie")
-			res.status(404).send({message:"not found",error:"No se encontró la serie"})
-			return
-		}
-		if(!serie.observaciones) {
-			console.error("No se encontraron observaciones")
-			res.status(404).send({message:"not found",error:"No se encontraron observaciones"})
-			return
-		}
-		console.log("Got observaciones: " + serie.observaciones.length + " records.")
-		//~ console.log(serie.observaciones)
-		var promises=[]
-		options.prefix = (options.funcion) ? options.funcion : "sum"
-		for (var i = 0; i < serie.observaciones.length ; i++) {
-			const obs = serie.observaciones[i]
-			// console.log(`print ${i} of ${serie.observaciones.length} observaciones raster`)
-			promises.push(print_rast(options,serie,obs))
-		}
-		return Promise.all(promises)
-		.then(result=>{
-			if(!result) {
-				console.log({message:"Nothing found"})
-				res.status(404).send({message:"Nothing found"})
-				return
-			} 
-			console.log("Results: " + result.length)
-			if(options.get_raster) {
-				if(result.length > 0) {
-					var tarfile = result[0].filename + ".tgz"
-					console.log("creando " + tarfile)
-					return tar.c(
-						{
-							gzip: true,
-							file: tarfile,
-							cwd: "public/rast"
-						},
-						result.map(r=> r.filename.replace(/^.*\//,""))
-					).then(_ => {
-						console.log("tarball creado")
-						console.log("sending file " + tarfile)
-						res.setHeader('content-type','application/gzip')
-						res.download(path.resolve(tarfile),tarfile.replace(/^.*\//,"")) //.replace(/^public\//,"")) // result[0].filename.replace(/^public/,req.protocol + "://" + req.get('host')))
-						return
-					})
-				} else {
-					res.status(400).send({message:"query error",error:"nothing found"})
-				}
-				return
-			}
-			result = result.map(r=>{
-				r.url = r.filename.replace(/^public/,req.protocol + "://" + req.get('host'))
-				//~ r.funcion = options.funcion
-				return r
-			})
-			send_output(options,result,res)
-			return
-		})
-	})
-	.catch(e=>{
+	try {
+		var serie = await crud.rastExtract(filter.series_id,filter.timestart,filter.timeend,options,filter.public)
+	} catch (e) {
 		console.error(e)
 		res.status(500).send({message:"Server error",error:e.toString()})
-	})
+	}
+	if(!serie) {
+		console.error("No se encontró la serie")
+		res.status(404).send({message:"not found",error:"No se encontró la serie"})
+		return
+	}
+	if(!serie.observaciones) {
+		console.error("No se encontraron observaciones")
+		res.status(404).send({message:"not found",error:"No se encontraron observaciones"})
+		return
+	}
+	console.log("Got observaciones: " + serie.observaciones.length + " records.")
+	options.prefix = (options.funcion) ? options.funcion : "sum"
+	console.log({options: options})
+	send_output(options,serie,res)
+	return
 }
+// 	var promises=[]
+// 	options.prefix = (options.funcion) ? options.funcion : "sum"
+// 	for (var i = 0; i < serie.observaciones.length ; i++) {
+// 		const obs = serie.observaciones[i]
+// 		if(!obs.valor) {
+// 			console.error("Undefined valor in serie.observaciones[" + i + "]. Skipping.")
+// 			continue
+// 		}
+// 		// console.log(`print ${i} of ${serie.observaciones.length} observaciones raster`)
+// 		promises.push(print_rast(options,serie,obs))
+// 	}
+// 	try {
+// 		var result = await Promise.all(promises)
+// 	} catch(e) {
+// 		console.error(e)
+// 		res.status(500).send({message:"Server error",error:e.toString()})
+// 	} 
+// 	if(!result) {
+// 		console.log({message:"rest.rastExtract: Nothing found"})
+// 		res.status(404).send({message:"Nothing found"})
+// 		return
+// 	} 
+// 	console.log("rest.rastExtract: Results: " + result.length)
+// 	if(options.get_raster) {
+// 		if(result.length > 0) {
+// 			var tarfile = result[0].filename + ".tgz"
+// 			console.log("creando " + tarfile)
+// 			return tar.c(
+// 				{
+// 					gzip: true,
+// 					file: tarfile,
+// 					cwd: "public/rast"
+// 				},
+// 				result.map(r=> r.filename.replace(/^.*\//,""))
+// 			).then(_ => {
+// 				console.log("tarball creado")
+// 				console.log("sending file " + tarfile)
+// 				res.setHeader('content-type','application/gzip')
+// 				res.download(path.resolve(tarfile),tarfile.replace(/^.*\//,"")) //.replace(/^public\//,"")) // result[0].filename.replace(/^public/,req.protocol + "://" + req.get('host')))
+// 				return
+// 			}).catch(e=>{
+// 				console.error(e)
+// 				res.status(500).send(e.toString())
+// 				return
+// 			})
+// 		} else {
+// 			console.error("rest.rastExtract: get_raster: nothing found")
+// 			res.status(400).send({message:"get_raster: query error",error:"nothing found"})
+// 			return
+// 		}
+// 	} else {
+// 		result = result.map(r=>{
+// 			r.url = r.filename.replace(/^public/,req.protocol + "://" + req.get('host'))
+// 			//~ r.funcion = options.funcion
+// 			return r
+// 		})
+// 		send_output(options,result,res)
+// 		return
+// 	}
+// }
 
 function rastExtractByArea(req,res) {
 	//~ (series_id,timestart,timeend,area_id|area_geom,options)
@@ -6861,7 +6876,7 @@ function csv2obs(tipo,series_id,csv) {
 	})
 }
 
-function send_output(options,data,res) {
+async function send_output(options,data,res) {
 	//~ console.log({options:options,data:data})
 	var output=""
 	var contentType = "text/plain"
@@ -6981,50 +6996,80 @@ function send_output(options,data,res) {
 			} else if (options.format.toLowerCase() == 'json') {
 				output = JSON.stringify(data)
 			} else if (["rast","raster"].indexOf(tipo) >=0 && ["png","gtiff","tif"].indexOf(options.format.toLowerCase()) >= 0) {
-				var promises = []
-				options.location = "public/rast"
-				if(Array.isArray(data)) {
-					data.forEach(item=>{
-						promises.push(print_rast(options,{},item))
-					})
-				} else {
-					promises.push(print_rast(options,{},data))
-				}
-				return Promise.all(promises)
-				.then(result=>{
-					if(!result) {
-						console.log({message:"Nothing found"})
-						res.status(404).send({message:"Nothing found"})
+				if(data.observaciones) {
+					try {
+						var result = await print_rast_series(data,options)
+					} catch(e) {
+						console.error(e)
+						res.status(500).send({message:e.toString()})
 						return
-					} 
-					console.log("Results: " + result.length)
-					// if(options.get_raster) {
-						if(result.length > 1) {
-							var tarfile = result[0].filename + ".tgz"
-							console.log("creando " + tarfile)
-							return tar.c(
-								{
-									gzip: true,
-									file: tarfile,
-									cwd: "public/rast"
-								},
-								result.map(r=> r.filename.replace(/^.*\//,""))
-							).then(_ => {
-								console.log("tarball creado")
-								console.log("sending file " + tarfile)
-								res.setHeader('content-type','application/gzip')
-								res.download(path.resolve(tarfile),tarfile.replace(/^.*\//,"")) //.replace(/^public\//,"")) // result[0].filename.replace(/^public/,req.protocol + "://" + req.get('host')))
+					}
+				} else {
+					var result = []
+					options.location = "public/rast"
+					if(Array.isArray(data)) {
+						for(var i=0;i<data.length;i++) {
+							const item = data[i]
+							if(!item.valor) {
+								console.error("Undefined valor in data[" + i + "].Skipping")
+								continue
+							}
+							try {
+								result.push(await print_rast(options,{},item))
+							} catch(e) {
+								console.error(e)
+								res.status(500).send({message:e.toString()})
 								return
-							})
-						} else if (result.length == 1) {
-							console.log("sending file " + result[0].filename)
-							res.setHeader('content-type','image/tiff')
-							res.download(path.resolve(result[0].filename),result[0].filename.replace(/^.*\//,""))
-							return
-						} else {
-							res.status(400).send({message:"query error",error:"nothing found"})
+							}			
+						}
+					} else {
+						if(!data.valor) {
+							console.error(new Error("Undefined valor in data"))
+							res.status(500).send("Undefined valor in data")
 							return
 						}
+						result.push(print_rast(options,{},data))
+					}
+				}
+				if(!result) {
+					console.log({message:"Nothing found"})
+					res.status(404).send({message:"Nothing found"})
+					return
+				} 
+				console.log("Results: " + result.length)
+					// if(options.get_raster) {
+				if(result.length > 1) {
+					var tarfile = result[0].filename + ".tgz"
+					console.log("creando " + tarfile)
+					try {
+						await  tar.c(
+							{
+								gzip: true,
+								file: tarfile,
+								cwd: "public/rast"
+							},
+							result.map(r=> r.filename.replace(/^.*\//,""))
+						)
+					} catch(e) {
+						console.error(e)
+						res.status(500).send({message:e.toString()})
+						return
+					}
+					console.log("tarball creado")
+					console.log("sending file " + tarfile)
+					res.setHeader('content-type','application/gzip')
+					res.download(path.resolve(tarfile),tarfile.replace(/^.*\//,"")) //.replace(/^public\//,"")) // result[0].filename.replace(/^public/,req.protocol + "://" + req.get('host')))
+					return
+				} else if (result.length == 1) {
+					// console.log(result[0])
+					console.log("sending file " + result[0].filename)
+					res.setHeader('content-type','image/tiff')
+					res.download(path.resolve(result[0].filename),result[0].filename.replace(/^.*\//,""))
+					return
+				} else {
+					res.status(400).send({message:"query error",error:"nothing found"})
+					return
+				}
 					// }
 					// result = result.map(r=>{
 					// 	r.url = r.filename.replace(/^public/,req.protocol + "://" + req.get('host'))
@@ -7032,11 +7077,6 @@ function send_output(options,data,res) {
 					// 	return r
 					// })
 					// send_output(options,result,res) 
-				})
-				.catch(e=>{
-					console.error(e)
-					res.status(400).send({message:"query error",error:e.toString()})
-				})
 			} else if (options.format.toLowerCase() == 'waterml2') {
 				if(!Array.isArray(data)) {
 					data = [data]
