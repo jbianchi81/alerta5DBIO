@@ -1,10 +1,10 @@
 {
     "id": 5,
-    "nombre": "gfs_diario",
-    "data_table": "gfs_diario",
+    "nombre": "pp_emas",
+    "data_table": "pp_emas",
     "data_column": "rast",
-    "tipo": "QPF",
-    "def_proc_id": 4,
+    "tipo": "QPE",
+    "def_proc_id": 3,
     "def_dt": {
         "days": 1
     },
@@ -13,8 +13,8 @@
     },
     "def_unit_id": 22,
     "def_var_id": 1,
-    "fd_column": "fecha_emision",
-    "mad_table": "pmad_gfs",
+    "fd_column": null,
+    "mad_table": "pmad_emas",
     "scale_factor": null,
     "data_offset": null,
     "def_pixel_height": 0.248963,
@@ -25,7 +25,7 @@
         "coordinates": [
             [
                 [
-                    -90,
+                    -70,
                     -10
                 ],
                 [
@@ -34,14 +34,14 @@
                 ],
                 [
                     -40,
-                    -70
+                    -40
                 ],
                 [
-                    -90,
-                    -70
+                    -70,
+                    -40
                 ],
                 [
-                    -90,
+                    -70,
                     -10
                 ]
             ]

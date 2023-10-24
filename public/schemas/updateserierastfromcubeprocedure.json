@@ -1,0 +1,44 @@
+{
+    "$id": "UpdateSerieRastFromCubeProcedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "UpdateSerieRastFromCubeProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "updateserierastfromcubeprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "UpdateSerieRastFromCubeProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "filter": {
+                    "descrition": "filter to select which records to update from cube into serie raster",
+                    "type": "object",
+                    "properties": {
+                        "fuentes_id": {
+                            "type": "integer",
+                            "description": "source cube id"
+                        },
+                        "series_id": {
+                            "type": "integer",
+                            "description": "destination series raster id"
+                        },
+                        "timestart": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "timeend": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "forecast_date": {
+                            "$ref": "dateorinterval.json"
+                        }                        
+                    },
+                    "additionalProperties": true
+                }
+            },
+            "required": [
+                "filter"
+            ]
+        }
+    }
+}

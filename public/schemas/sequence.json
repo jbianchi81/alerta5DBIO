@@ -94,6 +94,9 @@
                     },
                     {
                         "$ref": "rastextractprocedure.json"
+                    },
+                    {
+                        "$ref": "updateserierastfromcubeprocedure.json"
                     }
                 ]
             }

@@ -32,6 +32,8 @@ sequence:
   arguments:
     class_name: fuente
     jsonfile: sample_data/fuente.json
+    options:
+      create_cube_table: true
 - procedureName: CreateProcedure
   arguments:
     class_name: escena
@@ -114,6 +116,29 @@ sequence:
       output: outputs/created_obs_2.tif
       output_format: buffer
       result_deep_property: 0.valor
+- procedureName: UpdateCubeFromSeriesProcedure
+  arguments:
+    series_id: 3
+    timestart: 2023-09-01T12:00:00.000Z
+    timeend: 2023-09-03T12:00:00.000Z
+    fuentes_id: 5
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 2
+      max_length: 2
+- procedureName: UpdateSerieRastFromCubeProcedure
+  arguments:
+    filter:
+      series_id: 3
+      timestart: 2023-09-01T12:00:00.000Z
+      timeend: 2023-09-03T12:00:00.000Z
+      fuentes_id: 5
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 2
+      max_length: 2
 - procedureName: RastExtractProcedure
   arguments:
     filter:
@@ -228,6 +253,8 @@ sequence:
     class_name: fuente
     filter:
       id: 5
+    options:
+      drop_cube_table: true
 - procedureName: DeleteProcedure
   arguments:
     class_name: accessor

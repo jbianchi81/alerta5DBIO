@@ -1432,6 +1432,41 @@ internal.UpdateCubeFromSeriesProcedure = class extends internal.CrudProcedure {
     }
 }
 
+internal.UpdateSerieRastFromCubeProcedure = class extends internal.CrudProcedure {
+    constructor () {
+        super(...arguments)
+        if(!arguments[0]) {
+            throw("Missing arguments")
+        }
+        this.procedureClass = "UpdateSerieRastFromCubeProcedure"
+        if(!arguments[0].filter) {
+            throw("missing argument filter")
+        }
+        if(!arguments[0].filter.fuentes_id) {
+            throw("Missing argument fuentes_id")
+        }
+        if(!arguments[0].filter.series_id) {
+            throw("Missing argument series_id")
+        }
+        if(!arguments[0].filter.timestart) {
+            throw("Missing argument timestart")
+        }
+        if(!arguments[0].filter.timeend) {
+            throw("Missing argument timeend")
+        }
+        this.series_id = parseInt(arguments[0].filter.series_id)
+        this.timestart = DateFromDateOrInterval(arguments[0].filter.timestart)
+        this.timeend = DateFromDateOrInterval(arguments[0].filter.timeend)
+        this.forecast_date = (arguments[0].filter.forecast_date) ? DateFromDateOrInterval(arguments[0].filter.forecast_date) : undefined
+        this.is_public = arguments[0].filter.public
+        this.fuentes_id = parseInt(arguments[0].filter.fuentes_id)
+    }
+    async run() {
+        this.result = await crud.upsertRastFromCube(this.fuentes_id,this.timestart,this.timeend,this.forecast_date,this.is_public,this.series_id)
+        return this.result
+    }
+}
+
 internal.GetPpCdpBatchProcedure = class extends internal.CrudProcedure {
     constructor () {
         super(...arguments)
@@ -2420,7 +2455,8 @@ internal.CreateProcedure = class extends internal.CrudProcedure {
                 all: this.options.all,
                 upsert_estacion: this.options.upsert_estacion,
                 generate_id: this.options.generate_id,
-                refresh_date_range: this.options.refresh_date_range
+                refresh_date_range: this.options.refresh_date_range,
+                create_cube_table: this.options.create_cube_table
             } : {}
             this.result = await this.class.create((Array.isArray(data)) ? data : [data],options)
         } else {
@@ -2429,14 +2465,16 @@ internal.CreateProcedure = class extends internal.CrudProcedure {
                 for(var i in data) {
                     var options = (this.options) ? {
                         series_metadata: this.options.all,
-                        refresh_date_range: this.options.refresh_date_range
+                        refresh_date_range: this.options.refresh_date_range,
+                        create_cube_table: this.options.create_cube_table
                     } : {}
                     this.result.push(await data[i].create(options)) //this.class.create(this.elements,this.class)
                 }
             } else {
                 var options = (this.options) ? {
                     series_metadata: this.options.all,
-                    refresh_date_range: this.options.refresh_date_range
+                    refresh_date_range: this.options.refresh_date_range,
+                    create_cube_table: this.options.create_cube_table
                 } : {}
                 this.result.push(await data.create(options))
             }
@@ -2842,6 +2880,7 @@ internal.RastExtractProcedure = class extends internal.CrudProcedure {
 
 const availableCrudProcedures = {
     "UpdateCubeFromSeriesProcedure": internal.UpdateCubeFromSeriesProcedure,
+    "UpdateSerieRastFromCubeProcedure": internal.UpdateSerieRastFromCubeProcedure,
     "GetPpCdpBatchProcedure": internal.GetPpCdpBatchProcedure,
     "UpdateFromAccessorProcedure":internal.UpdateFromAccessorProcedure,
     "GetMetadataFromAccessorProcedure":internal.GetMetadataFromAccessorProcedure,

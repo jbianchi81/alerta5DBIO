@@ -41,6 +41,8 @@ const { CRUD } = require('./mareas');
 const { valid } = require('node-html-parser');
 const { client } = require('./wmlclient');
 
+const { escapeIdentifier } = require('pg')
+
 const apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
 var schemas = apidoc.components.schemas
 traverse(schemas,changeRef)
@@ -1291,21 +1293,36 @@ internal.fuente = class extends baseModel {
 		}
 		return internal.CRUD.getFuentes(filter,options)
 	}
-	async create() {
+	async create(options={}) {
+		console.log({options:options})
 		const created = await internal.CRUD.upsertFuente(this)
 		if(created) {
 			Object.assign(this,created)
+			if(options.create_cube_table && this.data_table) {
+				// CHECK IF DATA TABLE EXISTS
+				console.log("Check if data table exists")
+				const cube_table_exists = await this.checkTableExists()
+				if(!cube_table_exists) {
+					// CREATE DATA TABLE
+					console.log("create data table")
+					await this.createCubeTable()
+				}
+			}
 			return this
 		} else {
 			return
 		}
 	}
 
-	async delete() {
-		return internal.CRUD.deleteFuente(this.id)
+	async delete(options={}) {
+		const deleted = await internal.CRUD.deleteFuente(this.id)
+		if(options.drop_cube_table) {
+			await this.dropCubeTable()
+		}
+		return deleted
 	}
 
-	static async delete(filter={}) {
+	static async delete(filter={},options={}) {
 		var matches = await this.read(filter)
 		if(!matches) {
 			console.log("Nothing to delete")
@@ -1316,13 +1333,66 @@ internal.fuente = class extends baseModel {
 		}
 		const deleted = []
 		for(var fuente of matches) {
-			const deleted_ = await fuente.delete()
+			const deleted_ = await fuente.delete(options)
 			if(deleted_) {
 				deleted.push(deleted_)
 			}
 		}
 		return deleted
 	} 
+	async checkTableExists(table_schema='public') {
+		const stmt = `SELECT EXISTS (
+			SELECT 1 
+			FROM information_schema.tables 
+			WHERE table_schema = $1 AND table_name = $2)`
+		try {
+			var result = await global.pool.query(stmt,[table_schema,this.data_table])
+		} catch(e) {
+			throw(e)
+		}
+		return result.rows[0].exists
+	}
+
+	async createCubeTable(schema_name="public") {
+		if(!this.data_table) {
+			throw("Can't create cube table: data_table is undefined")
+		}
+		var data_table = escapeIdentifier(this.data_table)
+		var date_column = escapeIdentifier(this.date_column ?? "date")
+		var data_column = escapeIdentifier(this.data_column ?? "rast")
+		schema_name = escapeIdentifier(schema_name)
+		if(this.fd_column) {
+			var fd_column = escapeIdentifier(this.fd_column)
+			const query = `CREATE TABLE ${schema_name}.${data_table} (
+				id serial PRIMARY KEY,
+				${date_column} timestamptz NOT NULL,
+				${fd_column} timestamptz NOT NULL,
+				${data_column} raster NOT NULL,
+				CONSTRAINT date_forecast_date_unique_key UNIQUE (${date_column},${fd_column})
+			)`
+			await global.pool.query(query)
+		} else {
+			const query = `CREATE TABLE ${schema_name}.${data_table} (
+				id serial PRIMARY KEY,
+				${date_column} timestamptz UNIQUE NOT NULL,
+				${data_column} raster NOT NULL
+			)`
+			await global.pool.query(query)
+		}
+		return
+	}
+
+	async dropCubeTable(schema_name="public") {
+		if(!this.data_table) {
+			throw("Unable to drop cube table: data_table undefined")
+		}
+		var data_table = escapeIdentifier(this.data_table)
+		schema_name = escapeIdentifier(schema_name)
+		const stmt = `DROP TABLE IF EXISTS ${schema_name}.${data_table}`
+		await global.pool.query(stmt)
+		return
+	}
+
 }
 
 internal.fuente.build_read_query = function(filter) {
@@ -7138,13 +7208,14 @@ internal.CRUD = class {
 			// 	console.log("crud.upsertFuente: " + query)
 			// }
 			return global.pool.query(query)
-		}).then(result=>{
+		}).then(async result=>{
 			if(result.rows.length<=0) {
 				console.error("Upsert failed")
 				return
 			}
 			console.log("Upserted fuentes.id=" + result.rows[0].id)
-			return new internal.fuente(result.rows[0])
+			const fuente = new internal.fuente(result.rows[0])
+			return fuente
 		}).catch(e=>{
 			console.error(e)
 			return
@@ -7178,7 +7249,7 @@ internal.CRUD = class {
 				def_pixeltype=excluded.def_pixeltype,\
 				abstract=excluded.abstract,\
 				source=excluded.source\
-			RETURNING *"
+			RETURNING id,nombre,data_table,data_column,tipo,def_proc_id,def_dt,hora_corte,def_unit_id,def_var_id,fd_column,mad_table,scale_factor,data_offset,def_pixel_height,def_pixel_width,def_srid,ST_AsGeoJson(def_extent)::json AS def_extent,date_column,def_pixeltype,abstract,source"
 		var params = [fuente.id, fuente.nombre, fuente.data_table, fuente.data_column, fuente.tipo, fuente.def_proc_id, fuente.def_dt, fuente.hora_corte, fuente.def_unit_id, fuente.def_var_id, fuente.fd_column, fuente.mad_table, fuente.scale_factor, fuente.data_offset, fuente.def_pixel_height, fuente.def_pixel_width, fuente.def_srid, (fuente.def_extent) ? fuente.def_extent.toString() : null, fuente.date_column, fuente.def_pixeltype, fuente.abstract, fuente.source]
 		return internal.utils.pasteIntoSQLQuery(query,params)
 	}
@@ -10919,11 +10990,13 @@ internal.CRUD = class {
 		if(!fuentes_id) {
 			return Promise.reject("Missing fuentes_id")
 		}
+		var fuente
 		return this.getFuente(fuentes_id,isPublic)
-		.then(fuente=>{
-			if(!fuente) {
+		.then(f=>{
+			if(!f) {
 				return Promise.reject("Data cube not found")
 			}
+			fuente = f
 			var data_table = fuente.data_table
 			var data_column = (fuente.data_column) ? fuente.data_column : "rast"
 			var date_column = (fuente.date_column) ? fuente.date_column : "date"
@@ -10980,7 +11053,7 @@ internal.CRUD = class {
 				return []
 			}
 			return result.rows.map(r=>{
-				r.timeend = r.timestart
+				r.timeend = (fuente.def_dt) ? timeSteps.advanceInterval(r.timestart,fuente.def_dt) : r.timestart 
 				r.tipo = "raster"
 				return r
 			})
@@ -11126,10 +11199,10 @@ internal.CRUD = class {
 			SELECT timestart,valor\
 			FROM observaciones_rast\
 			WHERE series_id=${series_id}\
-			AND timestart>=${timestart}\
-			AND timestart<${timeend}\
+			AND timestart>=${timestart}::timestamptz\
+			AND timestart<${timeend}::timestamptz\
 			ON CONFLICT (${date_column}) DO UPDATE SET ${data_column}=excluded.${data_column}\
-			RETURNING ${date_column}`
+			RETURNING ${date_column} AS timestart, ST_AsGdalRaster(${data_column},'GTiff') AS valor`
 		if(fd_column) {
 			var forecast_date_filter = ""
 			if(forecast_date) {
@@ -11139,17 +11212,17 @@ internal.CRUD = class {
 					throw("Invalid forecast_date")
 				}
 				forecast_date = client.escapeLiteral(forecast_date.toISOString())
-				forecast_date_filter = `AND ${fd_column}=${forecast_date}`
+				forecast_date_filter = `AND ${fd_column}=${forecast_date}::timestamptz`
 			}
 			query = `INSERT INTO ${data_table} (${date_column},${data_column},${fd_column})\
 			SELECT timestart,valor,timeupdate\
 			FROM observaciones_rast\
 			WHERE series_id=${series_id}\
-			AND timestart>=${timestart}\
-			AND timestart<${timeend}\
+			AND timestart>=${timestart}::timestamptz\
+			AND timestart<${timeend}::timestamptz\
 			${forecast_date_filter}\
 			ON CONFLICT (${date_column},${fd_column}) DO UPDATE SET ${data_column}=excluded.${data_column}\
-			RETURNING ${date_column}`
+			RETURNING ${date_column} AS timestart, ${fd_column} AS forecast_date, ST_AsGdalRaster(${data_column},'GTiff') AS valor`
 		}
 		try {
 			var result = await client.query(query)
@@ -11159,7 +11232,10 @@ internal.CRUD = class {
 		}
 		console.log("Saved " + result.rows.length + " rows into " + data_table)
 		client.release()
-		return // client.end()
+		return result.rows.map(r=>{
+			r.tipo = "raster"
+			return new internal.observacion(r)
+		}) // client.end()
 	}
 
 	static async deleteObservacionesCubo(fuentes_id,filter,options,client) {
