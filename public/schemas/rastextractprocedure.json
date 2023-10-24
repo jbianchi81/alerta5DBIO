@@ -1,0 +1,36 @@
+{
+    "$id": "rastextractprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "RastExtractProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "RastExtractProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "filter": {
+                    "description": "filter to select which raster records to extract",
+                    "type": "object",
+                    "properties": {
+                        "series_id": {
+                            "type": "integer"
+                        },
+                        "timestart": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "timeend": {
+                            "$ref": "dateorinterval.json"
+                        }                        
+                    },
+                    "additionalProperties": true
+                }
+            },
+            "required": [
+                "filter"
+            ]
+        }
+    }
+}

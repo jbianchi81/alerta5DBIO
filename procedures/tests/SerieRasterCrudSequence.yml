@@ -88,6 +88,53 @@ sequence:
       output: outputs/read_obs.tif
       output_format: buffer
       result_deep_property: 0.valor
+- procedureName: CreateProcedure
+  arguments:
+    class_name: observacion
+    elements:
+    - tipo: raster
+      series_id: 3
+      timestart: 2023-09-02T12:00:00.000Z
+      timeend: 2023-09-03T12:00:00.000Z
+      filename: outputs/serie.rast.8.2023-09-02T12:00:00.000Z.tif
+    output: outputs/created_obs_2.tif
+    output_format: raster
+    options:
+      upsert_estacion: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: observacion
+  - testName: OutputFileTest
+    arguments:
+      class_name: observacion
+      output: outputs/created_obs_2.tif
+      output_format: buffer
+      result_deep_property: 0.valor
+- procedureName: RastExtractProcedure
+  arguments:
+    filter:
+      series_id: 3
+      timestart: 2023-09-01T12:00:00.000Z
+      timeend: 2023-09-03T12:00:00.000Z
+    output: outputs/rast_extract.tif
+    output_format: raster 
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: observacion
+  - testName: OutputFileTest
+    arguments:
+      class_name: observacion
+      output: outputs/rast_extract.tif
+      output_format: buffer
+      result_deep_property: 0.valor
 - procedureName: UpdateProcedure
   arguments:
     class_name: observacion
@@ -95,6 +142,7 @@ sequence:
       tipo: raster
       series_id: 3
       timestart: 2023-09-01T12:00:00.000Z
+      timeend: 2023-09-02T12:00:00.000Z
     update:
       timeupdate: 2023-03-01T12:00:00.001Z
     output: outputs/updated_obs.tif 
@@ -121,6 +169,7 @@ sequence:
       tipo: raster
       series_id: 3
       timestart: 2023-09-01T12:00:00.000Z
+      timeend: 2023-09-02T12:00:00.000Z
     output: outputs/deleted_obs.tif
     output_format: raster
   tests:
@@ -128,6 +177,31 @@ sequence:
     arguments:
       property_name: timestart
       property_value: 2023-09-01T12:00:00.000Z
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: OutputFileTest
+    arguments:
+      class_name: observacion
+      output: outputs/deleted_obs.tif
+      output_format: buffer
+      result_deep_property: 0.valor
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: observacion
+    filter:
+      tipo: raster
+      series_id: 3
+      timestart: 2023-09-02T12:00:00.000Z
+      timeend: 2023-09-03T12:00:00.000Z
+    output: outputs/deleted_obs.tif
+    output_format: raster
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: timestart
+      property_value: 2023-09-02T12:00:00.000Z
   - testName: ArrayLengthTest
     arguments:
       min_length: 1

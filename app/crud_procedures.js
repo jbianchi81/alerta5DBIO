@@ -2805,6 +2805,39 @@ internal.RastToArealProcedure = class extends internal.CrudProcedure {
     }
 }
 
+internal.RastExtractProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "RastExtractProcedure"
+        if(!arguments[0].filter) {
+            throw("Missing filter")
+        }
+        if(!arguments[0].filter.series_id) {
+            throw("missing filter.series_id [of series_rast]")
+        }
+        if(!arguments[0].filter.timestart) {
+            throw("missing filter.timestart")
+        }
+        if(!arguments[0].filter.timeend) {
+            throw("missing filter.timeend")
+        }
+        this.series_id = arguments[0].filter.series_id
+        this.timestart = DateFromDateOrInterval(arguments[0].filter.timestart)
+        this.timeend = DateFromDateOrInterval(arguments[0].filter.timeend)
+        // options:
+        // - bbox
+        // - pixel_height
+        // - pixel_width
+        // - srid
+        // - funcion
+    }
+    async run() {
+        const result_serie = await crud.rastExtract(this.series_id,this.timestart,this.timeend,this.options)
+        this.result = result_serie.observaciones
+        return this.result
+    }
+}
+
 ////////////////////////////////////////
 
 const availableCrudProcedures = {
@@ -2846,7 +2879,8 @@ const availableCrudProcedures = {
     "ReadVariablesFromAccessorProcedure": internal.ReadVariablesFromAccessorProcedure,
     "GetSeriesBySiteAndVarProcedure": internal.GetSeriesBySiteAndVarProcedure,
     "UpdateSeriesPronoDateRangeProcedure": internal.UpdateSeriesPronoDateRangeProcedure,
-    "RastToArealProcedure": internal.RastToArealProcedure
+    "RastToArealProcedure": internal.RastToArealProcedure,
+    "RastExtractProcedure": internal.RastExtractProcedure
 }
 
 internal.availableTests = {

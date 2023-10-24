@@ -91,6 +91,9 @@
                     },
                     {
                         "$ref": "updateseriespronodaterangeprocedure.json"
+                    },
+                    {
+                        "$ref": "rastextractprocedure.json"
                     }
                 ]
             }

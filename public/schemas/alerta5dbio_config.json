@@ -157,6 +157,16 @@
             },
             "required": ["base_url"],
             "additionalProperties": false
+        },
+        "rast": {
+            "type": "object",
+            "description": "Raster output settings",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "A web accessible path where to write raster files. Usually under ../public"
+                }
+            }
         }
     },
     "required": [],
