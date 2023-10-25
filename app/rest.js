@@ -32,6 +32,8 @@ const accessors = require('./accessors')
 
 var default_rast_location = (config.rast) ? (config.rast.location) ? config.rast.location : "public" : "public"
 
+var default_tar_location = (config.rast) ? (config.rast.tar_location) ? config.rast.tar_location : "public/rast" : "public/rast"
+
 // const basicAuth = require('express-basic-auth')
 // var flash = require('express-flash')
 // var cookieParser = require('cookie-parser')
@@ -6881,6 +6883,14 @@ async function send_output(options,data,res) {
 	var output=""
 	var contentType = "text/plain"
 	var tipo = guess_tipo(data)
+	console.log("send_output, tipo: " + tipo)
+	// console.log("data is array: " + Array.isArray(data))
+	// console.log("data length: " + data.length)
+	// if(Array.isArray(data)) {
+	// 	for(var o of data) {
+	// 		console.log("tipo:" + o.tipo)
+	// 	}
+	// }
 	if(options.csvless || options.csv || options.string) {
 		if(Array.isArray(data)) {
 			if(options.no_send_data) {
@@ -7006,12 +7016,12 @@ async function send_output(options,data,res) {
 					}
 				} else {
 					var result = []
-					options.location = "public/rast"
+					options.location = default_rast_location
 					if(Array.isArray(data)) {
 						for(var i=0;i<data.length;i++) {
 							const item = data[i]
 							if(!item.valor) {
-								console.error("Undefined valor in data[" + i + "].Skipping")
+								console.error("Undefined valor in data[" + i + "]. Skipping")
 								continue
 							}
 							try {
@@ -7028,7 +7038,7 @@ async function send_output(options,data,res) {
 							res.status(500).send("Undefined valor in data")
 							return
 						}
-						result.push(print_rast(options,{},data))
+						result.push(await print_rast(options,{},data))
 					}
 				}
 				if(!result) {
@@ -7046,7 +7056,7 @@ async function send_output(options,data,res) {
 							{
 								gzip: true,
 								file: tarfile,
-								cwd: "public/rast"
+								cwd: default_tar_location
 							},
 							result.map(r=> r.filename.replace(/^.*\//,""))
 						)
@@ -7958,17 +7968,21 @@ function guess_tipo (data) {
 	if(Array.isArray(data) && data.length) {
 		var tipo_guess = data[0].tipo
 		var count = 0
-		for(var i in data) {
-			if (data[i] && data[i].tipo != tipo_guess) {
-				break
+		data.forEach((o,i) => {
+			if (o && o.tipo && o.tipo != tipo_guess) {
+				console.warn("guess_tipo: item " + i + " tipo: " + o.tipo + " differs from " + tipo_guess)
+			} else {
+				count++
 			}
-			count++
-		}
+		})
 		if(count == data.length) {
 			return tipo_guess
 		} else {
+			console.warn("guess_tipo: mixed tipos. Returning undefined. data length: " + data.length + ", count: " + count)
 			return undefined // mixed tipos
 		}
+	} else if (data.observaciones) {
+		return guess_tipo(data.observaciones)
 	} else {
 		return data.tipo
 	}

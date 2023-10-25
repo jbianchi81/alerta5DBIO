@@ -148,7 +148,7 @@ internal.print_rast = function(options,serie,obs) {
 	options.format = (options.format) ? options.format : "GTIff"
 	var prefix = (options.prefix) ? options.prefix : "rast"
 	var location = (options.location) ? options.location : "../public"
-    var fname = sprintf("%s_%05d_%s_%s\.%s", prefix, obs.series_id, obs.timestart.toISOString().substring(0,10), obs.timeend.toISOString().substring(0,10), options.format)
+    var fname = sprintf("%s_%05d_%s_%s\.%s", prefix, obs.series_id, obs.timestart.toISOString().substring(0,19), obs.timeend.toISOString().substring(0,19), options.format)
     if(options.patron_nombre) {
         fname = replace_patron_nombre(obs,options.patron_nombre)
     }

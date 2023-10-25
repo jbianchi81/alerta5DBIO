@@ -164,7 +164,11 @@
             "properties": {
                 "location": {
                     "type": "string",
-                    "description": "A web accessible path where to write raster files. Usually under ../public"
+                    "description": "A web accessible path where to write raster files. Relative to app dir. Usually ../public/rast"
+                },
+                "tar_location": {
+                    "type": "string",
+                    "description": "A web accessible path where to write tar files. Relative to base dir. Usually public/rast"
                 }
             }
         }
