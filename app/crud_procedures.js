@@ -1508,6 +1508,27 @@ internal.GetPpCdpDiario = class extends internal.CrudProcedure {
    
 }
 
+internal.TestAccessorProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "TestAccessorProcedure"
+        this.accessor_id = arguments[0].accessor_id
+        if(!this.accesor_id) {
+            throw("Missing accessor_id")
+        }
+    }
+    async run() {
+        if(config.accessors && config.accessors[this.accessor_id]) {
+            var accessor = await Accessors.new(this.accessor_id,config.accessors[this.accessor_id].class,config.accessors[this.accessor_id].config)
+        } else {
+            var accessor = await Accessors.new(this.accessor_id)
+        }
+        this.result = await accessor.engine.test()
+        console.log("Accessor test result: " + this.result)
+        return this.result
+    }
+}
+
 internal.UpdateFromAccessorProcedure = class extends internal.CrudProcedure {
     constructor() {
         super(...arguments)
@@ -2882,6 +2903,7 @@ const availableCrudProcedures = {
     "UpdateCubeFromSeriesProcedure": internal.UpdateCubeFromSeriesProcedure,
     "UpdateSerieRastFromCubeProcedure": internal.UpdateSerieRastFromCubeProcedure,
     "GetPpCdpBatchProcedure": internal.GetPpCdpBatchProcedure,
+    "TestAccessorProcedure": internal.TestAccessorProcedure,
     "UpdateFromAccessorProcedure":internal.UpdateFromAccessorProcedure,
     "GetMetadataFromAccessorProcedure":internal.GetMetadataFromAccessorProcedure,
     "UpdateMetadataFromAccessorProcedure":internal.UpdateMetadataFromAccessorProcedure,

@@ -1,0 +1,24 @@
+{
+    "$id": "testaccessorprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "TestAccessorProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "TestAccessorProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "accessor_id": {
+                    "type": "string",
+                    "description": "Identifier of the Accessor class to be called for update"
+                }
+            },
+            "required": [
+                "accessor_id"
+            ]
+        }
+    }
+}

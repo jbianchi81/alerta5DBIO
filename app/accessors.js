@@ -2467,6 +2467,8 @@ internal.ons = class {
 	}
 }
 
+internal.ana_github = require('./ana_github')
+
 internal.ana = class {
 	constructor(config) {
 		this.config = (config) ? config : {}
