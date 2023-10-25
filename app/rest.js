@@ -7981,8 +7981,6 @@ function guess_tipo (data) {
 			console.warn("guess_tipo: mixed tipos. Returning undefined. data length: " + data.length + ", count: " + count)
 			return undefined // mixed tipos
 		}
-	} else if (data.observaciones) {
-		return guess_tipo(data.observaciones)
 	} else {
 		return data.tipo
 	}
