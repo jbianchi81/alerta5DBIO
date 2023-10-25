@@ -6444,7 +6444,72 @@ internal.CRUD = class {
 		if(filter.estacion_id) {
 			filter.unid = filter.estacion_id
 		}
-		const estaciones_filter = internal.utils.control_filter({nombre:"regex_string", unid:"numeric", id:"numeric", id_externo: "string", distrito: "regex_string", pais: "regex_string", has_obs: "boolean", real: "boolean", habilitar: "boolean", tipo: "string", has_prono: "boolean", rio: "regex_string", geom: "geometry", propietario: "regex_string", automatica: "boolean", ubicacion: "regex_string", localidad: "regex_string", tipo_2: "string",tabla: "string", abrev: "regex_string"}, filter, "estaciones")
+		const estaciones_filter = internal.utils.control_filter2(
+			{
+				nombre: {
+					type: "regex_string"
+				},
+				unid: {
+					type: "numeric"
+				},
+				id: {
+					type: "numeric"
+				},
+				id_externo: {
+					type: "string"
+				},
+				distrito: {
+					type: "regex_string"
+				},
+				pais: {
+					type: "regex_string"
+				},
+				has_obs: {
+					type: "boolean"
+				},
+				real: {
+					type: "boolean"
+				},
+				habilitar: {
+					type: "boolean"
+				},
+				tipo: {
+					type: "string"
+				},
+				has_prono: {
+					type: "boolean",
+				},
+				rio: {
+					type: "regex_string"
+				},
+				geom: {
+					type: "geometry"
+				}, 
+				propietario: {
+					type: "regex_string"
+				},
+				automatica: {
+					type: "boolean"
+				}, 
+				ubicacion: {
+					type: "regex_string"
+				},
+				localidad: {
+					type: "regex_string"
+				}, 
+				tipo_2: {
+					type: "string"
+				},
+				tabla: {
+					type: "string"
+				}, 
+				abrev: {
+					type: "regex_string"
+				}
+			}, 
+			filter, 
+			"estaciones"
+		)
 		if(!estaciones_filter) {
 			return Promise.reject("invalid filter")
 		}
