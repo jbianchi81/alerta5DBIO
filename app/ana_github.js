@@ -54,7 +54,7 @@ internal.ana_github = class {
 					series_id.Nivel = serie.id
 			} else if(serie.var.id==4) {
 				series_id.Vazao = serie.id
-			} else if(serie.var.id==27 && this.config.precip_estacion_ids.indexOf(serie.estacion.id) >= 0) {
+			} else if(serie.var.id==27) { // && this.config.precip_estacion_ids.indexOf(serie.estacion.id) >= 0) {
 				console.log("estacion: " + serie.estacion.id + " precip series:id:" + serie.id)
 				series_id.Chuva = serie.id
 			}
@@ -100,8 +100,8 @@ internal.ana_github = class {
 			return obs
 		}
 	}
-    async getData(id_externo,timestart,timeend,series_id,var_columns=this.config.var_columns,url=this.config.url,dir=this.config.remote_data_dir) {
-        // console.log(series_id)
+    async getData(id_externo,timestart,timeend,series_id,url=this.config.url) {
+        console.log({series_id:series_id})
         if(! this.available_sites) {
             throw("Available sites is not defined")
         }
@@ -130,6 +130,21 @@ internal.ana_github = class {
         var csv = response.data
         var data = csv.split("\n")
         var header = data.shift()
+        var var_columns = {}
+        header.split(";").forEach((column,i)=>{
+            column = column.replace(/\s/g,"").toLowerCase()
+            if(column == "nivel_sensor(cm)" || column == "nível(cm)") { // Nivel_Sensor(cm) ;Nível (cm)
+                var_columns["Nivel"] = i
+            } else if(column == "chuva(mm)") { //  Chuva (mm)
+                var_columns["Chuva"] = i
+            } else if(column == "vazao(m3_s)" || column == "vazão(m3/s)") { // vazao(m3_s); Vazão (m3/s)
+                var_columns["Vazao"] = i
+            }
+        })
+        if(!Object.keys(var_columns).length) {
+            throw("Invalid header: var columns not found")
+        }
+        console.log({var_columns: var_columns})
         data = data.map(row=>{            
             // console.log(row)
             return row.split(";").map(e=>e.replace(/\"/g,"")) // JSON.parse("[" + row + "]")
@@ -204,7 +219,7 @@ internal.ana_github = class {
             }
             if(series_id.Vazao) {
                 if(!var_columns.Vazao) {
-                    console.warn("var_columns.Vazao not set")
+                    // console.warn("var_columns.Vazao not set")
                 } else {
                     const column = var_columns.Vazao
                     if(/^\s*$/.test(row[column])) {
@@ -215,7 +230,7 @@ internal.ana_github = class {
                             console.error("Invalid float: " + row[column] + ". Skipping")
                         } else {
                             observaciones.push(new CRUD.observacion({
-                                series_id: series_id.Chuva,
+                                series_id: series_id.Vazao,
                                 tipo: "puntual",
                                 timestart: timestamp,
                                 timeend: timestamp,
@@ -261,7 +276,12 @@ internal.ana_github = class {
                 continue
             }
             //~ console.log({id_externo:e.id_externo})
-            var series = await CRUD.CRUD.getSeries('puntual',{estacion_id:e.id,proc_id:1,var_id:filter.var_id},undefined)
+            var series = await CRUD.serie.read({tipo:'puntual',estacion_id:e.id,proc_id:1,var_id:filter.var_id})
+            if(!series.length) {
+                console.error("No series found for estacion " + e.id)
+                continue
+            }
+            // console.log({series:series})
             try {
                 var obs = await this.getObservaciones(e,series,timestart,timeend,options.update,options)
             } catch(error) {

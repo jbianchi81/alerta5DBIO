@@ -485,6 +485,20 @@ internal.estacion = class extends baseModel  {
 		}
 		return geojson
 	}
+	static toGeoJSON(estaciones=[]) {
+		const result = {
+			"type": "FeatureCollection",
+			"features": []
+		}
+		estaciones.forEach((estacion,i)=>{
+			if(!estacion instanceof internal.estacion) {
+				result.features.push(new internal.estacion(estacion).toGeoJSON())
+			} else {
+				result.features.push(estacion.toGeoJSON())
+			}
+		})
+		return result
+	}
 	isWithinPolygon(polygon) {
 		if(polygon instanceof internal.geometry) {
 			if(polygon.type.toLowerCase() != "polygon") {

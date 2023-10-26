@@ -181,6 +181,36 @@ internal.CrudProcedure = class  {
             } else {
                 await writeFile(output,JSON.stringify(data))
             }
+        } else if(output_format.toLowerCase() == "geojson") {
+            // check if instance method exists
+            if(typeof data.toGeoJSON === 'function') {
+                var geojson_result = result.toGeoJSON()
+            } else if (Array.isArray(data)) {
+                // check if static method exists
+                if (this.class && typeof this.class.toGeoJSON === 'function') {
+                    var geojson_result = this.class.toGeoJSON(data)
+                } else {
+                    var geojson_result = {
+                        "type": "FeatureCollection",
+                        "features": []
+                    }
+                    data.forEach((item,i)=>{
+                        // for each item, check if instance method exists
+                        if(typeof item.toGeoJSON === 'function') {
+                            geojson_result.features.push(item.toGeoJSON())
+                        } else {
+                            throw("toGeoJSON method not found in item " + i)
+                        }
+                    })
+                }
+            } else {
+                throw("toGeoJSON method not found in class " + this.class_name)
+            }
+            if(pretty) {
+                await writeFile(output,JSON.stringify(geojson_result,null,4))
+            } else {
+                await writeFile(output,JSON.stringify(geojson_result))
+            }
         } else if(output_format=="csv") {
             if(!data.toCSV) {
                 if(Array.isArray(data)) {
@@ -1656,6 +1686,8 @@ internal.GetSitesFromAccessorProcedure = class extends internal.CrudProcedure {
         }
         this.accessor_id = arguments[0].accessor_id
         this.filter = arguments[0].filter
+        this.class = CRUD.estacion
+        this.class_name = "estacion"
     }
     async run() {
         if(config.accessors && config.accessors[this.accessor_id]) {
@@ -3225,11 +3257,37 @@ const writeResult = async function(procedure,result,options={}) {
             if(output_format == "csv") {
                 var csv_result = (typeof result.toCSV === 'function') ? result.toCSV({header:options.header,columns:options.columns}) : (Array.isArray(result)) ? procedure.class.toCSV(result,{header:options.header,columns:options.columns}) : CSV.stringify(result) // result.map(r=>r.toCSV()).join("\n") 
                 process.stdout.write(csv_result)
+            } else if(output_format.toLowerCase() == "geojson") {
+                // check if instance method exists
+                if(typeof result.toGeoJSON === 'function') {
+                    var geojson_result = result.toGeoJSON()
+                } else if (Array.isArray(result)) {
+                    // check if static method exists
+                    if (typeof procedure.class.toGeoJSON === 'function') {
+                        var geojson_result = procedure.class.toGeoJSON(result)
+                    } else {
+                        var geojson_result = {
+                            "type": "FeatureCollection",
+                            "features": []
+                        }
+                        result.forEach((item,i)=>{
+                            // for each item, check if instance method exists
+                            if(typeof item.toGeoJSON === 'function') {
+                                geojson_result.features.push(item.toGeoJSON())
+                            } else {
+                                throw("toGeoJSON method not found in item " + i)
+                            }
+                        })
+                    }
+                } else {
+                    throw("toGeoJSON method not found in class " + procedure.class_name)
+                }
+                process.stdout.write(JSON.stringify(geojson_result,null,4))
             } else {
                 // if(result.toJSON) {
                 //     process.stdout.write(result.toJSON())
                 // } else {
-                    process.stdout.write(JSON.stringify(result))
+                    process.stdout.write(JSON.stringify(result,null,4))
                 // }
             }
         } catch(e) {
