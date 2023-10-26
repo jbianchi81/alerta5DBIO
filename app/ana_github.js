@@ -364,6 +364,7 @@ internal.ana_github = class {
     // }
     async getSites(filter={}) {
         await this.getAvailableSitesAll()
+        await this.readCatalog()
         var available_sites = Object.keys(this.available_sites)
         console.log("Available sites: " + available_sites.length)
         if(filter.id_externo) {
@@ -387,10 +388,179 @@ internal.ana_github = class {
             filter.id_externo = available_sites
         }
         filter.tabla = "red_ana_hidro"
-        console.log(filter)
-        const sites = await CRUD.estacion.read(filter)
+        // console.log(filter)
+        const sites = this.catalog.filter(estacion=>{
+            return (available_sites.indexOf(estacion.id_externo) >= 0)
+        })
+        // const sites = await CRUD.estacion.read(filter)
         console.log("Found sites: " + sites.length)
         return sites
+    }
+    async readCatalog(file=this.config.inventario_estaciones_file,url=this.config.inventario_estaciones_url) {
+        if(!file) {
+            throw("Missing file")
+        }
+        if(!fs.existsSync(path.resolve(__dirname,file))) {
+            if(!url) {
+                throw("Missing url")
+            }
+            var response = await axios.get(url)
+            fs.writeFileSync(path.resolve(__dirname,file),response.data)
+        }
+        var csv = fs.readFileSync(path.resolve(__dirname,file),'utf-8')
+        var data = csv.split("\n")
+        var header = data.shift()
+        var column_keys = {}
+        header.split(";").forEach((column,i)=>{
+            column = column.replace(/\s/g,"").toLowerCase()
+            console.log({column: column})
+            if(column == "codigo") { // Codigo
+                column_keys["Codigo"] = i
+            } else if(column == "nome") { //  Nome
+                column_keys["Nome"] = i
+            } else if(column == "latitude") { // Latitude
+                column_keys["Latitude"] = i
+            } else if(column == "longitude") { // Longitude
+                column_keys["Longitude"] = i
+            } else if(column == "altitude") { // Altitude
+                column_keys["Altitude"] = i
+            } else if(column == "rionome") { // RioNome
+                column_keys["RioNome"] = i
+            } else if(column == "estadosigla") { // EstadoSigla
+                column_keys["EstadoSigla"] = i
+            }
+        })
+        console.log({column_keys: column_keys})
+        if(!column_keys.hasOwnProperty("Codigo") || !column_keys.hasOwnProperty("Latitude") || !column_keys.hasOwnProperty("Longitude")) {
+            throw("missing column Codigo, Latitude and/or Longitude")
+        }
+        data = data.map(row=>{            
+            // console.log(row)
+            return row.split(";").map(e=>e.replace(/\"/g,""))
+        })
+        const estaciones = []
+        data.forEach((row,i)=>{
+            const estacion = {}
+            Object.keys(column_keys).forEach(key => {
+                if(/^\s*$/.test(row[column_keys[key]])) {
+                    console.warn("column " + key + " is empty")
+                    return
+                }
+                estacion[key] = row[column_keys[key]]
+            })
+            if(!estacion["Codigo"]) {
+                console.error("Missing Codigo at row " + i)
+                return
+            }
+            if(!estacion["Latitude"]) {
+                console.error("Missing Latitude at row " + i)
+                return
+            }
+            estacion["Latitude"] = parseFloat(estacion["Latitude"])
+            if(estacion["Latitude"].toString() == "NaN") {
+                console.error("Invalid latitude at row " + i)
+            }
+            if(!estacion["Longitude"]) {
+                console.error("Missing Longitude at row " + i)
+                return
+            }
+            estacion["Longitude"] = parseFloat(estacion["Longitude"])
+            if(estacion["Longitude"].toString() == "NaN") {
+                console.error("Invalid longitude at row " + i)
+            }
+            estaciones.push(new CRUD.estacion({
+                id_externo: estacion["Codigo"],
+                geom: {
+                    type: "Point",
+                    coordinates: [
+                        estacion["Longitude"],
+                        estacion["Latitude"]
+                    ]
+                },
+                nombre: estacion["Nome"],
+                altitud: estacion["Altitude"],
+                rio: estacion["RioNome"],
+                distrito: estacion["EstadoSigla"],
+                tabla: "red_ana_hidro"
+            }))
+        })
+        this.catalog = estaciones
+    }
+    async updateSites(filter={}) {
+        const sites = await this.getSites(filter)
+        return CRUD.estacion.create(sites)
+    }
+    async getSeries(filter={}) {
+        const estaciones_filter = {
+            tabla: "red_ana_hidro"
+        }
+        Object.assign(estaciones_filter,filter)
+        const sites = await CRUD.estacion.read(estaciones_filter) // await this.getSites(filter)
+        const series = []
+        sites.forEach(site=>{
+            // Nivel
+            series.push(new CRUD.serie({
+                tipo: "puntual",
+                estacion_id: site.id,
+                var_id: 2,
+                proc_id: 1,
+                unit_id: 11
+            }))
+            // Chuva
+            series.push(new CRUD.serie({
+                tipo: "puntual",
+                estacion_id: site.id,
+                var_id: 27,
+                proc_id: 1,
+                unit_id: 9
+            }))
+            // Vazao
+            series.push(new CRUD.serie({
+                tipo: "puntual",
+                estacion_id: site.id,
+                var_id: 4,
+                proc_id: 1,
+                unit_id: 10
+            }))
+            // Vazao
+            series.push(new CRUD.serie({
+                tipo: "puntual",
+                estacion_id: site.id,
+                var_id: 4,
+                proc_id: 1,
+                unit_id: 10
+            }))
+            // Nivel medio diario
+            series.push(new CRUD.serie({
+                tipo: "puntual",
+                estacion_id: site.id,
+                var_id: 39,
+                proc_id: 1,
+                unit_id: 11
+            }))
+            // Precip diaria
+            series.push(new CRUD.serie({
+                tipo: "puntual",
+                estacion_id: site.id,
+                var_id: 1,
+                proc_id: 1,
+                unit_id: 22
+            }))
+            // Caudal diario
+            series.push(new CRUD.serie({
+                tipo: "puntual",
+                estacion_id: site.id,
+                var_id: 40,
+                proc_id: 1,
+                unit_id: 10
+            }))
+        })
+        return series
+    }
+    async updateSeries(filter={}) {
+        await this.updateSites(filter)
+        const series = await this.getSeries(filter)
+        return CRUD.serie.create(series)
     }
 }
 

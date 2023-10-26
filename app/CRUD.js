@@ -41,7 +41,7 @@ const { CRUD } = require('./mareas');
 const { valid } = require('node-html-parser');
 const { client } = require('./wmlclient');
 
-const { escapeIdentifier } = require('pg')
+const { escapeIdentifier, escapeLiteral } = require('pg')
 
 const apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
 var schemas = apidoc.components.schemas
@@ -17919,29 +17919,35 @@ internal.utils = {
 			var value
 			switch(typeof params[i]) {
 				case "string":
-					value = "'" + params[i] + "'"
+					value = escapeLiteral(params[i])
 					break;
 				case "number":
-					value = params[i]
+					value = parseFloat(params[i])
+					if(value.toString() == "NaN") {
+						throw("Invalid number")
+					}
 					break
 				case "object":
 					if(params[i] instanceof Date) {
 						value = "'" + params[i].toISOString() + "'::timestamptz::timestamp"
 					} else if(params[i] instanceof Array) {
-						value = "'{" + params[i].join(",") + "}'" // .map(v=> (typeof v == "number") ? v : "'" + v.toString() + "'")
+						// if(/';/.test(params[i].join(","))) {
+						// 	throw("Invalid value: contains invalid characters")
+						// }
+						value = escapeLiteral(`{${params[i].join(",")}}`) // .map(v=> (typeof v == "number") ? v : "'" + v.toString() + "'")
 					} else if(params[i] === null) {
 						value = "NULL"
 					} else if (params[i].constructor && params[i].constructor.name == 'PostgresInterval') {
-							value = "'" + params[i].toPostgres() + "'::interval"
+							value = `${escapeLiteral(params[i].toPostgres())}::interval`
 					} else {
-						value = params[i].toString()
+						value = escapeLiteral(params[i].toString())
 					}
 					break;
 				case "undefined": 
 					value = "NULL"
 					break;
 				default:
-					value = "'" + params[i].toString() + "'"
+					value = escapeLiteral(params[i].toString())
 			}
 			var I = parseInt(i)+1
 			var placeholder = "\\$" + I.toString()
