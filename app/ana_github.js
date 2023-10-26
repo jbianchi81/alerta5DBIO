@@ -295,7 +295,7 @@ internal.ana_github = class {
             }
         }
         if(options.update) {
-            console.log("upserted "+ observaciones.length + " registros")
+            console.log("upserted " + observaciones.length + " registros")
             return observaciones
         } else if(observaciones.length==0) {
             console.error("no data found")
@@ -490,7 +490,7 @@ internal.ana_github = class {
         const sites = await this.getSites(filter)
         return CRUD.estacion.create(sites)
     }
-    async getSeries(filter={}) {
+    async getSeriesOfSites(filter={}) {
         const estaciones_filter = {
             tabla: "red_ana_hidro"
         }
@@ -559,7 +559,7 @@ internal.ana_github = class {
     }
     async updateSeries(filter={}) {
         await this.updateSites(filter)
-        const series = await this.getSeries(filter)
+        const series = await this.getSeriesOfSites(filter)
         return CRUD.serie.create(series)
     }
 }
