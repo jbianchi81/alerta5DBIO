@@ -3243,6 +3243,9 @@ const getOutputOptions = function(options={}) {
     if(options.columns) {
         output_options.columns = options.columns
     }
+    if(options.pretty) {
+        output_options.pretty = options.pretty
+    }
     return output_options
 }
 
@@ -3287,7 +3290,11 @@ const writeResult = async function(procedure,result,options={}) {
                 // if(result.toJSON) {
                 //     process.stdout.write(result.toJSON())
                 // } else {
+                if(options.pretty) {
                     process.stdout.write(JSON.stringify(result,null,4))
+                } else {
+                    process.stdout.write(JSON.stringify(result))
+                }
                 // }
             }
         } catch(e) {
@@ -3453,7 +3460,8 @@ if(1==1) {
     .description('Run read procedure for given class and output in selected format. Accepts zero to many filters as "key1=value1 key2=value2 ..."')
     .option("-v, --validate",'validate only (don\'t run)')
     .option("-o, --output <value>",'save output to file. If -o nor -i are set, output is printed to STDOUT')
-    .option("-f, --format <value>",'output format (json (default) or csv)')
+    .option("-f, --format <value>",'output format (json (default), geojson or csv)')
+    .option("-p, --pretty",'pretty print output')
     .option("-i, --output_individual_files_pattern <value>",'output one file for each retrieved element using this printf pattern to use with element id and, additional fields (with -F option)')
     .option("-b, --base_path <value>",'to use together with -i. Prepends this base path to the constructed file paths')
     .option("-F, --iter_field <value>",'Field of elements to iterate over to generate separate output files (combined with -i)')

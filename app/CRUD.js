@@ -4847,8 +4847,8 @@ internal.calibrado = class extends internal.genericModel {
 		this.out_id = m.out_id
 		this.area_id = m.area_id
 		this.tramo_id = m.tramo_id
-		this.dt = m.dt
-		this.t_offset = m.t_offset
+		this.dt = (m.dt) ? timeSteps.createInterval(m.dt) : undefined
+		this.t_offset = (m.t_offset) ? timeSteps.createInterval(m.t_offset) : undefined
 		this.stats = m.stats
 
 		this.sortArrays()
@@ -5013,10 +5013,11 @@ internal.forzante = class extends baseModel {
 		var m = arguments[0]
 		this.orden = parseInt(m.orden)
 		this.series_id = parseInt(m.series_id)
-		this.series_table = (m.series_table) ? (m.series_tabla == "series_areal") ? "series_areal" : "series" : "series" 
+		this.series_table = (m.series_table) ? (m.series_table.toLowerCase() == "series_areal") ? "series_areal" : (m.series_table.toLowerCase() == "rast" || m.series_table.toLowerCase() == "raster") ?  "series_rast" : "series" : "series"
 		this.cal_id = m.cal_id
 		this.id = m.id
 		this.model_id = m.model_id
+		this.cal = m.cal
 	}
 	toString() {
 		return JSON.stringify(this)
@@ -5027,11 +5028,10 @@ internal.forzante = class extends baseModel {
 	toCSVless() {
 		return this.orden + "," + this.series_id + "," + this.series_table
 	} 
-	async getSerie(pool) {
-		var tipo = (this.series_table == "series") ? "puntual" : (this.series_table == "series_areal") ? "areal" : "puntual"
+	async getSerie() {
+		var tipo = (this.series_table == "series") ? "puntual" : (this.series_table == "series_areal") ? "areal" : (this.series_table == "series_rast") ? "raster" : "puntual"
 		try {
-			const crud = new internal.CRUD(pool)
-			this.serie = await crud.getSerie(tipo,this.series_id,undefined,undefined,{no_metadata:true})
+			this.serie = await internal.CRUD.getSerie(tipo,this.series_id,undefined,undefined,{no_metadata:true})
 		} catch(e) {
 			console.error("crud: forzante: no se encontró serie")
 		}
@@ -7937,7 +7937,7 @@ internal.CRUD = class {
 					throw("El usuario no posee autorización para acceder a esta serie")
 				}
 			}
-			console.log("crud.getSerie: serie " + tipo + " " + id + " encontrada")
+			// console.log("crud.getSerie: serie " + tipo + " " + id + " encontrada")
 			var row = result.rows[0]
 			row.date_range = {timestart: row.timestart, timeend: row.timeend, count: row.count}
 			delete row.timestart
@@ -7945,7 +7945,7 @@ internal.CRUD = class {
 			delete row.count
 			var s = []
 			if(options.no_metadata) {
-				s =[{id:row.area_id},{id:row.var_id},{id:row.proc_id},{id:row.unit_id}]
+				s =[{id:row.area_id},{id:row.var_id},{id:row.proc_id},{id:row.unit_id},{id:row.fuentes_id}]
 			} else {
 				s = [await this.getArea(row.area_id), await this.getVar(row.var_id), await this.getProcedimiento(row.proc_id), await this.getUnidad(row.unit_id), await this.getFuente(row.fuentes_id)]
 			}
@@ -14402,7 +14402,7 @@ ORDER BY cal.cal_id`
 				console.error("No series_prono found")
 				return []
 			}
-			calibrados = await engine.read("Calibrado",filter)
+			calibrados = await this.getCalibrados_(filter.estacion_id,filter.var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive) // await engine.read("Calibrado",filter)
 		} else if(estacion_id || var_id || includeCorr || qualifier || forecast_date || series_id) {
 			series_prono_last = await this.getSeriesPronoLast({cal_id:cal_id,model_id:model_id,grupo_id:filter.grupo_id,estacion_id:estacion_id,var_id:var_id,forecast_date:forecast_date,series_id:series_id})
 			// console.log({series_prono_last:series_prono_last})
@@ -14412,9 +14412,9 @@ ORDER BY cal.cal_id`
 				console.error("No series_prono found")
 				return []
 			}
-			calibrados = await engine.read("Calibrado",filter)
+			calibrados = await this.getCalibrados_(filter.estacion_id,filter.var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive) // engine.read("Calibrado",filter)
 		} else {
-			calibrados = await engine.read("Calibrado",filter)
+			calibrados = await this.getCalibrados_(filter.estacion_id,filter.var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive) // engine.read("Calibrado",filter)
 		}
 		if(includeCorr) {
 			var series_id
@@ -14597,7 +14597,7 @@ ORDER BY cal.cal_id`
 					($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,coalesce($13,'1 days'::interval),coalesce($14,'9 hours'::interval))\
 					ON CONFLICT (id)\
 					DO UPDATE SET nombre=coalesce(excluded.nombre,calibrados.nombre), modelo=coalesce(excluded.modelo,calibrados.modelo), parametros=coalesce(excluded.parametros,calibrados.parametros), estados_iniciales=coalesce(excluded.estados_iniciales,calibrados.estados_iniciales), activar=coalesce(excluded.activar,calibrados.activar), selected=coalesce(excluded.selected,calibrados.selected), out_id=coalesce(excluded.out_id,calibrados.out_id), area_id=coalesce(excluded.area_id,calibrados.area_id), in_id=coalesce(excluded.in_id,calibrados.in_id), model_id=coalesce(excluded.model_id,calibrados.model_id), tramo_id=coalesce(excluded.tramo_id,calibrados.tramo_id), dt=coalesce(excluded.dt,calibrados.dt), t_offset=coalesce(excluded.t_offset,calibrados.t_offset)\
-					RETURNING *",[input_cal.id, input_cal.nombre, input_cal.modelo, input_cal.parametros, input_cal.estados, input_cal.activar, input_cal.selected, input_cal.out_id, input_cal.area_id, input_cal.in_id, input_cal.model_id, input_cal.tramo_id, input_cal.dt, input_cal.t_offset])
+					RETURNING *",[input_cal.id, input_cal.nombre, input_cal.modelo, input_cal.parametros, input_cal.estados, input_cal.activar, input_cal.selected, input_cal.out_id, input_cal.area_id, input_cal.in_id, input_cal.model_id, input_cal.tramo_id, timeSteps.interval2string(input_cal.dt), timeSteps.interval2string(input_cal.t_offset)])
 					// console.log(stmt)
 					upserted = await client.query(stmt)
 				} else {
@@ -14945,9 +14945,10 @@ ORDER BY cal.cal_id`
 		var tuples = forzantes.map((p,i)=>{
 			var series_table = (p.series_table) ? (p.series_table.toLowerCase() == "series_rast") ? "series_rast" : (p.series_table.toLowerCase() == "series_areal") ? "series_areal" : "series" : "series"
 			var series_id = (p.series_id) ? p.series_id : parseInt(p)
-			return sprintf ("(%d,%d,'%s',%d)", cal_id,i+1,series_table,series_id)
+			var cal = (p.cal === true)
+			return sprintf ("(%d,%d,'%s',%d,%s)", cal_id,i+1,series_table,series_id,cal.toString())
 		})
-		var stmt = `INSERT INTO forzantes (cal_id,orden,series_table,series_id) VALUES\
+		var stmt = `INSERT INTO forzantes (cal_id,orden,series_table,series_id,cal) VALUES\
 		${tuples.join(",")}\
 		ON CONFLICT (cal_id,orden)\
 		DO UPDATE SET series_table=excluded.series_table, series_id=excluded.series_id\
