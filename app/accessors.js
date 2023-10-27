@@ -2298,18 +2298,20 @@ internal.ons = class {
 			return false
 		})
 	}
-	get(filter={},options={}) {
+	async get(filter={},options={}) {
 		filter.timestart = (filter.timestart) ? timeSteps.DateFromDateOrInterval(filter.timestart) : undefined
 		filter.timeend = (filter.timeend) ? timeSteps.DateFromDateOrInterval(filter.timeend) : undefined
-		return this.getONS(filter.timestart,filter.timeend)
+		const observaciones = await this.getONS(filter.timestart,filter.timeend)
+		// const observaciones = []
+		// series.forEach((serie,index)=>{
+		// 	observaciones.push(...serie.observaciones)
+		// })
+		return observaciones
+
 	}
-	update(filter={},options={}) {
-		filter.timestart = (filter.timestart) ? timeSteps.DateFromDateOrInterval(filter.timestart) : undefined
-		filter.timeend = (filter.timeend) ? timeSteps.DateFromDateOrInterval(filter.timeend) : undefined
-		return this.getONS(filter.timestart,filter.timeend)
-		.then(result=>{
-			crud.upsertObservaciones(result,"puntual")
-		})
+	async update(filter={},options={}) {
+		const observaciones = await this.get(filter,options)
+		return crud.upsertObservaciones(observaciones,"puntual")
 	}
 
 	getONS(timestart=new Date(new Date().getTime()-14*24*3600*1000),timeend=new Date()) {
@@ -2329,6 +2331,7 @@ internal.ons = class {
 		// get Code Map
 		return global.pool.query("select estaciones.unid,\
 								  estaciones.id_externo,\
+								  estaciones.nombre,\
 								  json_object_agg(series.var_id,series.id) AS series\
 						  from estaciones,series \
 						  where estaciones.tabla='presas' and \
@@ -2338,7 +2341,7 @@ internal.ons = class {
 		.then(result=>{
 			var codeMap = {}
 			result.rows.forEach(r=>{
-				codeMap[r.id_externo]={unid:r.unid,series:r.series}
+				codeMap[r.nombre]={unid:r.unid,id_externo:r.id_externo,series:r.series}
 			})
 			//~ console.log(codeMap)
 		//~ #1. FORMACION DE LOS LINKS DE DESCARGA
@@ -2420,7 +2423,7 @@ internal.ons = class {
 				.then(result=>{
 					//~ console.log({sss:result[0],sssco:result[1]})
 					var registros = []
-					result.forEach(filecontent=>{
+					result.forEach((filecontent,index)=>{
 						var rows = filecontent.split("\n")
 						rows.splice(0,7)
 						for(var i=0;i<rows.length;i++) {
@@ -2433,19 +2436,26 @@ internal.ons = class {
 							}
 							var unid = codeMap[data[1]].unid
 							var series = codeMap[data[1]].series
-							var col=3
+							console.log("Found estacion " + unid + " " + data[1] + " with " + Object.keys(series).length + " series.")
+							var cols= [3, 4, 5, 6, 7, 8]
 							var var_ids = [2,26,22,23,24,25]
-							var_ids.forEach(var_id=>{
-								var valor = (var_id == 2 || var_id == 26) ? roundTo(data[col],2) : roundTo(data[col],0)
+							var_ids.forEach((var_id,i)=>{
+								var valor = parseFloat(data[cols[i]])
+								if(valor.toString() == 'NaN') {
+									console.error("Invalid value at row " + index + ", column " + cols[i])
+									return
+								}	
+								valor = (var_id == 2 || var_id == 26) ? roundTo(valor,2) : roundTo(valor,0)
 								registros.push({tipo:"puntual", series_id:series[var_id], estacion_id: unid, id_externo: data[1], var_id: var_id, timestart: dia, timeend: timeend, valor: valor}) 
-								if(var_id==2) { // inserta H media diaria var_id=33
+								if(var_id == 2) { // inserta H media diaria var_id=33
 									registros.push({tipo:"puntual", series_id:series[39], estacion_id: unid, id_externo: data[1], var_id: 39, timestart: dia, timeend: timeend, valor: valor})
 								}
-								col++
+								if(var_id == 23) {
+									registros.push({tipo:"puntual", series_id:series[4], estacion_id: unid, nombre: data[1], var_id: 4, timestart: dia, timeend: timeend, valor: valor})
+									// inserta Q medio diario var_id=48
+									registros.push({tipo:"puntual", series_id:series[40], estacion_id: unid, nombre: data[1], var_id: 40, timestart: dia, timeend: timeend, valor: valor})
+								}
 							})
-							registros.push({tipo:"puntual", series_id:series[4], estacion_id: unid, id_externo: data[1], var_id: 4, timestart: dia, timeend: timeend, valor: roundTo(data[6],0)})
-							// inserta Q medio diario var_id=48
-							registros.push({tipo:"puntual", series_id:series[40], estacion_id: unid, id_externo: data[1], var_id: 40, timestart: dia, timeend: timeend, valor: roundTo(data[6],0)})
 						}
 					})
 					return registros
