@@ -8204,10 +8204,13 @@ internal.api_smn = class {
 
 	parsePrecipList(list,series_id) {
 		return list.filter(item=>(item.valid)).map(item=>{
+			var tag_date = new Date(item.date)
+			var timestart = new Date(tag_date)
+			timestart.setDate(timestart.getDate() - 1)
 			return {
 				series_id: series_id,
-				timestart: new Date(item.date),
-				timeend: new Date(new Date(item.date).getTime() + 24*3600*1000),
+				timestart: timestart,
+				timeend: tag_date,
 				valor: (item.precipitation) ? item.precipitation : 0
 			}			
 		})
