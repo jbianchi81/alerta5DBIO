@@ -102,7 +102,8 @@ internal.client = class {
         "view": "whos-plata",
         "begin_days": null,
         "tabla": "whos_plata",
-        "accessor_id": "om_ogc_timeseries_client"
+        "accessor_id": "om_ogc_timeseries_client",
+        "no_data_value": -9999
     }
 
     static var_map = []
@@ -184,7 +185,7 @@ internal.client = class {
     */
     async getMonitoringPoints(view=this.config["view"],filter={},options={}) {
         const params = {}
-        for(var key of ["east","west","north","south","limit","offset","country"]) {
+        for(var key of ["east","west","north","south","limit","offset","country","provider"]) {
             if(filter.hasOwnProperty(key)) {
                 params[key] = filter[key]
             }
@@ -588,7 +589,7 @@ internal.client = class {
         for(var i=1;i<=max;i=i+limit) {
             console.log("getMonitoringPoints offset: " + i)
             var output = (options.output_dir) ? path.resolve(options.output_dir,sprintf("monitoringPointsResponse_%i.json",i)) : undefined
-            const monitoringPoints = await this.getMonitoringPoints(view,{offset:i, limit:limit, west: filter.west, south: filter.south, east: filter.east, north: filter.north, country: filter.country}, {output: output})
+            const monitoringPoints = await this.getMonitoringPoints(view,{offset:i, limit:limit, west: filter.west, south: filter.south, east: filter.east, north: filter.north, country: filter.country, provider: filter.provider}, {output: output})
             if(!monitoringPoints.hasOwnProperty("results")) {
                 console.log("no monitoring points found")
                 break
@@ -809,6 +810,8 @@ internal.client = class {
      * @param {string} filter.view
      * @param {Geometry} filter.geom
      * @param {string} filter.pais 
+     * @param {string} filter.provider
+     * @param {string|string[]} filter.id_externo
      * @param {*} options
      * @param {boolean} options.no_update - skip inserting/updating records in accesor database 
      * @returns {Promise<internal.feature_of_interest[]>} feature of interest array
@@ -822,14 +825,28 @@ internal.client = class {
             filter.west = bbox.west
             filter.north = bbox.north
             filter.south = bbox.south
-            filter.geom = undefined            
+            filter.geom = undefined  
         }
         if(filter.pais) {
             filter.country = internal.client.getCountryIsoCode(filter.pais)
             filter.pais = undefined
         }
+        if(filter.provider) {
+            filter.provider = filter.provider.toString()
+        }
         const result = await this.getMonitoringPointsWithPagination(view,filter,options)
         var foi = this.monitoringPointsToFeaturesOfInterest(result.features)
+        if(filter.id_externo) {
+            if(Array.isArray(filter.id_externo)) {
+                foi = foi.filter(f=>{
+                    return (filter.id_externo.map(i=>i.toString()).indexOf(f.feature_id.toString()) >= 0)
+                })
+            } else {
+                foi = foi.filter(f=>{
+                    return (f.feature_id.toString() == filter.id_externo.toString())
+                })
+            }
+        }
         if(!options.no_update) {
             // const created = []
             for(var f of foi) {
@@ -849,6 +866,7 @@ internal.client = class {
      * @returns {Promise<Estacion[]>} estaciones
      * @todo filter.estacion_id
      * @todo filter.id_externo
+     * @todo filter.provider
      */
     async updateSites(filter={},options={}) {   
         
@@ -915,7 +933,7 @@ internal.client = class {
     async getSeries(filter={},options={}) {
         const ts_filter = {}
         const ts_options = {}
-        ts_options.a5 =  false // (options.a5) ? options.a5 : true
+        ts_options.a5 =  (options.a5) ? options.a5 : false
         var view = (filter.view) ? filter.view : this.config.view
         ts_filter.includeData = false
         // removes date range filters because API doesn't take data availability filters
@@ -957,18 +975,18 @@ internal.client = class {
             time_support: (m.result.metadata.hasOwnProperty("intendedObservationSpacing")) ? isoDurationToHours(m.result.metadata.intendedObservationSpacing) : (m.result.hasOwnProperty("defaultPointMetadata") && m.result.defaultPointMetadata.hasOwnProperty("aggregationDuration")) ? isoDurationToHours(m.result.defaultPointMetadata.aggregationDuration) : undefined,
             data_type: (m.result.hasOwnProperty("defaultPointMetadata") && m.result.defaultPointMetadata.hasOwnProperty("interpolationType")) ? m.result.defaultPointMetadata.interpolationType.title : undefined,
             result: m,
-            data: (m.result.points && m.result.points.length) ? m.result.points.map(p=>this.parseTimeValuePair(p,m.id)) : undefined,
+            data: (m.result.points && m.result.points.length) ? m.result.points.map(p=>this.parseTimeValuePair(p,m.id)).filter(p=>(p.valor !== null)) : undefined,
             begin_position: m.phenomenonTime ? new Date(m.phenomenonTime.begin) : undefined,
             end_position: m.phenomenonTime ? new Date(m.phenomenonTime.end) : undefined
         })
     }
 
-    parseTimeValuePair(p,tsi) {
+    parseTimeValuePair(p,tsi,no_data_value=this.config.no_data_value) {
         return new accessor_time_value_pair({
             accessor_id: this.config.accessor_id,
             timeseries_id: tsi,
             timestamp: new Date(p.time.instant),
-            numeric_value: p.value,
+            numeric_value: (typeof p.value !== 'undefined' && p.value != no_data_value) ? p.value : null,
             result: p
         })
     }
@@ -976,7 +994,7 @@ internal.client = class {
     async get(filter={},options={}) {
         const ts_filter = {}
         const ts_options = {}
-        ts_options.a5 =  false // (options.a5) ? options.a5 : true
+        ts_options.a5 =  (options.a5) ? options.a5 : false
         var view = (filter.view) ? filter.view : this.config.view
         if(!filter.timestart || !filter.timeend) {
             throw("missing timestart and/or timeend")
@@ -996,7 +1014,9 @@ internal.client = class {
                 for(var p of m.result.points) {
                     const tvp = this.parseTimeValuePair(p,tsi)
                     // tvp.create()
-                    time_value_pairs.push(tvp)
+                    if(tvp.valor !== null) {
+                        time_value_pairs.push(tvp)
+                    }
                 }
             }
             if(!options.no_update) {
