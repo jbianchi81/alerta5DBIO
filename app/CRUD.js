@@ -395,7 +395,7 @@ internal.estacion = class extends baseModel  {
 		}
 		//~ console.log({estacion:this})
 	}
-	async getId(pool) {
+	async getId(pool=global.pool) {
 		if(this.id) {
 			return Promise.resolve()
 		} // else
@@ -8910,6 +8910,7 @@ internal.CRUD = class {
 								ON CONFLICT (obs_id)\
 								DO " + on_conflict_clause_val + "\
 								RETURNING *"
+							// console.log(insertValorText)
 							return client.query(insertValorText, [obs.id, observacion.valor])
 							.then(res => {
 								obs.tipo=observacion.tipo

@@ -2519,8 +2519,10 @@ internal.CreateProcedure = class extends internal.CrudProcedure {
                     var options = (this.options) ? {
                         series_metadata: this.options.all,
                         refresh_date_range: this.options.refresh_date_range,
-                        create_cube_table: this.options.create_cube_table
+                        create_cube_table: this.options.create_cube_table,
+                        no_update: this.options.no_update
                     } : {}
+                    // console.log({create_options:options})
                     this.result.push(await data[i].create(options)) //this.class.create(this.elements,this.class)
                 }
             } else {
@@ -3368,6 +3370,8 @@ if(1==1) {
             } catch (e) {
                 logger.error(e)
                 // error_log.push({filename:filename,errors: [e.toString()]})
+                test_result = false
+                error_log.push({filename: filename, errors: [e.toString()]})
                 continue
             }
             if(options.test && result.success===false) {

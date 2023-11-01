@@ -210,9 +210,9 @@ internal.client = class {
         }
         if (options.output) {
             try { 
-                fs.writeFileSync(output,response.data,'utf-8')
+                fs.writeFileSync(path.resolve(__dirname,options.output),JSON.stringify(response.data,null,4),'utf-8')
             } catch(e) {
-                throw("Couldn't open file for writing " + output)
+                throw(e)
             }
         }
         return response.data
@@ -853,7 +853,17 @@ internal.client = class {
                 await f.create()
             }
         }
-        return foi
+        if(options.raw) {
+            return foi
+        } else {
+            const estaciones = []
+            for(var f of foi) {
+                const estacion = f.toEstacion()
+                await estacion.getEstacionId()
+                estaciones.push(estacion)
+            }
+            return estaciones
+        }
     }
 
     /**
@@ -869,13 +879,10 @@ internal.client = class {
      * @todo filter.provider
      */
     async updateSites(filter={},options={}) {   
-        
-   
         options.no_update = false
-        const sites = await this.getSites(filter,options)
-        const estaciones = []
-        for(var site of sites) {
-            estaciones.push(await site.mapToEstacion())
+        const estaciones = await this.getSites(filter,options)
+        for(var estacion of estaciones) {
+            estaciones.push(await estacion.create())
         }
         return estaciones
     }
