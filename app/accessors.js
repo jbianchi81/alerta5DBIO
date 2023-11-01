@@ -2112,9 +2112,9 @@ internal.tabprono = class {
 		return this.getTabprono(filter.forecast_date,dow,filter.file)
 		.then(result=>{		
 			if (filter.insert_obs) {
-				return Promise.all([this.insertTabprono(result.tabprono_geojson,true),crud.upsertCorrida(result.pronosticos_central),crud.upsertCorrida(result.pronosticos_min),crud.upsertCorrida(result.pronosticos_max)])
+				return Promise.all([this.insertTabprono(result.tabprono_geojson,true),crud.upsertCorrida(result.pronosticos_all)]) // crud.upsertCorrida(result.pronosticos_central),crud.upsertCorrida(result.pronosticos_min),crud.upsertCorrida(result.pronosticos_max)])
 			} else {
-				return Promise.all([this.insertTabprono(result.tabprono_geojson,false),crud.upsertCorrida(result.pronosticos_central),crud.upsertCorrida(result.pronosticos_min),crud.upsertCorrida(result.pronosticos_max)])
+				return Promise.all([this.insertTabprono(result.tabprono_geojson,false),crud.upsertCorrida(result.pronosticos_all)]) // crud.upsertCorrida(result.pronosticos_central),crud.upsertCorrida(result.pronosticos_min),crud.upsertCorrida(result.pronosticos_max)])
 			} 
 		})
 
@@ -2161,7 +2161,8 @@ internal.tabprono = class {
 			var tabprono_geojson = { "type" : "FeatureCollection", "features" : []}
 			var pronosticos_central = {cal_id:289, forecast_date: mod_date, series: []} 
 			var pronosticos_min = {cal_id:376, forecast_date: mod_date, series: []} 
-			var pronosticos_max = {cal_id:377, forecast_date: mod_date, series: []} 
+			var pronosticos_max = {cal_id:377, forecast_date: mod_date, series: []}
+			var pronosticos_all = {cal_id:289, forecast_date: mod_date, series: []}
 			//~ var csvdata
 			const monthNames = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
 			
@@ -2204,7 +2205,7 @@ internal.tabprono = class {
 							}
 						}
 						tabprono_geojson.features.push(row)
-						pronosticos_central.series.push({
+						const prono_central = {
 							series_id:series_id[k],
 							estacion_id:unid[k],
 							var_id:2,
@@ -2212,8 +2213,11 @@ internal.tabprono = class {
 								{ timestart: dates[0].toISOString(), timeend: dates[0].toISOString(), valor: roundTo(r[2],2) },
 								{ timestart: dates[1].toISOString(), timeend: dates[1].toISOString(), valor: roundTo(r[8],2) },
 								{ timestart: dates[2].toISOString(), timeend: dates[2].toISOString(), valor: roundTo(r[12],2) }
-							]})
-						pronosticos_min.series.push({
+							]
+						}
+						pronosticos_central.series.push(prono_central)
+						pronosticos_all.series.push({...prono_central,qualifier: "medio"})
+						const prono_min = {
 							series_id:series_id[k],
 							estacion_id:unid[k],
 							var_id:2,
@@ -2221,8 +2225,11 @@ internal.tabprono = class {
 								{ timestart: dates[0].toISOString(), timeend: dates[0].toISOString(), valor: roundTo(r[2],2) },
 								{ timestart: dates[1].toISOString(), timeend: dates[1].toISOString(), valor: roundTo(r[7],2) },
 								{ timestart: dates[2].toISOString(), timeend: dates[2].toISOString(), valor: roundTo(r[11],2) }
-							]})
-						pronosticos_max.series.push({
+							]
+						}
+						pronosticos_min.series.push(prono_min)
+						pronosticos_all.series.push({...prono_min,qualifier:"inferior"})
+						const prono_max = {
 							series_id:series_id[k],
 							estacion_id:unid[k],
 							var_id:2,
@@ -2230,12 +2237,21 @@ internal.tabprono = class {
 								{ timestart: dates[0].toISOString(), timeend: dates[0].toISOString(), valor: roundTo(r[2],2) },
 								{ timestart: dates[1].toISOString(), timeend: dates[1].toISOString(), valor: roundTo(r[9],2) },
 								{ timestart: dates[2].toISOString(), timeend: dates[2].toISOString(), valor: roundTo(r[13],2) }
-							]})
+							]
+						}
+						pronosticos_max.series.push(prono_max)
+						pronosticos_all.series.push({...prono_max,qualifier:"superior"})
 						break
 					}
 				}
 			}
-			return {tabprono_geojson:tabprono_geojson,pronosticos_central:pronosticos_central,pronosticos_min:pronosticos_min,pronosticos_max:pronosticos_max}
+			return {
+				tabprono_geojson:tabprono_geojson,
+				pronosticos_central:pronosticos_central,
+				pronosticos_min:pronosticos_min,
+				pronosticos_max:pronosticos_max,
+				pronosticos_all:pronosticos_all
+			}
 		})
 		
 	}
@@ -6866,7 +6882,10 @@ internal.wof = class {
 			this.config = global.config.wof
 		}
 		// console.log({config:this.config})
-		let soap_client_options = { 'request' : request.defaults(this.config.request_defaults), wsdl_headers: this.config.wsdl_headers}
+		let soap_client_options = { 
+			// 'request' : request.defaults(this.config.request_defaults), 
+			wsdl_headers: this.config.wsdl_headers
+		}
 		this.client = new wof.client(this.config.wml_endpoint, soap_client_options)
 	}
 	get (filter,options) {
@@ -6883,7 +6902,7 @@ internal.wof = class {
 			var observaciones = []
 			for(var s of series) {
 				try {
-					// console.log("try getValues, siteCode:" + s.siteCode + ", variableCode:" + s.variableCode)
+					console.log("try getValues, siteCode:" + s.siteCode + ", variableCode:" + s.variableCode)
 					var result = await this.client.getValues(s.siteCode,s.variableCode, startDate, endDate, true)
 					// console.log(result)
 					s.timeSupport = this.timeScale2interval(result.seriesInfo.variable.timeScale)
