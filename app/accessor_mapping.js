@@ -187,9 +187,9 @@ internal.accessor_observed_property = class extends baseModel {
 		for(var vn of variableName_map) {
 			var variableNames = await this.read({accessor_id:accessor_id, observed_property_id:vn.observed_property_id})
 			if(!variableNames.length) {
-				const variableName = this({accessor_id: accessor_id, observed_property_id: vn.observed_property_id, variable_name: vn.variable_name})
-				await variableName.create()
-				result.push(variableName)
+				const op = new this({accessor_id: accessor_id, observed_property_id: vn.observed_property_id, variable_name: vn.variable_name})
+				await op.create()
+				result.push(op)
 			} else {
 				for(var variableName of variableNames) {
 					await variableName.update({variable_name: vn.variable_name})
@@ -719,7 +719,11 @@ internal.accessor_timeseries_observation = class extends baseModel {
 			console.log("Found " + matching_variables.length + " variables. Returning first match")
 			return matching_variables[0]
 		} else {
-			console.error("Didn't find matching variables")
+			console.error("Didn't find matching variables: \n" + JSON.stringify({
+				datatype: this_variable.datatype,
+				VariableName: this_variable.VariableName,
+				timeSupport: this_variable.timeSupport
+			}))
 			return this_variable
 		}
 	}

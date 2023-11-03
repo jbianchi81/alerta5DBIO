@@ -970,9 +970,9 @@ function buildMetadataForm2(mdElement,mdKey,formContainer,values={}) {
 					} else {
 						var options = e.options.map(o=> {
 							if(typeof o == "object") {
-								return '<option value="' + o.valor + '">' + (o.text) ? o.text : o.nombre + '</option>'
+								return `<option value="${o.valor}">${(o.text) ? o.text : o.nombre}</option>`
 							} else {
-								return '<option value="' + o + '">' + o + '</option>'
+								return `<option value="${o}">${o}</option>`
 							}
 						}).join("")
 						input = $('<select></select>').append(
@@ -1169,6 +1169,8 @@ function onSubmitMetadata(event) {
 					} else {
 						requestBody[objectName][key] = (parseInt(value).toString() != "NaN") ? parseInt(value) : null
 					}
+				} else if (global.mdElement.properties[key].type == "interval") {
+					requestBody[objectName][key] = intervalFromString(value)
 				} else {
 					requestBody[objectName][key] = value
 				}
@@ -1367,6 +1369,15 @@ function onCloseModalDownload(e) {
 	
 	
 //~ }
+
+function intervalFromString(string) {
+	const kvp = string.split(/\s+/)
+	const interval={}
+	for(var i=0;i<kvp.length-1;i=i+2) {
+		interval[kvp[i+1]] = parseInt(kvp[i])
+	}
+	return interval
+}
 
 function interval2string(interval) {
 	if(!interval) {

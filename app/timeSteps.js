@@ -68,12 +68,45 @@ internal.createInterval = function(value) {
 			Object.assign(interval,JSON.parse(value))
 			return interval
 		} else {
-			return parsePGinterval(value)
+			return internal.intervalFromString(value)
+			// return parsePGinterval(value)
 		}
 	} else {
 		console.error("timeSteps.createInterval: Invalid value")
 		return
 	}
+}
+
+internal.interval_key_map = {
+	milliseconds: "milliseconds",
+	millisecond: "milliseconds",
+	seconds: "seconds",
+	second: "seconds",
+	minutes: "minutes",
+	minute: "minutes",
+	hours: "hours",
+	hour: "hours",
+	days: "days",
+	day:  "days",
+	months: "months",
+	month: "months",
+	mon: "months",
+	years: "years",
+	year: "years"
+}
+
+internal.intervalFromString = function (string) {
+	const kvp = string.split(/\s+/)
+	var interval = parsePGinterval()
+	for(var i=0;i<kvp.length-1;i=i+2) {
+		var key = internal.interval_key_map[kvp[i+1].toLowerCase()]
+		if(!key) {
+			throw("Invalid interval key " + kvp[i+1].toLowerCase())
+		}
+		interval[key] = parseInt(kvp[i])
+	}
+	// Object.assign(interval,JSON.parse(value))
+	return interval
 }
 
 internal.interval2iso8601String = function(interval) {

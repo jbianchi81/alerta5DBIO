@@ -55,6 +55,7 @@ internal.feature_of_interest = class extends accessor_feature_of_interest {
             monitoring_point_parameters[i.name] = i.value
         }
         return new Estacion({
+            id: this.estacion_id,
             tabla: this.network_id,
             id_externo: this.result.id,
             nombre: this.result.name,
@@ -816,6 +817,7 @@ internal.client = class {
      * @param {string|string[]} filter.id_externo
      * @param {*} options
      * @param {boolean} options.no_update - skip inserting/updating records in accesor database 
+     * @param {boolean} options.update_estaciones - insert/update a5 estaciones records
      * @returns {Promise<internal.feature_of_interest[]>} feature of interest array
      */
     async getSites(filter={},options={}) {
@@ -864,6 +866,11 @@ internal.client = class {
                 await estacion.getEstacionId()
                 estaciones.push(estacion)
                 console.log("id_externo: " + estacion.id_externo)
+                if(options.update_estaciones) {
+                    console.log(">>>>>>>>>UPDATING ESTACION<<<<<<<<<")
+                    await estacion.create()
+                    await f.update({estacion_id:estacion.id})
+                }
             }
             console.log("Got " + estaciones.length + " estaciones")
             return estaciones
@@ -884,29 +891,39 @@ internal.client = class {
      */
     async updateSites(filter={},options={}) {   
         options.no_update = false
+        options.update_estaciones = true
         const estaciones = await this.getSites(filter,options)
         // created_estaciones = []
-        estaciones.forEach(async estacion=> {
-            console.log("creating estacion " + estacion.id_externo)
-            // created_estaciones.push(
-            await estacion.create()
-            // )
-        })
+        // estaciones.forEach(async estacion=> {
+        //     console.log("creating estacion " + estacion.id_externo)
+        //     // created_estaciones.push(
+        //     await estacion.create()
+        //     // )
+        // })
         return estaciones // created_estaciones
     }
 
-    async getSeriesFilters(filter={},ts_filter={}) {
+    async getSeriesFilters(filter={},ts_filter={},estaciones=[]) {
         if(filter.monitoringPoint) {
             ts_filter.monitoringPoint = filter.monitoringPoint
         } else if(filter.id_externo) {
             ts_filter.monitoringPoint = filter.id_externo
         } else if(filter.estacion_id || filter.pais || filter.propietario || filter.feature_of_interest_id) {
             // reads from accessor_feature_of_interest.estacion_id
-            const features_of_interest = await internal.feature_of_interest.read({estacion_id:filter.estacion_id,pais:filter.pais,propietario:filter.propietario,feature_id: filter.feature_of_interest_id})
+            const features_of_interest = await internal.feature_of_interest.read({
+                estacion_id:filter.estacion_id,
+                pais:filter.pais,
+                propietario:filter.propietario,
+                feature_id: filter.feature_of_interest_id
+            })
             if(!features_of_interest.length) {
                 throw(new Error("No features of interest found in database matching the provided criteria. Run getSites to update database."))
             }
-            ts_filter.monitoringPoint = features_of_interest.map(foi=>foi.feature_id)
+            ts_filter.monitoringPoint = []
+            features_of_interest.forEach(foi=>{
+                ts_filter.monitoringPoint.push(foi.feature_id)
+                estaciones.push(foi.toEstacion())
+            })
         }
         if(filter.timeseriesIdentifier) {
             ts_filter.timeseriesIdentifier = filter.timeseriesIdentifier
@@ -938,24 +955,33 @@ internal.client = class {
         const estaciones = await this.updateSites(filter)
         const series = []
         for(var estacion of estaciones) {
+            options.update_series = true
             const series_of_site = await this.getSeriesOfSite(estacion,filter,options)
-            for(var serie of series_of_site) {
-                try {
-                    await serie.create()
-                } catch (e) {
-                    console.error(e)
-                    continue
-                }
-                series.push(serie)
-            }
+            series.push(...series_of_site)
+            // for(var serie of series_of_site) {
+            //     try {
+            //         await serie.create()
+            //     } catch (e) {
+            //         console.error(e)
+            //         continue
+            //     }
+            //     series.push(serie)
+            // }
         }
         return series
     }
     async getSeries(filter={},options={}) {
-        const estaciones = await this.getSites(filter)
+        const ts_filter = {}
+        var estaciones = []
+        await this.getSeriesFilters(filter,ts_filter,estaciones)
+        console.log("monitoringPoint: " + ts_filter.monitoringPoint)
+        if(!estaciones.length) {
+            console.log("Monitoring points not set. Getting sites from accessor")
+            estaciones = await this.getSites(ts_filter)
+        }
         const series = []
         for(var estacion of estaciones) {
-            const series_of_site = await this.getSeriesOfSite(estacion,filter,options)
+            const series_of_site = await this.getSeriesOfSite(estacion,ts_filter,options)
             series.push(...series_of_site)
         }
         return series
@@ -982,6 +1008,15 @@ internal.client = class {
         for(var tso of timeseries_observations) {
             const serie = await tso.findSerie()
             if(serie) {
+                if(options.update_series) {
+                    try {
+                        await serie.create()
+                    } catch (e) {
+                        console.error(e)
+                        continue
+                    }
+                    await tso.update({series_puntual_id:serie.id})
+                }
                 series.push(serie)
             }
         }

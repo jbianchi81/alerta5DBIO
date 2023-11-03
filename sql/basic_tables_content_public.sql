@@ -70,6 +70,7 @@ COPY public.unidades (id, nombre, abrev, "UnitsID", "UnitsType") FROM stdin;
 357	milímetros de mercurio	mmHg	86	Pressure/Stress
 355	metros por segundo	m/s	119	Velocity
 106	month	mon	106	Time
+358	décimos	décimos	0	Proportion
 \.
 
 --

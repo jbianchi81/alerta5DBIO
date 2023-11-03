@@ -7059,7 +7059,9 @@ internal.CRUD = class {
 			timeSupport: {type: "interval"}, 
 			def_hora_corte: {type: "interval"}
 		}
+		// console.log(filter)
 		var filter_string = internal.utils.control_filter2(valid_filters,filter)
+		// console.log(filter_string)
 		if(!filter_string) {
 			return Promise.reject(new Error("invalid filter value"))
 		}
@@ -17661,7 +17663,11 @@ internal.utils = {
 					if(!value) {
 						throw("invalid interval filter: " + filter[key])
 					}
-					filter_string += ` AND ${fullkey}='${value.toPostgres()}'::interval`
+					if(value.toPostgres() == '0') {
+						filter_string += ` AND (${fullkey}='${value.toPostgres()}'::interval OR ${fullkey} IS NULL)`	
+					} else {
+						filter_string += ` AND ${fullkey}='${value.toPostgres()}'::interval`
+					}
 				} else if (valid_filters[key].type == 'json_array') {
 					if(Array.isArray(filter[key])) {
 						if(filter[key].length) {

@@ -284,7 +284,7 @@ var metadataElements = {
 				type: "select",
 				title: "dataType",
 				required: true,
-				options: ["Minimum","Average","Incremental","Continuous","Sporadic","Maximum","Cumulative","Constant Over Interval","Categorical"],
+				options: ["Sporadic", "Cumulative", "Incremental", "Constant Over Interval", "Categorical", "Continuous", "Average in Preceding Interval", "Average in Succeeding Interval", "Constant in Preceding Interval", "Constant in Succeeding Interval", "Discontinuous", "Instantaneous Total", "Maximum in Preceding Interval", "Maximum in Succeeding Interval", "Minimum in Preceding Interval", "Minimum in Succeeding Interval", "Average", "Maximum", "Minimum", "Preceding Total", "Succeeding Total", "Mode in Preceding Interval", "Mode in Succeeding Interval"],
 				default: "Continuous",
 				filter: true,
 				edit: true,

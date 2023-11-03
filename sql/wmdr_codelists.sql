@@ -45,4 +45,6 @@ INSERT INTO "VariableName" ("VariableName",wmdr_id) VALUES
 ('Wind direction','http://codes.wmo.int/wmdr/ObservedVariableAtmosphere/12005'),
 ('Wind Direction','http://codes.wmo.int/wmdr/ObservedVariableAtmosphere/12005'),
 ('Wind speed','http://codes.wmo.int/wmdr/ObservedVariableAtmosphere/12006'),
-('Wind Speed','http://codes.wmo.int/wmdr/ObservedVariableAtmosphere/12006');
+('Wind Speed','http://codes.wmo.int/wmdr/ObservedVariableAtmosphere/12006'),
+('Wet-bulb temperature','http://codes.wmo.int/bufr4/b/12/002'),
+('Evaporation','http://codes.wmo.int/wmdr/ObservedVariableTerrestrial/510');
