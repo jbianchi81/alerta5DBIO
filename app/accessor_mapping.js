@@ -92,6 +92,20 @@ internal.accessor_feature_of_interest = class extends baseModel {
 			id: this.estacion_id
         })
     }
+	async findEstacion() {
+		const matches = await estacion.read({
+			id_externo: this.feature_id,
+			tabla: this.network_id
+		})
+		if(matches.length) {
+			console.log("Found " + matches.length + " estaciones. Returning first.")
+			return matches[0]
+		} else {
+			console.error("No estaciones found")
+		}
+		return 
+
+	}
 	toArea() {
 		return new Area({
 			nombre: `${this.network_id}:${this.feature_id}`,
@@ -329,6 +343,23 @@ internal.accessor_unit_of_measurement = class extends baseModel {
 			id: this.unit_id,
 			nombre: this.unit_of_measurement_id
 		})
+	}
+	async findUnidades() {
+		const this_unidades = this.toUnidades()
+		if(!this_unidades.id) {
+			console.error("No unit_id for unit_of_measurement_id " + this.unit_of_measurement_id)
+			return this_unidades
+		}
+		const matched_unidades = await unidades.read({
+			id: this_unidades.id
+		})
+		if(matched_unidades) {
+			console.log("Found unidades")
+			return matched_unidades
+		} else {
+			console.error("Didn't find matching unidades")
+			return this_unidades
+		}
 	}
 }
 
@@ -576,6 +607,20 @@ internal.accessor_timeseries_observation = class extends baseModel {
 			procedimiento: {id: 1}
 		})
 	}
+	async findSerie() {
+		const this_estacion = await this.findEstacion() ?? this.feature_of_interest.toEstacion()
+		const this_var = await this.findVariable()
+		const this_unidades = await this.findUnidades()
+		return new serie({
+			tipo: (this.series_puntual_id) ? "puntual" : (this.series_areal_id) ? "areal" : (this.series_rast_id) ? "raster" : undefined,
+			id: (this.series_puntual_id) ? this.series_puntual_id : (this.series_areal_id) ? this.series_areal_id : (this.series_rast_id) ? this.series_rast_id : undefined,
+			nombre: `${this.accesor_id}:${this.timeseries_id}`,
+			estacion: this_estacion,
+			var: this_var,
+			unidades: this_unidades,
+			procedimiento: {id: 1}
+		})
+	}
 	async mapToSerie(id) {
 		const serie = this.toSerie()
 		if(id) {
@@ -658,6 +703,31 @@ internal.accessor_timeseries_observation = class extends baseModel {
 			timeSupport: this.time_support,
 			valuetype: "Field Observation"
 		})
+	}
+	async findVariable() {
+		const this_variable = this.toVar()
+		if(!this_variable.VariableName) {
+			console.error("No VariableName for observedProperty " + this.observed_property.observed_property_id)
+			return this_variable
+		}
+		const matching_variables = await Variable.read({
+			datatype: this_variable.datatype,
+			VariableName: this_variable.VariableName,
+			timeSupport: this_variable.timeSupport
+		})
+		if(matching_variables.length) {
+			console.log("Found " + matching_variables.length + " variables. Returning first match")
+			return matching_variables[0]
+		} else {
+			console.error("Didn't find matching variables")
+			return this_variable
+		}
+	}
+	async findUnidades() {
+		return this.unit_of_measurement.findUnidades()
+	}
+	async findEstacion() {
+		return this.feature_of_interest.findEstacion()
 	}
 	static async getDistinctVariables(filter={},options={}) {
 		const tso = await this.read(filter)

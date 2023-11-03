@@ -196,6 +196,8 @@ internal.client = class {
             url: url, // print("url: %s" % url)
             params: params
         }
+        Object.keys(params).forEach(key => params[key] === undefined ? delete params[key] : {})
+        console.log(`Retrieving ${url}?${new URLSearchParams(params).toString()}`)
         try {
             var response = await axios.get(url, {params: params})
         } catch(e) {
@@ -861,7 +863,9 @@ internal.client = class {
                 const estacion = f.toEstacion()
                 await estacion.getEstacionId()
                 estaciones.push(estacion)
+                console.log("id_externo: " + estacion.id_externo)
             }
+            console.log("Got " + estaciones.length + " estaciones")
             return estaciones
         }
     }
@@ -881,10 +885,14 @@ internal.client = class {
     async updateSites(filter={},options={}) {   
         options.no_update = false
         const estaciones = await this.getSites(filter,options)
-        for(var estacion of estaciones) {
-            estaciones.push(await estacion.create())
-        }
-        return estaciones
+        // created_estaciones = []
+        estaciones.forEach(async estacion=> {
+            console.log("creating estacion " + estacion.id_externo)
+            // created_estaciones.push(
+            await estacion.create()
+            // )
+        })
+        return estaciones // created_estaciones
     }
 
     async getSeriesFilters(filter={},ts_filter={}) {
@@ -926,6 +934,60 @@ internal.client = class {
         return
     }
 
+    async updateSeries (filter={},options={}) {
+        const estaciones = await this.updateSites(filter)
+        const series = []
+        for(var estacion of estaciones) {
+            const series_of_site = await this.getSeriesOfSite(estacion,filter,options)
+            for(var serie of series_of_site) {
+                try {
+                    await serie.create()
+                } catch (e) {
+                    console.error(e)
+                    continue
+                }
+                series.push(serie)
+            }
+        }
+        return series
+    }
+    async getSeries(filter={},options={}) {
+        const estaciones = await this.getSites(filter)
+        const series = []
+        for(var estacion of estaciones) {
+            const series_of_site = await this.getSeriesOfSite(estacion,filter,options)
+            series.push(...series_of_site)
+        }
+        return series
+    }
+    async getSeriesOfSite(estacion,filter,options) {
+        var view = (filter.view) ? filter.view : this.config.view
+        const ts_filter = {}
+        ts_filter.includeData = false
+        // removes date range filters because API doesn't take data availability filters
+        ts_filter.beginPosition = undefined
+        ts_filter.endPosition = undefined
+        ts_filter.monitoringPoint = estacion.id_externo
+        const result = await this.getTimeseriesWithPagination(view,ts_filter)
+        const timeseries_observations = result.member.map(m=>{
+            return this.parseTimeseriesMember(m)
+        })
+        if(!options.no_update) {
+            // const timeseries_observations_created = []
+            for(var tso of timeseries_observations) {
+                await tso.create()
+            }
+        }
+        const series = []
+        for(var tso of timeseries_observations) {
+            const serie = await tso.findSerie()
+            if(serie) {
+                series.push(serie)
+            }
+        }
+        return series
+    }
+
     /**
      * Retrieve timeseries from ogc api, save and return timeseries observations and save into timeseries_observation of accessor schema
      * @param {*} timeseries_filter
@@ -937,7 +999,7 @@ internal.client = class {
      * @param {boolean} options.no_update - skip inserting/updating records in accesor database 
      * @returns {Promise<internal.timeseries_observation[]} - timeseries observations
      */
-    async getSeries(filter={},options={}) {
+    async getSeries_(filter={},options={}) {
         const ts_filter = {}
         const ts_options = {}
         ts_options.a5 =  (options.a5) ? options.a5 : false

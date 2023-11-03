@@ -1962,7 +1962,7 @@ internal.serie = class extends baseModel {
 		if(options && options.refresh_date_range) {
 			await this.refreshDateRange(options) // global.pool.query(`REFRESH MATERIALIZED VIEW ${this.getDateRangeTable(options)}`)
 		}
-		this.refreshJsonView()
+		internal.serie.refreshJsonView()
 		return result
 	}
 	static async refreshJsonView() {
@@ -7044,7 +7044,21 @@ internal.CRUD = class {
 	}
 	
 	static async getVars(filter) {
-		const valid_filters = {id: {type: "numeric"}, "var": {type: "string"},nombre: {type: "regex_string"},abrev: {type: "regex_string"},type: {type: "string"}, datatype: {type: "string"}, valuetype: {type: "string"}, GeneralCategory: {type: "string"}, VariableName: {type: "string"},SampleMedium: {type: "string"},def_unit_id: {type: "numeric"},timeSupport: {type: "interval"}, def_hora_corte: {type: "interval"}}
+		const valid_filters = {
+			id: {type: "numeric"}, 
+			"var": {type: "string"},
+			nombre: {type: "regex_string"},
+			abrev: {type: "regex_string"},
+			type: {type: "string"}, 
+			datatype: {type: "string"}, 
+			valuetype: {type: "string"}, 
+			GeneralCategory: {type: "string"}, 
+			VariableName: {type: "string"},
+			SampleMedium: {type: "string"},
+			def_unit_id: {type: "numeric"},
+			timeSupport: {type: "interval"}, 
+			def_hora_corte: {type: "interval"}
+		}
 		var filter_string = internal.utils.control_filter2(valid_filters,filter)
 		if(!filter_string) {
 			return Promise.reject(new Error("invalid filter value"))
@@ -7488,7 +7502,10 @@ internal.CRUD = class {
 	static upsertSerieQuery(serie) {
 		var query = ""
 		var params = []
-		if(serie.tipo == "areal") { 
+		if(serie.tipo == "areal") {
+			if(!serie.estacion.id || !serie["var"].id || !serie.procedimiento.id || !serie.unidades.id || !serie.fuente.id) {
+				throw("Unable to insert/update serie:   serie.estacion.id or serie.var.id or serie.procedimiento.id or serie.unidades.id or serie.fuente.id")
+			}
 			if(serie.id) {
 				query = "\
 				INSERT INTO series_areal (area_id,var_id,proc_id,unit_id,fuentes_id)\
@@ -7507,6 +7524,9 @@ internal.CRUD = class {
 				params = [serie.estacion.id,serie["var"].id,serie.procedimiento.id,serie.unidades.id,serie.fuente.id]
 			}
 		} else if (serie.tipo == "rast" || serie.tipo == "raster") {
+			if(!serie.estacion.id || !serie["var"].id || !serie.procedimiento.id || !serie.unidades.id || !serie.fuente.id) {
+				throw("Unable to insert/update serie:   serie.estacion.id or serie.var.id or serie.procedimiento.id or serie.unidades.id or serie.fuente.id")
+			}
 			if(serie.id) {
 				query = "\
 				INSERT INTO series_rast (escena_id,var_id,proc_id,unit_id,fuentes_id,id)\
@@ -7525,6 +7545,10 @@ internal.CRUD = class {
 				params = [serie.estacion.id,serie["var"].id,serie.procedimiento.id,serie.unidades.id,serie.fuente.id]
 			}
 		} else {
+			if(!serie.estacion.id || !serie["var"].id || !serie.procedimiento.id || !serie.unidades.id) {
+				throw("Unable to insert/update serie:   serie.estacion.id or serie.var.id or serie.procedimiento.id or serie.unidades.id")
+			}
+
 			if(serie.id) { // SI SE PROVEE ID Y YA EXISTE LA TUPLA ESTACION+VAR+PROC, ACTUALIZA ID
 				query = "\
 				INSERT INTO series (estacion_id,var_id,proc_id,unit_id,id)\
