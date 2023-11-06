@@ -8887,117 +8887,122 @@ internal.CRUD = class {
 			//~ console.log("create observacion")
 			observacion = new internal.observacion(observacion)
 		}
-		return observacion.getId()
-		.then(()=>{
-			observacion.timestart = (typeof observacion.timestart) == 'string' ? new Date(observacion.timestart) : observacion.timestart
-			observacion.timeend = (typeof observacion.timeend) == 'string' ? new Date(observacion.timeend) : observacion.timeend
-			if(config.verbose) {
-				console.log("crud.upsertObservacion: " + observacion.toString())
-			}
-			if(observacion.tipo != "rast" && observacion.tipo != "raster") {
-				const val_type = (Array.isArray(observacion.valor)) ? "numarr" : "num"
-				const obs_tabla = (observacion.tipo == "areal") ? "observaciones_areal" : "observaciones"
-				const val_tabla = (observacion.tipo == "areal") ? (val_type == "numarr") ? "valores_numarr_areal" : "valores_num_areal" : (val_type == "numarr") ? "valores_numarr" : "valores_num"
-				var on_conflict_clause_obs = (no_update) ? " NOTHING " : (config.crud.update_observaciones_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\
-							  descripcion=excluded.descripcion,\
-							  unit_id=excluded.unit_id,\
-							  timeupdate=excluded.timeupdate " : " NOTHING "
-				var on_conflict_clause_val = (no_update) ? " NOTHING " : " UPDATE SET valor=excluded.valor "
-				return global.pool.connect()
-				.then(client => {
-					return client.query('BEGIN')
-					.then(res => {
-						const queryText = "INSERT INTO " + obs_tabla + " (series_id,timestart,timeend,nombre,descripcion,unit_id,timeupdate)\
-							VALUES ($1,$2,$3,$4,$5,$6,coalesce($7,now()))\
-							ON CONFLICT (series_id,timestart,timeend) DO " + on_conflict_clause_obs + "\
-							RETURNING *"
-						var stmt = internal.utils.pasteIntoSQLQuery(queryText,[observacion.series_id,observacion.timestart,observacion.timeend,observacion.nombre,observacion.descripcion,observacion.unit_id,observacion.timeupdate])
-						// console.log(stmt)
-						return client.query(stmt)
-						// return client.query(queryText,[observacion.series_id,observacion.timestart,observacion.timeend,observacion.nombre,observacion.descripcion,observacion.unit_id,observacion.timeupdate])
-					}).then( res => {
-						if(res.rows.length == 0) {
-							console.log("No se inserto observacion")
-							return client.query('ROLLBACK')
-							.then( res=> {
-								//~ client.release()
-								//~ return
-								if(client.notifications) {
-									throw(client.notifications.map(n=>n.message).join(","))
-								} else {
-									client.release()
-									throw("No se insertó observación")
-								}
-							})
+		await observacion.getId()
+		observacion.timestart = (typeof observacion.timestart) == 'string' ? new Date(observacion.timestart) : observacion.timestart
+		observacion.timeend = (typeof observacion.timeend) == 'string' ? new Date(observacion.timeend) : observacion.timeend
+		if(config.verbose) {
+			console.log("crud.upsertObservacion: " + observacion.toString())
+		}
+		if(observacion.tipo != "rast" && observacion.tipo != "raster") {
+			const val_type = (Array.isArray(observacion.valor)) ? "numarr" : "num"
+			const obs_tabla = (observacion.tipo == "areal") ? "observaciones_areal" : "observaciones"
+			const val_tabla = (observacion.tipo == "areal") ? (val_type == "numarr") ? "valores_numarr_areal" : "valores_num_areal" : (val_type == "numarr") ? "valores_numarr" : "valores_num"
+			var on_conflict_clause_obs = (no_update) ? " NOTHING " : (config.crud.update_observaciones_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\
+							descripcion=excluded.descripcion,\
+							unit_id=excluded.unit_id,\
+							timeupdate=excluded.timeupdate " : " NOTHING "
+			var on_conflict_clause_val = (no_update) ? " NOTHING " : " UPDATE SET valor=excluded.valor "
+			const client = await global.pool.connect()
+			var res = await client.query('BEGIN')
+			const queryText = "INSERT INTO " + obs_tabla + " (series_id,timestart,timeend,nombre,descripcion,unit_id,timeupdate)\
+				VALUES ($1,$2,$3,$4,$5,$6,coalesce($7,now()))\
+				ON CONFLICT (series_id,timestart,timeend) DO " + on_conflict_clause_obs + "\
+				RETURNING *"
+			var stmt = internal.utils.pasteIntoSQLQuery(queryText,[observacion.series_id,observacion.timestart,observacion.timeend,observacion.nombre,observacion.descripcion,observacion.unit_id,observacion.timeupdate])
+			// console.log(stmt)
+			res = await client.query(stmt)
+			// return client.query(queryText,[observacion.series_id,observacion.timestart,observacion.timeend,observacion.nombre,observacion.descripcion,observacion.unit_id,observacion.timeupdate])
+			if(res.rows.length == 0) {
+				// NO UPSERTED OBS
+				if(!config.crud.update_observaciones_timeupdate) {
+					// TRY TO UPDATE VAL
+					const obs = new internal.observacion({series_id: observacion.series_id, timestart: observacion.timestart, timeend:observacion.timeend, nombre: observacion.nombre,descripcion: observacion.descripcion, unit_id: observacion.unit_id, timeupdate: observacion.timeupdate})
+					const insertValorText = "UPDATE " + val_tabla + " SET valor=$1 FROM " + obs_tabla + " WHERE " + obs_tabla + ".id=" + val_tabla + ".obs_id AND series_id=$2 AND timestart=$3 AND timeend=$4 RETURNING obs_id,valor"
+					console.log(pasteIntoSQLQuery(insertValorText,[observacion.valor, observacion.series_id, observacion.timestart, observacion.timeend]))
+					res = await client.query(insertValorText, [observacion.valor, observacion.series_id, observacion.timestart, observacion.timeend])
+					if(!res.rows.length) {
+						console.log("No se actualizó observación")
+						res = await client.query('ROLLBACK')
+						if(client.notifications) {
+							throw(client.notifications.map(n=>n.message).join(","))
 						} else {
-							const obs= new internal.observacion(res.rows[0])
-							const insertValorText = "INSERT INTO " + val_tabla + " (obs_id,valor)\
-								VALUES ($1,$2)\
-								ON CONFLICT (obs_id)\
-								DO " + on_conflict_clause_val + "\
-								RETURNING *"
-							// console.log(insertValorText)
-							return client.query(insertValorText, [obs.id, observacion.valor])
-							.then(res => {
-								obs.tipo=observacion.tipo
-								obs.valor=res.rows[0].valor
-								return client.query("COMMIT")
-							}).then(res => {
-								client.release()
-								return new internal.observacion(obs)
-							})
+							client.release()
+							throw("No se insertó observación")
 						}
-					})
-				})
-			} else {   // RAST //
-				var stmt
-				var args
-				var valor_string
-				if(observacion.valor instanceof Buffer) {
-					valor_string = "\\x" + observacion.valor.toString('hex')
-				} else {
-					valor_string = observacion.valor
-				}
-				// console.log("valor_string:" + valor_string)
-				var on_conflict_clause = (no_update) ? " NOTHING " : " UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate "
-				if(observacion.scale) {
-					var scale = parseFloat(observacion.scale)
-					var offset = (observacion.offset) ? parseFloat(observacion.offset) : 0
-					var expression = "[rast]*" + scale + "+" + offset
-					stmt = "INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate)\
-					VALUES ($1, $2, $3, ST_mapAlgebra(ST_FromGDALRaster($4),'32BF',$5), $6)\
-					ON CONFLICT (series_id, timestart, timeend)\
-					DO " + on_conflict_clause + "\
-					RETURNING id,series_id,timestart,timeend,st_asgdalraster(valor,'GTiff') valor,timeupdate"    // '\\x'||encode(st_asgdalraster(valor,'GTiff')::bytea,'hex')
-					args = [observacion.series_id, observacion.timestart, observacion.timeend, valor_string, expression, observacion.timeupdate]
-				} else {
-					stmt = "INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate)\
-					VALUES ($1, $2, $3, ST_FromGDALRaster($4), $5)\
-					ON CONFLICT (series_id, timestart, timeend)\
-					DO " + on_conflict_clause + "\
-					RETURNING id,series_id,timestart,timeend,st_asgdalraster(valor, 'GTIff') valor,timeupdate" // '\\x'||encode(st_asgdalraster(valor,'GTiff')::bytea,'hex')
-					args = [observacion.series_id, observacion.timestart, observacion.timeend, valor_string, observacion.timeupdate]
-				}	
-				//~ if(options.hex) {
-					//~ args[3] = '\\x' + args[3]
-				//~ }
-				// console.log(pasteIntoSQLQuery(stmt,args))
-				return global.pool.query(stmt,args)
-				.then(upserted=>{
-					if(upserted.rows.length == 0) {
-						console.log("nothing upserted")
-						throw("nothing upserted")
-					} else {
-						//~ console.log("raster upserted")
-						upserted.rows[0].tipo="rast"
-						return new internal.observacion(upserted.rows[0])
 					}
-				})
-				//~ .catch(e=>{
-					//~ throw(e)
-				//~ })
+					obs.tipo=observacion.tipo
+					obs.id = res.rows[0].obs_id
+					obs.valor=res.rows[0].valor
+					res = await client.query("COMMIT")
+					client.release()
+					return new internal.observacion(obs)
+				}
+				console.log("No se inserto observacion")
+				res = await client.query('ROLLBACK')
+				if(client.notifications) {
+					throw(client.notifications.map(n=>n.message).join(","))
+				} else {
+					client.release()
+					throw("No se insertó observación")
+				}
+			} else {
+				const obs= new internal.observacion(res.rows[0])
+				const insertValorText = "INSERT INTO " + val_tabla + " (obs_id,valor)\
+					VALUES ($1,$2)\
+					ON CONFLICT (obs_id)\
+					DO " + on_conflict_clause_val + "\
+					RETURNING *"
+				// console.log(insertValorText)
+				res = await client.query(insertValorText, [obs.id, observacion.valor])
+				obs.tipo=observacion.tipo
+				obs.valor=res.rows[0].valor
+				res = await client.query("COMMIT")
+				client.release()
+				return new internal.observacion(obs)
 			}
-		})
+		} else {   // RAST //
+			var stmt
+			var args
+			var valor_string
+			if(observacion.valor instanceof Buffer) {
+				valor_string = "\\x" + observacion.valor.toString('hex')
+			} else {
+				valor_string = observacion.valor
+			}
+			// console.log("valor_string:" + valor_string)
+			var on_conflict_clause = (no_update) ? " NOTHING " : " UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate "
+			if(observacion.scale) {
+				var scale = parseFloat(observacion.scale)
+				var offset = (observacion.offset) ? parseFloat(observacion.offset) : 0
+				var expression = "[rast]*" + scale + "+" + offset
+				stmt = "INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate)\
+				VALUES ($1, $2, $3, ST_mapAlgebra(ST_FromGDALRaster($4),'32BF',$5), $6)\
+				ON CONFLICT (series_id, timestart, timeend)\
+				DO " + on_conflict_clause + "\
+				RETURNING id,series_id,timestart,timeend,st_asgdalraster(valor,'GTiff') valor,timeupdate"    // '\\x'||encode(st_asgdalraster(valor,'GTiff')::bytea,'hex')
+				args = [observacion.series_id, observacion.timestart, observacion.timeend, valor_string, expression, observacion.timeupdate]
+			} else {
+				stmt = "INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate)\
+				VALUES ($1, $2, $3, ST_FromGDALRaster($4), $5)\
+				ON CONFLICT (series_id, timestart, timeend)\
+				DO " + on_conflict_clause + "\
+				RETURNING id,series_id,timestart,timeend,st_asgdalraster(valor, 'GTIff') valor,timeupdate" // '\\x'||encode(st_asgdalraster(valor,'GTiff')::bytea,'hex')
+				args = [observacion.series_id, observacion.timestart, observacion.timeend, valor_string, observacion.timeupdate]
+			}	
+			//~ if(options.hex) {
+				//~ args[3] = '\\x' + args[3]
+			//~ }
+			// console.log(pasteIntoSQLQuery(stmt,args))
+			const upserted = await global.pool.query(stmt,args)
+			if(upserted.rows.length == 0) {
+				console.log("nothing upserted")
+				throw("nothing upserted")
+			} else {
+				//~ console.log("raster upserted")
+				upserted.rows[0].tipo="rast"
+				return new internal.observacion(upserted.rows[0])
+			}
+		}
 	}
 	
 	// static upsertObservacionesQuery(observaciones,tipo) {

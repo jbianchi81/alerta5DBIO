@@ -1873,6 +1873,41 @@ internal.UpdatePronosticoFromAccessorProcedure = class extends internal.CrudProc
     }
 }
 
+internal.MapAccessorTableFromCSVProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "MapAccessorTableFromCSVProcedure"
+        if(!arguments[0]) {
+            throw("Missing arguments")
+        }
+        if(!arguments[0].accessor_id) {
+            throw("Missing accessor_id")
+        }
+        if(!arguments[0].class_name) {
+            throw("Missing class_name")
+        }
+        if(!arguments[0].csv_file) {
+            throw("Missing csv_file")
+        }
+        this.csv_file = path.resolve(this.files_base_dir, arguments[0].csv_file)
+        if(!CRUD.hasOwnProperty(arguments[0].class_name)) {
+            throw("Invalid class_name: " + arguments[0].class_name + " not present in CRUD")
+        }
+        this.class_name = arguments[0].class_name
+        this.class = CRUD[this.class_name]
+        if(!this.class.hasOwnProperty("updateFromCSV")) {
+            throw("Invalid class: " + this.class_name + ". updateFromCSV not present in class")
+        }
+        this.accessor_id = arguments[0].accessor_id
+        // this.filter = arguments[0].filter
+        // this.options = arguments[0].options
+    }
+    async run() {
+        // var accessor = await Accessors.new(this.accessor_id)
+        this.result = await this.class.updateFromCSV(this.accessor_id,this.csv_file)
+    }
+}
+
 internal.ComputeQuantilesProcedure = class extends internal.CrudProcedure {
     constructor() {
         super(...arguments)
@@ -2943,6 +2978,7 @@ const availableCrudProcedures = {
     "UpdateMetadataFromAccessorProcedure":internal.UpdateMetadataFromAccessorProcedure,
     "GetPronosticoFromAccessorProcedure":internal.GetPronosticoFromAccessorProcedure,
     "UpdatePronosticoFromAccessorProcedure": internal.UpdatePronosticoFromAccessorProcedure,
+    "MapAccessorTableFromCSVProcedure": internal.MapAccessorTableFromCSVProcedure,
     "ComputeQuantilesProcedure": internal.ComputeQuantilesProcedure,
     "GetAggregatePronosticosProcedure": internal.GetAggregatePronosticosProcedure,
     "TestAccessorProcedure": internal.TestAccessorProcedure,

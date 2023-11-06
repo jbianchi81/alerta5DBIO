@@ -930,7 +930,7 @@ internal.client = class {
         } else if(filter.series_id) {
             // reads from accessor_timeseries_observation.series_puntual_id
             const timeseries_observations = await internal.timeseries_observation.read({series_puntual_id:filter.series_id})
-            ts_filter.timeseriesIdentifier = (timeseries_observations.length) ? timeseries_observations.map(tso=>tso.timeseries_id) : undefined  
+            ts_filter.timeseriesIdentifier = (timeseries_observations.length) ? timeseries_observations.map(tso=>tso.timeseries_id) : undefined
         } else if (filter.var_id || filter.proc_id || filter.unit_id || filter.fuentes_id || filter.tipo || filter.observed_property_id || filter.variable_name) {
             const read_filter = {
                 var_id: filter.var_id,
@@ -975,9 +975,13 @@ internal.client = class {
         var estaciones = []
         await this.getSeriesFilters(filter,ts_filter,estaciones)
         console.log("monitoringPoint: " + ts_filter.monitoringPoint)
+        if(ts_filter.timeseriesIdentifier) {
+            const series = await this.getSeriesOfIdentifier(ts_filter,options)
+            return series
+        }
         if(!estaciones.length) {
             console.log("Monitoring points not set. Getting sites from accessor")
-            estaciones = await this.getSites(ts_filter)
+            estaciones = await this.getSites(filter)
         }
         const series = []
         for(var estacion of estaciones) {
@@ -986,15 +990,20 @@ internal.client = class {
         }
         return series
     }
-    async getSeriesOfSite(estacion,filter,options) {
-        var view = (filter.view) ? filter.view : this.config.view
+    async getSeriesOfIdentifier(filter={},options={}) {
+        if(!filter.timeseriesIdentifier) {
+            throw("Missing filter.timeseriesIdentifier")
+        }
         const ts_filter = {}
+        const ts_options = {}
+        ts_options.a5 =  (options.a5) ? options.a5 : false
+        var view = (filter.view) ? filter.view : this.config.view
         ts_filter.includeData = false
         // removes date range filters because API doesn't take data availability filters
         ts_filter.beginPosition = undefined
         ts_filter.endPosition = undefined
-        ts_filter.monitoringPoint = estacion.id_externo
-        const result = await this.getTimeseriesWithPagination(view,ts_filter)
+        ts_filter.timeseriesIdentifier = filter.timeseriesIdentifier
+        const result = await this.getTimeseriesWithPagination(view,ts_filter,ts_options)
         const timeseries_observations = result.member.map(m=>{
             return this.parseTimeseriesMember(m)
         })
@@ -1004,6 +1013,10 @@ internal.client = class {
                 await tso.create()
             }
         }
+        return this.tsoToSeries(timeseries_observations,options)
+    }
+    
+    async tsoToSeries(timeseries_observations=[],options={}) {
         const series = []
         for(var tso of timeseries_observations) {
             const serie = await tso.findSerie()
@@ -1021,6 +1034,26 @@ internal.client = class {
             }
         }
         return series
+    }
+    async getSeriesOfSite(estacion,filter={},options={}) {
+        var view = (filter.view) ? filter.view : this.config.view
+        const ts_filter = {}
+        ts_filter.includeData = false
+        // removes date range filters because API doesn't take data availability filters
+        ts_filter.beginPosition = undefined
+        ts_filter.endPosition = undefined
+        ts_filter.monitoringPoint = estacion.id_externo
+        const result = await this.getTimeseriesWithPagination(view,ts_filter)
+        const timeseries_observations = result.member.map(m=>{
+            return this.parseTimeseriesMember(m)
+        })
+        if(!options.no_update) {
+            // const timeseries_observations_created = []
+            for(var tso of timeseries_observations) {
+                await tso.create()
+            }
+        }
+        return this.tsoToSeries(timeseries_observations,options)
     }
 
     /**

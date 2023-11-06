@@ -7,6 +7,7 @@ const {isoDurationToHours, interval2string} = require('./timeSteps')
 const { control_filter2 } = require('./utils')
 const CSV = require('csv-string')
 const internal = {}
+const fs = require('fs')
 
 internal.accessor_feature_of_interest = class extends baseModel {
 	constructor(fields={}) {

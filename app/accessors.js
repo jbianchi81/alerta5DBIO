@@ -1765,7 +1765,7 @@ internal.eby = class {
 			var data = contents.split(/\n/).map(row=> row.split(/,/))
 			var obs_date = new Date(data[this.config.data_row][this.config.date_column])
 			if(obs_date.toString() == "Invalid Date") {
-				throw("Invalid date on row " + this.config.data_row + ", column " + this.config.date_column)
+				throw("Invalid date " + data[this.config.data_row][this.config.date_column] + " on data row " + this.config.data_row + ", column " + this.config.date_column)
 			}
 			var obs = []
 			var prono = []	
@@ -1774,7 +1774,7 @@ internal.eby = class {
 				var series_id = this.config.series_map[key].obs_series_id
 				var valor = parseFloat(data[this.config.data_row][this.config.series_map[key].column])
 				if(valor.toString() == "NaN") {
-					throw("Invalid value at row" + this.config.data_row + ", column " + this.config.series_map[key].column)
+					throw("Invalid value on data row" + this.config.data_row + ", column " + this.config.series_map[key].column)
 				}
 				obs.push({series_id:series_id,timestart:obs_date,timeend:obs_date,valor:valor})
 				// prono
@@ -1784,11 +1784,11 @@ internal.eby = class {
 				this.config.prono_rows.forEach(row=>{
 					var date = new Date(data[row][this.config.date_column])
 					if(date.toString() == "Invalid Date") {
-						throw("Invalid date at row" + row + ", column " + this.config.date_column)
+						throw("Invalid date at traza row" + row + ", column " + this.config.date_column)
 					}
 					var valor = parseFloat(data[row][this.config.series_map[key].column])
 					if(valor.toString() == "NaN") {
-						throw("Invalid value at row" + row + ", column " + this.config.series_map[key].column)
+						throw("Invalid value at traza row" + row + ", column " + this.config.series_map[key].column)
 					}
 					pronosticos.push({timestart:date,timeend:date,valor:valor})
 				})
