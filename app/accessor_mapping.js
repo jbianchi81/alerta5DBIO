@@ -1,9 +1,9 @@
 'use strict'
 
 const {baseModel} = require('./baseModel')
-const { estacion, escena, serie, VariableName, unidades, "var": Variable } = require('./CRUD')
+const { estacion, escena, serie, VariableName, unidades, "var": Variable, observacion } = require('./CRUD')
 const utils = require('./utils')
-const {isoDurationToHours, interval2string} = require('./timeSteps')
+const {isoDurationToHours, interval2string, advanceInterval} = require('./timeSteps')
 const { control_filter2 } = require('./utils')
 const CSV = require('csv-string')
 const internal = {}
@@ -182,19 +182,27 @@ internal.accessor_observed_property = class extends baseModel {
 		var result = await global.pool.query("SELECT * FROM accessor_observed_property WHERE 1=1 " + filter_string)
 		return result.rows.map(r=>new this(r))
 	}
+	/**
+	 * 	Updates variable_name of observed_properties from CSV file
+	 * @param {string} accessor_id
+	 * @param {string} filename
+	 * @returns {Promise<internal.accessor_observed_property[]>} Promise returning array of updated observed_properties
+	*/
 	static async updateFromCSV(accessor_id,filename) {
 		const variableName_map = CSV.parse(fs.readFileSync(filename,'utf-8'),{output:"objects"})
 		const result = []
 		for(var vn of variableName_map) {
-			var variableNames = await this.read({accessor_id:accessor_id, observed_property_id:vn.observed_property_id})
-			if(!variableNames.length) {
+			var observed_properties = await this.read({accessor_id:accessor_id, observed_property_id:vn.observed_property_id})
+			if(!observed_properties.length) {
+				console.log("Didn't find matching observed_property: " + vn.observed_property_id + ". Creating.")
 				const op = new this({accessor_id: accessor_id, observed_property_id: vn.observed_property_id, variable_name: vn.variable_name})
 				await op.create()
 				result.push(op)
 			} else {
-				for(var variableName of variableNames) {
-					await variableName.update({variable_name: vn.variable_name})
-					result.push(variableName)
+				for(var observed_property of observed_properties) {
+					console.log("Found matching observed property: " + observed_property.observed_property_id + ". Updating.")
+					await observed_property.update({variable_name: vn.variable_name})
+					result.push(observed_property)
 				}
 			}
 		}
@@ -390,6 +398,70 @@ internal.accessor_time_value_pair = class extends baseModel {
 			type: "timeend",
 			column: "timestamp"
 		}
+	}
+	getTipo(tso) {
+		if(this.observaciones_puntual_id) {
+			return "puntual"
+		} else if (tso && tso.series_puntual_id) {
+			return "puntual" 
+		} else if(this.observaciones_areal_id) {
+			return "areal"
+		} else if (tso && tso.series_areal_id) {
+			return "areal"
+		} else if(this.observaciones_rast_id) {
+			return "rast"
+		} else if (tso && tso.series_rast_id) {
+			return "rast"
+		} else {
+			console.warn("Tipo not determined")
+			return
+		}
+	}
+	getSeriesId(tso) {
+		const tipo = this.getTipo(tso)
+		if(tipo == "puntual") {
+			if(tso) {
+				return tso.series_puntual_id
+			}
+			return this.observaciones_puntual_id
+		} else if(tipo == "areal") {
+			if(tso) {
+				return tso.series_areal_id
+			}
+			return this.observaciones_areal_id 
+		} else if(tipo == "rast") {
+			if(tso) {
+				return tso.series_rast_id
+			}
+			return this.observaciones_raster_id
+		} else {
+			console.warn("series_id not determined")
+			return
+		}
+	}
+	getValue() {
+		return this.numeric_value ?? this.json_value ?? this.raster_value
+	}
+	toObservacion(tso) {
+		const tipo = this.getTipo(tso)
+		const series_id = this.getSeriesId(tso)
+		const valor = this.getValue()
+		const timestart = new Date(this.timestamp)
+		if(timestart.toString() == "Invalid Date") {
+			throw("accessor_time_value_pair.toObservacion: Invalid date")
+		}
+		if(tso && tso.time_support) {
+			var timeend = advanceInterval(timestart,tso.time_support)
+		} else {
+			var timeend = new Date(timestart)
+		}
+		return new observacion({
+			tipo: tipo,
+			series_id: series_id,
+			timestart: timestart,
+			timeend: timeend,
+			valor: valor
+		})
 	}
 	// static async read(filter={}) {
 	// 	const statement = this.build_read_statement(filter)
@@ -670,10 +742,10 @@ internal.accessor_timeseries_observation = class extends baseModel {
 		"Minimum": {
 			aliases: ["Minimum in Succeeding Interval"]
 		},
-		"Preceding Total": {},
-		"Succeeding Total": {
+		"Preceding Total": {
 			aliases: ["Total"]
 		},
+		"Succeeding Total": {},
 		"Mode in Preceding Interval": {},
 		"Mode in Succeeding Interval": {
 			aliases: ["Mode"]
@@ -709,6 +781,14 @@ internal.accessor_timeseries_observation = class extends baseModel {
 		const this_variable = this.toVar()
 		if(!this_variable.VariableName) {
 			console.error("No VariableName for observedProperty " + this.observed_property.observed_property_id)
+			return this_variable
+		}
+		if(!this_variable.datatype)  {
+			console.error("No datatype for observedProperty " + this.observed_property.observed_property_id)
+			return this_variable
+		}
+		if(!this_variable.timeSupport) {
+			console.error("No timeSupport for observedProperty " + this.observed_property.observed_property_id)
 			return this_variable
 		}
 		const matching_variables = await Variable.read({

@@ -1904,7 +1904,9 @@ internal.MapAccessorTableFromCSVProcedure = class extends internal.CrudProcedure
     }
     async run() {
         // var accessor = await Accessors.new(this.accessor_id)
-        this.result = await this.class.updateFromCSV(this.accessor_id,this.csv_file)
+        const result = await this.class.updateFromCSV(this.accessor_id,this.csv_file)
+        this.result = result
+        return this.result
     }
 }
 

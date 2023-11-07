@@ -228,9 +228,11 @@ internal.Accessor = class {
 		filter.timestart = timeSteps.DateFromDateOrInterval(filter.timestart)
 		filter.timeend = timeSteps.DateFromDateOrInterval(filter.timeend)
 		if(this.engine.constructor._get_is_multiseries) {
+			console.log("engine.get is multiseries. Calling engine.get")
 			return this.engine.get(filter,options)
 		}
 		if(!this.engine.getSeries) {
+			console.log("engine.getSeries not defined. Calling engine.get")
 			var observaciones = await this.engine.get(filter,options,client)
 			var series_id_list = Array.from(new Set(observaciones.map(o=>o.series_id)))
 			return series_id_list.map(series_id=>{
@@ -256,7 +258,7 @@ internal.Accessor = class {
 				}
 				series[i].id = series[i].fuente.id
 			}
-			// console.log(`Updating serie ${series[i].id}`)
+			console.log(`retrieving observaciones for serie ${series[i].id}`)
 			try {
 				series[i].setObservaciones(await this.engine.get({series_id:series[i].id,tipo:series[i].tipo, timestart:filter.timestart,timeend:filter.timeend,forecast_date: filter.forecast_date}))
 

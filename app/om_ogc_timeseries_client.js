@@ -4,10 +4,11 @@ const {getConfig} = require('./utils')
 const {sprintf} = require('sprintf-js')
 const axios = require('axios')
 const fs = require('promise-fs')
-const {estacion: Estacion, serie: Serie, observacion: Observacion} = require('./CRUD')
+const {estacion: Estacion, serie: Serie, observacion: Observacion, observaciones: Observaciones} = require('./CRUD')
 // const moment = require('moment-timezone')
 const {accessor_feature_of_interest, accessor_timeseries_observation, accessor_observed_property, accessor_unit_of_measurement, accessor_time_value_pair} = require('./accessor_mapping')
 const {isoDurationToHours} = require('./timeSteps')
+const ts = require('typescript')
 const internal = {}
 
 internal.timeseries_observation = class extends accessor_timeseries_observation {
@@ -91,7 +92,7 @@ internal.time_value_pair = class extends accessor_time_value_pair {
 */    
 internal.client = class {
 
-    static _get_is_multiseries = true
+    static _get_is_multiseries = false
     
     static default_config = {
         "url": "https://whos.geodab.eu/gs-service/services/essi",
@@ -906,15 +907,13 @@ internal.client = class {
     async getSeriesFilters(filter={},ts_filter={},estaciones=[]) {
         if(filter.monitoringPoint) {
             ts_filter.monitoringPoint = filter.monitoringPoint
-        } else if(filter.id_externo) {
-            ts_filter.monitoringPoint = filter.id_externo
-        } else if(filter.estacion_id || filter.pais || filter.propietario || filter.feature_of_interest_id) {
+        } else if(filter.estacion_id || filter.pais || filter.propietario || filter.feature_of_interest_id || filter.id_externo) {
             // reads from accessor_feature_of_interest.estacion_id
             const features_of_interest = await internal.feature_of_interest.read({
                 estacion_id:filter.estacion_id,
                 pais:filter.pais,
                 propietario:filter.propietario,
-                feature_id: filter.feature_of_interest_id
+                feature_id: filter.id_externo
             })
             if(!features_of_interest.length) {
                 throw(new Error("No features of interest found in database matching the provided criteria. Run getSites to update database."))
@@ -940,7 +939,7 @@ internal.client = class {
                 tipo: filter.tipo,
                 observed_property_id: filter.observed_property_id,
                 variable_name: filter.variable_name,
-                feature_of_interest_id: ts_filter.monitoringPoint
+                feature_of_interest_id: ts_filter.monitoringPoint ?? filter.id_externo
             }
             const timeseries_observations = await internal.timeseries_observation.read(read_filter)
             if(!timeseries_observations.length) {
@@ -1112,26 +1111,98 @@ internal.client = class {
             time_support: (m.result.metadata.hasOwnProperty("intendedObservationSpacing")) ? isoDurationToHours(m.result.metadata.intendedObservationSpacing) : (m.result.hasOwnProperty("defaultPointMetadata") && m.result.defaultPointMetadata.hasOwnProperty("aggregationDuration")) ? isoDurationToHours(m.result.defaultPointMetadata.aggregationDuration) : undefined,
             data_type: (m.result.hasOwnProperty("defaultPointMetadata") && m.result.defaultPointMetadata.hasOwnProperty("interpolationType")) ? m.result.defaultPointMetadata.interpolationType.title : undefined,
             result: m,
-            data: (m.result.points && m.result.points.length) ? m.result.points.map(p=>this.parseTimeValuePair(p,m.id)).filter(p=>(p.valor !== null)) : undefined,
+            data: (m.result.points && m.result.points.length) ? m.result.points.map(p=>this.parseTimeValuePair(p,m)).filter(p=>(p.valor !== null)) : undefined,
             begin_position: m.phenomenonTime ? new Date(m.phenomenonTime.begin) : undefined,
             end_position: m.phenomenonTime ? new Date(m.phenomenonTime.end) : undefined
         })
     }
 
-    parseTimeValuePair(p,tsi,no_data_value=this.config.no_data_value) {
+    parseTimeValuePair(p,ts,no_data_value=this.config.no_data_value) {
         return new accessor_time_value_pair({
             accessor_id: this.config.accessor_id,
-            timeseries_id: tsi,
+            timeseries_id: ts.id,
             timestamp: new Date(p.time.instant),
             numeric_value: (typeof p.value !== 'undefined' && p.value != no_data_value) ? p.value : null,
+            observaciones_puntual_id: ts.series_puntual_id,
+            observaciones_areal_id: ts.series_areal_id,
+            observaciones_rast_id: ts.series_rast_id,
             result: p
         })
     }
-
+    /**
+     * Get observations of given series between timestart and timeend
+     * @param {Object} filter 
+     * @param {string} filter.tipo
+     * @param {integer} filter.series_id
+     * @param {Date} filter.timestart
+     * @param {Date} filter.timeend
+     * @param {Object} options 
+     * @returns {Promise<Observacion[]>} A promise that returns an array of Observaciones
+     */
     async get(filter={},options={}) {
+        if(!filter.series_id) {
+            throw("om_ogc_timeseries_client: client.get: Missing filter.series_id")
+        }
+        if(!filter.tipo) {
+            filter.tipo = "puntual"
+        }
+        if(!filter.timestart) {
+            throw("om_ogc_timeseries_client: client.get: missing filter.timestart")
+        }
+        if(!filter.timeend) {
+            throw("om_ogc_timeseries_client: client.get: missing filter.timeend")
+        }
+        const tso_filter = {}
+        if(filter.tipo == "puntual") {
+            tso_filter.series_puntual_id =  filter.series_id
+        } else if(filter.tipo == "areal") {
+            tso_filter.series_areal_id = filter.series_id
+        } else if(filter.tipo == "rast") {
+            tso_filter.series_rast_id = filter.series_id
+        } else {
+            throw("Invalid tipo")
+        }
+        var tso = await accessor_timeseries_observation.read(tso_filter)
+        if(!tso.length) {
+            throw("Serie not found of tipo: " + filter.tipo + ", series_id:" + filter.series_id)
+        }
+        tso = tso[0]
+        const observaciones = await this.getObservationsOfTimeseries(tso,filter,{a5:true})
+        return observaciones
+    }
+
+    async update(filter={},options={}) {
+        var observaciones = await this.get(filter,options)
+        observaciones = new Observaciones(observaciones) 
+        observaciones = await observaciones.create()
+        return observaciones
+    }
+
+    async getObservationsOfTimeseries(tso,filter={},options={}) {
+        if(!tso) {
+            throw("Missing tso")
+        }
+        if(!tso.timeseries_id) {
+            throw("Missing tso.timeseries_id")
+        }
+        const ts_filter = {}
+        Object.assign(ts_filter,filter)
+        ts.filter.timeseriesIdentifier = tso.timeseries_id
+        const ts_options = {}
+        Object.assign(ts_options,options)
+        ts_options.a5 = false
+        ts_options.tvp = true
+        var time_value_pairs = await this.getObservations(ts_filter,ts_options)
+        if(options.a5) {
+            time_value_pairs = time_value_pairs.map(tvp=>tvp.toObservacion(tso))
+        }
+        return time_value_pairs
+    }
+
+    async getObservations(filter={},options={}) {
         const ts_filter = {}
         const ts_options = {}
-        ts_options.a5 =  (options.a5) ? options.a5 : false
+        ts_options.a5 = false
         var view = (filter.view) ? filter.view : this.config.view
         if(!filter.timestart || !filter.timeend) {
             throw("missing timestart and/or timeend")
@@ -1144,34 +1215,35 @@ internal.client = class {
         if(options.raw) {
             return result
         }
+        const timeseries_observations = result.member.map(m=>this.parseTimeseriesMember(m))
+        if(!options.no_update) {
+            // const timeseries_observations_created = []
+            for(var tso of timeseries_observations) {
+                await tso.create()
+            }
+        }
         if(options.tvp) {
             const time_value_pairs = []
-            for(var m of result.member) {
-                var tsi = m.id
-                for(var p of m.result.points) {
-                    const tvp = this.parseTimeValuePair(p,tsi)
+            for(var tso of timeseries_observations) {
+                for(var tvp of tso.data) {
+                    // const tvp = this.parseTimeValuePair(p,tso)
                     // tvp.create()
-                    if(tvp.valor !== null) {
-                        time_value_pairs.push(tvp)
+                    if(tvp.numeric_value !== null) {
+                        if(options.a5) {
+                            time_value_pairs.push(tvp.toObservacion(tso.time_support))
+                        } else {
+                            time_value_pairs.push(tvp)
+                        }
                     }
-                }
-            }
-            if(!options.no_update) {
-                // const timeseries_observations_created = []
-                for(var tvp of time_value_pairs) {
-                    await tvp.create()
                 }
             }
             return time_value_pairs
         } else {
-            const timeseries_observations = result.member.map(m=>this.parseTimeseriesMember(m))
-            if(!options.no_update) {
-                // const timeseries_observations_created = []
-                for(var tvp of timeseries_observations) {
-                    await tvp.create()
-                }
+            if(options.a5) {
+                return timeseries_observations.map(tso=>tso.toSerie())
+            } else {
+                return timeseries_observations
             }
-            return timeseries_observations
         }
     }
     

@@ -124,7 +124,7 @@ COPY public.var (id, var, nombre, abrev, type, datatype, valuetype, "GeneralCate
 47	api	índice de precipitación antecedente	API	num	Average	Model Simulation Result	Hydrology	antecedent precipitation index	Soil	\N	14	7 days	\N
 38	Pacum	precipicación acumulada	Pacum	num	Cumulative	Field Observation	Unknown	Precipitation	Unknown	\N	9	\N	\N
 15	ETP	Evapotranspiración potencial	etp	num	Cumulative	Derived Value	Climate	Evapotranspiration	Air	\N	22	1 day	09:00:00
-1	P	precipitación diaria 12Z	precip_diaria_met	num	Cumulative	Field Observation	Climate	Precipitation	Precipitation	\N	22	1 day	09:00:00
+1	P	precipitación diaria 12Z	precip_diaria_met	num	Succeeding Total	Field Observation	Climate	Precipitation	Precipitation	\N	22	1 day	09:00:00
 35	Htide	Altura de marea astronómica	altura_marea	num	Continuous	Model Simulation Result	Hydrology	Tidal stage	Surface Water	\N	11	00:00:00	\N
 36	Hmeteo	Altura de marea meteorológica	altura_marea_meteo	num	Continuous	Model Simulation Result	Hydrology	Water level	Surface water	\N	11	00:00:00	\N
 37	nieve	nivel de nieve	nieve	num	Continuous	Field Observation	Unknown	Snow depth	Unknown	\N	11	00:00:00	\N
@@ -160,7 +160,7 @@ COPY public.var (id, var, nombre, abrev, type, datatype, valuetype, "GeneralCate
 22	Qafl	Caudal Afluente	Qafluente	num	Continuous	Field Observation	Hydrology	Reservoir inflow	Surface Water	\N	10	1 day	00:00:00
 25	Qtra	Caudal Transferido	Qtransfer	num	Continuous	Field Observation	Hydrology	Transfered discharge	Surface Water	\N	10	1 day	00:00:00
 26	Vut	Volumen Útil	Vutil	num	Continuous	Field Observation	Hydrology	Reservoir storage	Surface Water	\N	312	1 day	00:00:00
-41	Pmes	precipitación mensual	Pmensual	num	Cumulative	Field Observation	Climate	Precipitation	Precipitation	\N	9	1 mon	00:00:00
+41	Pmes	precipitación mensual	Pmensual	num	Succeeding Total	Field Observation	Climate	Precipitation	Precipitation	\N	9	1 mon	00:00:00
 5	Tmin	Temperatura mínima	tempmin	num	Minimum	Field Observation	Climate	Temperature	Air	\N	12	1 day	00:00:00
 7	Tmed	Temperatura media	tempmed	num	Average	Field Observation	Climate	Temperature	Air	\N	12	1 day	00:00:00
 6	Tmax	Temperatura máxima	tempmax	num	Maximum	Field Observation	Climate	Temperature	Air	\N	12	1 day	00:00:00
@@ -171,9 +171,9 @@ COPY public.var (id, var, nombre, abrev, type, datatype, valuetype, "GeneralCate
 16	Pmed	Presión barométrica media diaria	presionmedia	num	Average	Field Observation	Climate	Barometric pressure	Air	\N	17	1 day	00:00:00
 24	Qver	Caudal Vertido	Qvertido	num	Continuous	Field Observation	Hydrology	Reservoir spilled	Surface Water	\N	10	1 day	00:00:00
 11	Vdir	dirección del viento modal diaria	dirviento	num	Average	Field Observation	Climate	Wind direction	Air	\N	16	1 day	00:00:00
-31	Ph	precipitación horaria	precip_horaria	num	Cumulative	Field Observation	Climate	Precipitation	Precipitation	\N	9	01:00:00	00:00:00
+31	Ph	precipitación horaria	precip_horaria	num	Succeeding Total	Field Observation	Climate	Precipitation	Precipitation	\N	9	01:00:00	00:00:00
 54	Th	Temperatura horaria	temp	num	Average	Field Observation	Climate	Temperature	Air	\N	12	01:00:00	00:00:00
-34	P3h	precipitación 3 horaria	precip_3h	num	Cumulative	Field Observation	Climate	Precipitation	Precipitation	\N	9	03:00:00	00:00:00
+34	P3h	precipitación 3 horaria	precip_3h	num	Succeeding Total	Field Observation	Climate	Precipitation	Precipitation	\N	9	03:00:00	00:00:00
 59	Hrh	Humedad relativa media horaria	humrelhora	num	Average	Field Observation	Climate	Relative humidity	Air	\N	15	\N	00:00:00
 61	Prh	Presión barométrica media horaria	preshora	num	Average	Field Observation	Climate	Barometric pressure	Air	\N	17	01:00:00	00:00:00
 65	ugrd	Viento - componente u	ugrd	num	Continuous	Model Simulation Result	Meteorology	Wind speed	Air	\N	355	00:00:00	\N

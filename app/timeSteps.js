@@ -210,7 +210,13 @@ internal.getPreviousTimeStep = function(timestamp,def_hora_corte,timeSupport) {
 	console.log({timestamp:timestamp})
 	return new Date(timestamp)
 }
-	
+
+/**
+ * Advances timeSupport interval from start_timestamp. Returns new Date object. Note: Advancing month units may result in a different date if the date of the resulting month does not exist (i.e., 31st of january plus 1 month = 3rd of march) 
+ * @param {Date} start_timestamp 
+ * @param {PostgresInterval} timeSupport 
+ * @returns 
+ */
 internal.advanceTimeStep = function(start_timestamp,timeSupport) {
 	var timestamp = new Date(start_timestamp) 
 	Object.keys(timeSupport).forEach(key=>{
@@ -255,6 +261,12 @@ internal.advanceTimeStep = function(start_timestamp,timeSupport) {
 	return timestamp
 }
 
+/**
+ * Advances timeSupport interval from start_timestamp. Returns new Date object. Note: Advancing month units may result in a different date if the date of the resulting month does not exist (i.e., 31st of january plus 1 month = 3rd of march) 
+ * @param {Date} start_timestamp 
+ * @param {PostgresInterval} timeSupport 
+ * @returns 
+ */
 internal.advanceInterval = function(date,interval={hours:1}) {
 	if(!interval instanceof Object) {
 		console.error("interval must be a postgresInterval object")
