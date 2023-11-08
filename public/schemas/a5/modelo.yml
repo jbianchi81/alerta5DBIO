@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: modelo.yml
+title: Modelo
+type: object
+properties:
+  id:
+    type: integer 
+    description: identificador único del modelo
+  nombre:
+    schema: { "type": "string"} 
+    description: Nombre del modelo
+  tipo:
+    schema: { "type": "string"} 
+    description: Tipo de modelo

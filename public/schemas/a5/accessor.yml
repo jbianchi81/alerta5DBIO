@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: accessor.yml
+title: Accessor
+type: object
+properties:
+  name:
+    schema: { "type": "string"} 
+    description: nombre identificador del recurso
+  url:
+    schema: { "type": "string"} 
+    description: ubicación del recurso
+  class:
+    schema: { "type": "string"} 
+    description: tipo de recurso
+  series_tipo:
+    schema: { "type": "string"} 
+    enum:
+    - puntual
+    - areal
+    - raster
+    description: tipo de la serie temporal correspondiente al recurso
+  series_source_id:
+    type: integer 
+    description: id de la fuente correspondiente al recurso
+  time_update:
+    schema: { "type": "string"} 
+    description: última fecha de actualización del recurso
+  config:
+    type: object
+    properties:
+      download_dir:
+        schema: { "type": "string"} 
+        description: directorio de descargas
+      tmp_dir:
+        schema: { "type": "string"} 
+        description: directorio temporal
+      tables_dir:
+        schema: { "type": "string"} 
+        description: directorio de tablas
+      host:
+        schema: { "type": "string"} 
+        description: IP o url del recurso
+      user:
+        schema: { "type": "string"} 
+        description: nombre de usuario del recurso
+      password:
+        schema: { "type": "string"} 
+        description: contraseña del recurso
+      path:
+        schema: { "type": "string"} 
+        description: ruta del recurso
+  series_id:
+    type: integer 
+    description: id de la serie temporal correspondiente al recurso

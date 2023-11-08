@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: feature.yml
+title: Feature
+type: object
+properties:
+  id:
+    type: number
+  geometry:
+    $ref: geometry.yml
+  properties:
+    type: object

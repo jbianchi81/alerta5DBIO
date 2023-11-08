@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: estadisticosdiarios.yml
+title: EstadisticosDiarios
+type: object
+properties:
+  tipo:
+    description: tipo de observación
+    schema: { "type": "string"} 
+  series_id:
+    description: id de serie
+    type: integer 
+  doy:
+    description: día del año
+    type: integer 
+  count:
+    description: cantidad de registros
+    type: integer 
+  min:
+    description: valor mínimo
+    type: number
+  max:
+    description: valor máximo
+    type: number
+  mean:
+    description: valor medio
+    type: number
+  p01:
+    description: percentil 1
+    type: number
+  p10:
+    description: percentil 10
+    type: number
+  p50:
+    description: percentil 50
+    type: number
+  p90:
+    description: percentil 90
+    type: number
+  p99:
+    description: percentil 99
+    type: number
+  window_size:
+    description: ventana temporal para el suavizado en días (a partir de y hasta
+      el día del año en cuestión)
+    type: integer 
+  timestart:
+    description: fecha inicial
+    schema: { "type": "string"} 
+  timeend:
+    description: fecha final
+    schema: { "type": "string"} 

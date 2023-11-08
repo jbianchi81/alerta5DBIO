@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: percentil.yml
+title: Percentil
+type: object
+properties:
+  tipo:
+    schema: { "type": "string"} 
+  series_id:
+    type: integer 
+  cuantil:
+    type: number
+  window_size:
+    type: integer 
+  doy:
+    type: integer 
+  timestart:
+    schema: { "type": "string"} 
+  timeend:
+    schema: { "type": "string"} 
+  count:
+    type: integer 
+  valor:
+    type: number

@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: serietemporalsim.yml
+title: SerieTemporalSim
+type: object
+properties:
+  series_table:
+    schema: { "type": "string"} 
+    description: tabla de la serie simulada
+    enum:
+    - series
+    - series_areal
+    example: series
+  series_id:
+    type: integer 
+    format: int64
+    description: identificador único de serie simulada
+  pronosticos:
+    type: array
+    items:
+      $ref: pronostico.yml
+    description: Tuplas de la serie simulada
+required:
+- series_table
+- series_id
+- pronosticos

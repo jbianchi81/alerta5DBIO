@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: estacion.yml
+title: Estacion
+type: object
+properties:
+  fuentes_id:
+    description: id de la fuente
+    type: integer 
+  nombre:
+    description: nombre de la estación (parcial o completo)
+    schema: { "type": "string"} 
+  unid:
+    description: identificador único de la estación
+    type: integer 
+  id:
+    description: identificador de la estación dentro de la fuente (red) a la
+      que pertenece
+    type: integer 
+  id_externo:
+    description: id externo de la estación
+    schema: { "type": "string"} 
+  distrito:
+    description: jurisdicción de segundo orden en la que se encuentra la estación
+      (parcial o completa)
+    schema: { "type": "string"} 
+  pais:
+    description: jurisdicción de primer orden en la que se encuentra la estación
+      (parcial o completa)
+    schema: { "type": "string"} 
+  has_obs:
+    description: si la estación posee registros observados
+    schema: { "type": "boolean"} 
+  real:
+    name: real
+    schema: { "type": "boolean"} 
+  habilitar:
+    description: si la estación se encuentra habilitada
+    schema: { "type": "boolean"} 
+  tipo:
+    description: tipo de la estación
+    schema: { "type": "string"} 
+  has_prono:
+    description: si la estación posee registros pronosticados
+    schema: { "type": "boolean"} 
+  rio:
+    description: curso de agua de la estación (parcial o completo)
+    schema: { "type": "string"} 
+  tipo_2:
+    description: 'tipo de estación: marca y/o modelo'
+    schema: { "type": "string"} 
+  geom:
+    description: coordenadas geográficas de la estación
+    $ref: geometry.yml
+  propietario:
+    description: propietario de la estación (nombre parcial o completo)
+    schema: { "type": "string"} 
+  automatica:
+    description: si la estación es automática
+    schema: { "type": "boolean"} 
+  ubicacion:
+    description: ubicación de la estación
+    schema: { "type": "string"} 
+  localidad:
+    description: localidad en la que se encuentra la estación
+    schema: { "type": "string"} 
+  tabla:
+    description: identificación alfanumérica de la fuente (red) a la que pertenece
+      la estación
+    schema: { "type": "string"} 

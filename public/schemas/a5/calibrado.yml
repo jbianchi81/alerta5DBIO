@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: calibrado.yml
+title: Calibrado
+type: object
+properties:
+  id:
+    type: integer 
+    format: int64
+    description: identificador único del calibrado
+  model_id:
+    type: integer 
+    format: int64
+    description: identificador único del modelo
+  nombre:
+    schema: { "type": "string"} 
+    description: nombre del calibrado
+    format: regexp
+  activar:
+    schema: { "type": "boolean"} 
+    description: activar el calibrado
+    default: true
+  outputs:
+    type: array
+    items:
+      $ref: output.yml
+    description: Series de salida del calibrado
+  parametros:
+    type: array
+    items:
+      $ref: parametro.yml
+    description: Parámetros del calibrado
+  estados_iniciales:
+    type: array
+    items:
+      $ref: estado.yml
+    description: Estados iniciales del calibrado
+  forzantes:
+    type: array
+    items:
+      $ref: forzante.yml
+    description: Series de entrada del calibrado
+  selected:
+    schema: { "type": "boolean"} 
+    description: Si el calibrado debe seleccionarse como el principal para las
+      series de salida
+    example: false
+  out_id:
+    type: integer 
+    format: int64
+    description: id de estación de salida del calibrado
+  area_id:
+    type: integer 
+    format: int64
+    description: id de area del calibrado
+  tramo_id:
+    type: integer 
+    format: int64
+    description: id de tramo de curso de agua del calibrado
+  dt:
+    $ref: timeinterval.yml
+    description: intervalo temporal del calibrado en formato SQL, p. ej '1 days'
+      o '12 hours' o '00:30:00'
+    example: 1 days
+  t_offset:
+    $ref: timeinterval.yml
+    description: offset temporal del modelo en formato SQL, p ej '9 hours'
+    example: 9 hours
+  grupo_id:
+    type: integer 
+    format: int64
+    description: id de grupo de calibrados
+required:
+- model_id
+- nombre

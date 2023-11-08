@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: escena.yml
+title: Escena
+type: object
+properties:
+  nombre:
+    description: nombre de la escena
+    schema: { "type": "string"} 
+  unid:
+    description: identificador único de la escena
+    type: integer 
+  geom:
+    description: geometría de la escena (polígono)
+    $ref: geometry.yml

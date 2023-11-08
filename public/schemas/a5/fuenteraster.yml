@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: fuenteraster.yml
+title: FuenteRaster
+type: object
+properties:
+  id:
+    type: integer 
+    description: id de la fuente
+  nombre:
+    schema: { "type": "string"} 
+    description: nombre de la fuente
+  data_table:
+    schema: { "type": "string"} 
+    description: ''
+  data_column:
+    schema: { "type": "string"} 
+    description: ''
+  tipo:
+    schema: { "type": "string"} 
+    description: tipo de la fuente
+  def_proc_id:
+    schema: { "type": "string"} 
+    description: id de procedimiento por defecto de la fuente
+  def_dt:
+    schema: { "type": "string"} 
+    description: intervalo temporal por defecto de la fuente
+  hora_corte:
+    schema: { "type": "string"} 
+    description: hora de corte por defecto de la fuente
+  def_unit_id:
+    type: integer 
+    description: id de unidades por defecto de la fuente
+  def_var_id:
+    type: integer 
+    description: id de variable por defecto de la fuente
+  fd_column:
+    schema: { "type": "string"} 
+    description: ''
+  mad_table:
+    schema: { "type": "string"} 
+    description: ''
+  scale_factor:
+    type: number
+    description: factor de escala por defecto de la fuente
+  data_offset:
+    type: number
+    description: offset por defecto de la fuente
+  def_pixel_height:
+    type: " number"
+    description: altura de pixel por defecto de la fuente
+  def_pixel_width:
+    type: number
+    description: ancho de pixel por defecto de la fuente
+  def_srid:
+    type: integer 
+    description: código SRID de georeferenciación por defecto de la fuente
+  def_extent:
+    schema: { "type": "string"} 
+    description: id de procedimiento por defecto de la fuente
+  date_column:
+    schema: { "type": "string"} 
+    description: ''
+  def_pixel_type:
+    schema: { "type": "string"} 
+    description: tipo de dato del pixel por defecto de la fuente
+  abstract:
+    schema: { "type": "string"} 
+    description: descripción de la fuente
+  source:
+    schema: { "type": "string"} 
+    description: ubicación del origen de la fuente

@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: observaciondia.yml
+title: ObservacionDia
+type: object
+properties:
+  date:
+    description: fecha de la observación
+    schema: { "type": "string"} 
+  series_id:
+    description: id de serie
+    type: integer 
+  var_id:
+    description: id de variable
+    type: integer 
+  proc_id:
+    description: id de procedimiento
+    type: integer 
+  unit_id:
+    description: id de unidades
+    type: integer 
+  estacion_id:
+    description: id de estacion (tipo puntual)
+    type: integer 
+  valor:
+    description: valor de la observación
+    type: number
+  fuentes_id:
+    description: id de fuente (tipo areal y raster)
+    type: integer 
+  area_id:
+    description: id de area (tipo areal)
+    type: integer 
+  tipo:
+    description: tipo de observación
+    schema: { "type": "string"} 
+    enum:
+    - puntual
+    - areal
+    - raster
+  doy:
+    description: día del año
+    type: integer 
+  cume_dist:
+    description: valor de distribución acumulada
+    type: number

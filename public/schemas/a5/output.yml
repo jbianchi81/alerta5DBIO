@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: output.yml
+title: Output
+type: object
+properties:
+  series_table:
+    schema: { "type": "string"} 
+    description: tabla a la que pertenece la serie de salida
+    enum:
+    - series
+    - series_areal
+    example: series
+  series_id:
+    type: integer 
+    format: int64
+    description: identificador único de la serie de salida
+  orden:
+    type: integer 
+    format: int64
+    description: número de orden de salida
+    minimum: 1
+  cal_id:
+    type: integer 
+    format: int64
+    description: identificador único de calibrado
+    readOnly: true
+  id:
+    type: integer 
+    format: int64
+    description: identificador único
+    readOnly: true
+required:
+- series_id
+- orden
+table_name: cal_out

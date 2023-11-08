@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: variable.yml
+title: Variable
+type: object
+properties:
+  id:
+    type: integer 
+    description: id de la variable
+  var:
+    description: código alfanumérico de la variable
+    schema: { "type": "string"} 
+  nombre:
+    description: Nombre de la variable
+    schema: { "type": "string"} 
+  abrev:
+    description: Abreviatura de la variable
+    schema: { "type": "string"} 
+  type:
+    description: tipo de la variable
+    schema: { "type": "string"} 
+  dataType:
+    description: tipo de dato de la variable según ODM
+    schema: { "type": "string"} 
+  valueType:
+    description: tipo de valor de la variable según ODM
+    schema: { "type": "string"} 
+  GeneralCategory:
+    description: categoría general de la variable según ODM
+    schema: { "type": "string"} 
+  VariableName:
+    description: nombre de la variable según ODM
+    schema: { "type": "string"} 
+  SampleMedium:
+    description: Medio de muestreo según ODM
+    schema: { "type": "string"} 
+  def_unit_id:
+    description: id de unidades por defecto
+    type: integer 
+  timeSupport:
+    description: soporte temporal de la medición
+    schema: { "type": "string"} 

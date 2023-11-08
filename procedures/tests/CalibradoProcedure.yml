@@ -1,0 +1,156 @@
+sequence:
+- procedureName: CreateProcedure
+  arguments:
+    class_name: estacion
+    elements:
+    - id: 2179
+      tabla: alturas_prefe
+      geom: {"type": "Point", "coordinates": [-55, -25]}
+      id_externo: 55
+- procedureName: CreateProcedure
+  arguments:
+    class_name: serie
+    elements:
+    - tipo: puntual
+      id: 26653
+      estacion:
+        id: 2179
+      procedimiento:
+        id: 4
+      var:
+        id: 40
+      unidades:
+        id: 10
+- procedureName: CreateProcedure
+  arguments:
+    class_name: modelo
+    jsonfile:  sample_data/test_model.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: CreateProcedure
+  arguments:
+    class_name: calibrado
+    jsonfile:  sample_data/test_cal.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: CreateProcedure
+  arguments:
+    class_name: corrida
+    jsonfile:  sample_data/corrida.yml
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: ReadProcedure
+  arguments:
+    class_name: corrida
+    filter:
+      cal_id: 289
+      forecast_date: 2023-11-07T03:00:00.000Z
+    output: outputs/corrida.json
+    options:
+      pretty: true
+      includeProno: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: ArrayLengthTest
+    arguments:
+      property_name: series
+      min_length: 1
+      max_length: 1
+  - testName: ArrayLengthTest
+    arguments:
+      property_name: series.0.pronosticos
+      min_length: 3
+      max_length: 3
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: series.0.series_table
+      property_value: series
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: series.0.series_id
+      property_value: 26653
+- procedureName: ReadProcedure
+  arguments:
+    class_name: corrida
+    filter:
+      cal_id: 289
+      forecast_date: 2023-11-07T03:00:00.000Z
+    output: outputs/corrida.json
+    options:
+      pretty: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: ArrayLengthTest
+    arguments:
+      property_name: series
+      min_length: 1
+      max_length: 1
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: series.0.count
+      property_value: 3
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: series.0.series_table
+      property_value: series
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: series.0.series_id
+      property_value: 26653
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: corrida
+    filter:
+      cal_id: 289
+      forecast_date: 2023-11-07T03:00:00.000Z
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: calibrado
+    filter:
+      cal_id: 289
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: modelo
+    filter:
+      name: test_model
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: serie
+    filter:
+      tipo: puntual
+      id: 26653
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: estacion
+    filter:
+      id: 2179
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1

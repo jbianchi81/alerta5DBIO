@@ -1688,4 +1688,52 @@ SELECT
 --      JOIN series ON calibrados_series_out.series_id = series.id
 --   ORDER BY corridas.cal_id, corridas.date, series.id;
 
+CREATE TABLE public.extra_pars (
+    id integer NOT NULL,
+    cal_id integer NOT NULL,
+    model_id integer NOT NULL,
+    stddev_forzantes real[],
+    stddev_estados real,
+    var_innov text[],
+    trim_sm boolean[],
+    rule real[],
+    asim text[],
+    update text[],
+    xpert boolean,
+    sm_transform real[],
+    replicates integer,
+    par_fg real[],
+    func character varying,
+    lags integer[],
+    windowsize integer,
+    max_npasos integer,
+    no_check1 boolean,
+    no_check2 boolean,
+    rk2 boolean,
+    CONSTRAINT extra_pars_max_npasos_check CHECK ((max_npasos >= 1))
+);
+
+CREATE SEQUENCE public.extra_pars_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.extra_pars_id_seq OWNED BY public.extra_pars.id;
+
+ALTER TABLE ONLY public.extra_pars ALTER COLUMN id SET DEFAULT nextval('public.extra_pars_id_seq'::regclass);
+
+ALTER TABLE ONLY public.extra_pars
+    ADD CONSTRAINT extra_pars_cal_id_key UNIQUE (cal_id);
+
+CREATE TRIGGER extrapars_get_model_id BEFORE INSERT ON public.extra_pars FOR EACH ROW EXECUTE PROCEDURE public.get_model_id();
+
+ALTER TABLE ONLY public.extra_pars
+    ADD CONSTRAINT extra_pars_cal_id_fkey FOREIGN KEY (cal_id) REFERENCES public.calibrados(id);
+
+ALTER TABLE ONLY public.extra_pars
+    ADD CONSTRAINT extra_pars_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.modelos(id);
+
 COMMIT;

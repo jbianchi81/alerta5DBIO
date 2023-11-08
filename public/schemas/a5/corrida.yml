@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: corrida.yml
+title: Corrida
+type: object
+properties:
+  forecast_date:
+    schema: { "type": "string"} 
+    description: Fecha de emisión
+  series:
+    type: array
+    description: series temporales simuladas
+    items:
+      $ref: serietemporalsim.yml
+required:
+- forecast_date
+- series

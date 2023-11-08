@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: procedimiento.yml
+title: Procedimiento
+type: object
+properties:
+  id:
+    description: id del Procedimiento
+    type: integer 
+  nombre:
+    description: Nombre del Procedimiento
+    schema: { "type": "string"} 
+  abrev:
+    description: Nombre abreviado del Procedimiento
+    schema: { "type": "string"} 
+  descripicion:
+    description: descripción del Procedimiento
+    schema: { "type": "string"} 

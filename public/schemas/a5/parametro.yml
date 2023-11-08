@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: parametro.yml
+title: Parametro
+type: object
+properties:
+  valor:
+    type: number
+    format: float
+    description: valor del parámetro
+  orden:
+    type: integer 
+    format: int64
+    description: número de orden del parámetro
+    minimum: 1
+  cal_id:
+    type: integer 
+    format: int64
+    description: identificador único de calibrado
+    readOnly: true
+  id:
+    type: integer 
+    format: int64
+    description: identificador único
+    readOnly: true
+required:
+- valor
+- orden

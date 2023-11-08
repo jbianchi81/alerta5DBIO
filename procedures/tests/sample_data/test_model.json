@@ -1,0 +1,13 @@
+[
+    {
+        "id": 1,
+        "nombre": "test_model",
+        "parametros": null,
+        "estados": null,
+        "forzantes": null,
+        "outputs": null,
+        "tipo": "",
+        "def_var_id": 40,
+        "def_unit_id": 10
+    }
+]

@@ -1,0 +1,23 @@
+[
+    {
+        "id": 289,
+        "outputs": null,
+        "area_id": null,
+        "in_id": null,
+        "nombre": "test_cal",
+        "modelo": "test_model",
+        "activar": true,
+        "selected": false,
+        "dt": {
+            "days": 1
+        },
+        "t_offset": {
+            "hours": 9
+        },
+        "parametros": null,
+        "estados_iniciales": null,
+        "forzantes": null,
+        "extra_pars": null,
+        "out_id": null
+    }
+]

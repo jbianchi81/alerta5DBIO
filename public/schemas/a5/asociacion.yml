@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: asociacion.yml
+title: Asociacion
+type: object
+properties:
+  id:
+    type: integer 
+  source_tipo:
+    schema: { "type": "string"} 
+  source_series_id:
+    type: integer 
+  dest_tipo:
+    schema: { "type": "string"} 
+  dest_series_id:
+    type: integer 
+  agg_func:
+    schema: { "type": "string"} 
+  dt:
+    schema: { "type": "string"} 
+  t_offset:
+    schema: { "type": "string"} 
+  precision:
+    type: integer 
+  source_time_support:
+    schema: { "type": "string"} 
+  source_is_inst:
+    schema: { "type": "boolean"} 
+  source_series:
+    $ref: serie.yml
+  dest_series:
+    $ref: serie.yml
+  site:
+    $ref: estacion.yml
+  expresion:
+    schema: { "type": "string"} 

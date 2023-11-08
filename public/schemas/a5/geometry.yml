@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: geometry.yml
+title: Geometry
+type: object
+properties:
+  type:
+    description: tipo de geometría
+    schema: { "type": "string"} 
+    enum:
+    - Point
+    - MultiPoint
+    - LineString
+    - MultiLineString
+    - Polygon
+    - MultiPolygon
+    - GeometryCollection
+  coordinates:
+    description: coordenadas
+    oneOf:
+    - $ref: position.yml
+    - $ref: linestring.yml
+    - $ref: polygon.yml
+    - $ref: multipolygon.yml
+required:
+- type
+- coordinates

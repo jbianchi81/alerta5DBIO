@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: fuentepuntual.yml
+title: FuentePuntual
+type: object
+properties:
+  id:
+    type: integer 
+    description: id numérico de la fuente
+  tabla_id:
+    schema: { "type": "string"} 
+    description: id alfanumérico de la fuente
+  nombre:
+    schema: { "type": "string"} 
+    description: nombre de la fuente
+  public:
+    schema: { "type": "boolean"} 
+    description: si la fuente es pública
+  public_his_plata:
+    schema: { "type": "boolean"} 
+    description: si la fuente está disponible para HIS-Plata

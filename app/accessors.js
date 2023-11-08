@@ -1714,6 +1714,8 @@ internal.alturas_pna = class {    //SFER eliminado 2020/10/02!! ver config.site_
 
 }
 
+internal.prono_yml = require('./prono_yml_accessor').prono_yml
+
 internal.eby = class {
 	constructor(config) {
 		this.config = config

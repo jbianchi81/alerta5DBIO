@@ -1,1 +1,30 @@
-{"nombre":"Salto Grande","id_externo":"A5002774","geom":{"type":"Point","coordinates":[-57.916594,-31.272706]},"tabla":"estaciones_salto_grande","provincia":null,"pais":"Uruguay","rio":null,"has_obs":true,"tipo":"A","automatica":true,"habilitar":true,"propietario":"Salto Grande","abreviatura":null,"localidad":null,"real":true,"nivel_alerta":null,"nivel_evacuacion":null,"nivel_aguas_bajas":null,"altitud":null,"public":true,"cero_ign":null,"id":1018}
+{
+    "nombre": "Salto Grande",
+    "id_externo": "A5002774",
+    "geom": {
+        "type": "Point",
+        "coordinates": [
+            -57.916594,
+            -31.272706
+        ]
+    },
+    "tabla": "estaciones_salto_grande",
+    "provincia": null,
+    "pais": "Uruguay",
+    "rio": null,
+    "has_obs": true,
+    "tipo": "A",
+    "automatica": true,
+    "habilitar": true,
+    "propietario": "Salto Grande",
+    "abreviatura": null,
+    "localidad": null,
+    "real": true,
+    "nivel_alerta": null,
+    "nivel_evacuacion": null,
+    "nivel_aguas_bajas": null,
+    "altitud": null,
+    "public": true,
+    "cero_ign": null,
+    "id": 1018
+}

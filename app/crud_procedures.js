@@ -3509,6 +3509,7 @@ if(1==1) {
     .option("-F, --iter_field <value>",'Field of elements to iterate over to generate separate output files (combined with -i)')
     .option("-h, --header",'add csv header to output (with --format csv)')
     .option("-c, --columns <value...>","read only this columns")
+    .option("-O, --more_options <value...>","additional kvp options")
     .action(async (crud_class,filter,options) => {
         try {
             filter = parseKVPArray(filter)
@@ -3525,6 +3526,15 @@ if(1==1) {
         const class_name = crud_class
         crud_class = CRUD.CRUD[class_name]
         const read_options = getOutputOptions(options)
+        if(options && options.more_options) {
+            try {
+                options.more_options = parseKVPArray(options.more_options)
+            } catch (e) {
+                logger.error(e)
+                process.exit(1)
+            }
+            Object.assign(read_options,options.more_options)
+        }
         try {
             var procedure = new internal.ReadProcedure({class_name: class_name, filter:filter, output: (options.output) ? path.resolve(options.output) : undefined, output_format: options.format, options: read_options})
         } catch(e) {

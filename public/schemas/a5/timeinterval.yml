@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: timeinterval.yml
+title: TimeInterval
+oneOf:
+- schema: { "type": "string"} 
+  format: time-interval
+- type: object
+  properties:
+    milliseconds:
+      type: integer 
+      format: int64
+    seconds:
+      type: integer 
+      format: int64
+    minutes:
+      type: integer 
+      format: int64
+    hours:
+      type: integer 
+      format: int64
+    days:
+      type: integer 
+      format: int64
+    months:
+      type: integer 
+      format: int64
+    years:
+      type: integer 
+      format: int64

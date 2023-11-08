@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: pronostico.yml
+title: Pronostico
+type: object
+properties:
+  timestart:
+    schema: { "type": "string"} 
+    description: fecha-hora inicial del pronóstico
+    format: date-time
+    interval: begin
+  timeend:
+    schema: { "type": "string"} 
+    description: fecha-hora final del pronóstico
+    format: date-time
+    interval: end
+  valor:
+    type: number
+    format: float
+    description: valor del pronóstico
+  qualifier:
+    schema: { "type": "string"} 
+    description: calificador opcional para diferenciar subseries, default:'main'
+    example: main
+required:
+- timestart
+- timeend
+- valor

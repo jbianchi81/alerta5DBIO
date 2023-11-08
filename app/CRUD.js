@@ -4679,14 +4679,14 @@ internal.modelo = class extends baseModel {
         super()
 		var m = arguments[0]
 		this.id = (m.id) ? parseInt(m.id) : undefined
-		this.nombre = (m.nombre) ? m.nombre.toString() : undefined
-		this.tipo = (m.tipo) ? m.tipo.toString() : undefined
+		this.nombre = m.nombre
+		this.tipo = m.tipo
 		this.def_var_id = (m.def_var_id) ? m.def_var_id : undefined
 		this.def_unit_id = (m.def_unit_id) ? m.def_unit_id : undefined
 		this.parametros = (m.parametros) ? m.parametros.map(p=>new internal.modelo_parametro(p)) : undefined
 		this.forzantes = (m.forzantes) ? m.forzantes.map(f=>new internal.modelo_forzante(f)) : undefined
 		this.estados = (m.estados) ? m.estados.map(e=>new internal.modelo_estado(e)) : undefined
-		this.outputs = (m.outputs) ? m.estados.map(o=>new internal.modelo_output(o)) : undefined
+		this.outputs = (m.outputs) ? m.outputs.map(o=>new internal.modelo_output(o)) : undefined
 		this.sortArrays()
 	}
 	sortArrays() {
@@ -4711,6 +4711,13 @@ internal.modelo = class extends baseModel {
 			return this
 		}
 		return
+	}
+	static async read(filter={}) {
+		return internal.CRUD.getModelos(filter.id ?? filter.model_id, filter.tipo,filter.name)
+	}
+
+	static async delete(filter={}) {
+		return internal.CRUD.deleteModelos(filter.id ?? filter.model_id,filter.tipo)
 	}
 }
 
@@ -4837,12 +4844,13 @@ internal.calibrado = class extends internal.genericModel {
 		}
 		this.id = (m.id) ? parseInt(m.id) : undefined
 		this.nombre = (m.nombre) ? m.nombre.toString() : undefined
-		this.model_id = parseInt(m.model_id)
+		this.model_id = m.model_id
+		this.modelo = m.modelo
 		this.activar = (m.hasOwnProperty("activar")) ? m.activar : true
 		this.parametros = this.getParametros(m.parametros)
 		this.forzantes = this.getForzantes(m.forzantes)
 		this.estados = this.getParametros(m.estados)
-		this.outputs = this.getForzantes(m.outputs)
+		this.outputs = this.getOutputs(m.outputs)
 		this.selected = (m.hasOwnProperty("selected")) ? m.selected : false
 		this.out_id = m.out_id
 		this.area_id = m.area_id
@@ -4912,9 +4920,33 @@ internal.calibrado = class extends internal.genericModel {
 				forzante.orden = (f.orden) ? f.orden : orden
 			}
 			if(parseInt(forzante.series_id).toString() == "NaN") {
-				throw(`invalid forzante: ${forzante.series_id}`)
+				throw(new Error(`invalid forzante: ${forzante.series_id}`))
 			}
 			return new internal.forzante(forzante)
+		})
+	}
+
+	getOutputs(outputs) {
+		if(!outputs) {
+			return
+		}
+		var orden = 0 
+		return outputs.map(f=>{
+			orden = orden + 1
+			var output = {}
+			if(typeof f == "number") {
+				output.series_id = f 
+				output.series_table = "series"
+				output.orden = orden
+			} else {
+				output.series_id = f.series_id
+				output.series_table = f.series_table
+				output.orden = (f.orden) ? f.orden : orden
+			}
+			if(parseInt(output.series_id).toString() == "NaN") {
+				throw(new Error(`invalid output: ${output.series_id}`))
+			}
+			return new internal.forzante(output)
 		})
 	}
 
@@ -4928,6 +4960,9 @@ internal.calibrado = class extends internal.genericModel {
 	}
 	static async read(filter={},options={}) {
 		return internal.CRUD.getCalibrados(filter.estacion_id,filter.var_id,filter.includeCorr,filter.timestart,filter.timeend,filter.cal_id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,options.no_metadata,options.group_by_cal,filter.forecast_date,options.includeInactive,filter.series_id,filter.nombre)
+	}
+	static async delete(filter={}) {
+		return internal.CRUD.deleteCalibrados(filter)
 	}
 }
 
@@ -5167,6 +5202,9 @@ internal.corrida = class extends baseModel {
 	static async read(filter={},options={}) {
 		const corridas = await internal.CRUD.getPronosticos(filter.cor_id,filter.cal_id,filter.forecast_timestart,filter.forecast_timeend,filter.forecast_date,filter.timestart,filter.timeend,filter.qualifier,filter.estacion_id,filter.var_id,options.includeProno,filter.isPublic,filter.series_id,options.series_metadata,filter.cal_grupo_id,options.group_by_qualifier,filter.model_id,filter.tipo)
 		return corridas
+	}
+	static async delete(filter={}) {
+		return internal.CRUD.deleteCorridas(filter)
 	}
 	async getSeries(filter={},options={}) {
 		filter.cor_id = this.id
@@ -14010,9 +14048,15 @@ SELECT mod.id, \
 			return Promise.reject("crud.upsertModelos: empty array")
 		}
 		var rows = modelos.map(m=>{
-			if(!m.nombre || !m.tipo || !m.def_var_id || !m.def_unit_id) {
-				throw("Invalid modelo. Missing one of nombre, tipo, def_var_id, def_unit_id")
-			}
+			const required_fields = ["nombre", "tipo", "def_var_id", "def_unit_id"]
+			required_fields.forEach(key=>{
+				if(typeof m[key] === undefined) {
+					throw("Invalid modelo. Missing " + key)
+				}
+				if(m[key] == null) {
+					throw("Invalid modelo. " + key + " is null")
+				}
+			})
 			var modelo = new internal.modelo(m)
 			return sprintf("('%s','%s',%d,%d)",modelo.nombre,modelo.tipo,modelo.def_var_id,modelo.def_unit_id)
 		})
@@ -14071,6 +14115,46 @@ SELECT mod.id, \
 		var grupo_filter = (grupo_id) ? "AND series_prono_last.cal_grupo_id=" + parseInt(grupo_id) : ""
 		var cal_join = (estacion_id || var_id || includeCorr || timestart || timeend || grupo_id) ? "JOIN" : "LEFT OUTER JOIN"
 		var base_query
+		const series_filter = internal.utils.control_filter2(
+			{
+				"estacion_id": {
+					type: "integer",
+					table: "series"
+				},
+				"var_id": {
+					type: "integer",
+					table: "series",
+				},
+				"cal_id": {
+					type: "integer",
+					table: "series_prono_last"
+				},
+				"model_id": {
+					type: "integer",
+					table: "series_prono_last"
+				}
+			},{
+				estacion_id: estacion_id,
+				var_id: var_id,
+				cal_id: cal_id,
+				model_id: model_id
+			}
+		)
+		const calibrados_filter = internal.utils.control_filter2(
+			{
+				id: {
+					type: "integer",
+					table: "calibrados"
+				},
+				model_id: {
+					type: "integer",
+					table: "calibrados"
+				}
+			},{
+				id: cal_id,
+				model_id: model_id
+			}
+		)
 		if(group_by_cal) {
 			base_query = "WITH pronos as (\
 				select series_prono_last.cal_id,\
@@ -14079,10 +14163,7 @@ SELECT mod.id, \
 				json_agg(json_build_object('estacion_id',series.estacion_id,'var_id',series.var_id,'proc_id',series.proc_id,'unit_id',series.unit_id)) series\
 				from series_prono_last,series\
 				WHERE series_prono_last.series_id=series.id\
-				AND series.estacion_id=coalesce($1,series.estacion_id)\
-				AND series.var_id=coalesce($2,series.var_id)\
-				AND series_prono_last.cal_id=coalesce($3,series_prono_last.cal_id)\
-				AND series_prono_last.model_id=coalesce($4,series_prono_last.model_id)\
+				" + series_filter + "\
 				" + grupo_filter + "\
 				GROUP BY series_prono_last.cal_id,series_prono_last.cor_id,series_prono_last.fecha_emision\
 			  ),\
@@ -14101,8 +14182,7 @@ SELECT mod.id, \
 		        FROM calibrados \
 				" + cal_join + " pronos\
 				ON (calibrados.id=pronos.cal_id) \
-				WHERE calibrados.id = coalesce($3,calibrados.id) \
-				AND calibrados.model_id = coalesce($4,calibrados.model_id) \
+				" + calibrados_filter + "\
 		        " + activar_filter + "\
 				" + public_filter + "\
 		    )"
@@ -14117,10 +14197,7 @@ SELECT mod.id, \
 				series.unit_id\
 				from series_prono_last,series\
 				WHERE series_prono_last.series_id=series.id\
-				AND series.estacion_id=coalesce($1,series.estacion_id)\
-				AND series.var_id=coalesce($2,series.var_id)\
-				AND series_prono_last.cal_id=coalesce($3,series_prono_last.cal_id)\
-				AND series_prono_last.model_id=coalesce($4,series_prono_last.model_id)\
+				" + series_filter + "\
 				" + grupo_filter + "\
 			  ),\
 			  cal as (\
@@ -14140,8 +14217,7 @@ SELECT mod.id, \
 				FROM calibrados \
 				" + cal_join + " pronos\
 				ON (calibrados.id=pronos.cal_id) \
-				WHERE calibrados.id = coalesce($3,calibrados.id) \
-				AND calibrados.model_id = coalesce($4,calibrados.model_id) \
+				" + calibrados_filter + "\
 		        " + activar_filter + "\
 				" + public_filter + "\
 			)"
@@ -14205,18 +14281,30 @@ LEFT OUTER JOIN forcings ON (forcings.cal_id=cal.cal_id) \
 ORDER BY cal.cal_id`
 		}
 		// console.log(internal.utils.pasteIntoSQLQuery(query,[estacion_id,var_id,cal_id,model_id]))
-		return global.pool.query(query,[estacion_id,var_id,cal_id,model_id])
+		return global.pool.query(query) //,[estacion_id,var_id,cal_id,model_id])
 		.then(result=>{
 			if(!result.rows) {
 				return Promise.reject()
 			}
 			var calibrados = result.rows
-			//~ console.log({calibrados:calibrados})
+			// console.log({calibrados:calibrados})
 			var extraqueries = []
 			if(cal_id) {
-				extraqueries.push(global.pool.query("SELECT  * from cal_out WHERE cal_id=$1 order by orden",[cal_id])
+				console.log("Querying for cal_out")
+				const cal_filter = internal.utils.control_filter2(
+					{
+						cal_id: {
+							type: "integer",
+							table: "cal_out"
+						}
+					},{
+						cal_id: cal_id
+					}
+				)
+				extraqueries.push(global.pool.query("SELECT  * from cal_out WHERE 1=1 " + cal_filter + " order by orden")
 				.then(result=>{
 					if(result.rows) {
+						console.log("Got " + result.rows.length + " records from cal_out")
 						calibrados.forEach((c,i)=>{
 							//~ console.log("cal i:"+i)
 							c.outputs = result.rows
@@ -14227,6 +14315,7 @@ ORDER BY cal.cal_id`
 			}
 			if(includeCorr) {
 				//~ var promises = []
+				console.log("Querying for corridas")
 				extraqueries.push(...calibrados.map((c,i)=>{ // for(var i=0;i<calibrados.length;i++) {
 					//~ extraqueries.push(
 					if(forecast_date) {
@@ -14273,6 +14362,7 @@ ORDER BY cal.cal_id`
 					if(!cal.forzantes || !cal.forzantes.length) {
 						return
 					}
+					console.log("getting forzantes")
 					for(var i in cal.forzantes) {
 						const f = new internal.forzante(cal.forzantes[i])
 						await f.getSerie(global.pool)
@@ -14284,6 +14374,7 @@ ORDER BY cal.cal_id`
 			}
 			return Promise.all(extraqueries)
 			.then(()=>{
+				console.log({calibrados:calibrados})
 				return calibrados
 			})
 		})
@@ -14616,7 +14707,16 @@ ORDER BY cal.cal_id`
 
 		input_cal.setArrayProperties()
 		if(!input_cal.model_id) {
-			return Promise.reject("Missing model_id")
+			if(!input_cal.modelo) {
+				return Promise.reject("Missing model_id")
+			} else {
+				const modelo = await internal.modelo.read({name:input_cal.modelo})
+				if(!modelo.length) {
+					return Promise.reject("Modelo not found with name: " + input_cal.modelo)
+				} else {
+					input_cal.model_id = modelo[0].id
+				}
+			}
 		}
 		var calibrado
 		return global.pool.connect()
@@ -14630,7 +14730,7 @@ ORDER BY cal.cal_id`
 					ON CONFLICT (id)\
 					DO UPDATE SET nombre=coalesce(excluded.nombre,calibrados.nombre), modelo=coalesce(excluded.modelo,calibrados.modelo), parametros=coalesce(excluded.parametros,calibrados.parametros), estados_iniciales=coalesce(excluded.estados_iniciales,calibrados.estados_iniciales), activar=coalesce(excluded.activar,calibrados.activar), selected=coalesce(excluded.selected,calibrados.selected), out_id=coalesce(excluded.out_id,calibrados.out_id), area_id=coalesce(excluded.area_id,calibrados.area_id), in_id=coalesce(excluded.in_id,calibrados.in_id), model_id=coalesce(excluded.model_id,calibrados.model_id), tramo_id=coalesce(excluded.tramo_id,calibrados.tramo_id), dt=coalesce(excluded.dt,calibrados.dt), t_offset=coalesce(excluded.t_offset,calibrados.t_offset)\
 					RETURNING *",[input_cal.id, input_cal.nombre, input_cal.modelo, input_cal.parametros, input_cal.estados, input_cal.activar, input_cal.selected, input_cal.out_id, input_cal.area_id, input_cal.in_id, input_cal.model_id, input_cal.tramo_id, timeSteps.interval2string(input_cal.dt), timeSteps.interval2string(input_cal.t_offset)])
-					// console.log(stmt)
+					console.log(stmt)
 					upserted = await client.query(stmt)
 				} else {
 					var stmt = internal.utils.pasteIntoSQLQuery("INSERT INTO calibrados (id,nombre, modelo, parametros, estados_iniciales, activar, selected, out_id, area_id, in_id, model_id, tramo_id, dt, t_offset) VALUES \
@@ -15828,19 +15928,83 @@ ORDER BY cal.cal_id`
 		await client.query("BEGIN")
 		try {
 			if(cor_id) {
-				if(Array.isArray(cor_id))	{
-					if(cor_id.length == 0) {
-						client.release()
-						throw("crud.deleteCorrida: cor_id is empty array")
-					}
-					var query = "DELETE FROM valores_prono_num USING pronosticos WHERE pronosticos.cor_id IN (" + cor_id.join(",") + ") AND pronosticos.id=valores_prono_num.prono_id"
-							// console.log(query)
-					var result = await client.query(query)
-				} else {
-					var result = await client.query("DELETE FROM valores_prono_num USING pronosticos WHERE pronosticos.cor_id=$1 AND pronosticos.id=valores_prono_num.prono_id",[cor_id])
+				if(Array.isArray(cor_id) && !cor_id.length)	{
+					client.release()
+					throw("crud.deleteCorrida: cor_id is empty array")
 				}
+				// delete from series_puntual_prono_date_range
+				var cor_filter = internal.utils.control_filter2(
+					{
+						cor_id: {
+							type: "integer"
+						}
+					},
+					{
+						cor_id: cor_id
+					}
+				)
+				if(!cor_filter) {
+					throw("Invalid cor_id filter")
+				}
+				var query = "DELETE FROM series_puntual_prono_date_range WHERE 1=1 " + cor_filter
+				console.log(query)
+				var result = await client.query(query)
+				query = "DELETE FROM series_areal_prono_date_range WHERE 1=1 " + cor_filter
+				console.log(query)
+				result = await client.query(query)
+				var query = "DELETE FROM series_puntual_prono_date_range_by_qualifier WHERE 1=1 " + cor_filter
+				console.log(query)
+				var result = await client.query(query)
+				query = "DELETE FROM series_areal_prono_date_range_by_qualifier WHERE 1=1 " + cor_filter
+				console.log(query)
+				result = await client.query(query)
+				// delete from valores_prono_num
+				cor_filter = internal.utils.control_filter2(
+					{
+						cor_id: {
+							type: "integer",
+							table: "pronosticos"
+						}
+					},
+					{
+						cor_id: cor_id
+					}
+				)
+				if(!cor_filter) {
+					throw("Invalid cor_id filter")
+				}
+				query = "DELETE FROM valores_prono_num USING pronosticos WHERE  pronosticos.id=valores_prono_num.prono_id " + cor_filter
+				console.log(query)
+				var result = await client.query(query)
 			} else {
-				var result = await client.query("DELETE FROM valores_prono_num USING pronosticos,corridas WHERE corridas.cal_id=$1 AND corridas.date::date=$2::date AND corridas.id=pronosticos.cor_id AND pronosticos.id=valores_prono_num.prono_id",[cal_id,forecast_date])
+				var cor_filter = internal.utils.control_filter2(
+					{
+						cal_id: {
+							type: "integer",
+							table: "corridas"
+						},
+						date: {
+							type: "timestamp",
+							table: "corridas"
+						}
+					},{
+						cal_id: cal_id,
+						date: forecast_date
+					}
+				)
+				if(!cor_filter) {
+					throw("Invalid cal_id+forecast_date filter")
+				}
+				// delete from series_puntual_prono_date_range
+				var result = await client.query("DELETE FROM series_puntual_prono_date_range USING corridas WHERE corridas.id=series_prono_date_range.cor_id" + cor_filter)				
+				// delete from series_areal_prono_date_range
+				result = await client.query("DELETE FROM series_areal_prono_date_range USING corridas WHERE corridas.id=series_prono_date_range.cor_id" + cor_filter)				
+				// delete from series_puntual_prono_date_range_by_qualifier
+				var result = await client.query("DELETE FROM series_puntual_prono_date_range_by_qualifier USING corridas WHERE corridas.id=series_prono_date_range.cor_id" + cor_filter)				
+				// delete from series_areal_prono_date_range
+				result = await client.query("DELETE FROM series_areal_prono_date_range_by_qualifier USING corridas WHERE corridas.id=series_prono_date_range.cor_id" + cor_filter)				
+				// delete from valores_prono_num
+				result = await client.query("DELETE FROM valores_prono_num USING pronosticos,corridas WHERE corridas.id=pronosticos.cor_id AND pronosticos.id=valores_prono_num.prono_id" + cor_filter)
 			}
 			// console.log({deleted_valores: result.rows})
 			corrida.valores = (result.rows) ? result.rows : undefined
@@ -15963,7 +16127,7 @@ ORDER BY cal.cal_id`
 			if(filter.skip_cal_id) {
 				corridas = corridas.filter(c=> filter.skip_cal_id.indexOf(c.cal_id) < 0)
 			}
-			var cor_id = corridas.map(c=>c.cor_id)
+			var cor_id = corridas.map(c=>c.id)
 			console.log({corridas:corridas,cor_id:cor_id})
 			var savePromise
 			if(options.save) {
@@ -16502,7 +16666,8 @@ ORDER BY cal.cal_id`
 					return this.getCalibrados(estacion_id,var_id,true,startdate,enddate,undefined,undefined,undefined,isPublic,undefined,undefined,undefined,forecast_date,undefined,series_sim.map(s=>s.id),undefined,serie.tipo)
 					.then(calibrados=>{
 						serie.pronosticos = calibrados
-						console.log("getSeriesBySiteAndVar with prono of length "  + serie.pronosticos.length)
+						console.log("getSeriesBySiteAndVar with prono of length "  + serie.pronosticos.
+						length)
 						return serie
 					})
 				} else {

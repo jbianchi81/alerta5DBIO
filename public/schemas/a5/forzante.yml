@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: forzante.yml
+title: Forzante
+type: object
+properties:
+  series_table:
+    schema: { "type": "string"} 
+    description: tabla a la que pertenece la serie de entrada
+    enum:
+    - series
+    - series_areal
+    example: series
+  series_id:
+    type: integer 
+    format: int64
+    description: identificador único de la serie de entrada
+  orden:
+    type: integer 
+    format: int64
+    description: número de orden de entrada
+    minimum: 1
+  cal_id:
+    type: integer 
+    format: int64
+    description: identificador único de calibrado
+    readOnly: true
+  id:
+    type: integer 
+    format: int64
+    description: identificador único
+    readOnly: true
+  model_id:
+    type: integer 
+    format: int64
+    description: identificador único de modelo
+    readOnly: true
+  serie:
+    $ref: serie.yml
+    description: 'serie: objeto Serie'
+    foreign_key: series_id
+required:
+- series_id
+- orden

@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: observacion.yml
+title: Observacion
+type: object
+properties:
+  tipo:
+    schema: { "type": "string"} 
+    description: tipo de registro
+    enum:
+    - areal
+    - puntual
+    - raster
+  timestart:
+    schema: { "type": "string"} 
+    description: fecha-hora inicial del registro
+  timeend:
+    schema: { "type": "string"} 
+    description: fecha-hora final del registro
+  valor:
+    oneOf:
+    - type: number
+      format: float
+    - schema: { "type": "string"} 
+      format: binary
+    description: valor del registro
+  series_id:
+    type: integer 
+    description: id de serie
+required:
+- timestart
+- valor

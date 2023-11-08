@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://json-schema.org/draft/2020-12/schema
+$id: serie.yml
+title: Serie
+type: object
+properties:
+  tipo:
+    description: tipo de observación
+    schema: { "type": "string"} 
+    enum:
+    - puntual
+    - areal
+    - raster
+  id:
+    description: id de la serie
+    type: integer 
+  estacion:
+    description: 'estación/área/escena (para tipo: puntual/areal/raster respectivamente)'
+    oneOf:
+    - $ref: estacion.yml
+    - $ref: area.yml
+    - $ref: escena.yml
+    foreign_key: estacion_id
+  var:
+    description: variable
+    $ref: variable.yml
+  procedimiento:
+    description: procedimiento
+    $ref: procedimiento.yml
+    foreign_key: proc_id
+  unidades:
+    description: unidades
+    $ref: unidad.yml
+    foreign_key: unit_id
+  fuente:
+    description: 'fuente (para tipo: areal/raster)'
+    $ref: fuente.yml
+    foreign_key: fuentes_id
+  observaciones:
+    description: arreglo de observaciones correspondientes a la serie
+    type: array
+    items:
+      $ref: observacion.yml
+required:
+- tipo
+- estacion_id
+- var_id
+- proc_id
+- unit_id
