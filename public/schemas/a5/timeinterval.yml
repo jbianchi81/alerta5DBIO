@@ -2,28 +2,20 @@
 $id: timeinterval.yml
 title: TimeInterval
 oneOf:
-- schema: { "type": "string"} 
-  format: time-interval
+- schema: { "type": "string"}
 - type: object
   properties:
     milliseconds:
-      type: integer 
-      format: int64
+      type: integer
     seconds:
-      type: integer 
-      format: int64
+      type: integer
     minutes:
-      type: integer 
-      format: int64
+      type: integer
     hours:
-      type: integer 
-      format: int64
+      type: integer
     days:
-      type: integer 
-      format: int64
+      type: integer
     months:
-      type: integer 
-      format: int64
+      type: integer
     years:
-      type: integer 
-      format: int64
+      type: integer

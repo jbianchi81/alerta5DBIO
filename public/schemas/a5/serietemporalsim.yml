@@ -12,7 +12,6 @@ properties:
     example: series
   series_id:
     type: integer 
-    format: int64
     description: identificador único de serie simulada
   pronosticos:
     type: array

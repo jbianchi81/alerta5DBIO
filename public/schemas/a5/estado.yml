@@ -5,21 +5,17 @@ type: object
 properties:
   valor:
     type: number
-    format: float
     description: valor del estado
   orden:
-    type: integer 
-    format: int64
+    type: integer
     description: número de orden del estado
     minimum: 1
   cal_id:
     type: integer 
-    format: int64
     description: identificador único de calibrado
     readOnly: true
   id:
     type: integer 
-    format: int64
     description: identificador único
     readOnly: true
 required:

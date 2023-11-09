@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jbianchi81/alerta5DBIO/rewire_om_ogc_timeseries_client/public/schemas/a5/corrida.yml
+forecast_date: 2023-11-07T03:00:00.000Z
+cal_id: 289
+series:
+- series_table: series
+  series_id:
+    id: 26653
+  pronosticos:
+  - timestart: 2023-11-08T03:00:00.000Z
+    timeend: 2023-11-09T03:00:00.000Z
+    valor: 31400
+    qualifier: main
+  - timestart: 2023-11-09T03:00:00.000Z
+    timeend: 2023-11-10T03:00:00.000Z
+    valor: 32700
+    qualifier: main
+  - timestart: 2023-11-10T03:00:00.000Z
+    timeend: 2023-11-11T03:00:00.000Z
+    valor: 33300
+    qualifier: main

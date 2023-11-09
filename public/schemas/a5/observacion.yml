@@ -19,9 +19,7 @@ properties:
   valor:
     oneOf:
     - type: number
-      format: float
-    - schema: { "type": "string"} 
-      format: binary
+    - schema: { "type": "string"}
     description: valor del registro
   series_id:
     type: integer 

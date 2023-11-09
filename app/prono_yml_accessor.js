@@ -1,7 +1,8 @@
 const yaml = require('yaml')
 const fs = require('fs')
 const fsPromises = fs.promises
-const Ajv = require('ajv')
+const ajv = require('./a5_validator') // new Ajv()
+const validator = ajv.getSchema('corrida.yml')
 const {corrida: Corrida} = require('./CRUD')
 const path = require('path')
 
@@ -23,21 +24,22 @@ internal.prono_yml = class {
 			return true
 		})
 		.catch(e=>{
+			console.error(e)
 			return false
 		})
 	}
-	async parsePronoYml(file,validate=false) {
+	async parsePronoYml(file,validate=true) {
 		if(!file) {
 			file = this.config.file
 		}
 		var prono = yaml.parse(fs.readFileSync(path.resolve(__dirname,file),'utf-8'))
         if(validate) {
-            const ajv = new Ajv()
-            const schema = yaml.parse(fs.readFileSync(path.resolve(__dirname,this.config.schema),'utf-8'))
-            const valid = ajv.validate(schema,prono)
+            // const schema = yaml.parse(fs.readFileSync(path.resolve(__dirname,this.config.schema),'utf-8'))
+            const valid = validator(prono)
             if(!valid) {
-                throw(ajv.errors)
+				throw(new Error(JSON.stringify(validator.errors)))
             }
+			console.log("input corrida is valid")
         }
 		return new Corrida(prono)
 	}
@@ -49,6 +51,9 @@ internal.prono_yml = class {
         await corrida.create()
         return corrida
     }
+	async updatePronostico(filter={}) {
+		return this.update(filter)
+	}
 }
 
 module.exports = internal

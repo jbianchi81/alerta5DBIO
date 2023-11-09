@@ -46,7 +46,7 @@ properties:
     type: number
     description: offset por defecto de la fuente
   def_pixel_height:
-    type: " number"
+    type: number
     description: altura de pixel por defecto de la fuente
   def_pixel_width:
     type: number

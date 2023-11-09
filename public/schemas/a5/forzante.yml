@@ -12,26 +12,21 @@ properties:
     example: series
   series_id:
     type: integer 
-    format: int64
     description: identificador único de la serie de entrada
   orden:
     type: integer 
-    format: int64
     description: número de orden de entrada
     minimum: 1
   cal_id:
     type: integer 
-    format: int64
     description: identificador único de calibrado
     readOnly: true
   id:
     type: integer 
-    format: int64
     description: identificador único
     readOnly: true
   model_id:
     type: integer 
-    format: int64
     description: identificador único de modelo
     readOnly: true
   serie:

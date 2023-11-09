@@ -6,16 +6,13 @@ properties:
   timestart:
     schema: { "type": "string"} 
     description: fecha-hora inicial del pronóstico
-    format: date-time
     interval: begin
   timeend:
     schema: { "type": "string"} 
     description: fecha-hora final del pronóstico
-    format: date-time
     interval: end
   valor:
     type: number
-    format: float
     description: valor del pronóstico
   qualifier:
     schema: { "type": "string"} 
