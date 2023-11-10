@@ -2554,6 +2554,10 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		data_availability: {
 			type: "data_availability",
 			table: "date_range"
+		},
+		GeneralCategory: {
+			type: "string",
+			table: "var"
 		}
 	}
 	// 					DATE RANGE / DATA AVAILABILITY FILTER
@@ -4858,6 +4862,7 @@ internal.calibrado = class extends internal.genericModel {
 		this.dt = (m.dt) ? timeSteps.createInterval(m.dt) : undefined
 		this.t_offset = (m.t_offset) ? timeSteps.createInterval(m.t_offset) : undefined
 		this.stats = m.stats
+		this.corrida = m.corrida
 
 		this.sortArrays()
 	}
@@ -14116,7 +14121,7 @@ SELECT mod.id, \
 	}
 	
 	static async getCalibrados_(estacion_id,var_id,includeCorr=false,timestart,timeend,cal_id,model_id,qualifier,isPublic,grupo_id,no_metadata,group_by_cal,forecast_date,includeInactive,series_id) {
-		// console.log({includeCorr:includeCorr, isPublic: isPublic})
+		console.log({includeCorr:includeCorr, isPublic: isPublic})
 		var public_filter = (isPublic) ? "AND calibrados.public=true" : ""
 		var activar_filter = (includeInactive) ? "" : "AND calibrados.activar = TRUE"
 		var grupo_filter = (grupo_id) ? "AND series_prono_last.cal_grupo_id=" + parseInt(grupo_id) : ""
@@ -14515,17 +14520,17 @@ ORDER BY cal.cal_id`
 			calibrados = await this.getCalibrados_(filter.estacion_id,filter.var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive) // await engine.read("Calibrado",filter)
 		} else if(estacion_id || var_id || includeCorr || qualifier || forecast_date || series_id) {
 			series_prono_last = await this.getSeriesPronoLast({cal_id:cal_id,model_id:model_id,grupo_id:filter.grupo_id,estacion_id:estacion_id,var_id:var_id,forecast_date:forecast_date,series_id:series_id})
-			console.log(JSON.stringify({series_prono_last:series_prono_last},null,2))
+			// console.log(JSON.stringify({series_prono_last:series_prono_last},null,2))
 			const cal_ids = new Set(series_prono_last.map(result=>result.cal_id))
 			filter.id = Array.from(cal_ids)
 			if(!filter.id.length) {
 				console.error("No series_prono found")
 				return []
 			}
-			console.log({cal_id:filter.id})
-			calibrados = await this.getCalibrados_(filter.estacion_id,filter.var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive,series_id) // engine.read("Calibrado",filter)
+			// console.log({cal_id:filter.id})
+			calibrados = await this.getCalibrados_(estacion_id,var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive,series_id) // engine.read("Calibrado",filter)
 		} else {
-			calibrados = await this.getCalibrados_(filter.estacion_id,filter.var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive) // engine.read("Calibrado",filter)
+			calibrados = await this.getCalibrados_(estacion_id,var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive) // engine.read("Calibrado",filter)
 		}
 		if(includeCorr) {
 			var series_id
@@ -14554,8 +14559,10 @@ ORDER BY cal.cal_id`
 				}
 			} else {
 				for(var i in calibrados) {
+					// console.log(`this.getLastCorrida(${calibrados[i].out_id},${var_id},${calibrados[i].id},${timestart},${timeend},${qualifier},true,${isPublic},${series_id},undefined,true,undefined,undefined)`)
 					const corrida = await this.getLastCorrida(calibrados[i].out_id,var_id,calibrados[i].id,timestart,timeend,qualifier,true,isPublic,series_id,undefined,true,undefined,undefined)
 					calibrados[i].corrida = corrida
+					// console.log(JSON.stringify(calibrados[i].corrida,null,2))
 				}
 			}
 		}
@@ -16651,7 +16658,7 @@ ORDER BY cal.cal_id`
 						serie.pronosticos = []
 						return serie
 					}
-					console.log(JSON.stringify({series_sim:series_sim.map(s=>s.id)}))
+					// console.log(JSON.stringify({series_sim:series_sim.map(s=>s.id)}))
 					return this.getCalibrados(estacion_id,var_id,true,startdate,enddate,undefined,undefined,undefined,isPublic,undefined,undefined,undefined,forecast_date,undefined,series_sim.map(s=>s.id),undefined,serie.tipo)
 					.then(calibrados=>{
 						serie.pronosticos = calibrados
