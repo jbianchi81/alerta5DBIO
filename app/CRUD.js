@@ -17888,7 +17888,7 @@ internal.utils = {
 					} 
 					if(apply_filter) {
 						var d_a_values_string = d_a_values.map(v=>`'${v}'`).join(",")
-						filter_string += `AND ${fullkey} IN (${d_a_values_string})`
+						filter_string += ` AND ${fullkey} IN (${d_a_values_string})`
 					}
 				} else {
 					if(Array.isArray(filter[key])) {
