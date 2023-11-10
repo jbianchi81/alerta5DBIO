@@ -1834,7 +1834,7 @@ internal.ReadFromAccessorProcedure = internal.DownloadFromAccessorProcedure
 internal.GetPronosticoFromAccessorProcedure =  class extends internal.CrudProcedure {
     constructor() {
         super(...arguments)
-        this.procedureClass = "UpdatePronosticoFromAccessorProcedure"
+        this.procedureClass = "GetPronosticoFromAccessorProcedure"
         if(!arguments[0]) {
             throw("Missing arguments")
         }

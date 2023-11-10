@@ -16207,6 +16207,8 @@ ORDER BY cal.cal_id`
 						AND pronosticos.id=valores_prono_num.prono_id",[last_prono.rows[0].id])
 					await client.query("DELETE FROM pronosticos\
 						WHERE pronosticos.cor_id=$1",[last_prono.rows[0].id])
+					await client.query("DELETE FROM series_puntual_prono_date_range WHERE cor_id=$1",[last_prono.rows[0].id])
+					await client.query("DELETE FROM series_areal_prono_date_range WHERE cor_id=$1",[last_prono.rows[0].id])
 					await client.query("DELETE FROM corridas WHERE id=$1",[last_prono.rows[0].id])
 				}
 			} catch(e) {
