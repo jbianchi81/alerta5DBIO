@@ -76,3 +76,73 @@ GRANT SELECT ON TABLE public.paises TO actualiza;
 -- PostgreSQL database dump complete
 --
 
+--
+-- Name: regiones_omm; Type: TABLE; Schema: public; Owner: jbianchi
+--
+
+CREATE TABLE public.regiones_omm (
+    id integer NOT NULL,
+    name character varying NOT NULL,
+    notation character varying NOT NULL,
+    uri character varying NOT NULL
+);
+
+
+
+--
+-- Name: regiones_omm_id_seq; Type: SEQUENCE; Schema: public; Owner: jbianchi
+--
+
+CREATE SEQUENCE public.regiones_omm_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+
+--
+-- Name: regiones_omm_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: jbianchi
+--
+
+ALTER SEQUENCE public.regiones_omm_id_seq OWNED BY public.regiones_omm.id;
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: public; Owner: jbianchi
+--
+
+ALTER TABLE ONLY public.regiones_omm ALTER COLUMN id SET DEFAULT nextval('public.regiones_omm_id_seq'::regclass);
+
+
+--
+-- Data for Name: regiones_omm; Type: TABLE DATA; Schema: public; Owner: jbianchi
+--
+
+COPY public.regiones_omm (id, name, notation, uri) FROM stdin;
+1	Africa	africa	http://codes.wmo.int/wmdr/WMORegion/africa
+2	Antarctica	antarctica	http://codes.wmo.int/wmdr/WMORegion/antarctica
+3	Asia	asia	http://codes.wmo.int/wmdr/WMORegion/asia
+4	Europe	europe	http://codes.wmo.int/wmdr/WMORegion/europe
+5	inapplicable	inapplicable	http://codes.wmo.int/wmdr/WMORegion/inapplicable
+6	North America, Central America and the Caribbean	northCentralAmericaCaribbean	http://codes.wmo.int/wmdr/WMORegion/northCentralAmericaCaribbean
+7	South America	southAmerica	http://codes.wmo.int/wmdr/WMORegion/southAmerica
+8	South-West Pacific	southWestPacific	http://codes.wmo.int/wmdr/WMORegion/southWestPacific
+9	unknown	unknown	http://codes.wmo.int/wmdr/WMORegion/unknown
+\.
+
+
+--
+-- Name: regiones_omm_id_seq; Type: SEQUENCE SET; Schema: public; Owner: jbianchi
+--
+
+SELECT pg_catalog.setval('public.regiones_omm_id_seq', 9, true);
+
+
+--
+-- Name: regiones_omm_pkey; Type: CONSTRAINT; Schema: public; Owner: jbianchi
+--
+
+ALTER TABLE ONLY public.regiones_omm
+    ADD CONSTRAINT regiones_omm_pkey PRIMARY KEY (id);

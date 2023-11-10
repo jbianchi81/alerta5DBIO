@@ -7970,7 +7970,7 @@ function guess_tipo (data) {
 		var count = 0
 		data.forEach((o,i) => {
 			if (o && o.tipo && o.tipo != tipo_guess) {
-				console.warn("guess_tipo: item " + i + " tipo: " + o.tipo + " differs from " + tipo_guess)
+				// console.warn("guess_tipo: item " + i + " tipo: " + o.tipo + " differs from " + tipo_guess)
 			} else {
 				count++
 			}
@@ -7978,7 +7978,7 @@ function guess_tipo (data) {
 		if(count == data.length) {
 			return tipo_guess
 		} else {
-			console.warn("guess_tipo: mixed tipos. Returning undefined. data length: " + data.length + ", count: " + count)
+			// console.warn("guess_tipo: mixed tipos. Returning undefined. data length: " + data.length + ", count: " + count)
 			return undefined // mixed tipos
 		}
 	} else {

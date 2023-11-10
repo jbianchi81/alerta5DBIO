@@ -5065,9 +5065,11 @@ internal.forzante = class extends baseModel {
 	} 
 	async getSerie() {
 		var tipo = (this.series_table == "series") ? "puntual" : (this.series_table == "series_areal") ? "areal" : (this.series_table == "series_rast") ? "raster" : "puntual"
-		try {
+		// try {
 			this.serie = await internal.CRUD.getSerie(tipo,this.series_id,undefined,undefined,{no_metadata:true})
-		} catch(e) {
+		// } catch(e) {
+		// 	throw(e)
+		if(!this.serie) {
 			console.error("crud: forzante: no se encontró serie")
 		}
 	}
@@ -7991,14 +7993,15 @@ internal.CRUD = class {
 				if(release_client) {
 					await client.release()
 				}
-				throw("serie no encontrada")
+				return
 			}
 			if(isPublic) {
 				if(!result.rows[0].public) {
 					if(release_client) {
 						await client.release()
 					}
-					throw("El usuario no posee autorización para acceder a esta serie")
+					console.error("El usuario no posee autorización para acceder a esta serie")
+					return
 				}
 			}
 			// console.log("crud.getSerie: serie " + tipo + " " + id + " encontrada")
@@ -8052,14 +8055,16 @@ internal.CRUD = class {
 				if(release_client) {
 					await client.release()
 				}
-				throw("serie no encontrada")
+				// throw("serie no encontrada")
+				return
 			}
 			if(isPublic) {
 				if(!result.rows[0].public) {
 					if(release_client) {
 						await client.release()
 					}
-					throw("El usuario no posee autorización para acceder a esta serie")
+					console.error("El usuario no posee autorización para acceder a esta serie")
+					return
 				}
 			}
 			var row = result.rows[0]
@@ -8110,14 +8115,16 @@ internal.CRUD = class {
 				if(release_client) {
 					await client.release()
 				}
-				throw("serie no encontrada")
+				// throw("serie no encontrada")
+				return
 			}
 			if(isPublic) {
 				if(!result.rows[0].public) {
 					if(release_client) {
 						await client.release()
 					}
-					throw("El usuario no posee autorización para acceder a esta serie")
+					console.error("El usuario no posee autorización para acceder a esta serie")
+					return
 				}
 			}
 			var row = result.rows[0]
@@ -14108,12 +14115,12 @@ SELECT mod.id, \
 		return modelos
 	}
 	
-	static async getCalibrados_(estacion_id,var_id,includeCorr=false,timestart,timeend,cal_id,model_id,qualifier,isPublic,grupo_id,no_metadata,group_by_cal,forecast_date,includeInactive) {
+	static async getCalibrados_(estacion_id,var_id,includeCorr=false,timestart,timeend,cal_id,model_id,qualifier,isPublic,grupo_id,no_metadata,group_by_cal,forecast_date,includeInactive,series_id) {
 		// console.log({includeCorr:includeCorr, isPublic: isPublic})
 		var public_filter = (isPublic) ? "AND calibrados.public=true" : ""
 		var activar_filter = (includeInactive) ? "" : "AND calibrados.activar = TRUE"
 		var grupo_filter = (grupo_id) ? "AND series_prono_last.cal_grupo_id=" + parseInt(grupo_id) : ""
-		var cal_join = (estacion_id || var_id || includeCorr || timestart || timeend || grupo_id) ? "JOIN" : "LEFT OUTER JOIN"
+		var cal_join = (estacion_id || var_id || includeCorr || timestart || timeend || grupo_id || series_id) ? "JOIN" : "LEFT OUTER JOIN"
 		var base_query
 		const series_filter = internal.utils.control_filter2(
 			{
@@ -14132,12 +14139,17 @@ SELECT mod.id, \
 				"model_id": {
 					type: "integer",
 					table: "series_prono_last"
+				},
+				"series_id": {
+					type: "integer",
+					table: "series_prono_last"
 				}
 			},{
 				estacion_id: estacion_id,
 				var_id: var_id,
 				cal_id: cal_id,
-				model_id: model_id
+				model_id: model_id,
+				series_id: series_id
 			}
 		)
 		const calibrados_filter = internal.utils.control_filter2(
@@ -14281,106 +14293,81 @@ LEFT OUTER JOIN forcings ON (forcings.cal_id=cal.cal_id) \
 ORDER BY cal.cal_id`
 		}
 		// console.log(internal.utils.pasteIntoSQLQuery(query,[estacion_id,var_id,cal_id,model_id]))
-		return global.pool.query(query) //,[estacion_id,var_id,cal_id,model_id])
-		.then(result=>{
-			if(!result.rows) {
-				return Promise.reject()
-			}
-			var calibrados = result.rows
-			// console.log({calibrados:calibrados})
-			var extraqueries = []
-			if(cal_id) {
-				console.log("Querying for cal_out")
-				const cal_filter = internal.utils.control_filter2(
-					{
-						cal_id: {
-							type: "integer",
-							table: "cal_out"
-						}
-					},{
-						cal_id: cal_id
+		const result = await global.pool.query(query) //,[estacion_id,var_id,cal_id,model_id])
+		if(!result.rows) {
+			return Promise.reject()
+		}
+		var calibrados = result.rows
+		// console.log({calibrados:calibrados})
+		if(cal_id) {
+			console.log("Querying for cal_out")
+			const cal_filter = internal.utils.control_filter2(
+				{
+					cal_id: {
+						type: "integer",
+						table: "cal_out"
 					}
-				)
-				extraqueries.push(global.pool.query("SELECT  * from cal_out WHERE 1=1 " + cal_filter + " order by orden")
-				.then(result=>{
-					if(result.rows) {
-						console.log("Got " + result.rows.length + " records from cal_out")
-						calibrados.forEach((c,i)=>{
-							//~ console.log("cal i:"+i)
-							c.outputs = result.rows
-						})
-					}
-					return
-				}))
+				},{
+					cal_id: cal_id
+				}
+			)
+			const cal_out = await global.pool.query("SELECT  * from cal_out WHERE 1=1 " + cal_filter + " order by orden")
+			if(cal_out.rows) {
+				console.log("Got " + cal_out.rows.length + " records from cal_out")
+				calibrados.forEach((c,i)=>{
+					//~ console.log("cal i:"+i)
+					c.outputs = cal_out.rows
+				})
 			}
-			if(includeCorr) {
+		}
+		if(includeCorr) {
 				//~ var promises = []
-				console.log("Querying for corridas")
-				extraqueries.push(...calibrados.map((c,i)=>{ // for(var i=0;i<calibrados.length;i++) {
-					//~ extraqueries.push(
-					if(forecast_date) {
-						return  this.getPronosticos(
-							undefined,
-							c.id,
-							undefined,
-							undefined,
-							forecast_date,
-							timestart,
-							timeend,
-							qualifier,
-							c.out_id,
-							var_id,
-							true,
-							isPublic,
-							undefined,
-							false,
-							undefined,
-							true
-						)
-						.then(corridas=>{
-							if(corridas.length > 0) {
-								calibrados[i].corrida = corridas[0]
-							} else {
-								calibrados[i].corrida = null
-							}
-							return
-						})
+			console.log("Querying for corridas")
+			for(var c of calibrados) {
+				if(forecast_date) {
+					const corridas = await this.getPronosticos(
+						undefined,
+						c.id,
+						undefined,
+						undefined,
+						forecast_date,
+						timestart,
+						timeend,
+						qualifier,
+						c.out_id,
+						var_id,
+						true,
+						isPublic,
+						undefined,
+						false,
+						undefined,
+						true
+					)
+					if(corridas.length > 0) {
+						calibrados[i].corrida = corridas[0]
 					} else {
-						return this.getLastCorrida(c.out_id,var_id,c.id,timestart,timeend,qualifier,isPublic)
-						.then(corrida=>{
-							//~ console.log({corrida:corrida})
-							//~ for(var i=0;i<calibrados.length;i++) {
-							calibrados[i].corrida = corrida
-							return
-							//~ }
-						})
+						calibrados[i].corrida = null
 					}
-				}))
+				} else {
+					const corrida = await this.getLastCorrida(c.out_id,var_id,c.id,timestart,timeend,qualifier,isPublic)
+					calibrados[i].corrida = corrida
+				}
 			}
-			if(!no_metadata) {
-				var get_forzantes_series = Promise.all(calibrados.map(async cal=>{
-					if(!cal.forzantes || !cal.forzantes.length) {
-						return
-					}
-					console.log("getting forzantes")
-					for(var i in cal.forzantes) {
-						const f = new internal.forzante(cal.forzantes[i])
-						await f.getSerie(global.pool)
-						cal.forzantes[i] = f
-					}
-					return
-				}))
-				extraqueries.push(get_forzantes_series)
+		}
+		if(!no_metadata) {
+			for(var cal of calibrados) {
+				if(!cal.forzantes || !cal.forzantes.length) {
+					continue
+				}
+				// console.log("getting forzantes")
+				for(var i in cal.forzantes) {
+					const f = new internal.forzante(cal.forzantes[i])
+					await f.getSerie()
+					cal.forzantes[i] = f
+				}
 			}
-			return Promise.all(extraqueries)
-			.then(()=>{
-				console.log({calibrados:calibrados})
-				return calibrados
-			})
-		})
-		.catch(e=>{
-			console.error({error:e,message:"getCalibrados error"})
-		})
+		}
+		return calibrados
 	}
 	
 	static async getCalibradosGrupos(cal_grupo_id) {
@@ -14528,14 +14515,15 @@ ORDER BY cal.cal_id`
 			calibrados = await this.getCalibrados_(filter.estacion_id,filter.var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive) // await engine.read("Calibrado",filter)
 		} else if(estacion_id || var_id || includeCorr || qualifier || forecast_date || series_id) {
 			series_prono_last = await this.getSeriesPronoLast({cal_id:cal_id,model_id:model_id,grupo_id:filter.grupo_id,estacion_id:estacion_id,var_id:var_id,forecast_date:forecast_date,series_id:series_id})
-			// console.log({series_prono_last:series_prono_last})
+			console.log(JSON.stringify({series_prono_last:series_prono_last},null,2))
 			const cal_ids = new Set(series_prono_last.map(result=>result.cal_id))
 			filter.id = Array.from(cal_ids)
 			if(!filter.id.length) {
 				console.error("No series_prono found")
 				return []
 			}
-			calibrados = await this.getCalibrados_(filter.estacion_id,filter.var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive) // engine.read("Calibrado",filter)
+			console.log({cal_id:filter.id})
+			calibrados = await this.getCalibrados_(filter.estacion_id,filter.var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive,series_id) // engine.read("Calibrado",filter)
 		} else {
 			calibrados = await this.getCalibrados_(filter.estacion_id,filter.var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive) // engine.read("Calibrado",filter)
 		}
@@ -16663,11 +16651,16 @@ ORDER BY cal.cal_id`
 						serie.pronosticos = []
 						return serie
 					}
+					console.log(JSON.stringify({series_sim:series_sim.map(s=>s.id)}))
 					return this.getCalibrados(estacion_id,var_id,true,startdate,enddate,undefined,undefined,undefined,isPublic,undefined,undefined,undefined,forecast_date,undefined,series_sim.map(s=>s.id),undefined,serie.tipo)
 					.then(calibrados=>{
 						serie.pronosticos = calibrados
-						console.log("getSeriesBySiteAndVar with prono of length "  + serie.pronosticos.
+						if(serie.pronosticos) {
+							console.log("getSeriesBySiteAndVar with prono of length "  + serie.pronosticos.
 						length)
+						} else {
+							console.log("getSeriesBySiteAndVar with no pronosticos")
+						}
 						return serie
 					})
 				} else {

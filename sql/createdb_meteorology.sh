@@ -114,6 +114,12 @@ then
         echo "$a5database database creation and initialization failed"
         exit 1
     fi
+    psql --host $a5host --port $a5port $a5database -f sql/paises.sql
+    if [[ "$?" != "0" ]]
+    then
+        echo "$a5database database creation and initialization failed"
+        exit 1
+    fi
     # check if user matviews already exists
     psql --host $a5host --port $a5port $a5database -tXAc "SELECT 1 FROM pg_roles WHERE rolname='matviews'" | egrep .
     if [[ "$?" != "0" ]]
