@@ -8,7 +8,6 @@ const {estacion: Estacion, serie: Serie, observacion: Observacion, observaciones
 // const moment = require('moment-timezone')
 const {accessor_feature_of_interest, accessor_timeseries_observation, accessor_observed_property, accessor_unit_of_measurement, accessor_time_value_pair} = require('./accessor_mapping')
 const {isoDurationToHours} = require('./timeSteps')
-const ts = require('typescript')
 const internal = {}
 
 internal.timeseries_observation = class extends accessor_timeseries_observation {
@@ -1187,7 +1186,7 @@ internal.client = class {
         }
         const ts_filter = {}
         Object.assign(ts_filter,filter)
-        ts.filter.timeseriesIdentifier = tso.timeseries_id
+        ts_filter.timeseriesIdentifier = tso.timeseries_id
         const ts_options = {}
         Object.assign(ts_options,options)
         ts_options.a5 = false
