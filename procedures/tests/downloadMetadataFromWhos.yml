@@ -1,105 +1,105 @@
 # yaml-language-server: $schema=../../public/schemas/sequence.json 
 sequence:
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: accessor
-#     elements:
-#     - {"class":"om_ogc_timeseries_client","url":"https://whos.geodab.eu/gs-service/services/essi","series_tipo":null,"series_source_id":null,"name":"whos_om_ogc_timeseries_api","config":{"url":"https://whos.geodab.eu/gs-service/services/essi","token":"whos-847fb03e-72c3-47c2-ab32-bcba77150912","view":"whos-plata","tabla":"whos_plata","accessor_id":"whos_om_ogc_timeseries_api"},"series_id":null,"upload_fields":null,"title":null} 
-# - procedureName: GetSitesFromAccessorProcedure
-#   arguments:
-#     accessor_id: whos_om_ogc_timeseries_api
-#     filter:
-#       provider: brazil-inmet
-#       limit: 500
-#     output: outputs/whos_inmet_sites.json
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 2000
-#       max_length: 3000
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: estacion
-#     jsonfile: outputs/whos_inmet_sites.json
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 2000
-#       max_length: 3000
-# - procedureName: GetMetadataFromAccessorProcedure
-#   arguments:
-#     accessor_id: whos_om_ogc_timeseries_api
-#     filter:
-#       provider: brazil-inmet
-#       geom: {
-#           "type": "Point",
-#           "coordinates": [
-#               -48.87999999,
-#               -23.95
-#           ]
-#       }
-#     output: outputs/whos_series.json
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 38
-#       max_length: 38
-# - procedureName: MapAccessorTableFromCSVProcedure
-#   arguments:
-#     accessor_id: whos_om_ogc_timeseries_api
-#     class_name: accessor_observed_property
-#     csv_file: sample_data/inmet_variables.csv
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 22
-#       max_length: 24
-# - procedureName: MapAccessorTableFromCSVProcedure
-#   arguments:
-#     accessor_id: whos_om_ogc_timeseries_api
-#     class_name: accessor_unit_of_measurement
-#     csv_file: sample_data/unidades_inmet.csv
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 10
-#       max_length: 11
-# - procedureName: UpdateMetadataFromAccessorProcedure
-#   arguments:
-#     accessor_id: whos_om_ogc_timeseries_api
-#     filter:
-#       provider: brazil-inmet
-#       geom: {
-#           "type": "Point",
-#           "coordinates": [
-#               -48.87999999,
-#               -23.95
-#           ]
-#       }
-#     output: outputs/whos_series_upd.json
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 15
-#       max_length: 38
-# - procedureName: UpdateMetadataFromAccessorProcedure
-#   arguments:
-#     accessor_id: whos_om_ogc_timeseries_api
-#     filter:
-#       provider: brazil-inmet
-#       geom: {
-#         "type":"Point",
-#         "coordinates": [
-#           -52.8025,
-#           -17.3306
-#         ]
-#       }
-#     output: outputs/whos_series_upd_1.json
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 3
-#       max_length: 3
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor
+    elements:
+    - {"class":"om_ogc_timeseries_client","url":"https://whos.geodab.eu/gs-service/services/essi","series_tipo":null,"series_source_id":null,"name":"whos_om_ogc_timeseries_api","config":{"url":"https://whos.geodab.eu/gs-service/services/essi","token":"whos-847fb03e-72c3-47c2-ab32-bcba77150912","view":"whos-plata","tabla":"whos_plata","accessor_id":"whos_om_ogc_timeseries_api"},"series_id":null,"upload_fields":null,"title":null} 
+- procedureName: GetSitesFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      provider: brazil-inmet
+      limit: 500
+    output: outputs/whos_inmet_sites.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 2000
+      max_length: 3000
+- procedureName: CreateProcedure
+  arguments:
+    class_name: estacion
+    jsonfile: outputs/whos_inmet_sites.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 2000
+      max_length: 3000
+- procedureName: GetMetadataFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      provider: brazil-inmet
+      geom: {
+          "type": "Point",
+          "coordinates": [
+              -48.87999999,
+              -23.95
+          ]
+      }
+    output: outputs/whos_series.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 38
+      max_length: 38
+- procedureName: MapAccessorTableFromCSVProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    class_name: accessor_observed_property
+    csv_file: sample_data/inmet_variables.csv
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 22
+      max_length: 24
+- procedureName: MapAccessorTableFromCSVProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    class_name: accessor_unit_of_measurement
+    csv_file: sample_data/unidades_inmet.csv
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 10
+      max_length: 11
+- procedureName: UpdateMetadataFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      provider: brazil-inmet
+      geom: {
+          "type": "Point",
+          "coordinates": [
+              -48.87999999,
+              -23.95
+          ]
+      }
+    output: outputs/whos_series_upd.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 15
+      max_length: 38
+- procedureName: UpdateMetadataFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      provider: brazil-inmet
+      geom: {
+        "type":"Point",
+        "coordinates": [
+          -52.8025,
+          -17.3306
+        ]
+      }
+    output: outputs/whos_series_upd_1.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 3
+      max_length: 3
 - procedureName: UpdateMetadataFromAccessorProcedure
   arguments:
     accessor_id: whos_om_ogc_timeseries_api
@@ -113,120 +113,120 @@ sequence:
     arguments:
       min_length: 1
       max_length: 38
-# - procedureName: GetMetadataFromAccessorProcedure
-#   arguments:
-#     accessor_id: whos_om_ogc_timeseries_api
-#     filter:
-#       id_externo: 0DD7D7C187D990CA4D7038E704051F15E086F3B6
-#       var_id: 1
-#     output: outputs/whos_1_estacion_1_var.json
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 1
-#       max_length: 1
-# - procedureName: GetMetadataFromAccessorProcedure
-#   arguments:
-#     accessor_id: whos_om_ogc_timeseries_api
-#     filter:
-#       id_externo: 0DD7D7C187D990CA4D7038E704051F15E086F3B6
-#     output: outputs/whos_1_estacion_all_var.json
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 15
-#       max_length: 38
-# - procedureName: GetMetadataFromAccessorProcedure
-#   arguments:
-#     accessor_id: whos_om_ogc_timeseries_api
-#     filter:
-#       id_externo: [0DD7D7C187D990CA4D7038E704051F15E086F3B6, 16A422256C2D7B8A38B3809501D6B6ABB6A49ED2]
-#       var_id: 1
-#     output: outputs/whos_arr_estacion_1_var.json
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 2
-#       max_length: 2
-# - procedureName: GetMetadataFromAccessorProcedure
-#   arguments:
-#     accessor_id: whos_om_ogc_timeseries_api
-#     filter:
-#       id_externo: [0DD7D7C187D990CA4D7038E704051F15E086F3B6, 16A422256C2D7B8A38B3809501D6B6ABB6A49ED2]
-#     output: outputs/whos_arr_estacion_all_var.json
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 38
-#       max_length: 76
-# - procedureName: DownloadFromAccessorProcedure
-#   arguments:
-#     accessor_id: whos_om_ogc_timeseries_api
-#     filter:
-#       id_externo: [0DD7D7C187D990CA4D7038E704051F15E086F3B6, 16A422256C2D7B8A38B3809501D6B6ABB6A49ED2]
-#       var_id: 1
-#       timestart:
-#         days: -31
-#       timeend:
-#         hours: 0
-#     output: outputs/whos_arr_estacion_1_var_data.json
-#     options:
-#       output_format: json
-#       pretty: true
-  # tests:
-  # - testName: ArrayLengthTest
-  #   arguments:
-  #     min_length: 1
-# - procedureName: UpdateFromAccessorProcedure
-#   arguments:
-#     accessor_id: whos_om_ogc_timeseries_api
-#     filter:
-#       id_externo: [0DD7D7C187D990CA4D7038E704051F15E086F3B6, 16A422256C2D7B8A38B3809501D6B6ABB6A49ED2]
-#       var_id: 1
-#       timestart:
-#         days: -31
-#       timeend:
-#         hours: 0
-#     output: outputs/whos_arr_estacion_1_var_data_upd.json
-#     options:
-#       output_format: json
-#       pretty: true
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 1
-# - procedureName: DownloadFromAccessorProcedure
-#   arguments:
-#     accessor_id: whos_om_ogc_timeseries_api
-#     filter:
-#       id_externo: [0DD7D7C187D990CA4D7038E704051F15E086F3B6, 16A422256C2D7B8A38B3809501D6B6ABB6A49ED2]
-#       var_id: 31
-#       timestart: 2022-01-01T03:00:00.000Z
-#       timeend:
-#         hours: 0
-#     output: outputs/whos_arr_estacion_var_id_41_data.json
-#     options:
-#       output_format: json
-#       pretty: true
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 1
-# - procedureName: UpdateFromAccessorProcedure
-#   arguments:
-#     accessor_id: whos_om_ogc_timeseries_api
-#     filter:
-#       id_externo: [0DD7D7C187D990CA4D7038E704051F15E086F3B6, 16A422256C2D7B8A38B3809501D6B6ABB6A49ED2,9E22A6A3687B37984DBC9F468AFEAF7615D53520]
-#       var_id: [1,31]
-#       timestart:
-#         days: -31
-#       timeend:
-#         hours: 0
-#     output: outputs/whos_arr_estacion_var_id_31_data_upd.json
-#     options:
-#       output_format: json
-#       pretty: true
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 1
+- procedureName: GetMetadataFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      id_externo: 0DD7D7C187D990CA4D7038E704051F15E086F3B6
+      var_id: 1
+    output: outputs/whos_1_estacion_1_var.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+- procedureName: GetMetadataFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      id_externo: 0DD7D7C187D990CA4D7038E704051F15E086F3B6
+    output: outputs/whos_1_estacion_all_var.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 15
+      max_length: 38
+- procedureName: GetMetadataFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      id_externo: [0DD7D7C187D990CA4D7038E704051F15E086F3B6, 16A422256C2D7B8A38B3809501D6B6ABB6A49ED2]
+      var_id: 1
+    output: outputs/whos_arr_estacion_1_var.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 2
+      max_length: 2
+- procedureName: GetMetadataFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      id_externo: [0DD7D7C187D990CA4D7038E704051F15E086F3B6, 16A422256C2D7B8A38B3809501D6B6ABB6A49ED2]
+    output: outputs/whos_arr_estacion_all_var.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 38
+      max_length: 76
+- procedureName: DownloadFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      id_externo: [0DD7D7C187D990CA4D7038E704051F15E086F3B6, 16A422256C2D7B8A38B3809501D6B6ABB6A49ED2]
+      var_id: 1
+      timestart:
+        days: -31
+      timeend:
+        hours: 0
+    output: outputs/whos_arr_estacion_1_var_data.json
+    options:
+      output_format: json
+      pretty: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+- procedureName: UpdateFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      id_externo: [0DD7D7C187D990CA4D7038E704051F15E086F3B6, 16A422256C2D7B8A38B3809501D6B6ABB6A49ED2]
+      var_id: 1
+      timestart:
+        days: -31
+      timeend:
+        hours: 0
+    output: outputs/whos_arr_estacion_1_var_data_upd.json
+    options:
+      output_format: json
+      pretty: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+- procedureName: DownloadFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      id_externo: [0DD7D7C187D990CA4D7038E704051F15E086F3B6, 16A422256C2D7B8A38B3809501D6B6ABB6A49ED2]
+      var_id: 31
+      timestart: 2022-01-01T03:00:00.000Z
+      timeend:
+        hours: 0
+    output: outputs/whos_arr_estacion_var_id_41_data.json
+    options:
+      output_format: json
+      pretty: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+- procedureName: UpdateFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      id_externo: [0DD7D7C187D990CA4D7038E704051F15E086F3B6, 16A422256C2D7B8A38B3809501D6B6ABB6A49ED2,9E22A6A3687B37984DBC9F468AFEAF7615D53520]
+      var_id: [1,31]
+      timestart:
+        days: -31
+      timeend:
+        hours: 0
+    output: outputs/whos_arr_estacion_var_id_31_data_upd.json
+    options:
+      output_format: json
+      pretty: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1

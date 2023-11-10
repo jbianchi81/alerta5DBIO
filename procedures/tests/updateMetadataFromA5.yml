@@ -4,6 +4,11 @@ sequence:
   arguments:
     class_name: accessor
     jsonfile: sample_data/accessor_a5.json
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: estacion
+    filter:
+      id: 29
 - procedureName: UpdateMetadataFromAccessorProcedure
   arguments:
     accessor_id: a5
