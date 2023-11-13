@@ -3,7 +3,7 @@
 const {baseModel} = require('./baseModel')
 const { estacion, escena, serie, VariableName, unidades, "var": Variable, observacion } = require('./CRUD')
 const utils = require('./utils')
-const {isoDurationToHours, interval2string, advanceInterval} = require('./timeSteps')
+const {isoDurationToHours, interval2string, advanceInterval, retreatInterval} = require('./timeSteps')
 const { control_filter2 } = require('./utils')
 const CSV = require('csv-string')
 const internal = {}
@@ -446,12 +446,17 @@ internal.accessor_time_value_pair = class extends baseModel {
 		const tipo = this.getTipo(tso)
 		const series_id = this.getSeriesId(tso)
 		const valor = this.getValue()
-		const timestart = new Date(this.timestamp)
+		var timestart = new Date(this.timestamp)
 		if(timestart.toString() == "Invalid Date") {
 			throw("accessor_time_value_pair.toObservacion: Invalid date")
 		}
 		if(tso && tso.time_support) {
-			var timeend = advanceInterval(timestart,tso.time_support)
+			if(tso && /^Preceding/.test(tso.data_type)) {
+				var timeend = new Date(timestart)
+				timestart = retreatInterval(timestart,tso.time_support)
+			} else {
+				var timeend = advanceInterval(timestart,tso.time_support)	
+			}
 		} else {
 			var timeend = new Date(timestart)
 		}
@@ -777,6 +782,10 @@ internal.accessor_timeseries_observation = class extends baseModel {
 			valuetype: "Field Observation"
 		})
 	}
+	/**
+	 * Looks for matching variable in a5 schema. VariableName, datatype and timeSupport fields are used for the search. Note: 'Preceding' datatypes are matched to 'Succeding' equivalents 	 * 
+	 * @returns {Variable} Variable
+	 */
 	async findVariable() {
 		const this_variable = this.toVar()
 		if(!this_variable.VariableName) {
@@ -787,12 +796,19 @@ internal.accessor_timeseries_observation = class extends baseModel {
 			console.error("No datatype for observedProperty " + this.observed_property.observed_property_id)
 			return this_variable
 		}
+		var datatype_filter = this_variable.datatype
+		if(this_variable.datatype == "Preceding Total") {
+			datatype_filter = [
+				"Preceding Total",
+				"Succeeding Total"
+			]
+		}
 		if(!this_variable.timeSupport) {
 			console.error("No timeSupport for observedProperty " + this.observed_property.observed_property_id)
 			return this_variable
 		}
 		const matching_variables = await Variable.read({
-			datatype: this_variable.datatype,
+			datatype: datatype_filter,
 			VariableName: this_variable.VariableName,
 			timeSupport: this_variable.timeSupport
 		})

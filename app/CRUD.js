@@ -9698,7 +9698,12 @@ internal.CRUD = class {
 				stmt = "WITH deleted AS (DELETE FROM observaciones_rast WHERE id=$1 " + returning_clause + ") " +  select_deleted_clause
 				args = [parseInt(filter.id)]
 			} else {
-				var valid_filters = {series_id:{type:"integer"},timestart:{type:"timestart"},timeend:{type:"timeend"},timeupdate:{type:"string"}}
+				var valid_filters = {
+					series_id: {type:"integer"},
+					timestart:{type:"timestart"},
+					timeend:{type:"timeend"},
+					timeupdate:{type:"string"}
+				}
 				var filter_string = internal.utils.control_filter2(valid_filters,filter)
 				if(!filter_string) {
 					return Promise.reject(new Error("invalid filter value"))
@@ -9752,7 +9757,14 @@ internal.CRUD = class {
 					deleteObsText = "WITH deleted AS (DELETE FROM " + obs_tabla + " WHERE id=" + parseInt(filter.id)  + returning_clause + ") " + select_deleted_clause
 				}
 			} else {
-				var valid_filters = {series_id:{type:"integer"},timestart:{type:"timestart"},timeend:{type:"timeend"},unit_id:{type:"integer"},timeupdate:{type:"string"},valor:{type:"numeric_interval"}}
+				var valid_filters = {
+					series_id:{type:"integer"},
+					timestart:{type:"timestart"},
+					timeend:{type:"timeend"},
+					unit_id:{type:"integer"},
+					timeupdate:{type:"string"},
+					valor:{type:"numeric_interval"}
+				}
 				var filter_string = internal.utils.control_filter2(valid_filters,filter)
 				if(!filter_string) {
 					return Promise.reject(new Error("invalid filter value"))

@@ -261,6 +261,14 @@ internal.advanceTimeStep = function(start_timestamp,timeSupport) {
 	return timestamp
 }
 
+internal.retreatInterval = function(date,interval={hours:1}) {
+	var inverted_interval = {}
+	Object.keys(interval).forEach(key=>{
+		inverted_interval[key] = -1 * interval[key]
+	})
+	return internal.advanceInterval(date,inverted_interval)
+}
+
 /**
  * Advances timeSupport interval from start_timestamp. Returns new Date object. Note: Advancing month units may result in a different date if the date of the resulting month does not exist (i.e., 31st of january plus 1 month = 3rd of march) 
  * @param {Date} start_timestamp 
