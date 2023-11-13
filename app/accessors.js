@@ -334,10 +334,12 @@ internal.Accessor = class {
 				}
 			}
 		}
-		var types = Array.from(new Set(series.map(s=>s.tipo)))
-		for(var tipo of types) {
-			console.log("refreshing date range of series " + tipo)
-			await CRUD.serie.refreshDateRange(tipo)
+		if(!options.no_update_date_range) {
+			var types = Array.from(new Set(series.map(s=>s.tipo)))
+			for(var tipo of types) {
+				console.log("refreshing date range of series " + tipo)
+				await CRUD.serie.refreshDateRange(tipo)
+			}
 		}
 		return results
 	}
