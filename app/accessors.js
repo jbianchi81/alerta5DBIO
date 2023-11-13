@@ -272,7 +272,8 @@ internal.Accessor = class {
 	/**
 	 * Queries remote timeseries and updates observaciones of corresponding local series
 	 * @param {*} filter - Accepts: timestart,timeend,estacion_id,var_id,series_id,return_raw,use_proxy,tabla_id,fuentes_id,area_id,escena_id,include_geom,id_externo,proc_id,unit_id,tipo="puntual"
-	 * @param {*} options 
+	 * @param {*} options
+	 * @param {boolean} options.no_update_date_range
 	 * @returns {CRUD.serie[]}
 	 */
 	async updateSeries(filter={},options={},client) {
@@ -292,10 +293,12 @@ internal.Accessor = class {
 				})
 				series.push(serie)
 			}
-			var types = Array.from(new Set(series.map(s=>s.tipo)))
-			for(var tipo of types) {
-				console.log("refreshing date range of series " + tipo)
-				await CRUD.serie.refreshDateRange(tipo,undefined)
+			if(!options.no_update_date_range) {
+				var types = Array.from(new Set(series.map(s=>s.tipo)))
+				for(var tipo of types) {
+					console.log("refreshing date range of series " + tipo)
+					await CRUD.serie.refreshDateRange(tipo,undefined)
+				}
 			}
 			return series
 			// throw("getSeries not defined for this accessor")

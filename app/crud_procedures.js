@@ -1560,6 +1560,18 @@ internal.TestAccessorProcedure = class extends internal.CrudProcedure {
 }
 
 internal.UpdateFromAccessorProcedure = class extends internal.CrudProcedure {
+    /**
+     * Update timeseries procedure from an accessor source
+     * @param {Object} arguments - arguments
+     * @param {string} arguments.accessor_id - identifier of the accessor (name field)
+     * @param {Object} arguments.filter - series and observation filter
+     * @param {Date|string} arguments.filter.timestart
+     * @param {Date|string} arguments.filter.timeend
+     * @param {Date|string} arguments.filter.forecast_date
+     * @param {Object} arguments.options
+     * @param {boolean} arguments.options.no_update_date_range - Don't refresh series date range materialized view
+     * @returns {internal.UpdateFromAccessorProcedure} UpdateFromAccessorProcedure
+     */
     constructor() {
         super(...arguments)
         this.procedureClass = "UpdateFromAccessorProcedure"
