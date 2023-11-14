@@ -6,6 +6,7 @@ const axios = require('axios')
 const fs = require('promise-fs')
 const {estacion: Estacion, serie: Serie, observacion: Observacion, observaciones: Observaciones} = require('./CRUD')
 // const moment = require('moment-timezone')
+const {not_null} = require('./utils')
 const {accessor_feature_of_interest, accessor_timeseries_observation, accessor_observed_property, accessor_unit_of_measurement, accessor_time_value_pair} = require('./accessor_mapping')
 const {isoDurationToHours} = require('./timeSteps')
 const internal = {}
@@ -877,6 +878,30 @@ internal.client = class {
         }
     }
 
+    async getSavedSites(filter={}) {
+        if(filter.estacion_id) {
+            filter.id = filter.estacion_id
+        }
+        if(filter.id) {
+            return Estacion.read(filter)
+        }
+        const feature_filter = {}
+        Object.assign(feature_filter,filter)
+        feature_filter.accessor_id = (this.config.accessor_id) ? this.config.accessor_id : "om_ogc_timeseries_client"
+        feature_filter.network_id = this.config.tabla
+        feature_filter.estacion_id = new not_null()
+        const features = await accessor_feature_of_interest.read(feature_filter)
+        if(!features.length) {
+            console.warn("No features found")
+            return []
+        }
+        const estaciones_filter = {}
+        Object.assign(estaciones_filter,filter)
+        estaciones_filter.tabla = this.config.tabla
+        estaciones_filter.id = features.map(f=>f.estacion_id)
+        return Estacion.read(estaciones_filter)
+    }
+
     /**
      * gets features of interest from ogc api, saves and returns as estaciones in a5 schema (updates if already there)
      * @param {*} filter
@@ -967,6 +992,30 @@ internal.client = class {
             // }
         }
         return series
+    }
+    async getSavedSeries(filter={}) {
+        if(filter.series_id) {
+            filter.id = filter.series_id
+        }
+        if(filter.id) {
+            return Serie.read(filter)
+        }
+        const tso_filter = {}
+        Object.assign(tso_filter,filter)
+        tso_filter.accessor_id = (this.config.accessor_id) ? this.config.accessor_id : "om_ogc_timeseries_client"
+        tso_filter.series_puntual_id = new not_null()
+        if(filter.id_externo) {
+            tso_filter.feature_of_interest_id = filter.id_externo
+        }
+        const tso = await accessor_timeseries_observation.read(tso_filter)
+        if(!tso.length) {
+            console.warn("No saved timeseries observations found")
+            return []
+        }
+        const series_filter = {}
+        Object.assign(series_filter,filter)
+        series_filter.id = tso.map(t=>t.series_puntual_id)
+        return Serie.read(series_filter)
     }
     async getSeries(filter={},options={}) {
         const ts_filter = {}

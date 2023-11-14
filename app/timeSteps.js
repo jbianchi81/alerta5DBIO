@@ -14,6 +14,27 @@ function isJson(str) {
     return true;
 }
 
+internal.PGInterval = class {
+	constructor() {
+		const interval = internal.createInterval(arguments[0] ?? {})
+		Object.setPrototypeOf(this,interval)
+	}
+}
+
+const interval = parsePGinterval({})
+
+internal.Interval = class extends interval.constructor {
+	constructor() {
+		super(arguments)
+		const values = internal.createInterval(arguments[0]);
+		Object.assign(this, values);
+	}
+	toEpoch() {
+		return internal.interval2epochSync(this);
+	}
+}
+
+
 internal.createInterval = function(value) {
 	if(!value) {
 		return //  parsePGinterval()

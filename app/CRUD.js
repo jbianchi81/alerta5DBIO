@@ -2315,6 +2315,19 @@ internal.serie = class extends baseModel {
 		}
 	}
 
+	async getObservaciones(timestart,timeend,inline=true) {
+		if(!this.id) {
+			console.warn("Missing series id. Can't get observaciones")
+			return
+		}
+		const observaciones = await internal.observaciones.read({tipo: this.tipo, series_id: this.id, timestart:timestart,timeend:timeend})
+		if(inline) {
+			this.setObservaciones(observaciones)
+		} else {
+			return observaciones
+		}
+	}
+
 }
 
 const asc = arr => arr.sort((a, b) => a - b)
@@ -2988,6 +3001,10 @@ internal.serie.build_read_query = function(filter={},options={}) {
 				type:"integer",
 				table: "estaciones",
 				column: "unid"
+			},
+			id_externo: {
+				type: "string",
+				table: "estaciones"
 			},
 			tabla_id:{
 				type:"string",
@@ -4119,10 +4136,11 @@ internal.observaciones = class extends BaseArray {
 	}
 	async delete(options={}) {
 		var ids = this.map(o=>o.id).filter(id=>id)
-		if(!length.ids) {
+		if(!ids.length) {
 			console.error("Observaciones id not found for deletion")
 			return
 		}
+		console.log("Found " + ids.length + " observaciones. Deleting")
 		return internal.CRUD.deleteObservacionesById(this.getTipo(),ids,options.no_send_data)
 	}
 	static async delete(filter={},options={}) {

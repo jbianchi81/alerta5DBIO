@@ -184,6 +184,8 @@ internal.isIterable = function(obj) {
 	return typeof obj[Symbol.iterator] === 'function';
 }
 
+internal.not_null = class extends Object {
+}
 
 internal.control_filter2 = function (valid_filters, filter, default_table, crud) {
 	// valid_filters = { column1: { table: "table_name", type: "data_type", required: bool, column: "column_name"}, ... }  
@@ -195,7 +197,9 @@ internal.control_filter2 = function (valid_filters, filter, default_table, crud)
 		var table_prefix = (valid_filters[key].table) ? '"' + valid_filters[key].table + '".' :  (default_table) ? '"' + default_table + '".' : ""
 		var column_name = (valid_filters[key].column) ? '"' + valid_filters[key].column + '"' : '"' + key + '"'
 		var fullkey = table_prefix + column_name
-		if(typeof filter[key] != "undefined" && filter[key] !== null) {
+		if(filter[key] instanceof internal.not_null) {
+			filter_string += ` AND ` + fullkey + ` IS NOT NULL `
+		} else if(typeof filter[key] != "undefined" && filter[key] !== null) {
 			if(/[';]/.test(filter[key])) {
 				console.error("Invalid filter value")
 				control_flag++

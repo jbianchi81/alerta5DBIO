@@ -196,6 +196,14 @@ internal.Accessor = class {
 		return this.engine.getSeries(filter,options,client)
 	}
 
+	async getSavedMetadata(filter={}) {
+		if(!this.engine.getSavedSeries) {
+			warn("getSavedSeries not implemented for accessor " + this.clase)
+			return
+		}
+		return this.engine.getSavedSeries(filter)
+	}
+
 	async updateMetadata(filter={},options={},client) {
 		// updates provider's series metadata. Creates sites (estaciones, areas or escenas) and series. var, procedimiento and unidades must be mapped from source into existing records (else this will throw a foreign key error).
 		if(this.engine.updateSeries) {
@@ -221,6 +229,14 @@ internal.Accessor = class {
 			throw("getSites not implemented for accessor " + this.clase)
 		}
 		return this.engine.getSites(filter,options)
+	}
+
+	async getSavedSites(filter={}) {
+		if(!this.engine.getSavedSites) {
+			console.warn("getSavedSites not implemented for accessor " + this.clase)
+			return
+		}
+		return this.engine.getSavedSites(filter,options)
 	}
 
 	async getSeries(filter={},options={},client) {
@@ -365,6 +381,86 @@ internal.Accessor = class {
 		
 		return this.engine.updatePronostico(filter,options)
 	}
+	/**
+	 * Retrieves saved pronosticos from database
+	 * @param {Object} filter 
+	 * @returns {CRUD.corrida[]}
+	 */
+	async getSavedPronosticos(filter={}) {
+		if(!this.engine.getSavedPronosticos) {
+			console.warn("getSavedPronosticos not found for this accessor")
+			return
+		}
+		return this.engine.getSavedPronosticos(filter)
+	}
+	/**
+	 * Deletes sites (estaciones) asociated with this accessor
+	 * @param {Object} filter 
+	 * @returns 
+	 */
+	async deleteSites(filter={}) {
+		var sites = await this.getSavedSites(filter)
+		if(!sites) {
+			var sites = await this.getSites(filter)
+		}
+		if(!sites) {
+			return
+		}
+		console.log("Got " + sites.length + " sites. Deleting")
+		for(var site of sites) {
+			await site.delete()
+		}
+		return sites
+	}	
+	/**
+	 * Deletes series (timeseries definitions) asociated with this accessor
+	 * @param {Object} filter 
+	 * @returns 
+	 */
+	async deleteMetadata(filter={}) {
+		var series = await this.getSavedMetadata(filter)
+		if(!series) {
+			var series = await this.getMetadata(filter)
+		}
+		if(!series) {
+			return
+		}
+		console.log("Got " + series.length + " series. Deleting")
+		for(var serie of series) {
+			await serie.delete()
+		}
+		return series
+	}
+	/**
+	 * Deletes observaciones (timeseries content) asociated with this accessor
+	 * @param {Object} filter 
+	 */
+	async deleteSeries(filter={}) {
+		var series = await this.getSavedMetadata(filter)
+		if(!series) {
+			var series = await this.getMetadata(filter)
+		}
+		if(!series) {
+			return
+		}
+		for(var serie of series) {
+			console.log("Reading observaciones for series_id " + serie.id)
+			await serie.getObservaciones(filter.timestart,filter.timeend)
+			await serie.observaciones.delete()
+		}
+		return series
+	}
+
+	async deletePronosticos(filter={}) {
+		const pronosticos = await this.getSavedPronosticos(filter)
+		if(!pronosticos) {
+			return
+		}
+		for(corrida of pronosticos) {
+			await corrida.delete()
+		}
+	}
+
 	//~ this.testConnect = 
 		//~ switch (type.toLowerCase()) {
 			//~ case "gfs":

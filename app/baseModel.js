@@ -5,7 +5,7 @@ const YAML = require('yaml');
 const CSV = require('csv-string')
 const utils = require('./utils')
 const internal = {}
-const {createInterval} = require('./timeSteps')
+const {Interval} = require('./timeSteps')
 
 internal.writeModelToFile = async (model,output_file,output_format) => {
 	if(!model) {
@@ -152,7 +152,7 @@ internal.baseModel = class {
 				} else if (definition.type == "numeric" || definition.type == "real") {
 					return parseFloat(value)
 				} else if (definition.type == "interval") {
-					return createInterval(value)
+					return new Interval(value)
 				} else if (definition.type == "object" || definition.type == "geometry") {
 					if(typeof value == "string" && value.length) {
 						try {
@@ -449,8 +449,15 @@ internal.baseModel = class {
 		const query_string = `SELECT ${columns.join(",")} FROM "${this._table_name}" WHERE 1=1 ${filters}`
 		return query_string
 	}
-	static async read(filter={}) {
-		var statement = this.build_read_statement(filter)
+	/**
+	 * 
+	 * @param {Object} filter 
+	 * @param {Object} options
+	 * @param {boolean} options.mapped_only
+	 * @returns 
+	 */
+	static async read(filter={},options={}) {
+		var statement = this.build_read_statement(filter,options.mapped_only)
 		const result = await global.pool.query(statement)
 		return result.rows.map(r=>new this(r))
 	}

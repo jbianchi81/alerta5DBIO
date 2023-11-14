@@ -451,7 +451,8 @@ internal.accessor_time_value_pair = class extends baseModel {
 			throw("accessor_time_value_pair.toObservacion: Invalid date")
 		}
 		if(tso && tso.time_support) {
-			if(tso && /^Preceding/.test(tso.data_type)) {
+			if(!tso.data_type || /^Preceding|^Total/.test(tso.data_type)) {
+				// asume preceding
 				var timeend = new Date(timestart)
 				timestart = retreatInterval(timestart,tso.time_support)
 			} else {
@@ -775,7 +776,7 @@ internal.accessor_timeseries_observation = class extends baseModel {
 			var: this.observed_property.name.substring(0,6),
 			GeneralCategory: "Hydrology",
 			nombre: this.observed_property.name,
-			datatype: (this.data_type) ? this.constructor.mapToDatatypeCV(this.data_type) : "Continuous",
+			datatype: (this.data_type) ? this.constructor.mapToDatatypeCV(this.data_type) : (this.time_support && this.time_support.toEpoch() > 0) ? "Preceding Total" : "Continuous",
 			VariableName: this.observed_property.variable_name,
 			def_unit_id: this.unit_of_measurement.unit_id,
 			timeSupport: this.time_support,
@@ -787,7 +788,9 @@ internal.accessor_timeseries_observation = class extends baseModel {
 	 * @returns {Variable} Variable
 	 */
 	async findVariable() {
+		console.log(this)
 		const this_variable = this.toVar()
+		console.log(this_variable)
 		if(!this_variable.VariableName) {
 			console.error("No VariableName for observedProperty " + this.observed_property.observed_property_id)
 			return this_variable

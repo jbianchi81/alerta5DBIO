@@ -391,6 +391,8 @@ internal.EmptyArrayTest = class extends internal.CrudProcedureTest {
     constructor(args) {
         super(args)
         this.testName = "EmptyArrayTest"
+        this.property_name = (args.property_name) ? args.property_name : undefined
+        this.all = args.all ? args.all : false
     }
     run(result) {
         var value = true
@@ -399,8 +401,53 @@ internal.EmptyArrayTest = class extends internal.CrudProcedureTest {
             value = false
             reason = "Result is undefined"
         } else if(!Array.isArray(result)) {
-            value = false
-            reason = "Result must be an Array"
+            if (this.property_name) {
+                if(!result.hasOwnProperty(this.property_name)) {
+                    value = false
+                    reason = "Result must have property " + this.property_name
+                } else if(!Array.isArray(result[this.property_name])) {
+                    value = false
+                    reason = "Result property " + this.property_name + " must be an array"
+                } else if(result[this.property_name].length) {
+                    value = false
+                    reason = "Result array length must be == 0"
+                }
+            } else {
+                value = false
+                reason = "Result must be an Array"
+            }
+        } else if(this.property_name) {
+            if(this.all) {
+                for(var i in result) {
+                    const item = result[i]
+                    if(!item.hasOwnProperty(this.property_name)) {
+                        value = false
+                        reason = "Result item " + i + " property " + this.property_name + " missing"
+                        break
+                    }
+                    if(!Array.isArray(item[this.property_name])) {
+                        value = false
+                        reason = "Result item " + i + " property " + this.property_name + " is not an array"
+                        break
+                    }
+                    if(item[this.property_name].length) {
+                        value = false
+                        reason = "Result item " + i + " property " + this.property_name + " must be of length 0"
+                        break
+                    }
+                }
+            } else {
+                if(!result[0].hasOwnProperty(this.property_name)) {
+                    value = false
+                    reason = "Result item 0 must have property " + this.property
+                } else if(!Array.isArray(result[0][this.property_name])) {
+                    value = false
+                    reason = "Result itemo 0 property " + this.property_name + " must be an array"
+                } else if(result[0][this.property_name].length) {
+                    value = false
+                    reason = "Result array length must be == 0"
+                }
+            }
         } else if(result.length > 0) {
             value = false
             reason = "Result array length must be == 0"
@@ -1603,6 +1650,85 @@ internal.UpdateFromAccessorProcedure = class extends internal.CrudProcedure {
         }
         this.result = await accessor.updateSeries(this.filter,this.options)
         return this.result
+    }
+}
+
+internal.DeleteFromAccessorProcedure = class extends internal.CrudProcedure {
+    /**
+     * Update timeseries procedure from an accessor source
+     * @param {Object} arguments - arguments
+     * @param {string} arguments.accessor_id - identifier of the accessor (name field)
+     * @param {Object} arguments.filter - series and observation filter
+     * @param {Date|string} arguments.filter.timestart
+     * @param {Date|string} arguments.filter.timeend
+     * @param {Date|string} arguments.filter.forecast_date
+     * @param {Object} arguments.options
+     * @returns {internal.DeleteFromAccessorProcedure} DeleteFromAccessorProcedure
+     */
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "DeleteFromAccessorProcedure"
+        if(!arguments[0]) {
+            throw("Missing arguments")
+        }
+        if(!arguments[0].accessor_id) {
+            throw("Missing accessor_id")
+        }
+        this.accessor_id = arguments[0].accessor_id
+        this.filter = arguments[0].filter
+        if(this.filter && this.filter.timestart) {
+            this.filter.timestart = timeSteps.DateFromDateOrInterval(this.filter.timestart)
+        }
+        if(this.filter && this.filter.timeend) {
+            this.filter.timeend = timeSteps.DateFromDateOrInterval(this.filter.timeend)
+        }
+        if(this.filter && this.filter.forecast_date) {
+            this.filter.forecast_date = timeSteps.DateFromDateOrInterval(this.filter.forecast_date)
+        }
+        // this.options = arguments[0].options
+        // this.output = arguments[0].output
+    }
+    async run() {
+        if(config.accessors && config.accessors[this.accessor_id]) {
+            var accessor = await Accessors.new(this.accessor_id,config.accessors[this.accessor_id].class,config.accessors[this.accessor_id].config)
+        } else {
+            var accessor = await Accessors.new(this.accessor_id)
+        }
+        this.result = await accessor.deleteSeries(this.filter,this.options)
+        return this.result
+    }
+}
+
+
+internal.DeleteMetadataFromAccessorProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "DeleteMetadataFromAccessorProcedure"
+        if(!arguments[0]) {
+            throw("Missing arguments")
+        }
+        if(!arguments[0].accessor_id) {
+            throw("Missing accessor_id")
+        }
+        this.accessor_id = arguments[0].accessor_id
+        this.filter = arguments[0].filter
+    }
+    async run() {
+        if(config.accessors && config.accessors[this.accessor_id]) {
+            var accessor = await Accessors.new(this.accessor_id,config.accessors[this.accessor_id].class,config.accessors[this.accessor_id].config)
+            this.result = await accessor.deleteMetadata(this.filter,this.options)
+                    // if(this.output) {
+                    //     fs.writeFileSync(this.output,JSON.stringify(series,undefined,2))
+                    // }
+            return this.result
+        } else {
+            var accessor = await Accessors.new(this.accessor_id)
+            this.result = await accessor.deleteMetadata(this.filter,this.options)
+                    // if(this.output) {
+                    //     fs.writeFileSync(this.output,JSON.stringify(series,undefined,2))
+                    // }
+            return this.result
+        }
     }
 }
 
@@ -2988,8 +3114,10 @@ const availableCrudProcedures = {
     "GetPpCdpBatchProcedure": internal.GetPpCdpBatchProcedure,
     "TestAccessorProcedure": internal.TestAccessorProcedure,
     "UpdateFromAccessorProcedure":internal.UpdateFromAccessorProcedure,
+    "DeleteFromAccessorProcedure": internal.DeleteFromAccessorProcedure,
     "GetMetadataFromAccessorProcedure":internal.GetMetadataFromAccessorProcedure,
     "UpdateMetadataFromAccessorProcedure":internal.UpdateMetadataFromAccessorProcedure,
+    "DeleteMetadataFromAccessorProcedure": internal.DeleteMetadataFromAccessorProcedure,
     "GetPronosticoFromAccessorProcedure":internal.GetPronosticoFromAccessorProcedure,
     "UpdatePronosticoFromAccessorProcedure": internal.UpdatePronosticoFromAccessorProcedure,
     "MapAccessorTableFromCSVProcedure": internal.MapAccessorTableFromCSVProcedure,
