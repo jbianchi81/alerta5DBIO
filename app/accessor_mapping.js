@@ -291,7 +291,7 @@ internal.accessor_unit_of_measurement = class extends baseModel {
 		for(var u of unit_map) {
 			var units = await this.read({accessor_id:accessor_id, unit_of_measurement_id:u.unit_of_measurement_id})
 			if(!units.length) {
-				const unit_of_measurement = this({accessor_id: accessor_id, unit_of_measurement_id: u.unit_of_measurement_id, unit_id: u.unit_id})
+				const unit_of_measurement = new this({accessor_id: accessor_id, unit_of_measurement_id: u.unit_of_measurement_id, unit_id: u.unit_id})
 				await unit_of_measurement.create()
 				result.push(unit_of_measurement)
 			} else {
