@@ -1277,6 +1277,10 @@ internal.client = class {
         if(options.tvp) {
             const time_value_pairs = []
             for(var tso of timeseries_observations) {
+                if(!tso.data) {
+                    console.warn("No data property found in timeseries observation")
+                    continue
+                }
                 for(var tvp of tso.data) {
                     // const tvp = this.parseTimeValuePair(p,tso)
                     // tvp.create()
