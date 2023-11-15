@@ -63,7 +63,9 @@ internal.feature_of_interest = class extends accessor_feature_of_interest {
             geom: this.result.shape, // { "type": "Point", coordinates: [item.shape.coordinates[0], item.shape.coordinates[1]]},
             pais: (monitoring_point_parameters.hasOwnProperty("country")) ?  monitoring_point_parameters.country : undefined,
             propietario: (this.result.hasOwnProperty("relatedParty") && this.result.relatedParty.length) ? this.result.relatedParty[0].organisationName : undefined,
-            ubicacion: (monitoring_point_parameters.hasOwnProperty("identifier")) ? monitoring_point_parameters.identifier: undefined
+            ubicacion: (monitoring_point_parameters.hasOwnProperty("identifier")) ? monitoring_point_parameters.identifier: undefined, 
+            real: true, 
+            has_obs: true
         })
     }
 }
