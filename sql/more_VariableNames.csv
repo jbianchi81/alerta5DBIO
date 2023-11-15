@@ -5,5 +5,5 @@ VariableName,href
 "Number of days with precipitation equal to or more than 1 mm","http://codes.wmo.int/bufr4/b/04/053"
 "Amount of middle clouds","http://codes.wmo.int/bufr4/b/20/052"
 "Amount of high clouds","http://codes.wmo.int/bufr4/b/20/053"
-'u-component of wind','http://codes.wmo.int/grib2/codeflag/4.2/0-2-2"
+"u-component of wind","http://codes.wmo.int/grib2/codeflag/4.2/0-2-2"
 "v-component of wind","http://codes.wmo.int/grib2/codeflag/4.2/0-2-3"
