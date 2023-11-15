@@ -1063,11 +1063,14 @@ internal.client = class {
         return this.tsoToSeries(timeseries_observations,options)
     }
     
-    async tsoToSeries(timeseries_observations=[],options={}) {
+    async tsoToSeries(timeseries_observations=[],options={},filter={}) {
         const series = []
         for(var tso of timeseries_observations) {
             const serie = await tso.findSerie()
             if(serie) {
+                if(!serie.filterSerie(filter)) {
+                    continue
+                }
                 if(options.update_series) {
                     try {
                         await serie.create()
@@ -1100,43 +1103,7 @@ internal.client = class {
                 await tso.create()
             }
         }
-        var series = await this.tsoToSeries(timeseries_observations,options)
-        if(filter.var_id) {
-            series = series.filter(s=>{   
-                if(Array.isArray(filter.var_id)) {
-                    return (filter.var_id.indexOf(s.var.id) >= 0)
-                } else {
-                    return (filter.var_id == s.var.id)
-                }
-            })
-        }
-        if(filter.unit_id) {
-            series = series.filter(s=>{   
-                if(Array.isArray(filter.unit_id)) {
-                    return (filter.unit_id.indexOf(s.unidades.id) >= 0)
-                } else {
-                    return (filter.unit_id == s.unidades.id)
-                }
-            })
-        }
-        if(filter.proc_id) {
-            series = series.filter(s=>{   
-                if(Array.isArray(filter.proc_id)) {
-                    return (filter.proc_id.indexOf(s.procedimiento.id) >= 0)
-                } else {
-                    return (filter.proc_id == s.procedimiento.id)
-                }
-            })
-        }
-        if(filter.estacion_id) {
-            series = series.filter(s=>{   
-                if(Array.isArray(filter.estacion_id)) {
-                    return (filter.estacion_id.indexOf(s.estacion.id) >= 0)
-                } else {
-                    return (filter.estacion_id == s.estacion.id)
-                }
-            })
-        }
+        var series = await this.tsoToSeries(timeseries_observations,options,filter)
         return series
     }
 

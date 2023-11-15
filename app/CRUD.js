@@ -2328,6 +2328,102 @@ internal.serie = class extends baseModel {
 		}
 	}
 
+	/**
+     * Return true if serie matches the filter parameters
+     * @param {Serie} serie 
+     * @param {Object} filter
+     * @param {integer|integer[]} filter.var_id
+     * @param {integer|integer[]} filter.proc_id
+     * @param {integer|integer[]} filter.unit_id
+     * @param {integer|integer[]} filter.estacion_id
+     * @param {integer|integer[]} filter.fuentes_id
+     * @param {string|string[]} filter.id_externo
+     * @param {string|string[]} filter.tabla
+     * @returns {boolean}
+     */
+	filterSerie(filter={}) {
+		if(filter.var_id) {
+			if(Array.isArray(filter.var_id)) {
+				if(filter.var_id.indexOf(this.var.id) < 0) {
+					return false
+				}
+			} else {
+				if(filter.var_id != this.var.id) {
+					return false
+				}
+			}
+		}
+		if(filter.unit_id) {
+			if(Array.isArray(filter.unit_id)) {
+				if(filter.unit_id.indexOf(this.unidades.id) < 0) {
+					return false
+				}
+			} else {
+				if(filter.unit_id != this.unidades.id) {
+					return false
+				}
+			}
+		}
+		if(filter.proc_id) {
+			if(Array.isArray(filter.proc_id)) {
+				if(filter.proc_id.indexOf(this.procedimiento.id) < 0) {
+					return false
+				}
+			} else {
+				if(filter.proc_id != this.procedimiento.id) {
+					return false
+				}
+			}
+		}
+		if(filter.estacion_id) {
+			if(Array.isArray(filter.estacion_id)) {
+				if(filter.estacion_id.indexOf(this.estacion.id) < 0) {
+					return false
+				}
+			} else {
+				if(filter.estacion_id != this.estacion.id) {
+					return false
+				}
+			}
+		}
+		if(filter.id_externo) {
+			if(Array.isArray(filter.id_externo)) {
+				if(filter.id_externo.indexOf(this.estacion.id_externo) < 0) {
+					return false
+				}
+			} else {
+				if(filter.id_externo != this.estacion.id_externo) {
+					return false
+				}
+			}
+		}
+		if(filter.tabla) {
+			if(Array.isArray(filter.tabla)) {
+				if(filter.tabla.indexOf(this.estacion.tabla) < 0) {
+					return false
+				}
+			} else {
+				if(filter.tabla != this.estacion.tabla) {
+					return false
+				}
+			}
+		}
+		if(filter.fuentes_id) {
+			if(!this.fuente) {
+				return false
+			}
+			if(Array.isArray(filter.fuentes_id)) {
+				if(filter.fuentes_id.indexOf(this.fuentes.id) < 0) {
+					return false
+				}
+			} else {
+				if(filter.fuentes_id != this.fuentes.id) {
+					return false
+				}
+			}
+		}
+		return true
+	}
 }
 
 const asc = arr => arr.sort((a, b) => a - b)
