@@ -7739,13 +7739,29 @@ internal.CRUD = class {
 						serie_props.estacion = new internal.escena(result.rows[0])
 					}
 				} else {
+					// console.log("Searching for estacion: " + JSON.stringify(serie.estacion))
+					// console.log("serie.tipo: " + serie.tipo)
+					// console.log(`serie is instance of serie: ${serie instanceof internal.serie}`)
+					// console.log(`estacion is instance of estacion: ${serie.estacion instanceof internal.estacion}`)
 					if(serie.estacion instanceof internal.estacion) {
-						serie_props.estacion = await internal.estacion.read({id:serie.estacion.id})
+						if(serie.estacion.id) {
+							serie_props.estacion = await internal.estacion.read({id:serie.estacion.id})
+						} else if(serie.estacion.id_externo && serie.estacion.tabla) {
+							serie_props.estacion = await internal.estacion.read({id_externo:serie.estacion.id_externo,tabla:serie.estacion.tabla})
+							if(!serie_props.estacion.length) {
+								console.error("Estacion with id_externo: " + serie.estacion.id_externo + " and tabla: " + serie.estacion.tabla + " not found. Skipping serie upsert")
+								continue
+							}
+							serie_props.estacion = serie_props.estacion[0]
+						} else {
+							console.error("Missing serie.estacion.id or series.estacion.id_externo + series.estacion.tabla. Skipping serie upsert")
+							continue
+						}
 						if(!serie_props.estacion) {
 							console.error("estacion " + serie.estacion.id + " not found. Skipping serie upsert")
 							continue
 						}
-					} else  if (serie.estacion instanceof internal.area) {
+					} else if (serie.estacion instanceof internal.area) {
 						serie_props.estacion = await internal.area.read({id:serie.estacion.id})
 						if(!serie_props.estacion) {
 							console.error("area " + serie.estacion.id + " not found. Skipping serie upsert")
@@ -7759,9 +7775,10 @@ internal.CRUD = class {
 						}
 					}
 				}
-				Object.keys(serie_props).forEach(key=>{
-					serie[key] = serie_props[key]
-				})
+				Object.assign(serie,serie_props) 
+				// keys(serie_props).forEach(key=>{
+				// 	serie[key] = serie_props[key]
+				// })
 				var query_string
 				// check if series exists already
 				var series_match = await this.getSeries(serie.tipo,{estacion_id:serie.estacion.id,var_id:serie.var.id,proc_id:serie.procedimiento.id,unit_id:serie.unidades.id,fuentes_id:serie.fuente.id},{},client)

@@ -788,15 +788,15 @@ internal.accessor_timeseries_observation = class extends baseModel {
 	 * @returns {Variable} Variable
 	 */
 	async findVariable() {
-		console.log(this)
+		// console.log(this)
 		const this_variable = this.toVar()
-		console.log(this_variable)
+		// console.log(this_variable)
 		if(!this_variable.VariableName) {
-			console.error("No VariableName for observedProperty " + this.observed_property.observed_property_id)
+			// console.error("No VariableName for observedProperty " + this.observed_property.observed_property_id)
 			return this_variable
 		}
 		if(!this_variable.datatype)  {
-			console.error("No datatype for observedProperty " + this.observed_property.observed_property_id)
+			// console.error("No datatype for observedProperty " + this.observed_property.observed_property_id)
 			return this_variable
 		}
 		var datatype_filter = this_variable.datatype
@@ -807,7 +807,7 @@ internal.accessor_timeseries_observation = class extends baseModel {
 			]
 		}
 		if(!this_variable.timeSupport) {
-			console.error("No timeSupport for observedProperty " + this.observed_property.observed_property_id)
+			// console.error("No timeSupport for observedProperty " + this.observed_property.observed_property_id)
 			return this_variable
 		}
 		const matching_variables = await Variable.read({
@@ -816,14 +816,14 @@ internal.accessor_timeseries_observation = class extends baseModel {
 			timeSupport: this_variable.timeSupport
 		})
 		if(matching_variables.length) {
-			console.log("Found " + matching_variables.length + " variables. Returning first match")
+			// console.log("Found " + matching_variables.length + " variables. Returning first match")
 			return matching_variables[0]
 		} else {
-			console.error("Didn't find matching variables: \n" + JSON.stringify({
-				datatype: this_variable.datatype,
-				VariableName: this_variable.VariableName,
-				timeSupport: this_variable.timeSupport
-			}))
+			// console.error("Didn't find matching variables: \n" + JSON.stringify({
+			// 	datatype: this_variable.datatype,
+			// 	VariableName: this_variable.VariableName,
+			// 	timeSupport: this_variable.timeSupport
+			// }))
 			return this_variable
 		}
 	}
