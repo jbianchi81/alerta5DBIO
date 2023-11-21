@@ -2303,6 +2303,17 @@ internal.serie = class extends baseModel {
 		return new internal.observaciones(aggregated_timeseries)
 	}
 
+	async createObservaciones() {
+		if(this.observaciones && this.observaciones.length) {
+			this.observaciones.setTipo(this.tipo)
+			this.observaciones.setSeriesId(this.id)
+			this.observaciones = await this.observaciones.create()
+		} else {
+			console.warn("serie: no observaciones to create")
+		}
+		return this.observaciones
+	}
+
 	createObservacionesQuery(options={}) {
 		return this.observaciones.createQuery(this.tipo,options)
 	}
@@ -4150,6 +4161,16 @@ internal.observaciones = class extends BaseArray {
 		}
 		// console.error("observaciones tipo not defined")
 		return
+	}
+	setSeriesId(series_id) {
+		for(var o of this) {
+			o.series_id = series_id
+		}
+	}
+	setTipo(tipo) {
+		for(var o of this) {
+			o.tipo = tipo
+		}
 	}
 	async create(options={}) {
 		var tipo = this.getTipo()

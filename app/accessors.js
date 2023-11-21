@@ -37,6 +37,8 @@ const { client } = require('./wmlclient')
 
 var internal = {}
 
+internal.genica = require('./genica_accessor').Client
+
 internal.om_ogc_timeseries_client = require('./om_ogc_timeseries_client').client
 // Promise.allSettled polyfill
 
@@ -296,6 +298,17 @@ internal.Accessor = class {
 		// timestart,timeend,estacion_id,var_id,series_id,return_raw,use_proxy,tabla_id,fuentes_id,area_id,escena_id,include_geom,id_externo,proc_id,unit_id,tipo="puntual"
 		filter.timestart = timeSteps.DateFromDateOrInterval(filter.timestart)
 		filter.timeend = timeSteps.DateFromDateOrInterval(filter.timeend)
+		if(this.engine.update && this.engine.constructor._get_is_multiseries) {
+			const series = await this.engine.update(filter,options,client)
+			if(!options.no_update_date_range) {
+				var types = Array.from(new Set(series.map(s=>s.tipo)))
+				for(var tipo of types) {
+					console.log("refreshing date range of series " + tipo)
+					await CRUD.serie.refreshDateRange(tipo)
+				}
+			}
+			return series
+		}
 		if(!this.engine.getSeries) {
 			var updated_observaciones = await this.engine.update(filter,options)
 			var series_id_list = [new Set(updated_observaciones.map(o=>o.series_id))]
