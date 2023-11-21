@@ -6,7 +6,6 @@ logs
 sessions
 sql_ignore
 node_modules
-package.json
 procedures/*.yml
 procedures/6-hourly
 procedures/daily
