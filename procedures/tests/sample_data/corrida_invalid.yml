@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/jbianchi81/alerta5DBIO/rewire_om_ogc_timeseries_client/public/schemas/a5/corrida.yml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jbianchi81/alerta5DBIO/master/public/schemas/a5/corrida.yml
 forecast_date: 2023-11-07T03:00:00.000Z
 cal_id: 289
 series:
