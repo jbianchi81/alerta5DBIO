@@ -14,3 +14,26 @@ properties:
 required:
 - forecast_date
 - series
+#  Explicación de los campos:
+#
+# - forecast_date: fecha de emisión del pronóstico en formato ISO
+#
+# - cal_id: Identificador de "calibrado". Por ejemplo, para la traza de Yacyretá es 224
+#
+# - series: es una lista de series temporales, una por variable y por estación. Por ejemplo, Caudal en Yacyretá Afluente. Cada serie debe contener:
+# 
+#     - series_table: series
+# 
+#     - series_id: el identificador de la serie (Consultar en https://alerta.ina.gob.ar/a6/metadatos?element=seriesPuntuales)
+# 
+#     - pronosticos: lista de pronósticos. Cada uno debe tener:
+# 
+#          - timestart: fecha inicial
+# 
+#          - timeend: fecha final (Si es una variable continua, es igual al timestart, en cambio si es agregada debe ser la fecha donde termina la agregación. Por ejemplo si la variable es Caudal Medio Diario, el timeend debe quedar un día adelante del timestart.
+# 
+#          - valor: valor numérico del pronóstico
+# 
+#          - qualifier: calificador del pronóstico para diferenciar miembros producidos por un mismo modelo en modo probabilístico. Por ejemplo 'bajo', 'medio', 'alto'
+
+   
