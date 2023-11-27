@@ -5342,7 +5342,7 @@ internal.corrida = class extends baseModel {
 		return
 	}
 	static async read(filter={},options={}) {
-		const corridas = await internal.CRUD.getPronosticos(filter.cor_id,filter.cal_id,filter.forecast_timestart,filter.forecast_timeend,filter.forecast_date,filter.timestart,filter.timeend,filter.qualifier,filter.estacion_id,filter.var_id,options.includeProno,filter.isPublic,filter.series_id,options.series_metadata,filter.cal_grupo_id,options.group_by_qualifier,filter.model_id,filter.tipo)
+		const corridas = await internal.CRUD.getPronosticos(filter.cor_id ?? filter.id,filter.cal_id,filter.forecast_timestart,filter.forecast_timeend,filter.forecast_date,filter.timestart,filter.timeend,filter.qualifier,filter.estacion_id,filter.var_id,options.includeProno,filter.isPublic,filter.series_id,options.series_metadata,filter.cal_grupo_id,options.group_by_qualifier,filter.model_id,filter.tipo)
 		return corridas
 	}
 	static async delete(filter={}) {
