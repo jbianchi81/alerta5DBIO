@@ -16212,7 +16212,10 @@ ORDER BY cal.cal_id`
 			filter.skip_cal_id = [filter.skip_cal_id]
 		}
 		var getPronoPromise
-		if(filter.cor_id) {
+		if(filter.id) {
+			console.log("filter.id")
+			getPronoPromise = this.getPronosticos(filter.id)
+		} else if(filter.cor_id) {
 			console.log("filter.cor_id")
 			getPronoPromise = this.getPronosticos(filter.cor_id)
 		} else if (filter.cal_id) {
@@ -16276,6 +16279,8 @@ ORDER BY cal.cal_id`
 			} 
 			console.log("filter.forecast_timeend + filter.skip_cal_id")
 			getPronoPromise = this.getPronosticos(undefined,undefined,undefined,filter.forecast_timeend)
+		} else {
+			throw("Missing filter")
 		}
 		return getPronoPromise
 		.then(corridas=>{
