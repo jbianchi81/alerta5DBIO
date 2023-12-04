@@ -12252,7 +12252,15 @@ internal.CRUD = class {
 				})
 				.then(obs=>{
 					if(obs) {
-						var observaciones = obs.map(o=> (o.observaciones) ? o.observaciones[0] : null).filter(o=> o !== null)
+						var observaciones = obs.map((o,i)=> {
+							if(o.observaciones) {
+								console.log("crud.getRegularSeries: obs[" + i + "].observaciones[0] = " + o.observaciones[0].toString())
+								return o.observaciones[0]
+							} else {
+								console.warn("crud.getRegularSeries: obs[" + i + "].observaciones undefined")
+								return null
+							}
+						}).filter(o=> o !== null)
 						if(dt_epoch) {
 							observaciones = observaciones.filter(o=>{
 								var time_sum_epoch = timeSteps.interval2epochSync(o.time_sum) * 1000
