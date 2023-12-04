@@ -12254,7 +12254,11 @@ internal.CRUD = class {
 					if(obs) {
 						var observaciones = obs.map((o,i)=> {
 							if(o.observaciones) {
-								console.log("crud.getRegularSeries: obs[" + i + "].observaciones[0] = " + o.observaciones[0].toString())
+								if(!o.observaciones.length) {
+									console.warn("crud.getRegularSeries: obs[" + i + "].observaciones.length = 0")
+									return null
+								}
+								// console.log("crud.getRegularSeries: obs[" + i + "].observaciones[0] = " + o.observaciones[0].toString())
 								return o.observaciones[0]
 							} else {
 								console.warn("crud.getRegularSeries: obs[" + i + "].observaciones undefined")
