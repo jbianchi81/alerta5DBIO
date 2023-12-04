@@ -6782,7 +6782,7 @@ internal.gpm_3h = class {
 			.then(result_3h=>{
 				this.getDiario(filter,options)
 				.then(result_diario=>{
-					fs.writeFileSync("/tmp/gpm_dia.json",result_diario)
+					fs.writeFileSync("/tmp/gpm_dia.json",JSON.stringify(result_diario,null,4))
 				})
 				.catch(e=>{
 					console.error(e)
