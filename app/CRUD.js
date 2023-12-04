@@ -2001,7 +2001,14 @@ internal.serie = class extends baseModel {
 			return
 		}
 		this.constructor.refreshJsonView()
-		return internal.serie.read({tipo:this.tipo,id:result.rows[0].id})
+		const updated = await internal.serie.read({tipo:this.tipo,id:result.rows[0].id})
+		if(!updated) {
+			console.error("Updated serie not found")
+			return
+		} else {
+			Object.assign(this,updated)
+			return updated
+		}
 	}
 	updateQuery(changes={}) {
 		const params = [this.id]
