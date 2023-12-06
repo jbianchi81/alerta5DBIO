@@ -6111,7 +6111,9 @@ internal.asociacion = class extends baseModel {
 		this.expresion = arguments[0].expresion
 	}
 	async create() {
-		return new internal.asociacion(await internal.CRUD.upsertAsociacion(this))
+		const created = new internal.asociacion(await internal.CRUD.upsertAsociacion(this))
+		Object.assign(this,created)
+		return created
 	}
 	static async create(data) {
 		var asociaciones = await internal.CRUD.upsertAsociaciones(data)
