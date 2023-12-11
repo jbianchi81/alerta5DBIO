@@ -1937,12 +1937,12 @@ internal.serie = class extends baseModel {
 
 	static async refreshDateRange(tipo="puntual",options={}) {
 		const date_range_table = this.getDateRangeTable(tipo,options)
-		return global.pool.query(`REFRESH MATERIALIZED VIEW ${date_range_table}`)
+		return global.pool.query(`REFRESH MATERIALIZED VIEW CONCURRENTLY ${date_range_table}`)
 	}
 
 	async refreshDateRange(options={}) {
 		const date_range_table = this.getDateRangeTable(options)
-		return global.pool.query(`REFRESH MATERIALIZED VIEW ${date_range_table}`)
+		return global.pool.query(`REFRESH MATERIALIZED VIEW CONCURRENTLY ${date_range_table}`)
 	}
 
 	getSeriesTable() {

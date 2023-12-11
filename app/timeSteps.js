@@ -497,7 +497,7 @@ internal.DateFromInterval = function(interval,date=new Date(),roundTo,truncate=f
 		// var roundToUnits = Object.keys(roundTo)[0]
 		// var roundToValue = roundTo[roundToUnits]
 		for( const [key,value] of Object.entries(roundTo)) {
-			console.log("roundToUnits: " + key + ", roundToValue: " + value)
+			// console.log("roundToUnits: " + key + ", roundToValue: " + value)
 			new_date = internal.roundDateTo(new_date,key,truncate.valueOf,value)
 		}
 		return new_date
