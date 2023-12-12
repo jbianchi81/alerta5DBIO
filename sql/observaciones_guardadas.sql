@@ -111,6 +111,8 @@ SELECT series.id AS series_id,
   GROUP BY series.id
   ORDER BY series.id;
 
+create unique index series_guardadas_date_range_series_id_idx on series_guardadas_date_range (series_id);
+
 create materialized view series_areal_guardadas_date_range AS
 SELECT series_areal.id AS series_id,
     min(timestart) AS timestart,
@@ -122,6 +124,8 @@ SELECT series_areal.id AS series_id,
   GROUP BY series_areal.id
   ORDER BY series_areal.id;
 
+create unique index series_areal_guardadas_date_range_series_id_idx on series_areal_guardadas_date_range (series_id);
+
 create materialized view series_rast_guardadas_date_range AS
 SELECT series_rast.id AS series_id,
     min(timestart) AS timestart,
@@ -132,6 +136,8 @@ SELECT series_rast.id AS series_id,
   WHERE series_rast.id = observaciones_rast_guardadas.series_id
   GROUP BY series_rast.id
   ORDER BY series_rast.id;
+
+create unique index series_rast_guardadas_date_range_series_id_idx on series_rast_guardadas_date_range (series_id);
 
 alter materialized view series_date_range owner to matviews;
 alter materialized view series_guardadas_date_range owner to matviews;
