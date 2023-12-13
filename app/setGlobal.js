@@ -33,8 +33,27 @@ if(!global.pool) {
         );
     }
     
-    logPoolUsage = function () { 
-        console.log("POOL TOTAL: " + global.pool.totalCount + ", WAITING: " + global.pool.waitingCount + ", IDLE: " + global.pool.idleCount)
+    logPoolUsage = function () {
+      getSessionCount()
+      .then(sessions=>{
+        console.log(new Date().toISOString() + " POOL TOTAL: " + global.pool.totalCount + ", WAITING: " + global.pool.waitingCount + ", IDLE: " + global.pool.idleCount + ". Sessions: active: " + sessions.active + ", idle: " + sessions.idle + ", iit: " + sessions["idle in transaction"])
+      })
+    }
+    getSessionCount = async () => {
+      try {
+        var result =  await global.pool.query("select state,count(*) from pg_stat_activity group by state")
+      } catch (e) {
+        throw(e)
+      }
+      const o = {
+        "idle": 0,
+        "active": 0,
+        "idle in transaction": 0
+      }
+      result.rows.forEach(r=>{
+        o[r.state]  = r.count
+      })
+      return o
     }
     if(config.log_pool_usage && config.log_pool_usage.activate) {
       setInterval(logPoolUsage,config.log_pool_usage.interval)
