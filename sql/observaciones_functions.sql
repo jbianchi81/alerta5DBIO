@@ -85,10 +85,9 @@ end
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.obs_puntual_dt_constraint_trigger()
- RETURNS trigger
- LANGUAGE plpgsql
-AS $function$
+CREATE OR REPLACE FUNCTION public.obs_puntual_dt_constraint_trigger() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
 
 declare
 _sql text;
@@ -102,30 +101,28 @@ begin
 _sql := 'select var."timeSupport",def_hora_corte  from var,series where var.id=series.var_id and series.id='||new.series_id;
 execute _sql into _dt, _hora_corte;
 IF (_dt is null)
-THEN 
-	return NEW;
+THEN
+  IF (new.timeend != new.timestart)
+  THEN
+    raise notice 'new dt is invalid. must be 0';
+    return NULL;
+  ELSE
+	  return NEW;
+  END IF;
 ELSE
 	IF (new.timeend - _dt = new.timestart OR new.timestart + _dt = new.timeend) 
 	THEN 
-		_sql2 := 'select exists (select 1 from observaciones where observaciones.series_id='||new.series_id||' AND '''||new.timestart||'''<observaciones.timeend AND '''||new.timeend||'''> observaciones.timestart AND '''||new.timestart||'''!=observaciones.timestart and '''||new.timeend||'''!=observaciones.timeend AND coalesce('||new.id||',-1) != observaciones.id)';
-		execute _sql2 into _match;
-		IF _match = TRUE
-		THEN
-			raise notice 'El intervalo intersecta con un registro existente'; 
-			return NULL;
-		ELSE 
-			IF _hora_corte is null
-			THEN
-				return NEW;
-			ELSE
-				IF extract(epoch from case when _hora_corte<interval '0 seconds' then interval '1 day'+_hora_corte else _hora_corte end)=(extract(epoch from new.timestart-new.timestart::date))::integer%extract(epoch from _dt)::integer
-				THEN 
-					return NEW;
-				ELSE
-					raise notice 'new hora_corte is invalid';
-					return NULL;
-				END IF;
-			END IF;
+    IF _hora_corte is null
+    THEN
+      return NEW;
+    ELSE
+      IF extract(epoch from case when _hora_corte<interval '0 seconds' then interval '1 day'+_hora_corte else _hora_corte end)=(extract(epoch from new.timestart-new.timestart::date))::integer%extract(epoch from _dt)::integer
+      THEN 
+        return NEW;
+      ELSE
+        raise notice 'new hora_corte is invalid';
+        return NULL;
+      END IF;
 		END IF;
 	ELSE 
 		 raise notice 'new dt is invalid';
@@ -133,8 +130,7 @@ ELSE
 	END IF;
 END IF;
 end
-$function$
-;
+$$;
 
 CREATE OR REPLACE FUNCTION public.obs_range_constraint_trigger()
  RETURNS trigger
