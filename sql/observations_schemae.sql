@@ -1081,6 +1081,8 @@ CREATE MATERIALIZED VIEW public.series_date_range AS
 
 -- GRANT SELECT ON TABLE public.series_date_range TO actualiza;
 
+create unique index series_date_range_id_idx on series_date_range (series_id);
+
 REFRESH MATERIALIZED VIEW public.series_date_range;
 
 CREATE TABLE public.alturas_alerta (

@@ -4769,6 +4769,7 @@ internal.delta_qmeddiario = class {
 }
 
 internal.sat2 = class {
+	static _get_is_multiseries = true
 	constructor(config) {
 		this.default_config = {
 			sensores: {
@@ -4913,7 +4914,7 @@ internal.sat2 = class {
 	async updateSeries(filter,options={}) {
 		return this.getSeries(filter)
 		.then(series=>{
-			return crud.upsertSeries(series,false,true,undefined) // options.all)
+			return crud.upsertSeries(series,false,true,options.generate_id) // options.all)
 		})
 	}
 	async getSites(filter) {  // filter.id_externo = idEquipo, filter.nombre =~ descripcion
