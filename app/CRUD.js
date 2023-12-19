@@ -14384,6 +14384,7 @@ SELECT mod.id, \
 		        FROM calibrados \
 				" + cal_join + " pronos\
 				ON (calibrados.id=pronos.cal_id) \
+				WHERE 1=1 \
 				" + calibrados_filter + "\
 		        " + activar_filter + "\
 				" + public_filter + "\
@@ -14419,6 +14420,7 @@ SELECT mod.id, \
 				FROM calibrados \
 				" + cal_join + " pronos\
 				ON (calibrados.id=pronos.cal_id) \
+				WHERE 1=1 \
 				" + calibrados_filter + "\
 		        " + activar_filter + "\
 				" + public_filter + "\
@@ -14482,7 +14484,7 @@ LEFT OUTER JOIN states ON (states.cal_id=cal.cal_id) \
 LEFT OUTER JOIN forcings ON (forcings.cal_id=cal.cal_id) \
 ORDER BY cal.cal_id`
 		}
-		// console.log(internal.utils.pasteIntoSQLQuery(query,[estacion_id,var_id,cal_id,model_id]))
+		console.log(internal.utils.pasteIntoSQLQuery(query,[estacion_id,var_id,cal_id,model_id]))
 		const result = await global.pool.query(query) //,[estacion_id,var_id,cal_id,model_id])
 		if(!result.rows) {
 			return Promise.reject()
@@ -14685,7 +14687,7 @@ ORDER BY cal.cal_id`
 		return calibrados[0]
 	}
 
-	static async getCalibrados(estacion_id,var_id,includeCorr=false,timestart,timeend,cal_id,model_id,qualifier,isPublic,grupo_id,no_metadata,group_by_cal,forecast_date,includeInactive,series_id,nombre,tipo="puntual") {
+	static async getCalibrados(estacion_id,var_id,includeCorr=false,timestart,timeend,cal_id,model_id,qualifier,isPublic,grupo_id,no_metadata,group_by_cal=true,forecast_date,includeInactive,series_id,nombre,tipo="puntual") {
 		const engine = new internal.engine(global.pool)
 		var filter = {id:cal_id,model_id:model_id,grupo_id:grupo_id,nombre:nombre}
 		if(!includeInactive) {
