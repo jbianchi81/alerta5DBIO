@@ -3839,6 +3839,74 @@ if(1==1) {
         await writeResult(procedure,result,options)
         process.exit(0)
     })
+    program
+    .command("run-asoc <timestart> <timeend> [filter...]")
+    .alias('a')
+    .alias('asoc')
+    .description('Run asociacion. Requires timestart and timeend and filters as "key1=value1 key2=value2 ..."')
+    .option("-a, --agg_func", "aggregation function (mean,sum,min,max)")
+    .option("-d, --dt", "time interval")
+    .option("-t, --t_offset", "time offset")
+    .option("-o, --output <value>",'save output to file')
+    .option("-f, --format <value>",'output format (json (default) or csv)')
+    .action(async (timestart,timeend,filter,options) => {
+        timestart = DateFromDateOrInterval(timestart)
+        timeend = DateFromDateOrInterval(timeend)
+        try {
+            filter = parseKVPArray(filter)
+        } catch (e) {
+            logger.error(e)
+            process.exit(1)
+        }
+        filter.timestart = timestart
+        filter.timeend = timeend
+        const asoc_options = {
+            agg_func: options.agg_func,
+            dt: options.dt,
+            t_offset: options.t_offset
+        }
+        if(filter.id) {
+            try {
+                var procedure = new internal.RunAsociacionProcedure({
+                    id: filter.id,
+                    filter: filter,
+                    options: asoc_options,
+                    output: options.output,
+                    output_format: options.output_format
+                })
+            } catch (e) {
+                logger.error(e)
+                process.exit(1)
+            }
+        } else {
+            try {
+                var procedure = new internal.RunAsociacionesProcedure({
+                    filter: filter,
+                    options: asoc_options,
+                    output: options.output,
+                    output_format: options.output_format
+                })
+            } catch (e) {
+                logger.error(e)
+                process.exit(1)
+            }
+        }
+        try {
+            await procedure.run()
+        } catch(e) {
+            logger.error(e)
+            process.exit(1)
+        }
+        if(options.output) {
+            try {
+                await procedure.writeResult()
+            } catch(e) {
+                logger.error(e)
+                process.exit(1)
+            }
+        }
+        process.exit(0)
+    })
 
 
     program.parse(process.argv);
