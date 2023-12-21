@@ -7768,8 +7768,11 @@ internal.CRUD = class {
 			release_client = true
 		}
 		try {
-			await this.getSerie(tipo,id,undefined,undefined,undefined,undefined,undefined,client)
+			var existing_serie = await this.getSerie(tipo,id,undefined,undefined,undefined,undefined,undefined,client)
 		} catch(e) {
+			throw(e)
+		}
+		if(!existing_serie) {
 			console.log("id not taken")
 			if(release_client) {
 				client.release()
@@ -7947,7 +7950,7 @@ internal.CRUD = class {
 								query_string = this.upsertSerieQuery(serie)
 							} else {
 								// throws error
-								throw("series.id already taken. Try with generate_id=true")
+								throw("series.id " + serie.id + " already taken. Try with generate_id=true")
 							}
 						} else {
 							// id not taken, will update
