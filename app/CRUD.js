@@ -14487,7 +14487,7 @@ LEFT OUTER JOIN states ON (states.cal_id=cal.cal_id) \
 LEFT OUTER JOIN forcings ON (forcings.cal_id=cal.cal_id) \
 ORDER BY cal.cal_id`
 		}
-		console.log(internal.utils.pasteIntoSQLQuery(query,[estacion_id,var_id,cal_id,model_id]))
+		// console.log(internal.utils.pasteIntoSQLQuery(query,[estacion_id,var_id,cal_id,model_id]))
 		const result = await global.pool.query(query) //,[estacion_id,var_id,cal_id,model_id])
 		if(!result.rows) {
 			return Promise.reject()
@@ -14544,7 +14544,9 @@ ORDER BY cal.cal_id`
 						calibrados[i].corrida = null
 					}
 				} else {
-					const corrida = await this.getLastCorrida(c.out_id,var_id,c.id,timestart,timeend,qualifier,isPublic)
+					const estacion_id = (Array.isArray(c.out_id)) ? c.out_id.map(s=>(typeof s == "number") ? s : s.estacion_id) : c.out_id
+					// console.log("estacion_id: " + estacion_id)
+					const corrida = await this.getLastCorrida(estacion_id,var_id,c.id,timestart,timeend,qualifier,isPublic)
 					calibrados[i].corrida = corrida
 				}
 			}
@@ -14750,7 +14752,9 @@ ORDER BY cal.cal_id`
 			} else {
 				for(var i in calibrados) {
 					// console.log(`this.getLastCorrida(${calibrados[i].out_id},${var_id},${calibrados[i].id},${timestart},${timeend},${qualifier},true,${isPublic},${series_id},undefined,true,undefined,undefined)`)
-					const corrida = await this.getLastCorrida(calibrados[i].out_id,var_id,calibrados[i].id,timestart,timeend,qualifier,true,isPublic,series_id,undefined,true,undefined,undefined)
+					const estacion_id_filter = (Array.isArray(calibrados[i].out_id)) ? calibrados[i].out_id.map(s=>(typeof s == "number") ? s : s.estacion_id) : calibrados[i].out_id
+					// console.log("estacion_id_filter: " + estacion_id_filter)
+					const corrida = await this.getLastCorrida(estacion_id_filter,var_id,calibrados[i].id,timestart,timeend,qualifier,true,isPublic,series_id,undefined,true,undefined,undefined)
 					calibrados[i].corrida = corrida
 					// console.log(JSON.stringify(calibrados[i].corrida,null,2))
 				}
@@ -15836,6 +15840,17 @@ ORDER BY cal.cal_id`
 			release_client = true
 			client = await global.pool.connect()
 		}
+		const filter_values = {
+			timestart:filter.timestart,
+			timeend:filter.timeend,
+			cal_id: filter.cal_id,
+			cor_id:filter.cor_id,
+			estacion_id:filter.estacion_id,
+			var_id:filter.var_id,
+			qualifier:filter.qualifier, 
+			series_id:filter.series_id,
+			tabla:filter.tabla
+		}
 		var filter_string = internal.utils.control_filter2({
 			timestart:{type:"timestart","table":"pronosticos"}, 
 			timeend:{type:"timeend","table":"pronosticos","column":"timestart"}, 
@@ -15846,18 +15861,11 @@ ORDER BY cal.cal_id`
 			qualifier:{type:"string","table":"pronosticos"}, 
 			series_id:{type:"integer","table":"pronosticos"},
 			tabla:{type:"string","table":"estaciones"}
-		},{
-			timestart:filter.timestart,
-			timeend:filter.timeend,
-			cal_id: filter.cal_id,
-			cor_id:filter.cor_id,
-			estacion_id:filter.estacion_id,
-			var_id:filter.var_id,
-			qualifier:filter.qualifier, 
-			series_id:filter.series_id,
-			tabla:filter.tabla
-		})
-		const result = await client.query("SELECT \
+		},filter_values)
+		if(!filter_string) {
+			throw("getPronosticosPuntual: Invalid filter values: " + JSON.stringify(filter_values))
+		}
+		const stmt = "SELECT \
 		    corridas.id AS cor_id,\
 			series.id series_id,\
 			'series' AS series_table,\
@@ -15874,9 +15882,11 @@ ORDER BY cal.cal_id`
 		JOIN corridas ON pronosticos.cor_id = corridas.id\
 		JOIN estaciones ON series.estacion_id = estaciones.unid  \
 		WHERE 1=1 " + filter_string + "\
-		ORDER BY pronosticos.series_id,pronosticos.timestart")
+		ORDER BY pronosticos.series_id,pronosticos.timestart"
 		// to_char(pronosticos.timestart::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timestart,\
 		//	to_char(pronosticos.timeend::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timeend,\
+		console.log(stmt)
+		const result = await client.query(stmt)
 		if(release_client) {
 			client.release()
 		}
