@@ -418,6 +418,7 @@ internal.estacion = class extends baseModel  {
 	}
 	async getEstacionId() {
 		if(!this.id_externo || !this.tabla) {
+			console.warn("id_externo and/or tabla missing from estacion. Can't retrieve id")
 			return this
 		}
 		return global.pool.query("\
@@ -430,6 +431,8 @@ internal.estacion = class extends baseModel  {
 			if (res.rows.length>0) {
 				this.id = res.rows[0].unid
 				//~ console.log({getEstacionId_id:res.rows[0].unid})
+			} else {
+				console.warn("Estacion not found. Not setting id")
 			}
 			return this
 		})
@@ -8804,7 +8807,7 @@ internal.CRUD = class {
 			}
 			throw(e)
 		}
-		// console.log(query)
+		console.debug(query)
 		try {
 			var res = await client.query(query)
 		} catch(e) {

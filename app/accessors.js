@@ -38,9 +38,10 @@ const { client } = require('./wmlclient')
 var internal = {}
 
 internal.genica = require('./genica_accessor').Client
-
 internal.om_ogc_timeseries_client = require('./om_ogc_timeseries_client').client
+internal.prevenir = require('./prevenir_accessor').Client
 // Promise.allSettled polyfill
+
 
 if (!Promise.allSettled) {
   Promise.allSettled = promises =>
