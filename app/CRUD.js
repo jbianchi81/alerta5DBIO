@@ -16435,9 +16435,10 @@ ORDER BY cal.cal_id`
 		}
 		var ups_corrida= new internal.corrida({})
 		try {
-			var stmt = internal.utils.pasteIntoSQLQuery("INSERT INTO corridas (cal_id,date) VALUES ($1,$2)\
+			var stmt = internal.utils.pasteIntoSQLQuery("INSERT INTO corridas (cal_id,date) VALUES ($1,$2::timestamptz)\
 			ON CONFLICT (cal_id,date) DO UPDATE set date=excluded.date\
 			RETURNING *",[corrida.cal_id,corrida.forecast_date])
+			// console.debug(stmt)
 			var corridas = await client.query(stmt)
 			// var corridas = await client.query("INSERT INTO corridas (cal_id,date) VALUES ($1,$2)\
 				//   ON CONFLICT (cal_id,date) DO UPDATE set date=excluded.date\
