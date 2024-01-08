@@ -4056,13 +4056,19 @@ internal.observaciones = class extends BaseArray {
     }
     removeDuplicates() {   // elimina observaciones con timestart duplicado
 		var timestarts = []
+		const filtered = []
 		for(var i=0;i<this.length;i++) { 
-			if(timestarts.indexOf(this[i].timestart) >= 0) {
-				console.log("removing duplicate observacion, timestart:"+o.timestart)
-				this.splice(i,1)
-				i--
+			if(timestarts.indexOf(this[i].timestart.toISOString()) >= 0) {
+				console.info("removing duplicate observacion, timestart: "+ this[i].timestart.toISOString())
+				// this.splice(i,1)
+				// i--
+				
+			} else {
+				timestarts.push(this[i].timestart.toISOString())
+				filtered.push(this[i])
 			} 
 		}
+		return new this.constructor(filtered)
 	}
 	map(fn) {
 		var result = []
@@ -7978,7 +7984,7 @@ internal.CRUD = class {
 				new_serie = new internal.serie(new_serie)
 				if(serie.observaciones instanceof internal.observaciones) {
 					new_serie.setObservaciones(serie.observaciones)
-					new_serie.observaciones.removeDuplicates()
+					new_serie.observaciones = new_serie.observaciones.removeDuplicates()
 					new_serie.tipo_guess()
 					new_serie.idIntoObs()
 					var new_observaciones = await this.upsertObservaciones(serie.observaciones,serie.tipo,serie.id,undefined,client) // client.query(this.upsertObservacionesQuery(serie.observaciones,serie.tipo))

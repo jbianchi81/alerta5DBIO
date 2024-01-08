@@ -6376,7 +6376,7 @@ internal.a5 = class {
 	update(filter={},options={}) {
 		return this.get(filter,options)
 		.then(result=>{
-			result.removeDuplicates()
+			result = result.removeDuplicates()
 			return crud.upsertObservaciones(result)
 		}).then(result=>{
 			if(options.no_send_data) {

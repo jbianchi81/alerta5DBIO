@@ -54,7 +54,7 @@ internal.Client = class {
         //         }
             // } 
         // } 
-        console.debug({filter:filter})
+        // console.debug({filter:filter})
         const serie = await Serie.read({tipo:"puntual",id:filter.series_id}) // this.readSeries(filter)
         if(!serie) {
             console.warn("accessor.get: no series found")
@@ -77,10 +77,11 @@ internal.Client = class {
             }
             observaciones.push(observacion)
         })
-        return observaciones
+        var o = new Observaciones(observaciones).removeDuplicates()
+        return o
     }
     async requestRange(topic,timestart,timeend) {
-        console.debug([topic,timestart,timeend])
+        // console.debug([topic,timestart,timeend])
         try {
             var response = await axios({
                 method: "get",
@@ -92,7 +93,7 @@ internal.Client = class {
                 },
                 responseType: "json"
             })
-            console.debug(response)
+            // console.debug(response)
             if(response.status != 200) {
                 console.error(`accessor.requestRange: query error. status code ${response.status}, message: ${response.statusText}`)
                 return []
@@ -142,14 +143,14 @@ internal.Client = class {
         series_filter.id = series_filter.series_id
         delete series_filter.timestart
         delete series_filter.timeend
-        console.debug("series_filter: " + JSON.stringify(series_filter))
+        // console.debug("series_filter: " + JSON.stringify(series_filter))
         var series = await Serie.read(series_filter)
         return series
     }
     async getSeries(filter={}) {
         delete filter.timestart
         delete filter.timeend
-        console.debug({filter:filter})
+        // console.debug({filter:filter})
         if(!this.config.estaciones || !this.config.estaciones.length) {
             throw("estaciones list missing from accessor config")
         }
@@ -174,14 +175,14 @@ internal.Client = class {
         }
         series = series.filter(s=>{
             const filtered = s.filterSerie(filter)
-            console.debug({
-                series_id: s.id,
-                id_externo: s.estacion.id_externo,
-                filtered: filtered
-            })
+            // console.debug({
+            //     series_id: s.id,
+            //     id_externo: s.estacion.id_externo,
+            //     filtered: filtered
+            // })
             return filtered
         })
-        console.debug("length: " + series.length)
+        // console.debug("length: " + series.length)
         return series
     }
     /**
