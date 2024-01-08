@@ -523,7 +523,7 @@ internal.estacion = class extends baseModel  {
 		}
 	}
 	static async read(filter={},options) {
-		if(filter.id) {
+		if(filter.id && !Array.isArray(filter.id)) {
 			return internal.CRUD.getEstacion(filter.id,filter.public)
 		}
 		return internal.CRUD.getEstaciones(filter,options)
@@ -6062,7 +6062,7 @@ internal.engine = class {
 						}
 						var meta_table_name = (parent.hasOwnProperty("series_table")) ? parent.series_table : undefined
 						var meta_query  = this.build_read_query(parent_query.meta_tables[key],meta_filter,meta_table_name)
-						console.log(meta_query.query)
+						// console.log(meta_query.query)
 						var query_result = await global.pool.query(meta_query.query)
 						// console.log({query_result:query_result.rows})
 						if(!query_result.rows.length) {
@@ -6656,6 +6656,9 @@ internal.CRUD = class {
 		if(filter.estacion_id) {
 			filter.unid = filter.estacion_id
 		}
+		if(filter.id) {
+			filter.unid = filter.id
+		}
 		const estaciones_filter = internal.utils.control_filter2(
 			{
 				nombre: {
@@ -6664,9 +6667,9 @@ internal.CRUD = class {
 				unid: {
 					type: "numeric"
 				},
-				id: {
-					type: "numeric"
-				},
+				// id: {
+				// 	type: "numeric"
+				// },
 				id_externo: {
 					type: "string"
 				},
@@ -8813,7 +8816,7 @@ internal.CRUD = class {
 			}
 			throw(e)
 		}
-		console.debug(query)
+		// console.debug(query)
 		try {
 			var res = await client.query(query)
 		} catch(e) {

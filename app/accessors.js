@@ -234,7 +234,7 @@ internal.Accessor = class {
 		return this.engine.getSites(filter,options)
 	}
 
-	async getSavedSites(filter={}) {
+	async getSavedSites(filter={},options) {
 		if(!this.engine.getSavedSites) {
 			console.warn("getSavedSites not implemented for accessor " + this.clase)
 			return
@@ -412,8 +412,8 @@ internal.Accessor = class {
 	 * @param {Object} filter 
 	 * @returns 
 	 */
-	async deleteSites(filter={}) {
-		var sites = await this.getSavedSites(filter)
+	async deleteSites(filter={},options) {
+		var sites = await this.getSavedSites(filter,options)
 		if(!sites) {
 			var sites = await this.getSites(filter)
 		}
@@ -6420,13 +6420,24 @@ internal.a5 = class {
 		if(filter.timeend) {
 			params.date_range_after = filter.timeend
 		}
-		const response = await axios.get(this.config.url + "/obs/" + filter.tipo + "/series",{
+		const url = this.config.url + "/obs/" + filter.tipo + "/series"
+		console.debug(url)
+		console.debug(params)
+		const response = await axios.get(url,{
 			headers: {"Authorization": "Bearer " + this.config.token},
 			params: params
 		})
-		const series = response.data.map(serie=>{
-			return new CRUD.serie(serie)
-		})
+		if(Array.isArray(response.data)) {
+			var series = response.data.map(serie=>{
+				return new CRUD.serie(serie)
+			})
+		} else if(Object.keys(response.data).indexOf("rows") >= 0) {
+			var series = response.data.rows.map(serie=>{
+				return new CRUD.serie(serie)
+			})
+		} else {
+			throw("Series response not undestood")
+		}
 		if(filter.tipo == "puntual") {
 			return series.filter(s=>s.estacion.id_externo && s.estacion.tabla)
 		} else {

@@ -1366,10 +1366,14 @@ internal.OutputFileTest = class extends internal.CrudProcedureTest {
                 const parsed_content_string = JSON.stringify(parsed_content)
                 if(result_deep_value_string !== parsed_content_string) {
                     value = false
-                    const diff_pos = findFirstDiffPos(result_deep_value_string,parsed_content_string)
-                    const context_string =  result_deep_value_string.slice(Math.max(0,diff_pos-20),Math.min(result_deep_value_string.length,diff_pos+20))
-                    const context_string_parsed =  parsed_content_string.slice(Math.max(0,diff_pos-20),Math.min(parsed_content_string.length,diff_pos+20))
-                    reason = `Parsed content differs from result property ${this.result_deep_property} at position ${diff_pos}:\n    ${context_string}\n    ${context_string_parsed}`
+                    if(!result_deep_value_string) {
+                        reason = `Deep value of result property ${this.result_deep_property} stringification resulted in undefined`
+                    } else {
+                        const diff_pos = findFirstDiffPos(result_deep_value_string,parsed_content_string)
+                        const context_string =  result_deep_value_string.slice(Math.max(0,diff_pos-20),Math.min(result_deep_value_string.length,diff_pos+20))
+                        const context_string_parsed =  parsed_content_string.slice(Math.max(0,diff_pos-20),Math.min(parsed_content_string.length,diff_pos+20))
+                        reason = `Parsed content differs from result property ${this.result_deep_property} at position ${diff_pos}:\n    ${context_string}\n    ${context_string_parsed}`
+                    }
                 }
             } else if(this.index != null) {
                 if(!result[this.index]) {
@@ -1731,6 +1735,39 @@ internal.DeleteMetadataFromAccessorProcedure = class extends internal.CrudProced
         }
     }
 }
+
+internal.DeleteSitesFromAccessorProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "DeleteSitesFromAccessorProcedure"
+        if(!arguments[0]) {
+            throw("Missing arguments")
+        }
+        if(!arguments[0].accessor_id) {
+            throw("Missing accessor_id")
+        }
+        this.accessor_id = arguments[0].accessor_id
+        this.filter = arguments[0].filter
+    }
+    async run() {
+        if(config.accessors && config.accessors[this.accessor_id]) {
+            var accessor = await Accessors.new(this.accessor_id,config.accessors[this.accessor_id].class,config.accessors[this.accessor_id].config)
+            this.result = await accessor.deleteSites(this.filter)
+                    // if(this.output) {
+                    //     fs.writeFileSync(this.output,JSON.stringify(series,undefined,2))
+                    // }
+            return this.result
+        } else {
+            var accessor = await Accessors.new(this.accessor_id)
+            this.result = await accessor.deleteSites(this.filter,this.options)
+                    // if(this.output) {
+                    //     fs.writeFileSync(this.output,JSON.stringify(series,undefined,2))
+                    // }
+            return this.result
+        }
+    }
+}
+
 
 internal.UpdateMetadataFromAccessorProcedure = class extends internal.CrudProcedure {
     constructor() {
@@ -3118,6 +3155,7 @@ const availableCrudProcedures = {
     "GetMetadataFromAccessorProcedure":internal.GetMetadataFromAccessorProcedure,
     "UpdateMetadataFromAccessorProcedure":internal.UpdateMetadataFromAccessorProcedure,
     "DeleteMetadataFromAccessorProcedure": internal.DeleteMetadataFromAccessorProcedure,
+    "DeleteSitesFromAccessorProcedure": internal.DeleteSitesFromAccessorProcedure,
     "GetPronosticoFromAccessorProcedure":internal.GetPronosticoFromAccessorProcedure,
     "UpdatePronosticoFromAccessorProcedure": internal.UpdatePronosticoFromAccessorProcedure,
     "MapAccessorTableFromCSVProcedure": internal.MapAccessorTableFromCSVProcedure,
@@ -3402,7 +3440,16 @@ const parseKVPArray = function(filter) {
             }
             var key  = kvp[0].replace(/^["']/,"").replace(/["']$/,"")
             var value  = kvp[1].replace(/^["']/,"").replace(/["']$/,"")
-            filter_obj[key] = value
+            // if key already exists, push into array
+            if(Object.keys(filter_obj).indexOf(key) >= 0) {
+                if(Array.isArray(filter_obj[key])) {
+                    filter_obj[key].push(value)
+                } else {
+                    filter_obj[key] = [filter_obj[key], value]
+                }
+            } else {
+                filter_obj[key] = value
+            }
         }
     }
     return filter_obj
@@ -3657,7 +3704,7 @@ if(1==1) {
             logger.error(e)
             process.exit(1)
         }
-        // console.log(filter)
+        console.debug(filter)
         // var test_result = true
         if(!CRUD.hasOwnProperty(crud_class)) {
             logger.error("Invalid crud class")

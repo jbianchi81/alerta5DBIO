@@ -340,6 +340,17 @@ sequence:
   - testName: ArrayLengthTest
     arguments:
       min_length: 1
+- procedureName: DeleteSitesFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter: {}
+    output: outputs/deleted_sites_from_accessor_all.json
+    options:
+      pretty: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
 - procedureName: DeleteProcedure
   arguments:
     class_name: accessor

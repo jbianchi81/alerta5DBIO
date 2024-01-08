@@ -78,3 +78,7 @@ Commands:
     help [command]                               display help for command
 
 New procedures may be written following the schema found here: [http://localhost:3000/schemas/crudprocedure.json](http://localhost:3000/schemas/crudprocedure.json) (or locally: public/schemas/crudprocedure.json)
+
+## TODO list
+
+- [ ] DeleteSitesFromAccessorProcedure
