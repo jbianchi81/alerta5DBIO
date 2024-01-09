@@ -6421,8 +6421,8 @@ internal.a5 = class {
 			params.date_range_after = filter.timeend
 		}
 		const url = this.config.url + "/obs/" + filter.tipo + "/series"
-		console.debug(url)
-		console.debug(params)
+		// console.debug(url)
+		// console.debug(params)
 		const response = await axios.get(url,{
 			headers: {"Authorization": "Bearer " + this.config.token},
 			params: params

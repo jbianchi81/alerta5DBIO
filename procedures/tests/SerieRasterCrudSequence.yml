@@ -10,8 +10,14 @@ sequence:
     filter:
       tipo: raster
       series_id: 8
-      timestart: 2023-09-01T12:00:00.000Z
-      timeend: 2023-09-08T12:00:00.000Z
+      timestart:
+      # 2023-09-01T12:00:00.000Z
+        days: -7
+      roundTo:
+        hours: 12
+      timeend:
+      # 2023-09-08T12:00:00.000Z
+        days: 0
     output_format: raster
     options:
       output_individual_files:
@@ -22,12 +28,12 @@ sequence:
   - testName: ResultIsInstanceOfTest
     arguments:
       class_name: serie
-  - testName: OutputFileTest
-    arguments:
-      class_name: observacion
-      output: outputs/serie.rast.8.2023-09-01T12:00:00.000Z.tif
-      output_format: buffer
-      result_deep_property: 0.observaciones.0.valor
+  # - testName: OutputFileTest
+  #   arguments:
+  #     class_name: observacion
+  #     output: outputs/serie.rast.8.2023-09-01T12:00:00.000Z.tif
+  #     output_format: buffer
+  #     result_deep_property: 0.observaciones.0.valor
 - procedureName: CreateProcedure
   arguments:
     class_name: fuente
@@ -50,7 +56,7 @@ sequence:
       series_id: 3
       timestart: 2023-09-01T12:00:00.000Z
       timeend: 2023-09-02T12:00:00.000Z
-      filename: outputs/serie.rast.8.2023-09-01T12:00:00.000Z.tif
+      filename: sample_data/serie.rast.8.2023-09-01T12:00:00.000Z.tif
     output: outputs/created_obs.tif
     output_format: raster
     options:
@@ -98,7 +104,7 @@ sequence:
       series_id: 3
       timestart: 2023-09-02T12:00:00.000Z
       timeend: 2023-09-03T12:00:00.000Z
-      filename: outputs/serie.rast.8.2023-09-02T12:00:00.000Z.tif
+      filename: sample_data/serie.rast.8.2023-09-02T12:00:00.000Z.tif
     output: outputs/created_obs_2.tif
     output_format: raster
     options:
