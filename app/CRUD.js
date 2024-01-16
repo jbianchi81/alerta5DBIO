@@ -12291,7 +12291,7 @@ internal.CRUD = class {
 				return serie.observaciones
 			}
 			if(config.verbose) {
-				console.log("crud.rast2areal: obs:" + JSON.stringify(serie.observaciones))
+				// console.log("crud.rast2areal: obs:" + JSON.stringify(serie.observaciones))
 			}
 			try {
 				var upserted = await internal.observaciones.create(serie.observaciones) // this.upsertObservaciones(serie.observaciones,undefined,undefined,undefined) // removed client, non-transactional
