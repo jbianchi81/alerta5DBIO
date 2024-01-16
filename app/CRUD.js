@@ -11646,7 +11646,7 @@ internal.CRUD = class {
 		})
 	}
 
-	static async upsertRastFromCube(fuentes_id,timestart,timeend,forecast_date,isPublic,series_id) {
+	static async upsertRastFromCube(fuentes_id,timestart,timeend,forecast_date,isPublic,series_id,t_offset,hour) {
 		if(!series_id) {
 			return Promise.reject("Missing destination series_id (from series_rast)")
 		}
@@ -11657,6 +11657,14 @@ internal.CRUD = class {
 			}
 			results = results.map(r=>{
 				r.series_id = series_id
+				if(t_offset) {
+					r.timestart = timeSteps.advanceInterval(r.timestart,t_offset)
+					r.timeend = timeSteps.advanceInterval(r.timeend,t_offset)
+				} 
+				if(hour) {
+					r.timestart.setHours(hour)
+					r.timeend.setHours(hour)
+				}
 				return r
 			})
 			return this.upsertObservaciones(results)

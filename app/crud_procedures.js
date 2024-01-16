@@ -1541,9 +1541,11 @@ internal.UpdateSerieRastFromCubeProcedure = class extends internal.CrudProcedure
         this.forecast_date = (arguments[0].filter.forecast_date) ? DateFromDateOrInterval(arguments[0].filter.forecast_date) : undefined
         this.is_public = arguments[0].filter.public
         this.fuentes_id = parseInt(arguments[0].filter.fuentes_id)
+        this.t_offset = (this.options.offset) ? timeSteps.createInterval(this.options.t_offset) : undefined
+        this.hour = this.options.hour
     }
     async run() {
-        this.result = await crud.upsertRastFromCube(this.fuentes_id,this.timestart,this.timeend,this.forecast_date,this.is_public,this.series_id)
+        this.result = await crud.upsertRastFromCube(this.fuentes_id,this.timestart,this.timeend,this.forecast_date,this.is_public,this.series_id,this.t_offset,this.hour)
         return this.result
     }
 }
