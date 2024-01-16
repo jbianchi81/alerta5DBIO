@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json 
+sequence:
+- procedureName: CreateProcedure
+  arguments:
+    class_name: area
+    jsonfile: sample_data/area.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: area
+- procedureName: ReadProcedure
+  arguments:
+    class_name: area
+    filter:
+      nombre: Piray Guazú
+    output: outputs/read_area.json
+  options:
+    pretty: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: area
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: nombre
+      property_value: Piray Guazú
+  - testName: OutputFileTest
+    arguments:
+      class_name: area
+      output: outputs/read_area.json
+- procedureName: UpdateProcedure
+  arguments:
+    class_name: area
+    filter:
+      nombre: Piray Guazú
+    update:
+      mostrar: false
+    output: outputs/update_area.json
+  options:
+    pretty: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: area
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: nombre
+      property_value: Piray Guazú
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: mostrar
+      property_value: false
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: area
+    filter:
+      nombre: Piray Guazú
+    output: outputs/delete_area.json
+  options:
+    pretty: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: area
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: nombre
+      property_value: Piray Guazú
+  - testName: OutputFileTest
+    arguments:
+      class_name: area
+      output: outputs/delete_area.json

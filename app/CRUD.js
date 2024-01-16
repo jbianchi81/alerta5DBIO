@@ -41,7 +41,8 @@ const { CRUD } = require('./mareas');
 const { valid } = require('node-html-parser');
 const { client } = require('./wmlclient');
 
-const { escapeIdentifier, escapeLiteral } = require('pg')
+const { escapeIdentifier, escapeLiteral } = require('pg');
+const { area } = require('@turf/turf');
 
 const apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
 var schemas = apidoc.components.schemas
@@ -567,6 +568,11 @@ internal.area = class extends baseModel  {
 					this.geom = (arguments[0].geom) ? new internal.geometry(arguments[0].geom) : undefined
 					this.exutorio = (arguments[0].exutorio) ? (arguments[0].exutorio.geom) ? new internal.geometry(arguments[0].exutorio.geom) : (arguments[0].exutorio.type && arguments[0].exutorio.coordinates) ? new internal.geometry(arguments[0].exutorio) : null : null
 					this.exutorio_id = arguments[0].exutorio_id
+					this.ae = arguments[0].ae
+					this.rho = arguments[0].rho
+					this.wp = arguments[0].wp
+					this.activar = arguments[0].activar
+					this.mostrar = arguments[0].mostrar
 					if(config.verbose) {
 						// console.log({new_area: 
 						// 	{
@@ -614,19 +620,36 @@ internal.area = class extends baseModel  {
 		})
 	}
 	toString() {
-		return "{id:" + this.id + ",nombre: " + this.nombre + ",exutorio_id: " + this.exutorio_id + "}"
+		return JSON.stringify({
+			id: this.id,
+			nombre: this.nombre,
+			exutorio_id: this.exutorio_id,
+			area: this.area, 
+			ae: this.ae, 
+			rho: this.rho, 
+			wp: this.wp, 
+			activar: this.activar, 
+			mostrar: this.mostrar 
+		})
 	}
 	toCSV() {
-		return this.id + "," + this.nombre + "," + this.exutorio_id
+		return [this.id, `"${this.nombre}"`, this.exutorio_id, this.area, this.ae, this.rho, this.wp, this.activar, this.mostrar].join(",")
 	}
 	toCSVless() {
-		return this.id + "," + this.nombre
+		return this.id + "," + `"${this.nombre}"`
 	}
-	static async read(filter={},options) {
-		if(filter.id && !Array.isArray(filter.id)) {
-			return internal.CRUD.getArea(filter.id,options)
-		}
-		return internal.CRUD.getAreas(filter,options)
+	static _fields = {
+		id: {type: "integer", primary_key: true},
+		geom: {type: "geometry"},
+		nombre: {type: "string"},
+		exutorio: {type: "geometry"},
+		exutorio_id: {type: "integer"},
+		area: {type: "number"},
+		ae: {type: "number"},
+		rho: {type: "number"},
+		wp: {type: "number"},
+		activar: {type: "boolean"},
+		mostrar: {type: "boolean"}
 	}
 	async create() {
 		const created = await internal.CRUD.upsertArea(this)
@@ -635,6 +658,84 @@ internal.area = class extends baseModel  {
 			return this
 		}
 		return
+	}
+	static async read(filter={},options) {
+		if(filter.id && !Array.isArray(filter.id)) {
+			return internal.CRUD.getArea(filter.id,options)
+		}
+		return internal.CRUD.getAreas(filter,options)
+	}
+	async update(changes={}) {
+		this.set(changes)
+		return this.create()
+	}
+	static async update(filter={},update={},options) {
+		if(filter.area_id && !filter.id) {
+			filter.id = filter.area_id
+		}
+		const matches = await internal.area.read(filter)
+		if(!matches) {
+			console.warn("No matches to update")
+			return []
+		} else if (Array.isArray(matches)) {
+			const results = []
+			for(var area of matches) {
+				try {
+					console.debug("Try update area.id=" + area.id)
+					var result = await area.update(update)
+				} catch(e) {
+					throw(e)
+				}
+				results.push(result)
+			}
+			return results
+		} else {
+			try {
+				console.debug("Try update area.id=" + matches.id)
+				var result = await matches.update(update)
+			} catch(e) {
+				throw(e)
+			}
+			return [ result ]
+		}
+	}
+	async delete() {
+		try {
+			var result = await internal.CRUD.deleteArea(this.id)
+		} catch(e) {
+			throw(e)
+		}
+		return result
+	}
+	static async delete(filter) {
+		if(filter.area_id && !filter.id) {
+			filter.id = filter.area_id
+		}
+		const matches = await internal.area.read(filter)
+		if(!matches) {
+			console.warn("No matches to delete")
+			return []
+		} else if (Array.isArray(matches)) {
+			const results = []
+			for(var area of matches) {
+				try {
+					console.debug("Try delete area.id=" + area.id)
+					var result = await area.delete()
+				} catch(e) {
+					throw(e)
+				}
+				results.push(result)
+			}
+			return results
+		} else {
+			try {
+				console.debug("Try delete area.id=" + matches.id)
+				var result = await matches.delete()
+			} catch(e) {
+				throw(e)
+			}
+			return [ result ]
+		}
 	}
 }
 
@@ -6802,39 +6903,95 @@ internal.CRUD = class {
 		if(area.exutorio) {
 			if(area.id) {
 				query = "\
-				INSERT INTO areas_pluvio (unid, nombre, geom, exutorio, exutorio_id) \
-				VALUES ($1, $2, ST_GeomFromText($3,4326), ST_GeomFromText($4,4326), $5)\
+				INSERT INTO areas_pluvio (unid, nombre, geom, exutorio, exutorio_id, ae, rho, wp, activar, mostrar) \
+				VALUES ($1, $2, ST_GeomFromText($3,4326), ST_GeomFromText($4,4326), $5, $6, $7, $8, $9, $10)\
 				ON CONFLICT (unid) DO UPDATE SET \
-					nombre=excluded.nombre,\
-					geom=excluded.geom,\
-					exutorio=excluded.exutorio,\
-					exutorio_id=excluded.exutorio_id\
-				RETURNING unid AS id,nombre,st_astext(geom) AS geom, st_astext(exutorio) AS exutorio, exutorio_id"
-				params = [area.id,area.nombre,area.geom.toString(),area.exutorio.toString(),area.exutorio_id]
+					nombre=excluded.nombre, \
+					geom=excluded.geom, \
+					exutorio=excluded.exutorio, \
+					exutorio_id=excluded.exutorio_id, \
+					area = excluded.area, \
+					ae = excluded.ae, \
+					rho = excluded.rho, \
+					wp = excluded.wp, \
+					activar = excluded.activar, \
+					mostrar = excluded.mostrar \
+				RETURNING \
+					unid AS id, \
+					nombre, \
+					st_astext(geom) AS geom, \
+					st_astext(exutorio) AS exutorio, \
+					exutorio_id, \
+					area, \
+					ae, \
+					rho, \
+					wp, \
+					activar, \
+					mostrar"
+				params = [area.id,area.nombre,area.geom.toString(),area.exutorio.toString(),area.exutorio_id, area.ae, area.rho, area.wp, area.activar, area.mostrar]
 			} else {
 				query = "\
-				INSERT INTO areas_pluvio (nombre, geom, exutorio, exutorio_id) \
-				VALUES ($1, ST_GeomFromText($2,4326), ST_GeomFromText($3,4326), $4)\
-				RETURNING unid AS id,nombre,st_astext(geom) AS geom, st_astext(exutorio) AS exutorio, exutorio_id"
-				params = [area.nombre,area.geom.toString(),area.exutorio.toString(),area.exutorio_id]
+				INSERT INTO areas_pluvio (nombre, geom, exutorio, exutorio_id, ae, rho, wp, activar, mostrar) \
+				VALUES ($1, ST_GeomFromText($2,4326), ST_GeomFromText($3,4326), $4, $5, $6, $7, $8, $9)\
+				RETURNING \
+					unid AS id, \
+					nombre, \
+					st_astext(geom) AS geom, \
+					st_astext(exutorio) AS exutorio, \
+					exutorio_id, \
+					area, \
+					ae, \
+					rho, \
+					wp, \
+					activar, \
+					mostrar"
+				params = [area.nombre, area.geom.toString(), area.exutorio.toString(), area.exutorio_id, area.ae, area.rho, area.wp, area.activar, area.mostrar]
 			}
 		} else {
 			if(area.id) {
 				query = "\
-				INSERT INTO areas_pluvio (unid, nombre, geom, exutorio_id) \
-				VALUES ($1, $2, ST_GeomFromText($3,4326), $4)\
+				INSERT INTO areas_pluvio (unid, nombre, geom, exutorio_id, ae, rho, wp, activar, mostrar) \
+				VALUES ($1, $2, ST_GeomFromText($3,4326), $4, $5, $6, $7, $8, $9)\
 				ON CONFLICT (unid) DO UPDATE SET \
 					nombre=excluded.nombre,\
 					geom=excluded.geom,\
-					exutorio_id=excluded.exutorio_id\
-				RETURNING unid AS id,nombre,st_astext(geom) AS geom, st_astext(exutorio) AS exutorio, exutorio_id"
-				params = [area.id,area.nombre,area.geom.toString(),area.exutorio_id]
+					exutorio_id=excluded.exutorio_id, \
+					area = excluded.area, \
+					ae = excluded.ae, \
+					rho = excluded.rho, \
+					wp = excluded.wp, \
+					activar = excluded.activar, \
+					mostrar = excluded.mostrar \
+				RETURNING \
+					unid AS id, \
+					nombre, \
+					st_astext(geom) AS geom, \
+					st_astext(exutorio) AS exutorio, \
+					exutorio_id, \
+					area, \
+					ae, \
+					rho, \
+					wp, \
+					activar, \
+					mostrar"
+				params = [area.id,area.nombre,area.geom.toString(),area.exutorio_id, area.ae, area.rho, area.wp, area.activar, area.mostrar]
 			} else {
 				query = "\
-				INSERT INTO areas_pluvio (nombre, geom, exutorio_id) \
-				VALUES ($1, ST_GeomFromText($2,4326), $3)\
-				RETURNING unid AS id,nombre,st_astext(geom) AS geom, st_astext(exutorio) AS exutorio, exutorio_id"
-				params = [area.nombre,area.geom.toString(),area.exutorio_id]
+				INSERT INTO areas_pluvio (nombre, geom, exutorio_id, ae, rho, wp, activar, mostrar) \
+				VALUES ($1, ST_GeomFromText($2,4326), $3, $4, $5, $6, $7, $8)\
+				RETURNING \
+					unid AS id, \
+					nombre, \
+					st_astext(geom) AS geom, \
+					st_astext(exutorio) AS exutorio, \
+					exutorio_id, \
+					area, \
+					ae, \
+					rho, \
+					wp, \
+					activar, \
+					mostrar"
+				params = [area.nombre, area.geom.toString(), area.exutorio_id, area.ae, area.rho, area.wp, area.activar, area.mostrar]
 			}
 		}
 		return internal.utils.pasteIntoSQLQuery(query,params)
@@ -6857,16 +7014,24 @@ internal.CRUD = class {
 		return global.pool.query("\
 			DELETE FROM areas_pluvio\
 			WHERE unid=$1\
-			RETURNING *",[unid]
+			RETURNING areas_pluvio.unid id, \
+			areas_pluvio.nombre, \
+			st_astext(ST_ForcePolygonCCW(areas_pluvio.geom)) AS geom, \
+			st_astext(areas_pluvio.exutorio) AS exutorio,\
+			areas_pluvio.exutorio_id, \
+			areas_pluvio.area, \
+			areas_pluvio.ae, \
+			areas_pluvio.rho, \
+			areas_pluvio.wp, \
+			areas_pluvio.activar, \
+			areas_pluvio.mostrar", [unid]
 		).then(result=>{
 			if(result.rows.length<=0) {
 				console.log("unid not found")
 				return
 			}
-			console.log("Deleted areas_pluvio.unid=" + result.rows[0].unid)
-			result.rows[0].id = result.rows[0].unid
-			delete result.rows[0].unid
-			return result.rows[0]
+			console.log("Deleted areas_pluvio.unid=" + result.rows[0].id)
+			return new internal.area(result.rows[0])
 		}).catch(e=>{
 			console.error(e)
 		})
@@ -6874,10 +7039,29 @@ internal.CRUD = class {
 
 	static async getArea(id,options={}) {
 		var query = (options.no_geom) ? "\
-		SELECT areas_pluvio.unid AS id, areas_pluvio.nombre, st_astext(areas_pluvio.exutorio) AS exutorio\
+		SELECT \
+			areas_pluvio.unid AS id, \
+			areas_pluvio.nombre, \
+			st_astext(areas_pluvio.exutorio) AS exutorio,\
+			areas_pluvio.area, \
+			areas_pluvio.ae, \
+			areas_pluvio.rho, \
+			areas_pluvio.wp, \
+			areas_pluvio.activar, \
+			areas_pluvio.mostrar \
 		FROM areas_pluvio\
 		WHERE unid=$1" : "\
-		SELECT areas_pluvio.unid AS id, areas_pluvio.nombre, st_astext(ST_ForcePolygonCCW(areas_pluvio.geom)) AS geom, st_astext(areas_pluvio.exutorio) AS exutorio\
+		SELECT \
+			areas_pluvio.unid AS id, \
+			areas_pluvio.nombre, \
+			st_astext(ST_ForcePolygonCCW(areas_pluvio.geom)) AS geom, \
+			st_astext(areas_pluvio.exutorio) AS exutorio,\
+			areas_pluvio.area, \
+			areas_pluvio.ae, \
+			areas_pluvio.rho, \
+			areas_pluvio.wp, \
+			areas_pluvio.activar, \
+			areas_pluvio.mostrar \
 		FROM areas_pluvio\
 		WHERE unid=$1"
 		return global.pool.query(query,[id])
@@ -6952,6 +7136,12 @@ internal.CRUD = class {
 			},
 			exutorio_id: {
 				type: "integer"
+			},
+			activar: {
+				type: "boolean"
+			},
+			mostrar: {
+				type: "boolean"
 			}
 		}
 		var filter_string = internal.utils.control_filter2(valid_filters,filter,"areas_pluvio")
@@ -6971,12 +7161,22 @@ internal.CRUD = class {
 		pagination_clause += (filter.offset) ? ` OFFSET ${filter.offset}`: ""
 		//~ console.log("filter_string:" + filter_string)
 		if(options && options.no_geom) {
-			const stmt = "SELECT areas_pluvio.unid id, areas_pluvio.nombre, st_astext(areas_pluvio.exutorio) exutorio, areas_pluvio.exutorio_id\
+			const stmt = "SELECT \
+				areas_pluvio.unid id, \
+				areas_pluvio.nombre, \
+				st_astext(areas_pluvio.exutorio) exutorio, \
+				areas_pluvio.exutorio_id, \
+				areas_pluvio.area, \
+				areas_pluvio.ae, \
+				areas_pluvio.rho, \
+				areas_pluvio.wp, \
+				areas_pluvio.activar, \
+				areas_pluvio.mostrar \
 			FROM areas_pluvio \
 			" + join_type + " JOIN estaciones ON (estaciones.unid=areas_pluvio.exutorio_id" + tabla_id_filter + ") \
 			WHERE areas_pluvio.geom IS NOT NULL " + filter_string + " ORDER BY areas_pluvio.id\
 			" + pagination_clause
-			console.log(stmt)
+			// console.debug(stmt)
 			return global.pool.query(stmt)
 			.then(res=>{
 				return res.rows.map(r=>{
@@ -6987,12 +7187,23 @@ internal.CRUD = class {
 				})
 			})
 		} else {
-			const stmt = "SELECT areas_pluvio.unid id, areas_pluvio.nombre, st_astext(areas_pluvio.geom) geom, st_astext(areas_pluvio.exutorio) exutorio, areas_pluvio.exutorio_id\
+			const stmt = "SELECT \
+				areas_pluvio.unid id, \
+				areas_pluvio.nombre, \
+				st_astext(areas_pluvio.geom) geom, \
+				st_astext(areas_pluvio.exutorio) exutorio, \
+				areas_pluvio.exutorio_id, \
+				areas_pluvio.area, \
+				areas_pluvio.ae, \
+				areas_pluvio.rho, \
+				areas_pluvio.wp, \
+				areas_pluvio.activar, \
+				areas_pluvio.mostrar \
 			FROM areas_pluvio \
 			" + join_type + " JOIN estaciones ON (estaciones.unid=areas_pluvio.exutorio_id" + tabla_id_filter + ") \
 			WHERE areas_pluvio.geom IS NOT NULL " + filter_string + " ORDER BY id\
 			" + pagination_clause
-			console.log(stmt)
+			// console.debug(stmt)
 			return global.pool.query(stmt)
 			.then(res=>{
 				//~ console.log(res)

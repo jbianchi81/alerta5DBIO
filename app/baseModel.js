@@ -149,7 +149,7 @@ internal.baseModel = class {
 					return value.toString()
 				} else if (definition.type == "integer") {
 					return parseInt(value)
-				} else if (definition.type == "numeric" || definition.type == "real") {
+				} else if (definition.type == "numeric" || definition.type == "real" || definition.type == "number"  || definition.type == "float") {
 					return parseFloat(value)
 				} else if (definition.type == "interval") {
 					return new Interval(value)
