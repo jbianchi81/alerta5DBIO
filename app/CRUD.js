@@ -6800,26 +6800,42 @@ internal.CRUD = class {
 		var query = ""
 		var params = []
 		if(area.exutorio) {
-			query = "\
-			INSERT INTO areas_pluvio (unid, nombre, geom, exutorio, exutorio_id) \
-			VALUES ($1, $2, ST_GeomFromText($3,4326), ST_GeomFromText($4,4326), $5)\
-			ON CONFLICT (unid) DO UPDATE SET \
-				nombre=excluded.nombre,\
-				geom=excluded.geom,\
-				exutorio=excluded.exutorio,\
-				exutorio_id=excluded.exutorio_id\
-			RETURNING unid AS id,nombre,st_astext(geom) AS geom, st_astext(exutorio) AS exutorio, exutorio_id"
-			params = [area.id,area.nombre,area.geom.toString(),area.exutorio.toString(),area.exutorio_id]
+			if(area.id) {
+				query = "\
+				INSERT INTO areas_pluvio (unid, nombre, geom, exutorio, exutorio_id) \
+				VALUES ($1, $2, ST_GeomFromText($3,4326), ST_GeomFromText($4,4326), $5)\
+				ON CONFLICT (unid) DO UPDATE SET \
+					nombre=excluded.nombre,\
+					geom=excluded.geom,\
+					exutorio=excluded.exutorio,\
+					exutorio_id=excluded.exutorio_id\
+				RETURNING unid AS id,nombre,st_astext(geom) AS geom, st_astext(exutorio) AS exutorio, exutorio_id"
+				params = [area.id,area.nombre,area.geom.toString(),area.exutorio.toString(),area.exutorio_id]
+			} else {
+				query = "\
+				INSERT INTO areas_pluvio (nombre, geom, exutorio, exutorio_id) \
+				VALUES ($1, ST_GeomFromText($2,4326), ST_GeomFromText($3,4326), $4)\
+				RETURNING unid AS id,nombre,st_astext(geom) AS geom, st_astext(exutorio) AS exutorio, exutorio_id"
+				params = [area.nombre,area.geom.toString(),area.exutorio.toString(),area.exutorio_id]
+			}
 		} else {
-			query = "\
-			INSERT INTO areas_pluvio (unid, nombre, geom, exutorio_id) \
-			VALUES ($1, $2, ST_GeomFromText($3,4326), $4)\
-			ON CONFLICT (unid) DO UPDATE SET \
-				nombre=excluded.nombre,\
-				geom=excluded.geom,\
-				exutorio_id=excluded.exutorio_id\
-			RETURNING unid AS id,nombre,st_astext(geom) AS geom, st_astext(exutorio) AS exutorio, exutorio_id"
-			params = [area.id,area.nombre,area.geom.toString(),area.exutorio_id]
+			if(area.id) {
+				query = "\
+				INSERT INTO areas_pluvio (unid, nombre, geom, exutorio_id) \
+				VALUES ($1, $2, ST_GeomFromText($3,4326), $4)\
+				ON CONFLICT (unid) DO UPDATE SET \
+					nombre=excluded.nombre,\
+					geom=excluded.geom,\
+					exutorio_id=excluded.exutorio_id\
+				RETURNING unid AS id,nombre,st_astext(geom) AS geom, st_astext(exutorio) AS exutorio, exutorio_id"
+				params = [area.id,area.nombre,area.geom.toString(),area.exutorio_id]
+			} else {
+				query = "\
+				INSERT INTO areas_pluvio (nombre, geom, exutorio_id) \
+				VALUES ($1, ST_GeomFromText($2,4326), $3)\
+				RETURNING unid AS id,nombre,st_astext(geom) AS geom, st_astext(exutorio) AS exutorio, exutorio_id"
+				params = [area.nombre,area.geom.toString(),area.exutorio_id]
+			}
 		}
 		return internal.utils.pasteIntoSQLQuery(query,params)
 	}
