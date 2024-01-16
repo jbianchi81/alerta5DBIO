@@ -1401,6 +1401,8 @@ CREATE MATERIALIZED VIEW public.series_rast_date_range AS
   ORDER BY series_rast.id
   WITH NO DATA;
 
+create unique index series_rast_date_range_id_idx on series_rast_date_range (series_id);
+
 REFRESH MATERIALIZED VIEW public.series_rast_date_range;
 
 CREATE TABLE public.asociaciones (

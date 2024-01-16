@@ -1,0 +1,170 @@
+{
+    "tipo": "rast",
+    "id": 8,
+    "estacion": {
+        "id": 7,
+        "nombre": "campo_splines",
+        "geom": {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [
+                        -70,
+                        -10
+                    ],
+                    [
+                        -40,
+                        -10
+                    ],
+                    [
+                        -40,
+                        -40
+                    ],
+                    [
+                        -70,
+                        -40
+                    ],
+                    [
+                        -70,
+                        -10
+                    ]
+                ]
+            ]
+        }
+    },
+    "var": {
+        "id": 1,
+        "var": "P",
+        "nombre": "precipitación diaria 12Z",
+        "abrev": "precip_diaria_met",
+        "type": "num",
+        "datatype": "Succeeding Total",
+        "valuetype": "Field Observation",
+        "GeneralCategory": "Climate",
+        "VariableName": "Precipitation",
+        "SampleMedium": "Precipitation",
+        "def_unit_id": "22",
+        "timeSupport": {
+            "years": 0,
+            "months": 0,
+            "days": 1,
+            "hours": 0,
+            "minutes": 0,
+            "seconds": 0,
+            "milliseconds": 0
+        },
+        "def_hora_corte": {
+            "years": 0,
+            "months": 0,
+            "days": 0,
+            "hours": 9,
+            "minutes": 0,
+            "seconds": 0,
+            "milliseconds": 0
+        }
+    },
+    "procedimiento": {
+        "id": 3,
+        "nombre": "Interpolado",
+        "abrev": "interp",
+        "descripcion": "Interpolado linealmente a partir de datos observados en la vecindad espaciotemporal"
+    },
+    "unidades": {
+        "id": 22,
+        "nombre": "milímetros por día",
+        "abrev": "mm/d",
+        "UnitsID": 305,
+        "UnitsType": "velocity"
+    },
+    "fuente": {
+        "id": 7,
+        "nombre": "campo",
+        "data_table": "pp_emas",
+        "data_column": "rast",
+        "tipo": "PI",
+        "def_proc_id": 3,
+        "def_dt": {
+            "years": 0,
+            "months": 0,
+            "days": 1,
+            "hours": 0,
+            "minutes": 0,
+            "seconds": 0,
+            "milliseconds": 0
+        },
+        "hora_corte": {
+            "years": 0,
+            "months": 0,
+            "days": 0,
+            "hours": 9,
+            "minutes": 0,
+            "seconds": 0,
+            "milliseconds": 0
+        },
+        "def_unit_id": 22,
+        "def_var_id": 1,
+        "fd_column": null,
+        "mad_table": "pmad_emas",
+        "scale_factor": null,
+        "data_offset": null,
+        "def_pixel_height": 0.1,
+        "def_pixel_width": 0.1,
+        "def_srid": 4326,
+        "def_extent": {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [
+                        -70,
+                        -10
+                    ],
+                    [
+                        -40,
+                        -10
+                    ],
+                    [
+                        -40,
+                        -40
+                    ],
+                    [
+                        -70,
+                        -40
+                    ],
+                    [
+                        -70,
+                        -10
+                    ]
+                ]
+            ]
+        },
+        "date_column": "date",
+        "def_pixeltype": "32BF",
+        "abstract": "Precipitación acumulada a paso diario [mm] de la red de estaciones meteorológicas convencionales para la Cuenca del Plata. Diagrama de Voronoi",
+        "source": "http://www.smn.gob.ar",
+        "public": true,
+        "constraints": [
+            {
+                "table_name": "pp_emas",
+                "constraint_name": "pp_emas_pkey",
+                "constraint_type": "p",
+                "column_names": [
+                    "rid"
+                ]
+            },
+            {
+                "table_name": "pp_emas",
+                "constraint_name": "pp_emas_date_key",
+                "constraint_type": "u",
+                "column_names": [
+                    "date"
+                ]
+            }
+        ]
+    },
+    "date_range": {
+        "timestart": "2020-01-01T12:00:00.000Z",
+        "timeend": "2024-01-15T12:00:00.000Z",
+        "count": "1174"
+    },
+    "observaciones": []
+}

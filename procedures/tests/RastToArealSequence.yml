@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json 
+sequence:
+- procedureName: CreateProcedure
+  arguments:
+    class_name: serie
+    jsonfile: sample_data/serie_rast_pcampo.json
+    options:
+      all: true
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor
+    jsonfile: sample_data/accessor_a5.json
+- procedureName: UpdateFromAccessorProcedure
+  arguments:
+    accessor_id: a5
+    filter:
+      tipo: raster
+      series_id: 8
+      timestart: 2024-01-01T12:00:00.000Z
+      timeend: 2024-01-16T12:00:00.000Z
+    output_format: raster
+    options:
+      output_individual_files:
+        base_path: outputs
+        pattern: serie.rast.{{id}}.{{timestart}}
+        iter_field: observaciones
+  tests:
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: serie
+- procedureName: CreateProcedure
+  arguments:
+    class_name: area
+    jsonfile: sample_data/area_with_id.json
+- procedureName: CreateProcedure
+  arguments:
+    class_name: serie
+    elements:
+    - tipo: areal
+      estacion_id: 505
+      fuentes_id: 7
+      var_id: 1
+      proc_id: 3
+      unit_id: 22
+- procedureName: RastToArealProcedure
+  arguments:
+    filter:
+      series_id: 8
+      timestart: 2024-01-01T12:00:00.000Z
+      timeend: 2024-01-16T12:00:00.000Z
+      area_id: 505
+    output: outputs/pmad_campo_505.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 15
+      max_length: 15

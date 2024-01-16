@@ -7295,7 +7295,7 @@ internal.CRUD = class {
 		//~ })
 	}
 	
-	static async upsertEscena(escena) {
+	static async upsertEscena(escena, client) {
 		//~ console.log("upsertEscena")
 		return new Promise((resolve,reject)=>{
 			if(escena.id) {
@@ -7311,7 +7311,10 @@ internal.CRUD = class {
 			ON CONFLICT (id) DO UPDATE SET \
 				nombre=excluded.nombre,\
 				geom=excluded.geom\
-			RETURNING *"
+			RETURNING \
+				escenas.id, \
+				escenas.nombre, \
+				st_astext(escenas.geom) AS geom"
 			var query_arguments = [escena.id,escena.nombre,escena.geom.toString()]
 			if(!escena.id) {
 				query = "\
@@ -7320,11 +7323,18 @@ internal.CRUD = class {
 			ON CONFLICT (id) DO UPDATE SET \
 				nombre=excluded.nombre,\
 				geom=excluded.geom\
-			RETURNING *"
+			RETURNING \
+				escenas.id, \
+				escenas.nombre, \
+				st_astext(escenas.geom) AS geom"
 				query_arguments = [escena.nombre,escena.geom.toString()]
 			}
 			//~ console.log(internal.utils.pasteIntoSQLQuery(query,[escena.id,escena.nombre,escena.geom.toString()]))
-			return global.pool.query(query,query_arguments)
+			if(client) {
+				return client.query(query,query_arguments)
+			} else {
+				return global.pool.query(query,query_arguments)
+			}
 		}).then(result=>{
 			if(result.rows.length<=0) {
 				console.error("Upsert failed")
@@ -8103,8 +8113,8 @@ internal.CRUD = class {
 						var result = await client.query(this.upsertAreaQuery(serie.estacion))
 						serie_props.estacion = new internal.area(result.rows[0])
 					} else if (serie.estacion instanceof internal.escena) {
-						var result = await client.query(this.upsertEscenaQuery(serie.estacion))
-						serie_props.estacion = new internal.escena(result.rows[0])
+						var result = await this.upsertEscena(serie.estacion,client) // client.query(this.upsertEscenaQuery(serie.estacion))
+						serie_props.estacion = new internal.escena(result)
 					}
 				} else {
 					// console.log("Searching for estacion: " + JSON.stringify(serie.estacion))
