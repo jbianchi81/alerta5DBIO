@@ -9633,7 +9633,7 @@ internal.CRUD = class {
 			observacion.valor = parseFloat(observacion.valor)
 			if(observacion.valor.toString()=='NaN')
 			{
-				// console.error("invalid valor")
+				console.warn("upsertObservacionesPuntual: NaN value at time " + observacion.timestart.toISOString() + ", skipping")
 				return
 			}
 			if(skip_nulls && observacion.valor === null) {
