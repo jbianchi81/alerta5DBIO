@@ -3628,6 +3628,7 @@ if(1==1) {
     .option("-o, --output <value>",'save output to file')
     .option("-f, --format <value>",'input files format: json or csv (default: json)')
     .option("-H, --header",'use this option if csv input file has a header')
+    .option("-a, --all", 'in serie creation, create parent objects (estacion, fuente, var, procedimiento, unidades')
     .action(async (crud_class,files,options) => {
         var test_result = true
         if(!CRUD.hasOwnProperty(crud_class)) {
@@ -3641,12 +3642,15 @@ if(1==1) {
             var filename = files[i]
             logger.info("Data file: " + filename)
             try {
-                const params = {class_name: class_name}
+                const params = {class_name: class_name, options: {}}
                 if(options.format && options.format == "csv") {
                     params.csvfile = path.resolve(filename)
-                    params.options = {header: options.header}
+                    params.options.header = options.header
                 } else {
                     params.jsonfile = path.resolve(filename)
+                }
+                if(options.all) {
+                    params.options.all = options.all
                 }
                 var procedure = new internal.CreateProcedure(params)
             } catch(e) {
