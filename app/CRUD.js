@@ -5897,7 +5897,28 @@ internal.pronostico = class extends baseModel {
 		}
 	}
 	static async read(filter={},options={}) {
-		const results = await internal.CRUD.getPronosticos(filter,options)
+		// console.debug({filter:filter})
+		const results = await internal.CRUD.getPronosticos(
+			filter.cor_id,
+			filter.cal_id,
+			filter.forecast_timestart,
+			filter.forecast_timeend,
+			filter.forecast_date,
+			filter.timestart,
+			filter.timeend,
+			filter.qualifier,
+			filter.estacion_id,
+			filter.var_id,
+			options.includeProno,
+			filter.isPublic,
+			filter.series_id,
+			options.series_metadata,
+			filter.grupo_id,
+			options.group_by_qualifier,
+			filter.model_id,
+			filter.tipo,
+			filter.tabla
+		)
 		return results
 	}
 	static async create(pronosticos) {
@@ -15716,29 +15737,43 @@ ORDER BY cal.cal_id`
 	}
 
 	static async getPronosticos(cor_id,cal_id,forecast_timestart,forecast_timeend,forecast_date,timestart,timeend,qualifier,estacion_id,var_id,includeProno=false,isPublic,series_id,series_metadata,cal_grupo_id,group_by_qualifier,model_id,tipo,tabla) {
-		// console.log({includeProno:includeProno, isPublic: isPublic})
-		var model_filter = (model_id) ? "AND calibrados.model_id=" + parseInt(model_id) : ""
-		var public_filter = (isPublic) ? "AND calibrados.public=true" : ""
-		var grupo_filter = (cal_grupo_id) ? "AND calibrados.grupo_id=" + parseInt(cal_grupo_id) : ""
-		var pronosticos = []
-		var cor_id_filter = (cor_id) ? (Array.isArray(cor_id)) ? " AND corridas.id IN (" + cor_id.join(",") + ")" : " AND corridas.id=" + cor_id : ""
-		var query = "SELECT corridas.id,\
-		corridas.date AS forecast_date,\
-		corridas.cal_id\
-		FROM corridas, calibrados\
-		WHERE corridas.cal_id=coalesce($1,corridas.cal_id)\
-		" + cor_id_filter + "\
-		AND corridas.date>=coalesce($2::timestamptz,'1970-01-01'::date)\
-		AND corridas.date<coalesce($3::timestamptz,'2100-01-01'::date)\
-		AND corridas.date=coalesce($4::timestamptz,corridas.date)\
-		AND corridas.cal_id=calibrados.id\
-		" + public_filter + "\
-		" + grupo_filter + "\
-		" + model_filter + "\
+		const filter_string = control_filter2(
+			{
+				"cal_id": {"type": "integer", "table": "corridas"},
+				"cor_id": { type: "integer", table: "corridas", column: "id"},
+				"model_id": { type: "integer", table: "calibrados"},
+				"isPublic": { type: "boolean", table: "calibrados", column: "public"},
+				"cal_grupo_id": { type: "integer", table: "calibrados", column: "grupo_id"},
+				"forecast_timestart": { type: "timestart", table: "corridas", column: "date"},
+				"forecast_timeend": { type: "timeend", table: "corridas", column: "date"},
+				"forecast_date": { type: "timestamp", table: "corridas", column: "date"}
+			},
+			{
+				cal_id: cal_id,
+				cor_id: cor_id,
+				model_id: model_id,
+				isPublic: isPublic,
+				cal_grupo_id: cal_grupo_id,
+				forecast_timestart: forecast_timestart,
+				forecast_timeend: forecast_timeend
+			},
+			"corridas",
+			undefined,
+			true
+		)
+
+		var query = "SELECT \
+			corridas.id, \
+			corridas.date AS forecast_date, \
+			corridas.cal_id \
+		FROM corridas \
+		JOIN calibrados \
+			ON corridas.cal_id=calibrados.id \
+		WHERE 1=1 \
+		" + filter_string + "\
 		ORDER BY corridas.cal_id, corridas.date"
-		var params = [cal_id,forecast_timestart,forecast_timeend,forecast_date]
-		// console.log(internal.utils.pasteIntoSQLQuery(query,params))
-		const result = await global.pool.query(query,params)
+		// console.debug(query)
+		const result = await global.pool.query(query)
 		if(!result.rows) {
 			return
 		}
@@ -16142,7 +16177,7 @@ ORDER BY cal.cal_id`
 		ORDER BY pronosticos.series_id,pronosticos.timestart"
 		// to_char(pronosticos.timestart::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timestart,\
 		//	to_char(pronosticos.timeend::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timeend,\
-		console.log(stmt)
+		// console.debug(stmt)
 		const result = await client.query(stmt)
 		if(release_client) {
 			client.release()

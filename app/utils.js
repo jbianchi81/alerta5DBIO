@@ -187,12 +187,12 @@ internal.isIterable = function(obj) {
 internal.not_null = class extends Object {
 }
 
-internal.control_filter2 = function (valid_filters, filter, default_table, crud) {
+internal.control_filter2 = function (valid_filters, filter, default_table, crud,throw_on_error=false) {
 	// valid_filters = { column1: { table: "table_name", type: "data_type", required: bool, column: "column_name"}, ... }  
 	// filter = { column1: "value1", column2: "value2", ....}
 	// default_table = "table"
 	var filter_string = " "
-	var control_flag = 0
+	var errors  = []
 	Object.keys(valid_filters).forEach(key=>{
 		var table_prefix = (valid_filters[key].table) ? '"' + valid_filters[key].table + '".' :  (default_table) ? '"' + default_table + '".' : ""
 		var column_name = (valid_filters[key].column) ? '"' + valid_filters[key].column + '"' : '"' + key + '"'
@@ -201,8 +201,8 @@ internal.control_filter2 = function (valid_filters, filter, default_table, crud)
 			filter_string += ` AND ` + fullkey + ` IS NOT NULL `
 		} else if(typeof filter[key] != "undefined" && filter[key] !== null) {
 			if(/[';]/.test(filter[key])) {
-				console.error("Invalid filter value")
-				control_flag++
+				errors.push("Invalid filter value")
+				console.error(errors[errors.length-1])
 			}
 			if(valid_filters[key].type == "regex_string") {
 				var regex = filter[key].replace('\\','\\\\')
@@ -211,8 +211,8 @@ internal.control_filter2 = function (valid_filters, filter, default_table, crud)
 				if(Array.isArray(filter[key])) {
 					var values = filter[key].filter(v=>v != null).map(v=>v.toString()).filter(v=>v != "")
                     if(!values.length) {
-                        console.error("Empty or invalid string array")
-                        control_flag++
+						errors.push("Empty or invalid string array")
+						console.error(errors[errors.length-1])
                     } else {
 						if(valid_filters[key].case_insensitive) {
 							filter_string += ` AND lower(${fullkey}) IN ( ${values.map(v=>`lower('${v}')`).join(",")})`
@@ -240,8 +240,8 @@ internal.control_filter2 = function (valid_filters, filter, default_table, crud)
 				} 
 			} else if (valid_filters[key].type == "geometry") {
 				if(! filter[key] instanceof crud.geometry) {
-					console.error("Invalid geometry object")
-					control_flag++
+					errors.push("Invalid geometry object")
+					console.error(errors[errors.length-1])
 				} else {
 					filter_string += "  AND ST_Distance(st_transform(" + fullkey + ",4326),st_transform(" + filter[key].toSQL() + ",4326)) < 0.001" 
 				}
@@ -282,8 +282,8 @@ internal.control_filter2 = function (valid_filters, filter, default_table, crud)
 			} else if (valid_filters[key].type == "numeric_interval") {
 				if(Array.isArray(filter[key])) {
 					if(filter[key].length < 2) {
-						console.error("numeric_interval debe ser de al menos 2 valores")
-						control_flag++
+						errors.push("numeric_interval debe ser de al menos 2 valores")
+						console.error(errors[errors.length-1])
 					} else {
 						filter_string += " AND " + fullkey + ">=" + parseFloat(filter[key][0]) + " AND " + key + "<=" + parseFloat(filter[key][1])
 					}
@@ -298,16 +298,16 @@ internal.control_filter2 = function (valid_filters, filter, default_table, crud)
                 if(Array.isArray(filter[key])) {
                     var values = filter[key].map(v=>parseInt(v)).filter(v=>v.toString()!="NaN")
                     if(!values.length) {
-                        console.error("Invalid integer")
-                        control_flag++
+						errors.push(`Invalid integer array : ${filter[key].toString()}`)
+						console.error(errors[errors.length-1])
                     } else {
     					filter_string += " AND "+ fullkey + " IN (" + values.join(",") + ")"
                     }
 				} else {
                     var value = parseInt(filter[key])
                     if(value.toString() == "NaN") {
-                        console.error("Invalid integer")
-                        control_flag++
+						errors.push(`Invalid integer: ${filter[key]}`)
+						console.error(errors[errors.length-1])
                     } else {
                         filter_string += " AND "+ fullkey + "=" + value + ""
                     }
@@ -316,18 +316,18 @@ internal.control_filter2 = function (valid_filters, filter, default_table, crud)
                 if(Array.isArray(filter[key])) {
                     var values = filter[key].map(v=>parseFloat(v)).filter(v=>v.toString()!="NaN")
                     if(!values.length) {
-                        console.error("Invalid float")
-                        control_flag++
+						errors.push(`Invalid float array: ${filter[key].toString()}`)
+						console.error(errors[errors.length-1])
                     } else {
-                        filter_string += " AND "+ fullkey + " IN (" + values.join(",") + ")"
+                        filter_string += " AND " + fullkey + " IN (" + values.join(",") + ")"
                     }
                 } else {
                     var value = parseFloat(filter[key])
                     if(value.toString() == "NaN") {
-                        console.error("Invalid integer")
-                        control_flag++
+						errors.push(`Invalid float: ${filter[key]}`)
+						console.error(errors[errors.length-1])
                     } else {
-                        filter_string += " AND "+ fullkey + "=" + value + ""
+                        filter_string += " AND " + fullkey + "=" + value + ""
                     }
                 }
 			} else if (valid_filters[key].type == "interval") {
@@ -344,12 +344,16 @@ internal.control_filter2 = function (valid_filters, filter, default_table, crud)
 				}
 			}
 		} else if (valid_filters[key].required) {
-			console.error("Falta valor para filtro obligatorio " + key)
-			control_flag++
+			errors.push("Falta valor para filtro obligatorio " + key)
+			console.error(errors[errors.length-1])
 		}
 	})
-	if(control_flag > 0) {
-		return null
+	if(errors.length > 0) {
+		if(throw_on_error) {
+			throw("Invalid filter:\n" + errors.join("\n"))
+		} else {
+			return null
+		}
 	} else {
 		return filter_string
 	}

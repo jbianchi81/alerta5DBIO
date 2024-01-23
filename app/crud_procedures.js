@@ -3710,7 +3710,7 @@ if(1==1) {
             logger.error(e)
             process.exit(1)
         }
-        console.debug(filter)
+        // console.debug(filter)
         // var test_result = true
         if(!CRUD.hasOwnProperty(crud_class)) {
             logger.error("Invalid crud class")
