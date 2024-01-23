@@ -39,4 +39,5 @@ then
     echo "alerta5DBIO setup failed"
     exit 1
 fi
+alias a5cli="node $PWD/crud_procedures.js"
 echo "alerta5DBIO setup success"
