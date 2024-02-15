@@ -573,6 +573,7 @@ internal.area = class extends baseModel  {
 					this.wp = arguments[0].wp
 					this.activar = arguments[0].activar
 					this.mostrar = arguments[0].mostrar
+					this.area = arguments[0].area
 					if(config.verbose) {
 						// console.log({new_area: 
 						// 	{

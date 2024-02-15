@@ -1717,7 +1717,7 @@ function getEstaciones(req,res) {
 			filter.abrev = filter.abreviatura
 		}
 	}
-	console.log({filter:filter})
+	console.debug({filter:filter})
 	if(options.pagination) {
 		var promise = crud.getEstacionesWithPagination(filter,options,req)
 	} else {
@@ -1725,7 +1725,7 @@ function getEstaciones(req,res) {
 	}
 	promise.then(result=>{
 		console.log("Results: " + ((Array.isArray(result.estaciones)) ? result.estaciones.length  : result.length))
-		send_output(options,result,res)
+		send_output(options,result,res,"estaciones")
 	})
 	.catch(e=>{
 		console.error(e)
@@ -2222,14 +2222,18 @@ function getAreas(req,res) {
 	}
 	if(!options.no_geom || options.pagination) {
 		var promise = crud.getAreasWithPagination(filter,options,req)
+		.then(result=>{
+			console.info("Results: " + result.areas.length)
+			send_output(options,result,res,"areas")
+		})
 	} else {
 		var promise = crud.getAreas(filter,options)
+		.then(result=>{
+			console.info("Results: " + result.length)
+			send_output(options,result,res)
+		})
 	}
-	promise.then(result=>{
-		console.log("Results: " + result.length)
-		send_output(options,result,res)
-	})
-	.catch(e=>{
+	promise.catch(e=>{
 		console.error(e)
 		res.status(500).send({message:"Server error",error:e.toString()})
 	})
@@ -6878,7 +6882,7 @@ function csv2obs(tipo,series_id,csv) {
 	})
 }
 
-async function send_output(options,data,res) {
+async function send_output(options,data,res,property_name) {
 	//~ console.log({options:options,data:data})
 	var output=""
 	var contentType = "text/plain"
@@ -6910,6 +6914,27 @@ async function send_output(options,data,res) {
 						output += data[i].toCSV(options) + "\n"
 					} else if (options.string) {
 						output += data[i].toString() + "\n"
+					}
+				}
+			}
+		} else if (property_name && data[property_name] && Array.isArray(data[property_name])) {
+			if(options.no_send_data) {
+				output = "records="+data[property_name].length
+			} else {
+				for(var i=0; i < data[property_name].length; i++) {
+					if(i==0 && (options.csvless || options.csv) && data[property_name][i].getCSVHeader) {
+						output += data[property_name][i].getCSVHeader(options) + "\n"
+					}
+					if(options.csvless) {
+						if(options.no_id) {
+							output += data[property_name][i].toCSVless(false) + "\n"
+						} else {
+							output += data[property_name][i].toCSVless(true) + "\n"
+						}
+					} if(options.csv) {
+						output += data[property_name][i].toCSV(options) + "\n"
+					} else if (options.string) {
+						output += data[property_name][i].toString() + "\n"
 					}
 				}
 			}
@@ -6951,7 +6976,12 @@ async function send_output(options,data,res) {
 					if(data[0] && data[0].toGeoJSON) {
 						var features = []
 						data.forEach(d=>{
-							features.push(...d.toGeoJSON().features)
+							const f = d.toGeoJSON()
+							if(f.features) {
+								features.push(...f.features)
+							} else {
+								features.push(f)
+							}
 						})
 						output = JSON.stringify({'type':'FeatureCollection','features':features})
 					} else {
@@ -6977,6 +7007,26 @@ async function send_output(options,data,res) {
 					} else {
 						output = JSON.stringify(data)
 					}
+				} else if(property_name && data[property_name] && Array.isArray(data[property_name])) {
+					console.debug("page to geojson. property_name: " + property_name)
+					output = JSON.stringify({
+						'type':'FeatureCollection',
+						'features': data[property_name].map(d=>{
+							if(d.geom) {
+								var properties = d
+								return {
+									type: "Feature",
+									geometry: d.geom,
+									properties: Object.keys(properties).filter(key=>key!="geom").reduce((obj,key)=>{
+										obj[key] = d[key]
+										return obj
+									},{})
+								}
+							} else {
+								return d.valor
+							}
+						})
+					})
 				} else {
 					if(data.geom) {
 						data.geometry = data.geom
