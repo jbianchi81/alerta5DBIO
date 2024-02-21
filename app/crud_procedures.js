@@ -2655,6 +2655,7 @@ internal.CreateProcedure = class extends internal.CrudProcedure {
      * @param {string} arguments.jsonfile - read data from this json file. It may contain an object or an array of objects
      * @param {string} arguments.csvfile - read data from this csv file.
      * @param {string} arguments.rasterfile - read data from this raster file.
+     * @param {string} arguments.geojsonfile - read data from this geojson file. Each feature will be converted to an object of class class_name
      * @param {string} arguments.property_name - optionally read this property of the parsed content of jsonfile (instead of the whole content)
      * @param {string} arguments.output - write result to this file
      * @param {object} options
@@ -2676,9 +2677,13 @@ internal.CreateProcedure = class extends internal.CrudProcedure {
             if(!arguments[0].jsonfile) {
                 if(!arguments[0].csvfile) {
                     if(!arguments[0].rasterfile) {
-                       throw("Missing argument 'elements' or 'jsonfile' or 'csvfile' or 'rasterfile'")
+                        if(!arguments[0].geojsonfile) {
+                           throw("Missing argument 'elements' or 'jsonfile' or 'csvfile' or 'rasterfile' or geojsonfile")
+                        }
+                        this.geojsonfile = path.resolve(this.files_base_dir,arguments[0].geojsonfile)
+                    } else {
+                        this.rasterfile = path.resolve(this.files_base_dir,arguments[0].rasterfile)
                     }
-                    this.rasterfile = path.resolve(this.files_base_dir,arguments[0].rasterfile)
                 } else {
                     // this.elements = internal.validateDataFile(this.class,arguments[0].csvfile,this.property_name,"csv")
                     this.csvfile = path.resolve(this.files_base_dir,arguments[0].csvfile)
@@ -2716,7 +2721,7 @@ internal.CreateProcedure = class extends internal.CrudProcedure {
         }
     }
     async run() {
-        const data = (this.elements) ? this.elements : (this.jsonfile) ? this.class.readFile(this.jsonfile,"json",{property_name:this.property_name}) : (this.csvfile) ? this.class.readFile(this.csvfile,"csv",{property_name:this.property_name,header:this.options.header}) : this.class.readFile(this.rasterfile,"raster",{property_name:this.property_name})
+        const data = (this.elements) ? this.elements : (this.jsonfile) ? this.class.readFile(this.jsonfile,"json",{property_name:this.property_name}) : (this.csvfile) ? this.class.readFile(this.csvfile,"csv",{property_name:this.property_name,header:this.options.header}) : (this.rasterfile) ? this.class.readFile(this.rasterfile,"raster",{property_name:this.property_name}) : this.class.readFile(this.geojsonfile,"geojson",{nombre_property:this.nombre_property, id_property: this.id_property})
         if(this.class.hasOwnProperty("create")) {
             var options = (this.options) ? {
                 all: this.options.all,
@@ -3626,7 +3631,7 @@ if(1==1) {
     .option("-v, --validate",'validate only (don\'t run)')
     .option("-t, --test",'run in test mode',false)
     .option("-o, --output <value>",'save output to file')
-    .option("-f, --format <value>",'input files format: json or csv (default: json)')
+    .option("-f, --format <value>",'input files format: json, csv or geojson (default: json)')
     .option("-H, --header",'use this option if csv input file has a header')
     .option("-a, --all", 'in serie creation, create parent objects (estacion, fuente, var, procedimiento, unidades')
     .action(async (crud_class,files,options) => {
@@ -3646,6 +3651,8 @@ if(1==1) {
                 if(options.format && options.format == "csv") {
                     params.csvfile = path.resolve(filename)
                     params.options.header = options.header
+                } else if(options.format && options.format == "geojson") {
+                    params.geojsonfile = path.resolve(filename)
                 } else {
                     params.jsonfile = path.resolve(filename)
                 }

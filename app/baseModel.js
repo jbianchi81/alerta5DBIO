@@ -82,6 +82,11 @@ internal.readModelFromFile = (model_class,input_file,input_format,options={}) =>
 		}
 		// var content = fs.readFileSync(input_file)
 		return model_class.fromRaster(input_file) // content)
+	} else if(input_format=="geojson") {
+		if(!model_class.fromGeoJSON) {
+			throw("fromGeoJSON() not defined for this class")
+		}
+		return model_class.fromGeoJSON(input_file,options.nombre_property,options.id_property)
 	} else {
 		throw("Invalid format")
 	}

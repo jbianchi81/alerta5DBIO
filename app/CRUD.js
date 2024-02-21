@@ -738,6 +738,22 @@ internal.area = class extends baseModel  {
 			return [ result ]
 		}
 	}
+	static fromGeoJSON(
+		geojson_file,
+		nombre_property = "nombre",
+		id_property = "id"
+		) {
+		const geojson_data = JSON.parse(fs.readFileSync(geojson_file,'utf-8'))
+		const areas = []
+		for(const item of geojson_data.features) {
+			areas.push(new this({
+				nombre: item.properties[nombre_property],
+				id: item.properties[id_property],
+				geom: item.geometry
+			}))
+		}
+		return areas 
+	}
 }
 
 internal.escena = class extends baseModel  {
