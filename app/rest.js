@@ -2434,7 +2434,11 @@ function getSerie(req,res) {
 	}
 	crud.getSerie(filter.tipo,filter.id,filter.timestart,filter.timeend,options,filter.public)
 	.then(result=>{
-		console.log("Results: series_id=" + result.id)
+		if(result) {
+			console.log("Results: series_id=" + result.id)
+		} else {
+			console.log("Series id:" + filter.id + " not found")
+		}
 		send_output(options,result,res)
 	})
 	.catch(e=>{
