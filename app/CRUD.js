@@ -2432,9 +2432,6 @@ internal.serie = class extends baseModel {
 	}
 
 	async createObservaciones() {
-		if(!this.id) {
-			throw("Can't create observaciones. Series id not found")
-		}
 		if(this.observaciones && this.observaciones.length) {
 			this.observaciones.setTipo(this.tipo)
 			this.observaciones.setSeriesId(this.id)
