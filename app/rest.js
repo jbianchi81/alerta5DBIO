@@ -2437,7 +2437,9 @@ function getSerie(req,res) {
 		if(result) {
 			console.log("Results: series_id=" + result.id)
 		} else {
-			console.log("Series id:" + filter.id + " not found")
+			console.log("Series id: " + filter.id + " not found")
+			res.status(404).send({message:"Series id: " + filter.id + " not found"})
+			return
 		}
 		send_output(options,result,res)
 	})
