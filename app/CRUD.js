@@ -3856,7 +3856,7 @@ internal.observacion = class extends baseModel {
 		}
 	}
 	toString() {
-		var valor = (this.tipo == "rast" || this.tipo == "raster") ? "rasterFile" : this.valor.toString()
+		var valor = (this.valor) ? (this.tipo == "rast" || this.tipo == "raster") ? "rasterFile" : this.valor.toString() : "null"
 		return "{" + "id:" + this.id + ", tipo:" + this.tipo + ", series_id:" + this.series_id + ", timestart:" + this.timestart.toISOString() + ", timeend:" + this.timeend.toISOString() + ", nombre:" + this.nombre + ", descrpcion:" + this.descripcion + ", unit_id:" + this.unit_id + ", timeupdate:" + this.timeupdate.toISOString() + ", valor:" + valor + "}"
 	}
 	// toJSON() {
@@ -9391,8 +9391,11 @@ internal.CRUD = class {
 		await observacion.getId()
 		observacion.timestart = (typeof observacion.timestart) == 'string' ? new Date(observacion.timestart) : observacion.timestart
 		observacion.timeend = (typeof observacion.timeend) == 'string' ? new Date(observacion.timeend) : observacion.timeend
+		if(!observacion.timestart || !observacion.timeend || !observacion.valor || !observacion.series_id) {
+			throw new Error("Can't create observacion. Required: timestart, timeend, valor, series_id")
+		}
 		if(config.verbose) {
-			console.log("crud.upsertObservacion: " + observacion.toString())
+			console.info("crud.upsertObservacion: " + observacion.toString())
 		}
 		if(observacion.tipo != "rast" && observacion.tipo != "raster") {
 			const val_type = (Array.isArray(observacion.valor)) ? "numarr" : "num"
@@ -9419,7 +9422,7 @@ internal.CRUD = class {
 					// TRY TO UPDATE VAL
 					const obs = new internal.observacion({series_id: observacion.series_id, timestart: observacion.timestart, timeend:observacion.timeend, nombre: observacion.nombre,descripcion: observacion.descripcion, unit_id: observacion.unit_id, timeupdate: observacion.timeupdate})
 					const insertValorText = "UPDATE " + val_tabla + " SET valor=$1 FROM " + obs_tabla + " WHERE " + obs_tabla + ".id=" + val_tabla + ".obs_id AND series_id=$2 AND timestart=$3 AND timeend=$4 RETURNING obs_id,valor"
-					console.log(pasteIntoSQLQuery(insertValorText,[observacion.valor, observacion.series_id, observacion.timestart, observacion.timeend]))
+					// console.log(pasteIntoSQLQuery(insertValorText,[observacion.valor, observacion.series_id, observacion.timestart, observacion.timeend]))
 					res = await client.query(insertValorText, [observacion.valor, observacion.series_id, observacion.timestart, observacion.timeend])
 					if(!res.rows.length) {
 						console.log("No se actualizó observación")

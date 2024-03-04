@@ -31,6 +31,7 @@ internal.writeModelToFile = async (model,output_file,output_format) => {
 }
 
 internal.readModelFromFile = (model_class,input_file,input_format,options={}) => {
+	const separator = options.separator ?? ","
 	if(!model_class) {
 		throw("missing model_class")
 	}
@@ -60,17 +61,17 @@ internal.readModelFromFile = (model_class,input_file,input_format,options={}) =>
 		}
 		var content = fs.readFileSync(input_file,'utf-8')
 		if(model_class.prototype instanceof Array) {
-			return model_class.fromCSV(content)
+			return model_class.fromCSV(content, separator)
 		} else {
 			// if(Array.isArray(parsed_content)) {
-			var parsed_content = content.split("\n")
+			var parsed_content = content.split("\n").filter(x => !/^\s*$/.test(x))
 			if(options.header) {
 				var columns = parsed_content.shift()
-				columns = columns.split(",")
-				// console.log("columns: " + columns.join(" - "))
-				return parsed_content.map(r=>model_class.fromCSV(r,columns))
+				columns = columns.split(separator)
+				// console.debug("columns: " + columns.join(" - ") + ". rows: " + parsed_content.length)
+				return parsed_content.map(r=>model_class.fromCSV(r,separator,columns))
 			} else {
-				return parsed_content.map(r=>model_class.fromCSV(r))
+				return parsed_content.map(r=>model_class.fromCSV(r,separator))
 			}
 		} 
 		// else {
@@ -350,12 +351,12 @@ internal.baseModel = class {
 	 * @param {string[]} [columns] - ordered field names to assign to parsed csv line 
 	 * @returns {object} an instance of this class
 	 */
-	static fromCSV(row_csv_string,columns) {
+	static fromCSV(row_csv_string,separator=",",columns) {
 		if(!this._fields) {
 			throw("Missing constructor._fields for class " + this.name)
 		}
 		columns = (columns) ? columns : Object.keys(this._fields)
-		const row = CSV.parse(row_csv_string)[0].map(c=> (!c.length) ? undefined : c)
+		const row = CSV.parse(row_csv_string, separator)[0].map(c=> (!c.length) ? undefined : c)
 		const result = {}
 		for(var i in columns) {
 			if(Object.keys(this._fields).indexOf(columns[i]) < 0) {

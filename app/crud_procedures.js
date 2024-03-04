@@ -2734,6 +2734,7 @@ internal.CreateProcedure = class extends internal.CrudProcedure {
         } else {
             this.result = []
             if(Array.isArray(data)) {
+                // console.debug("CreateProcedure, data.length: " + data.length)
                 for(var i in data) {
                     var options = (this.options) ? {
                         series_metadata: this.options.all,
@@ -3329,6 +3330,7 @@ internal.runSequence = async function(filename,test_mode=false,client) {
 }
 
 internal.parseCsvFile = function(filename,crud_class,options={}) {
+    const separator = options.separator ?? ","
     if(!crud_class.fromCSV) {
         throw("fromCSV method undefined for this CRUD class")
     }
@@ -3342,7 +3344,7 @@ internal.parseCsvFile = function(filename,crud_class,options={}) {
     }
     if(crud_class.prototype instanceof Array) {
         try {
-            var parsed_content = crud_class.fromCSV(content)
+            var parsed_content = crud_class.fromCSV(content,separator)
         } catch(e) {
             throw(`Couldn't parse file ${filename}. ${e.toString()}`)
         }    
@@ -3351,15 +3353,16 @@ internal.parseCsvFile = function(filename,crud_class,options={}) {
             var rows = content.split("\n")
             if(options.header) {
                 var columns = rows.shift()
-                columns = columns.split(",") 
+                columns = columns.split(separator) 
             } else {
                 var columns = undefined
             }
-            var parsed_content = rows.map(r=>crud_class.fromCSV(r,columns))
+            var parsed_content = rows.map(r=>crud_class.fromCSV(r,separator,columns))
         } catch(e) {
             throw(`Couldn't parse file ${filename}. ${e.toString()}`)
         }
     }
+    console.debug(JSON.stringify({"parsed_content": parsed_content}))
     return parsed_content    
 }
 
