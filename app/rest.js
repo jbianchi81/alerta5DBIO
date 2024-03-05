@@ -124,17 +124,16 @@ const { default: axios } = require('axios')
 // CONTROLLER //
 
 app.get('/', (req,res)=> {
-	// setTimeout(()=>{
-	// 	res.send("alerta5DBIO running.")
-	// },1000)
-	global.pool.query("SELECT now() AS date")
-	.then(result=>{
-		res.send("alerta5DBIO running. " + result.rows[0].date + ".")
-	})
-	.catch(e=>{
-		console.error(e.toString())
-		res.status(500).send("Server error, please contact the administrator (DB connection failed!)")
-	})
+
+	res.redirect("/secciones")
+	// global.pool.query("SELECT now() AS date")
+	// .then(result=>{
+	// 	res.send("alerta5DBIO running. " + result.rows[0].date + ".")
+	// })
+	// .catch(e=>{
+	// 	console.error(e.toString())
+	// 	res.status(500).send("Server error, please contact the administrator (DB connection failed!)")
+	// })
 })
 
 app.get('/exit',auth.isAdmin,(req,res)=>{  // terminate Nodejs process

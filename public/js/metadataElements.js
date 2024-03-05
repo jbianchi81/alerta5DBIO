@@ -1169,8 +1169,8 @@ var metadataElements = {
 					option_text: "${valor}: ${nombre}"
 				},
 				description: 'Identificador numérico de la fuente (raster). Consultar catálogo -> fuentes',
-				hidden: true,
-				disabled: true,					
+				hidden: false,
+				disabled: false,					
 				link: {
 					element: "fuentes",
 					filters: {

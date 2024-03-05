@@ -1594,6 +1594,9 @@ internal.serie = class extends baseModel {
 						} else {
 							this.estacion = {}
 						}
+					} else if (arguments[0].area_id) {
+						this.tipo = "areal"
+						this.estacion = {id: arguments[0].area_id}
 					} else if (this.tipo == "rast" || this.tipo == "raster") {
 						if(arguments[0].escena) {
 							this.estacion = new internal.escena(arguments[0].escena)
@@ -8101,8 +8104,9 @@ internal.CRUD = class {
 		}
 		try {
 			for(var i=0; i<series.length; i++) {
+				// console.debug("new serie: " + JSON.stringify(series[i]))
 				const serie = (series[i] instanceof internal.serie) ? series[i] : new internal.serie(series[i])
-				// console.log("new serie: " + JSON.stringify(serie))
+				// console.debug("new serie (parsed): " + JSON.stringify(serie))
 				var serie_props = {}
 				if(all) {
 					if(serie["var"] instanceof internal["var"]) {
