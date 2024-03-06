@@ -1,5 +1,5 @@
 var PromiseFtp = require("promise-ftp")
-const {serie: Serie, observacion: Observacion} = require('./CRUD')
+const {serie: Serie, observacion: Observacion} = require('../CRUD')
 // const CSV = require('csv-string')
 const { parse: CSVparse } = require('csv-parse/sync')
 const fs = require('fs')
@@ -14,7 +14,7 @@ internal.Client = class {
     default_config = {
         url: "genica.com.ar",
         path: "/",
-        local_path: "../data/genica",
+        local_path: "../../data/genica",
         series_map: {},
         tabla: "alturas_genica"
     }

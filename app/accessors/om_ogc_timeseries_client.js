@@ -1,14 +1,14 @@
 'use strict'
 
-const {getConfig} = require('./utils')
+const {getConfig} = require('../utils')
 const {sprintf} = require('sprintf-js')
 const axios = require('axios')
 const fs = require('promise-fs')
-const {estacion: Estacion, serie: Serie, observacion: Observacion, observaciones: Observaciones} = require('./CRUD')
+const {estacion: Estacion, serie: Serie, observacion: Observacion, observaciones: Observaciones} = require('../CRUD')
 // const moment = require('moment-timezone')
-const {not_null} = require('./utils')
-const {accessor_feature_of_interest, accessor_timeseries_observation, accessor_observed_property, accessor_unit_of_measurement, accessor_time_value_pair} = require('./accessor_mapping')
-const {isoDurationToHours} = require('./timeSteps')
+const {not_null} = require('../utils')
+const {accessor_feature_of_interest, accessor_timeseries_observation, accessor_observed_property, accessor_unit_of_measurement, accessor_time_value_pair} = require('../accessor_mapping')
+const {isoDurationToHours} = require('../timeSteps')
 const internal = {}
 
 internal.timeseries_observation = class extends accessor_timeseries_observation {

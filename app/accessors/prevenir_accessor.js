@@ -1,4 +1,4 @@
-const {serie: Serie, observacion: Observacion, observaciones: Observaciones, serie} = require('./CRUD')
+const {serie: Serie, observacion: Observacion, observaciones: Observaciones, serie} = require('../CRUD')
 const axios = require('axios')
 
 const internal = {}

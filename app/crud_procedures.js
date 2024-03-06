@@ -3868,6 +3868,7 @@ if(1==1) {
     .option("-i, --output_individual_files_pattern <value>",'output one file for each retrieved element using this printf pattern to use with element id and, additional fields (with -F option)')
     .option("-b, --base_path <value>",'to use together with -i. Prepends this base path to the constructed file paths')
     .option("-F, --iter_field <value>",'Field of elements to iterate over to generate separate output files (combined with -i)')
+    .option("-u, --update","Update series in database from downloaded records")
     .action(async (accessor_class,filter,options) => {
         try {
             filter = parseKVPArray(filter)
@@ -3875,17 +3876,28 @@ if(1==1) {
             logger.error(e)
             process.exit(1)
         }
-        // console.log(filter)
+        // console.debug({filter: filter, options: options})
         // var test_result = true
-        if(!Accessors.hasOwnProperty(accessor_class)) {
-            logger.error("Invalid accessor class")
+        // if(!Accessors.hasOwnProperty(accessor_class)) {
+        //     logger.error("Invalid accessor class")
+        //     process.exit(1)
+        // }
+        const class_name = accessor_class
+        try {
+            accessor = await Accessors.new(class_name)
+        } catch(e) {
+            console.error(e)
             process.exit(1)
         }
-        const class_name = accessor_class
-        accessor = await Accessors.new(class_name)
         const get_options = getOutputOptions(options)
+        const output = (options.output) ? path.resolve(options.output) : undefined
         try {
-            var procedure = new internal.DownloadFromAccessorProcedure({accessor_id: class_name, filter:filter, output: path.resolve(options.output), output_format: options.format, options: get_options})
+            if(options.update) {
+                // console.debug("Update from accessor")
+                var procedure = new internal.UpdateFromAccessorProcedure({accessor_id: class_name, filter:filter, output: output, output_format: options.format, options: get_options})
+            } else {
+                var procedure = new internal.DownloadFromAccessorProcedure({accessor_id: class_name, filter:filter, output: output, output_format: options.format, options: get_options})
+            }
         } catch(e) {
             logger.error(e)
             process.exit(1)
@@ -3902,6 +3914,7 @@ if(1==1) {
         await writeResult(procedure,result,options)
         process.exit(0)
     })
+    
     program
     .command("run-asoc <timestart> <timeend> [filter...]")
     .alias('a')

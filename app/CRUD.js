@@ -1806,7 +1806,13 @@ internal.serie = class extends baseModel {
 		return lines.join("\n")
 	}
 	
-	async getId() {
+	/**
+	Retrieve id of series instance from database and set. If not found and default_to_next=true, sets next value in id sequence
+	*
+	* @param default_to_next boolean default true
+	* @returns Promise<integer|undefined> - series id
+	*/
+	async getId(default_to_next=true) {
 		if(this.tipo == "areal") {
 			//~ console.log([this.estacion.id, this["var"].id, this.procedimiento.id, this.unidades.id, this.fuente.id])
 			var res = await global.pool.query("\
@@ -1816,13 +1822,15 @@ internal.serie = class extends baseModel {
 			if (res.rows.length>0) {
 				this.id = res.rows[0].id
 				return this.id
-			} else {
+			} else if (default_to_next) {
 				res = await global.pool.query("\
 				SELECT max(id)+1 AS id\
 				FROM series_areal\
 				")
 				this.id = res.rows[0].id
 				return this.id
+			} else {
+				return
 			}
 		} else {
 			if(!this.estacion.id || !this["var"].id || !this.procedimiento.id || !this.unidades.id) {
@@ -2105,6 +2113,30 @@ internal.serie = class extends baseModel {
 		this.refreshJsonView()
 		return results
 	}
+
+	/**
+	 * Reads series from database
+	 * @param {Object} filter 
+	 * valid parameters:
+	 * - tipo : str        - either "puntual", "areal" or "raster"
+	 * - id : int          - series identifier
+	 * - timestart : date  - begin date of observations
+	 * - timeend : date    - end date of observations
+	 * - public : boolean  - if true, retrieves only public series
+	 * - timeupdate        - update date of observations
+	 * @param {Object} options 
+	 * valid parameters:
+	 * - no_metadata bool
+	 * - obs_type string
+	 * - asArray bool
+	 * - getStats bool
+	 * - getMonthlyStats bool
+	 * - getWeibullPercentiles bool
+	 * - format string
+	 * - regular bool
+	 * - dt interval
+	 * @returns {Promise<array<internal.serie>>|Promise<serie>} Instance of Serie if filter.id is set, else array of series 
+	 */
 	static async read(filter={},options={}) {
 		if(filter.id && !Array.isArray(filter.id) ) {
 			return internal.CRUD.getSerie(filter.tipo,filter.id,filter.timestart,filter.timeend,options,filter.public,filter.timeupdate)
