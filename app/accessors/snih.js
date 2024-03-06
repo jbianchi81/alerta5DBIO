@@ -286,7 +286,7 @@ internal.client = class {
 		var series_filter = {...filter}
 		if(filter && filter.series_id) {
 			const serie = await CRUD.serie.read({id: filter.series_id})
-			if(!serie.length) {
+			if(!serie) {
 				console.error("Serie id " + filter.series_id + " not found")
 				return []
 			}
