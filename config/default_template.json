@@ -1068,5 +1068,6 @@
 		"email": "my@email.com",
 		"onlineResource": "localhost:3005/yaml/apidocs_v3_1.yml",
 		"role": "publisher"
-	}
+	},
+	"enable_cors": false
 }

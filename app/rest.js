@@ -69,6 +69,12 @@ const print_rast_series = printRast.print_rast_series
 fs.writeFileSync("logs/memUsage.log","#timestamp,rss,heapTotal,heapUsed,external\n")
 setInterval(logMemUsage,10000)
 
+// CORS
+const cors = require('cors')
+if(config.enable_cors) {
+	app.use(cors())
+}
+
 // AUTHENTICATION
 const auth = require('../../appController/app/authentication.js')(app,config,global.pool)
 const passport = auth.passport
