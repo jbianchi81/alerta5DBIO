@@ -860,7 +860,11 @@
 			} 
 		}
 		if(search_filters.estacionId) {
-			$("form#selectorform select[name=estacionId]").append("<option value=" + search_filters.estacionId + " selected />")
+			$("form#selectorform select[name=estacionId]").append($('<option>',{
+				value: search_filters.estacionId,
+				text: search_filters.estacionId,
+				selected: "selected"
+			}))
 		}
 		 
 		document.getElementById('popup').style.display = "block"
@@ -1079,8 +1083,8 @@
 		var gSeries, gPoints
 
 		var [get_monitored_url, monitoredpointsparams,estaciones_feature_type] = getMonitoredPointParams(search_filters)
-		setEstacionIdSelect(get_monitored_url,monitoredpointsparams)
-		setChooseAddSeriesSelect(get_monitored_url,monitoredpointsparams)
+		setEstacionIdSelect(get_monitored_url, monitoredpointsparams)
+		setChooseAddSeriesSelect(get_monitored_url,Object.assign({}, monitoredpointsparams, {estacion_id: undefined}))
 		
 		if(global.default_config.use_wms) {
 			// add estaciones_series map (wms)
@@ -1292,14 +1296,17 @@
    				url: url, //?' + new URLSearchParams(monitoredpointsparams).toString(),
     			dataType: 'json',
     			data: function (params) {
-					var query = {...monitoredpointsparams}
-					query.search = params.term
-					query.no_metadata = true
-					query.pagination = true
-					query.format = undefined
-					query.no_geom = true
-					query.limit = global.default_config.series_page_size // 250
-					query.offset = (params.page) ? (params.page - 1) * global.default_config.series_page_size : 0 
+					var query = {
+						...monitoredpointsparams, 
+						estacion_id: undefined,
+						search: params.term,
+						no_metadata: true,
+						pagination: true,
+						format: undefined,
+						no_geom: true,
+						limit: global.default_config.series_page_size, // 250
+						offset: (params.page) ? (params.page - 1) * global.default_config.series_page_size : 0
+					}
 					return query
 				},
 				processResults: function (data) {
