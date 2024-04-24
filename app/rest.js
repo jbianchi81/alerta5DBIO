@@ -131,7 +131,7 @@ const { default: axios } = require('axios')
 
 app.get('/', (req,res)=> {
 
-	res.redirect("/secciones")
+	res.redirect("secciones")
 	// global.pool.query("SELECT now() AS date")
 	// .then(result=>{
 	// 	res.send("alerta5DBIO running. " + result.rows[0].date + ".")
