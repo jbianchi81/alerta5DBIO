@@ -3111,7 +3111,9 @@ internal.serie.build_read_query = function(filter={},options={}) {
 			`JOIN areas_pluvio 
 				ON (areas_pluvio.unid=series.area_id)`,
 			`LEFT JOIN estaciones 
-				ON (estaciones.unid = areas_pluvio.exutorio_id)`
+				ON (estaciones.unid = areas_pluvio.exutorio_id)`,
+			`LEFT JOIN redes
+				ON (estaciones.tabla = redes.tabla_id)`
 		]]
 		if(options.no_metadata) {
 			select_fields = [...select_fields,...[

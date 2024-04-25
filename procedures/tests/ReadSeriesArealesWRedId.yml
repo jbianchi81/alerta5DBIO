@@ -1,0 +1,11 @@
+sequence:
+- procedureName: ReadProcedure
+  arguments:
+    class_name: serie
+    filter:
+      tipo: areal
+      red_id: 555
+    output: outputs/read_series.json 
+  tests:
+  - testName: EmptyArrayTest
+    arguments: {}

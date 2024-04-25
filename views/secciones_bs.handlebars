@@ -5,7 +5,7 @@
 		<h3 id="leftHeading">Series puntuales</h3>
 		<h2>visualizador de datos</h2>
 		<div>
-			<a id="selectorToggle" class="btn btn-primary collapsed" data-toggle="collapse" href=".showHideFilters" role="button" aria-expanded="false" aria-controls="selector" style="">ocultar buscador</a>
+			<a id="selectorToggle" class="btn btn-primary collapsed" data-toggle="collapse" href=".showHideFilters" role="button" aria-expanded="false" aria-controls="selector" style="">ocultar filtros</a>
 			<button id="refresh" type="submit" form="selectorform" class="btn btn-info" disabled>
 				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
 			      <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"></path>
@@ -67,7 +67,7 @@
 				<div>
 						<table>
 						<tr>
-							<td><button name=submit type=submit class="btn btn-primary" style="width: 80px; height:55px">&nbsp;Buscar&nbsp;</button></td>
+							<td><button name=submit type=submit class="btn btn-primary" style="width: 80px; height:55px">&nbsp;Aplicar filtros&nbsp;</button></td>
 						</tr>
 						<tr>
 							<td><a id=toggleAddFilters href="" title="habilitar/deshabilitar filtros adicionales">más filtros</a></td>
@@ -131,7 +131,7 @@
 				</div>
 				<div class=additionalFilters>
 					<label for=fuentesId>Fuente de datos areales</label>
-					<select name=fuentesId id=fuentesId class="form-control" style="font-size: medium;">
+					<select name=fuentesId id=fuentesId class="form-control" style="font-size: medium;" title="Seleccione una opción para buscar series areales. Seleccione --Ninguna-- para buscar series puntuales">
 						<option value="" selected>-- Ninguna --</option>
 					</select>
 				</div>
@@ -749,10 +749,10 @@
 		setTimeout(()=>window.dispatchEvent(new Event('resize')),500)
 	})
 	$("section#selector").on('show.bs.collapse',()=>{
-		$("a#selectorToggle").text("ocultar buscador")
+		$("a#selectorToggle").text("ocultar filtros")
 	})
 	.on('hide.bs.collapse',()=>{
-		$("a#selectorToggle").text("mostrar buscador")
+		$("a#selectorToggle").text("mostrar filtros")
 	})
 	.collapse('show')
 	$("a#toggleAddFilters").click(()=>{
@@ -1033,6 +1033,9 @@
 
 		$("form#selectorform select[name=fuentesId]").change(event=>{
 			$("form#selectorform select[name=seriesId]").val("")
+			$("form#selectorform select[name=estacionId]").val("").trigger("change")
+			setSeriesTypeMode()
+
 		})
 
 		$("form#selectorform select[name=redId]").change(event=>{
@@ -1043,14 +1046,6 @@
 
 		getFuentesAreal(search_filters)
 
-		if(search_filters.fuentesId) {
-			$("h3#leftHeading").text("Series areales")
-			$("form#selectorform select[name=estacionId]").parent().find("label").text("Área")
-			// loadAreasOptions(search_filters)
-			$("form#selectorform select[name=redId]").parent().hide()
-			$("form#selectorform select[name=fuentesId]").parent().removeClass("additionalFilters").show()
-			$("form#chooseaddseries input[name=tipo]").val("areal")
-		} 
 		// else {
 			//loadEstacionesOptions(search_filters)
 		//}
@@ -1083,7 +1078,7 @@
 		var gSeries, gPoints
 
 		var [get_monitored_url, monitoredpointsparams,estaciones_feature_type] = getMonitoredPointParams(search_filters)
-		setEstacionIdSelect(get_monitored_url, monitoredpointsparams)
+		setEstacionIdSelect()
 		setChooseAddSeriesSelect(get_monitored_url,Object.assign({}, monitoredpointsparams, {estacion_id: undefined}))
 		
 		if(global.default_config.use_wms) {
@@ -1224,11 +1219,6 @@
 		} else if (global.default_config.filters && global.default_config.filters.varId) {
 			monitoredpointsparams.var_id = global.default_config.filters.varId
 		}
-		if(search_filters.redId) {
-			monitoredpointsparams.red_id = search_filters.redId
-		} else if (global.default_config.filters && global.default_config.filters.redId) {
-			monitoredpointsparams.red_id = global.default_config.filters.redId
-		}
 		if(search_filters.estacionId) {
 			monitoredpointsparams.estacion_id = search_filters.estacionId
 		} else if (global.default_config.filters && global.default_config.filters.estacionId) {
@@ -1245,6 +1235,11 @@
 		} else if(monitoredpointsparams.tipo == "areal") {
 			alert("Falta fuentesId. Por favor seleccione uno para realizar la búsqueda de series areales")
 		} else {
+			if(search_filters.redId) {
+				monitoredpointsparams.red_id = search_filters.redId
+			} else if (global.default_config.filters && global.default_config.filters.redId) {
+				monitoredpointsparams.red_id = global.default_config.filters.redId
+			}
 			var get_monitored_url = "obs/puntual/series"
 			var estaciones_feature_type = "point"
 			monitoredpointsparams.tipo = "puntual"
@@ -1289,23 +1284,42 @@
 		return [get_monitored_url,monitoredpointsparams,estaciones_feature_type]
 	}
 
-	function setEstacionIdSelect(url,monitoredpointsparams) {
+	function setEstacionIdSelect() {
 		$("form#selectorform select#estacionId").select2({
-			minimumInputLength: 3,
+			minimumInputLength: 0,
+			allowClear: true,
+			placeholder: "--- Todas ---",
 			ajax: {
-   				url: url, //?' + new URLSearchParams(monitoredpointsparams).toString(),
+   				url: function() {
+					return getEstacionesUrl()
+				}, //?' + new URLSearchParams(monitoredpointsparams).toString(),
     			dataType: 'json',
     			data: function (params) {
+					const search_filters = getSearchFilters()
 					var query = {
-						...monitoredpointsparams, 
+						GeneralCategory: search_filters.generalCategory,
+						var_id: search_filters.varId,
+						red_id: search_filters.fuentesId == "" ? search_filters.redId : undefined,
+						tipo: search_filters.tipo,
+						proc_id: search_filters.fuentesId == "" ? global.search_filters.procId : undefined,
+						timestart: search_filters.timestart,
+						timeend: search_filters.timeend,
+						data_availability: search_filters.data_availability,
+						fuentes_id: search_filters.fuentesId, 
 						estacion_id: undefined,
-						search: params.term,
 						no_metadata: true,
 						pagination: true,
 						format: undefined,
 						no_geom: true,
 						limit: global.default_config.series_page_size, // 250
 						offset: (params.page) ? (params.page - 1) * global.default_config.series_page_size : 0
+					}
+					if(/^\s*$/.test(params.term)) {
+						query.search = undefined
+					} else if(isNaN(params.term)) {
+						query.search = params.term
+					} else {
+						query.estacion_id = parseInt(params.term)
 					}
 					return query
 				},
@@ -1314,17 +1328,18 @@
 					const results = {}
 					for(var r of data.rows) {
 						if(results[r.estacion_id]) {
+							// Skips non unique estacion
 							continue
 						}
 						if(r.tipo == "puntual") {
 							results[r.estacion_id] = {
 								id: r.estacion_id,
-								text: `${r.estacion_id}: ${(r.rio) ? r.rio : ""}@${r.estacion_nombre} (${r.var_nombre}) [${r.series_id}]`
+								text: `${r.estacion_id}: ${(r.rio) ? `${r.rio}@` : ""}${r.estacion_nombre}` //  (${r.var_nombre}) [${r.series_id}]
 							} 
 						} else {
 							results[r.estacion_id] = {
 								id: r.estacion_id,
-								text: `${r.estacion_id}: ${r.estacion_nombre} (${r.var_nombre}) [${r.series_id}]`
+								text: `${r.estacion_id}: ${r.estacion_nombre}` // (${r.var_nombre}) [${r.series_id}]`
 							}				
 						}
 					}
@@ -1491,7 +1506,13 @@
 		$("form#choosepercentile input[name=timestart]").val(timestart.toISOString().substring(0,10))
 		$("form#choosepercentile input[name=timeend]").val(timeend.toISOString().substring(0,10))
 		$("body").css("cursor","progress")
-		var getSeriesParams = {series_id:search_filters.seriesId, tipo: search_filters.tipo, timestart:timestart, timeend:timeend, includeProno:true, stats:"monthly"} // {estacion_id:matched_point.properties.estacion_id, var_id:matched_point.properties.var_id, timestart:timestart, timeend:timeend, includeProno:true,proc_id:matched_point.properties.proc_id,stats:"monthly"}
+		var getSeriesParams = {
+			series_id: search_filters.seriesId, 
+			tipo: search_filters.tipo, 
+			timestart:timestart, 
+			timeend:timeend, 
+			includeProno:true, 
+			stats:"monthly"} // {estacion_id:matched_point.properties.estacion_id, var_id:matched_point.properties.var_id, timestart:timestart, timeend:timeend, includeProno:true,proc_id:matched_point.properties.proc_id,stats:"monthly"}
 		if(search_filters.forecast_date) {
 			getSeriesParams.forecast_date = search_filters.forecast_date
 		}
@@ -2031,38 +2052,40 @@
 				return "<option value=" + fuente.id + " " + selected + ">" + fuente.nombre + "(" + fuente.id + ")</option>"
 			}).join("")
 			//~ console.log({redes_options:redes_options})
-			$("form#selectorform select[name=fuentesId]").append($(fuentes_options)).change(event=>{
+			$("form#selectorform select[name=fuentesId]").append($(fuentes_options))
+			// .change(event=>{
 				// $(event.target).parents("form").submit()
-				loadAreasOptions(search_filters)
-			})
+				//loadAreasOptions()
+			// })
 			$("div#myModalMetadata div#serie select[name=fuentes_id]").append($(fuentes_options_metadata))
 			// metadataElements.seriesAreales.properties.fuente.options = fuentes_options_metadata
+			setSeriesTypeMode()
 		})
 		.fail( (xhr, status, e)=>{
+			setSeriesTypeMode()
 			console.error(e)
 		})
 	}
 
-	function loadAreasOptions(search_filters) {
-		console.log("load areas options")
+	function loadAreasOptions() {
+		console.debug("load areas options")
 		$("form#selectorform select[name=estacionId]")
 		.empty()
-		.append($('<option value="" ></option>'))
+		.append(
+			$(
+				'<option>',
+				{
+					value: ""
+				}
+			)
+		)			
 		$("body").css("cursor","progress")
-		var estaciones_params = {}
-		var selected_fuentesId = $("form#selectorform select[name=fuentesId]").val()
-		if(selected_fuentesId != "") {
-			estaciones_params.fuentes_id = selected_fuentesId
-		} else if(search_filters.fuentesId) {
-			estaciones_params.fuentes_id = search_filters.fuentesId
+		const search_filters = getSearchFilters()
+		var estaciones_params = {
+			fuentes_id: search_filters.fuentesId,
+			var_id: search_filters.varId,
+			no_geom: true
 		}
-		var selected_varId = $("form#selectorform select[name=varId]").val()
-		if(selected_varId != "") {
-			estaciones_params.var_id = selected_varId
-		} else if(search_filters.varId) {
-			estaciones_params.var_id = search_filters.varId
-		}
-		estaciones_params.no_geom = true
 		// console.log({estaciones_params:estaciones_params})
 		$.get("obs/areal/series",estaciones_params)
 		.then(data=>{
@@ -2074,6 +2097,7 @@
 			var estaciones_options = {}
 			for(var serie of data.rows) {
 				if(estaciones_options.hasOwnProperty(serie.estacion.id)) {
+					// skip duplicate
 					continue
 				}
 				var selected = (search_filters.estacionId) ? (serie.estacion.id == search_filters.estacionId) ? "selected" : "" : ""
@@ -2503,6 +2527,42 @@
 			$("body").css("cursor","default")
 			alert(e.message)
 		})
+	}
+
+	function getSearchFilters() {
+		const search_filters = {}
+		$("form#selectorform").serializeArray().forEach(item=>{
+			search_filters[item.name] = item.value
+		})
+		return search_filters
+	}
+	
+	function getEstacionesUrl() {
+		const search_filters = getSearchFilters()
+		if(search_filters.fuentesId != "") {
+			return "obs/areal/series"
+		} else {
+			return "obs/puntual/series"
+		}
+	}
+
+	function setSeriesTypeMode() {
+		const search_filters = getSearchFilters()
+		if(search_filters.fuentesId != "") {
+			$("h3#leftHeading").text("Series areales")
+			$("form#selectorform select[name=estacionId]").parent().find("label").text("Área")
+			// loadAreasOptions(search_filters)
+			$("form#selectorform select[name=redId]").parent().hide()
+			$("form#selectorform select[name=fuentesId]").parent().removeClass("additionalFilters").show()
+			$("form#chooseaddseries input[name=tipo]").val("areal")
+		} else {
+			$("h3#leftHeading").text("Series puntuales")
+			$("form#selectorform select[name=estacionId]").parent().find("label").text("Estación")
+			// loadAreasOptions(search_filters)
+			$("form#selectorform select[name=redId]").parent().show()
+			$("form#selectorform select[name=fuentesId]").parent().addClass("additionalFilters")
+			$("form#chooseaddseries input[name=tipo]").val("puntual")
+		} 
 	}
 </script>
 <!--
