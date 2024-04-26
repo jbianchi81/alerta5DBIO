@@ -130,7 +130,7 @@
 					</select>
 				</div>
 				<div class=additionalFilters>
-					<label for=fuentesId>Fuente de datos areales</label>
+					<label for=fuentesId title="Seleccione una opción para buscar series areales. Seleccione --Ninguna-- para buscar series puntuales">Fuente de datos areales</label>
 					<select name=fuentesId id=fuentesId class="form-control" style="font-size: medium;" title="Seleccione una opción para buscar series areales. Seleccione --Ninguna-- para buscar series puntuales">
 						<option value="" selected>-- Ninguna --</option>
 					</select>
@@ -935,6 +935,9 @@
 				})
 			})
 			map.addLayer(global.areas_layer)			
+			if(default_config.wms_areas_hide) {
+				global.areas_layer.setVisible(false)
+			}
 			$("label#toggleAreasLayerVisibilityLabel").removeAttr("hidden")
 			$("input.toggleAreasLayerVisibility").on("change", ()=>{
 				if(global.areas_layer) {

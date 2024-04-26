@@ -1054,7 +1054,12 @@
 				"wfs": "http://localhost:8080/geoserver/public/ows"
 			}
 		},
-		"series_page_size": 250
+		"series_page_size": 250,
+		"wms_areas": {
+			"layers": "public2:areas_pluvio",
+			"endpoint": "http://localhost:8080/geoserver/public2/wms"
+		},
+		"wms_areas_hide": true
 	},
 	"api": {
 		"base_url": "locahost:3005",
