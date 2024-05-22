@@ -136,7 +136,7 @@ internal.CrudProcedure = class  {
         if(this.options && this.options.output_individual_files) {
             var base_path = (this.options.output_individual_files.base_path) ? this.options.output_individual_files.base_path : ""
             var pattern = (this.options.output_individual_files.pattern) ? this.options.output_individual_files.pattern : "${class_name}_${id}"
-            pattern = (output_format && output_format == "csv") ? `${pattern}.csv` : (output_format && output_format == "raster") ? `${pattern}.tif` : `${pattern}.json`
+            pattern = (output_format && ["csv","csv_cat"].indexOf(output_format) >= 0) ? `${pattern}.csv` : (output_format && output_format == "raster") ? `${pattern}.tif` : `${pattern}.json`
             const results = (Array.isArray(this.result)) ? this.result : [this.result]
             for(var i in results) {
                 var filename = pattern.toString()
@@ -239,6 +239,12 @@ internal.CrudProcedure = class  {
                 }
                 await writeFile(output,data.toCSV(toCSV_options))
             }
+        } else if(output_format=="csv_cat") {
+            if(!data.toCSVcat) {
+                throw("toCSVcat method not present in object")    
+            }
+            await writeFile(output,data.toCSVcat())
+            
         } else if(output_format=="raster") {
             if(Array.isArray(data)) {
                 if(!data.length) {

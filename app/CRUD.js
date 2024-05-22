@@ -1759,6 +1759,14 @@ internal.serie = class extends baseModel {
 			return csv_string
 		}
 	}
+	toCSVcat(options={}) {
+		var sep = (options.delimiter) ? options.delimiter : ","
+		if (this.observaciones) {
+			return this.observaciones.toCSVcat({delimiter:sep}) // ,hasMonthlyStats:true})
+		} else {
+			return ""
+		}
+	}
 	toCSVless() {
 		if (this.tipo == "areal") {
 			return this.id + "," + this.estacion.id +"," + this["var"].id + "," + this.procedimiento.id + "," + this.unidades.id + "," + this.tipo + "," + this.fuente.id
@@ -2763,23 +2771,28 @@ function assignPercentileCategory(value, categories) {
 	const flow_percentile_categories = (categories) ? categories : [
 		{
 			"name": "low flow",
-			"range": [ -Infinity, 0.13] 
+			"range": [ -Infinity, 0.13],
+			"number": 1
 		},
 		{
 			"name": "below normal",
-			"range": [ 0.13, 0.28] 
+			"range": [ 0.13, 0.28],
+			"number": 2 
 		},
 		{
 			"name": "normal range",
-			"range": [ 0.28, 0.72] 
+			"range": [ 0.28, 0.72] ,
+			"number": 3
 		},
 		{
 			"name": "above normal",
-			"range": [ 0.72, 0.87] 
+			"range": [ 0.72, 0.87] ,
+			"number": 4
 		},
 		{
 			"name": "high flow",
-			"range": [ 0.87, Infinity] 
+			"range": [ 0.87, Infinity] ,
+			"number": 5
 		},
 	]
 	for(var i in flow_percentile_categories) {
@@ -3641,7 +3654,11 @@ internal.observacionStats = class extends baseModel {
 			this.month = (arguments[0].month != null) ? parseInt(arguments[0].month) : null
 			this.historical_monthly_mean = toFixedFloat(arguments[0].historical_monthly_mean,2)
 			this.weibull_percentile = toFixedFloat(arguments[0].weibull_percentile,2)
-			this.percentile_category = (arguments[0].percentile_category) ? {name: arguments[0].percentile_category.name, range: (arguments[0].percentile_category.range  != null) ? [toFixedFloat(arguments[0].percentile_category.range[0],2), toFixedFloat(arguments[0].percentile_category.range[1],2)] : undefined} : null
+			this.percentile_category = (arguments[0].percentile_category) ? {
+				name: arguments[0].percentile_category.name, 
+				range: (arguments[0].percentile_category.range  != null) ? [toFixedFloat(arguments[0].percentile_category.range[0],2), toFixedFloat(arguments[0].percentile_category.range[1],2)] : undefined,
+				number: arguments[0].percentile_category.number,
+			} : null
 		}
 	}
 	toJSON() {
@@ -3955,6 +3972,13 @@ internal.observacion = class extends baseModel {
 		const result = [this.id,((this.tipo) ? this.tipo : "puntual"),this.series_id,((this.timestart) ? this.timestart.toISOString() : ""),((this.timeend) ? this.timeend.toISOString() : ""),this.nombre,((this.descripcion) ? this.descripcion : ""),((this.unit_id) ? this.unit_id : ""),((this.timeupdate) ? this.timeupdate.toISOString() : ""),((parseFloat(this.valor).toString() !== 'NaN') ? this.valor.toString() : "")].join(sep) + stats_string
 		return result 
 	}
+	toCSVcat(options={}) {
+		var sep = options.sep ?? ","
+		return [
+			(this.timestart) ? this.timestart.toISOString().substring(0,10) : "",
+			(this.stats) ? this.stats.percentile_category.number : ""
+		].join(sep)
+	}
 	toCSVless(include_id=true) {
 		//~ return this.series_id + "," + ((this.timestart) ? this.timestart.toISOString() : "null") + "," +  ((parseFloat(this.valor)) ? this.valor.toString() : "null")
 		return ((include_id) ? (this.series_id) ? `${this.series_id},` : "," : "") + ((this.timestart) ? this.timestart.toISOString() : "") + "," + ((this.timeend) ? this.timeend.toISOString() : "") + "," +  ((parseFloat(this.valor).toString() !== 'NaN') ? this.valor.toString() : "")
@@ -4188,6 +4212,10 @@ internal.observaciones = class extends BaseArray {
 			}
 			return `${header}\n${this.map(o=>o.toCSV(sep)).join("\n")}`
 		}
+	}
+	toCSVcat(options = {}) {
+		var sep = (options.delimiter) ? options.delimiter : ","
+		return `date${sep}flowcat\n${this.map(o=>o.toCSVcat(sep)).join("\n")}`
 	}
     toCSVless(include_id=true) {
 		if (include_id) {
