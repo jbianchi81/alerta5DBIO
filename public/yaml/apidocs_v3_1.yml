@@ -3032,6 +3032,12 @@ paths:
         required: false
         schema: { "type": "string"} 
         in: query
+      - name: pais
+        description: País de origen
+        required: false
+        schema:
+          type: string
+        in: query
       - name: id_externo
         description: 'id alfanumérico externo de la estación (para obsTipo: puntual)'
         required: false

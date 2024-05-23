@@ -3389,6 +3389,11 @@ internal.serie.build_read_query = function(filter={},options={}) {
 				table: "redes",
 				column: "id"
 			},
+			pais: {
+				type: "string",
+				table: "estaciones",
+				column: "pais"
+			},
 			geom: {
 				type: "geometry", 
 				table: "estaciones"
