@@ -2404,6 +2404,12 @@ paths:
         schema:
           type: number
         in: query
+      - name: get_drainage_basin
+        description: "Obtener área de drenaje en formato geoJSON (se almacena en la propiedad 'drainage_basin'). Nota: no todas las estaciones tienen definida su área de drenaje"
+        required: false
+        schema:
+          type: boolean
+        in: query
       responses:
         '200':
           description: OK
@@ -2484,6 +2490,12 @@ paths:
         required: true
         schema: { "type": "integer"} 
         in: path
+      - name: get_drainage_basin
+        description: "Obtener área de drenaje en formato geoJSON (se almacena en la propiedad 'drainage_basin'). Nota: no todas las estaciones tienen definida su área de drenaje"
+        required: false
+        schema:
+          type: boolean
+        in: query
       responses:
         '200':
           description: OK
@@ -6109,6 +6121,9 @@ components:
           description: identificación alfanumérica de la fuente (red) a la que pertenece
             la estación
           schema: { "type": "string"} 
+        drainage_basin:
+          description: área de drenaje aguas arriba de la estación hidrométrica
+          $ref: "#/components/schemas/Feature"
     Area:
       type: object
       properties:
@@ -6453,6 +6468,8 @@ components:
     Feature:
       type: object
       properties:
+        type:
+          const: Feature
         id:
           type: number
         geometry:

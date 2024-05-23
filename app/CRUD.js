@@ -32,7 +32,7 @@ var pointsWithinPolygon = require("@turf/points-within-polygon")
 
 // const series2waterml2 = require('./series2waterml2');
 // const { relativeTimeThreshold } = require('moment-timezone');
-const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2 } = require('./utils');
+const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2, control_filter3 } = require('./utils');
 const { DateFromDateOrInterval } = require('./timeSteps');
 // const { isContext } = require('vm');
 const logger = require('./logger');
@@ -309,7 +309,8 @@ internal.estacion = class extends baseModel  {
 		altitud: {type: "number"},
 		public: {type: "boolean"},
 		cero_ign: {type: "number"},
-		ubicacion: {type: "string"}
+		ubicacion: {type: "string"},
+		drainage_basin: {type: "object"}
 	}
 	constructor() {
         super()
@@ -341,6 +342,7 @@ internal.estacion = class extends baseModel  {
 					this.public = arg_arr[20]
 					this.cero_ign = arg_arr[21]
 					this.ubicacion = arg_arr[22]
+					this.drainage_basin = arg_arr[23]
 				} else {
 					this.id = arguments[0].id
 					this.nombre = arguments[0].nombre
@@ -366,6 +368,7 @@ internal.estacion = class extends baseModel  {
 					this.public = arguments[0].public
 					this.cero_ign = arguments[0].cero_ign
 					this.ubicacion = arguments[0].ubicacion
+					this.drainage_basin = arguments[0].drainage_basin
 				}
 				break;
 			default:
@@ -392,6 +395,7 @@ internal.estacion = class extends baseModel  {
 				this.public = arguments[20]
 				this.cero_ign = arguments[21]
 				this.ubicacion = arguments[22]
+				this.drainage_Basin = arguments[23]
 				break;
 		}
 		//~ console.log({estacion:this})
@@ -472,20 +476,31 @@ internal.estacion = class extends baseModel  {
 			altitud: this.altitud,
 			public: this.public,
 			cero_ign: this.cero_ign,
-			ubicacion: this.ubicacion
+			ubicacion: this.ubicacion,
+			drainage_basin: this.drainage_basin
 		}
 	}
-	toGeoJSON(includeProperties=true) {
+	toGeoJSON(includeProperties=true, includeDrainageBasin=true) {
 		var geojson
 		geojson = turfHelpers.point(this.geom.coordinates)
 		if(includeProperties) {
 			geojson.properties = {}
 			Object.keys(this).forEach(key=>{
-				if(key == "geom") {
+				if(key == "geom" || key == "drainage_basin") {
 					return
 				}
 				geojson.properties[key] = this[key]
 			})
+		}
+		if(includeDrainageBasin && this.drainage_basin) {
+			const point_geometry = {...geojson.geometry} 
+			geojson.geometry = {
+				type: "GeometryCollection",
+				geometries: [
+					point_geometry,
+					this.drainage_basin.geometry
+				]
+			}
 		}
 		return geojson
 	}
@@ -496,10 +511,11 @@ internal.estacion = class extends baseModel  {
 		}
 		estaciones.forEach((estacion,i)=>{
 			if(!estacion instanceof internal.estacion) {
-				result.features.push(new internal.estacion(estacion).toGeoJSON())
+				var estacion_o = new internal.estacion(estacion)
 			} else {
-				result.features.push(estacion.toGeoJSON())
+				var estacion_o = estacion
 			}
+			result.features.push(estacion_o.toGeoJSON())
 		})
 		return result
 	}
@@ -525,7 +541,7 @@ internal.estacion = class extends baseModel  {
 	}
 	static async read(filter={},options) {
 		if(filter.id && !Array.isArray(filter.id)) {
-			return internal.CRUD.getEstacion(filter.id,filter.public)
+			return internal.CRUD.getEstacion(filter.id,filter.public, options)
 		}
 		return internal.CRUD.getEstaciones(filter,options)
 	}
@@ -546,6 +562,76 @@ internal.estacion = class extends baseModel  {
 	}
 	static async delete(filter) {
 		return internal.CRUD.deleteEstaciones(filter)
+	}
+	// retrieve drainage basins as a geoJSON FeatureCollection
+	static async getDrainageBasins(filter={}) {
+		const valid_filters = {
+			"estacion_id": {
+				"type": "integer",
+				"table": "estaciones",
+				"column": "unid"
+			},
+			"area_id": {
+				"type": "integer",
+				"table": "areas_pluvio",
+				"column": "unid"
+			}
+		}
+		const filter_string = control_filter2(valid_filters, filter, "estaciones")
+		const result = await global.pool.query(`
+		with a as ( 
+			select 
+				areas_pluvio.unid as area_id, 
+				estaciones.unid as estacion_id, 
+				areas_pluvio.area,
+				row_number() over (
+					partition by estaciones.unid
+					order by area desc
+				) as row_number
+			from areas_pluvio 
+			join estaciones 
+				on estaciones.unid=areas_pluvio.exutorio_id
+			WHERE 1=1 ${filter_string}
+		)
+		select 
+			a.estacion_id,
+			a.area_id,
+			a.area,
+			areas_pluvio.nombre as area_name,
+			st_asgeojson(areas_pluvio.geom)::json as geom
+		from a join areas_pluvio
+			on a.area_id=areas_pluvio.unid
+		where a.row_number = 1
+		order by a.estacion_id;`)
+		return {
+			type: "FeatureCollection",
+			features: result.rows.map(r=>{
+				return {
+					type: "Feature",
+					geometry: r.geom,
+					properties: {
+						estacion_id: r.estacion_id,
+						area_id: r.area_id,
+						area_name: r.area_name,
+						area: r.area,
+						area_units: "m^2"
+					}
+				}
+			})
+		}
+	}
+	async getDrainageBasin() {
+		if(!this.id) {
+			console.warn("Estacion property id not defined: can't retrieve drainage basin")
+			this.drainage_basin = null
+			return
+		}
+		const collection = await this.constructor.getDrainageBasins({estacion_id:this.id})
+		if(!collection.features.length) {
+			this.drainage_basin = null
+		} else {
+			this.drainage_basin = collection.features[0]
+		}
 	}
 }
 
@@ -6797,8 +6883,8 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getEstacion(id,isPublic) {
-		return global.pool.query("\
+	static async getEstacion(id,isPublic,options={}) {
+		const result = await global.pool.query("\
 		SELECT estaciones.nombre, estaciones.id_externo, st_x(estaciones.geom) geom_x, st_y(estaciones.geom) geom_y, estaciones.tabla,  estaciones.distrito, estaciones.pais, estaciones.rio, estaciones.has_obs, estaciones.tipo, estaciones.automatica, estaciones.habilitar, estaciones.propietario, estaciones.abrev, estaciones.URL, estaciones.localidad, estaciones.real, estaciones.id, estaciones.unid, nivel_alerta.valor nivel_alerta, nivel_evacuacion.valor nivel_evacuacion, nivel_aguas_bajas.valor nivel_aguas_bajas, estaciones.cero_ign, estaciones.altitud, redes.public\
 		FROM estaciones\
 		LEFT OUTER JOIN redes ON (estaciones.tabla = redes.tabla_id) \
@@ -6806,22 +6892,23 @@ internal.CRUD = class {
 		LEFT OUTER JOIN alturas_alerta nivel_evacuacion ON (estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado='e') \
 		LEFT OUTER JOIN alturas_alerta nivel_aguas_bajas ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b') \
 		WHERE estaciones.unid=$1",[id])
-		.then(result=>{
-			if(result.rows.length<=0) {
-				console.log("estacion no encontrada")
-				return
+		if(result.rows.length<=0) {
+			console.log("estacion no encontrada")
+			return
+		}
+		if(isPublic) {
+			if(!result.rows[0].public) {
+				console.log("estacion no es public")
+				throw("el usuario no posee autorización para acceder a esta estación")
 			}
-			if(isPublic) {
-				if(!result.rows[0].public) {
-					console.log("estacion no es public")
-					throw("el usuario no posee autorización para acceder a esta estación")
-				}
-			}
-			const geometry = new internal.geometry("Point", [result.rows[0].geom_x, result.rows[0].geom_y])
-			const estacion = new internal.estacion(result.rows[0].nombre,result.rows[0].id_externo,geometry,result.rows[0].tabla,result.rows[0].distrito,result.rows[0].pais,result.rows[0].rio,result.rows[0].has_obs,result.rows[0].tipo,result.rows[0].automatica,result.rows[0].habilitar,result.rows[0].propietario,result.rows[0].abrev,result.rows[0].URL,result.rows[0].localidad,result.rows[0].real,result.rows[0].nivel_alerta,result.rows[0].nivel_evacuacion,result.rows[0].nivel_aguas_bajas,result.rows[0].altitud,result.rows[0].public,result.rows[0].cero_ign)
-			estacion.id =  result.rows[0].unid
-			return estacion
-		})
+		}
+		const geometry = new internal.geometry("Point", [result.rows[0].geom_x, result.rows[0].geom_y])
+		const estacion = new internal.estacion(result.rows[0].nombre,result.rows[0].id_externo,geometry,result.rows[0].tabla,result.rows[0].distrito,result.rows[0].pais,result.rows[0].rio,result.rows[0].has_obs,result.rows[0].tipo,result.rows[0].automatica,result.rows[0].habilitar,result.rows[0].propietario,result.rows[0].abrev,result.rows[0].URL,result.rows[0].localidad,result.rows[0].real,result.rows[0].nivel_alerta,result.rows[0].nivel_evacuacion,result.rows[0].nivel_aguas_bajas,result.rows[0].altitud,result.rows[0].public,result.rows[0].cero_ign)
+		estacion.id =  result.rows[0].unid
+		if(options.get_drainage_basin) {
+			await estacion.getDrainageBasin()
+		}
+		return estacion
 	}
 
 	static async getEstacionesWithPagination(filter={},options={},req) {
@@ -6832,7 +6919,7 @@ internal.CRUD = class {
 		}
 		filter.offset = filter.offset ?? 0
 		filter.offset = parseInt(filter.offset)
-		const result = await this.getEstaciones(filter,options)
+		const result = await internal.CRUD.getEstaciones(filter,options)
 		var is_last_page = (result.length < filter.limit)
 		if(is_last_page) {
 			return {
@@ -6951,12 +7038,16 @@ internal.CRUD = class {
 		LEFT OUTER JOIN alturas_alerta nivel_aguas_bajas ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b') \
 		WHERE 1=1 " + filter_string + " ORDER BY unid\
 		" + pagination_clause)
-		var estaciones = res.rows.map(row=>{
+		var estaciones = []
+		for(var row of res.rows) {
 			const geometry = new internal.geometry("Point", [row.geom_x, row.geom_y])
 			const estacion = new internal.estacion(row.nombre,row.id_externo,geometry,row.tabla,row.distrito,row.pais,row.rio,row.has_obs,row.tipo,row.automatica,row.habilitar,row.propietario,row.abrev,row.URL,row.localidad,row.real,row.nivel_alerta,row.nivel_evacuacion,row.nivel_aguas_bajas,row.altitud,row.public,row.cero_ign)
 			estacion.id = row.unid
-			return estacion
-		})
+			if(options && options.get_drainage_basin) {
+				await estacion.getDrainageBasin()
+			}
+			estaciones.push(estacion)
+		}
 		if(release_client) {
 			await client.release()
 		}

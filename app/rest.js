@@ -1722,11 +1722,19 @@ function getEstaciones(req,res) {
 			filter.abrev = filter.abreviatura
 		}
 	}
-	console.debug({filter:filter})
+	console.debug({filter:filter},{options:options})
 	if(options.pagination) {
 		var promise = crud.getEstacionesWithPagination(filter,options,req)
+	} else if(filter.id && !Array.isArray(filter.id)) {
+		var promise = CRUD.estacion.read(filter, options).then(r=>{
+			if(r) {
+				return [r]
+			} else {
+				return []
+			}
+		})
 	} else {
-		var promise = crud.getEstaciones(filter)
+		var promise = CRUD.estacion.read(filter,options)
 	}
 	promise.then(result=>{
 		console.log("Results: " + ((Array.isArray(result.estaciones)) ? result.estaciones.length  : result.length))
@@ -1751,7 +1759,7 @@ function getEstacion(req,res) {
 		res.status(400).send({message:"bad request: missing id"})
 		return
 	}
-	crud.getEstacion(filter.id,filter.public)
+	crud.getEstacion(filter.id,filter.public,options)
 	.then(result=>{
 		if(!result) {
 			res.status(404).send({message:"estacion not found"})
@@ -7804,6 +7812,9 @@ function getOptions(req) {
 		if(req.body.pagination) {
 			options.pagination = (req.body.pagination.toString().toLowerCase() == 'true')
 		}
+		if(req.body.get_drainage_basin) {
+			options.get_drainage_basin = (req.body.get_drainage_basin.toString().toLowerCase() == 'true')
+		}
 		["agg_func","dt","t_offset","id_grupo","get_raster","min_count","group_by_cal","interval","stats","pivot","group_by_qualifier","sort","order"].forEach(k=>{
 			if(req.body[k]) {
 				options[k] = req.body[k]
@@ -7938,12 +7949,14 @@ function getOptions(req) {
 		if(req.query.pagination) {
 			options.pagination = (req.query.pagination.toString().toLowerCase() == 'true')
 		}
+		if(req.query.get_drainage_basin) {
+			options.get_drainage_basin = (req.query.get_drainage_basin.toString().toLowerCase() == 'true')
+		}
 		["agg_func","dt","t_offset","get_raster","min_count","group_by_cal","interval","stats","pivot","sort","order"].forEach(k=>{
 			if(req.query[k]) {
 				options[k] = req.query[k]
 			}
 		})
-
 	}
 	if(req.params) {
 		if(req.params.dt) {
