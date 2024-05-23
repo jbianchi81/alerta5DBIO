@@ -2405,10 +2405,21 @@ paths:
           type: number
         in: query
       - name: get_drainage_basin
-        description: "Obtener área de drenaje en formato geoJSON (se almacena en la propiedad 'drainage_basin'). Nota: no todas las estaciones tienen definida su área de drenaje"
+        description: "Obtener el polígono del área de drenaje. Si format=json, se almacena en la propiedad 'drainage_basin'. En cambio, si format=geojson, cambia la geometría al tipo 'GeometryCollection' donde 'geometries' es una lista que contiene un punto y polígono. Nota: no todas las estaciones tienen definida su área de drenaje"
         required: false
         schema:
           type: boolean
+        in: query
+      - name: format
+        description: "Formato de archivo"
+        required: false
+        default: json
+        schema:
+          type: string
+          enum:
+          - json
+          - geojson
+          - csv
         in: query
       responses:
         '200':
@@ -2491,10 +2502,21 @@ paths:
         schema: { "type": "integer"} 
         in: path
       - name: get_drainage_basin
-        description: "Obtener área de drenaje en formato geoJSON (se almacena en la propiedad 'drainage_basin'). Nota: no todas las estaciones tienen definida su área de drenaje"
+        description: "Obtener el polígono del área de drenaje. Si format=json, se almacena en la propiedad 'drainage_basin'. En cambio, si format=geojson, cambia la geometría al tipo 'GeometryCollection' donde 'geometries' es una lista que contiene un punto y polígono. Nota: no todas las estaciones tienen definida su área de drenaje"
         required: false
         schema:
           type: boolean
+        in: query
+      - name: format
+        description: "Formato de archivo"
+        required: false
+        default: json
+        schema:
+          type: string
+          enum:
+          - json
+          - geojson
+          - csv
         in: query
       responses:
         '200':

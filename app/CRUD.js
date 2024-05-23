@@ -482,6 +482,7 @@ internal.estacion = class extends baseModel  {
 	}
 	toGeoJSON(includeProperties=true, includeDrainageBasin=true) {
 		var geojson
+		console.debug({"coordinates":this.geom.coordinates})
 		geojson = turfHelpers.point(this.geom.coordinates)
 		if(includeProperties) {
 			geojson.properties = {}
@@ -6891,7 +6892,8 @@ internal.CRUD = class {
 		LEFT OUTER JOIN alturas_alerta nivel_alerta ON (estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado='a') \
 		LEFT OUTER JOIN alturas_alerta nivel_evacuacion ON (estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado='e') \
 		LEFT OUTER JOIN alturas_alerta nivel_aguas_bajas ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b') \
-		WHERE estaciones.unid=$1",[id])
+		WHERE estaciones.unid=$1 \
+		AND estaciones.geom IS NOT NULL",[id])
 		if(result.rows.length<=0) {
 			console.log("estacion no encontrada")
 			return
@@ -7036,7 +7038,7 @@ internal.CRUD = class {
 		LEFT OUTER JOIN alturas_alerta nivel_alerta ON (estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado='a') \
 		LEFT OUTER JOIN alturas_alerta nivel_evacuacion ON (estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado='e') \
 		LEFT OUTER JOIN alturas_alerta nivel_aguas_bajas ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b') \
-		WHERE 1=1 " + filter_string + " ORDER BY unid\
+		WHERE estaciones.geom IS NOT NULL " + filter_string + " ORDER BY unid\
 		" + pagination_clause)
 		var estaciones = []
 		for(var row of res.rows) {
