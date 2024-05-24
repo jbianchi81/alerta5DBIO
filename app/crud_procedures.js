@@ -184,7 +184,7 @@ internal.CrudProcedure = class  {
         } else if(output_format.toLowerCase() == "geojson") {
             // check if instance method exists
             if(typeof data.toGeoJSON === 'function') {
-                var geojson_result = result.toGeoJSON()
+                var geojson_result = data.toGeoJSON()
             } else if (Array.isArray(data)) {
                 // check if static method exists
                 if (this.class && typeof this.class.toGeoJSON === 'function') {

@@ -2404,6 +2404,23 @@ paths:
         schema:
           type: number
         in: query
+      - name: get_drainage_basin
+        description: "Obtener el polígono del área de drenaje. Si format=json, se almacena en la propiedad 'drainage_basin'. En cambio, si format=geojson, cambia la geometría al tipo 'GeometryCollection' donde 'geometries' es una lista que contiene un punto y polígono. Nota: no todas las estaciones tienen definida su área de drenaje"
+        required: false
+        schema:
+          type: boolean
+        in: query
+      - name: format
+        description: "Formato de archivo"
+        required: false
+        default: json
+        schema:
+          type: string
+          enum:
+          - json
+          - geojson
+          - csv
+        in: query
       responses:
         '200':
           description: OK
@@ -2484,6 +2501,23 @@ paths:
         required: true
         schema: { "type": "integer"} 
         in: path
+      - name: get_drainage_basin
+        description: "Obtener el polígono del área de drenaje. Si format=json, se almacena en la propiedad 'drainage_basin'. En cambio, si format=geojson, cambia la geometría al tipo 'GeometryCollection' donde 'geometries' es una lista que contiene un punto y polígono. Nota: no todas las estaciones tienen definida su área de drenaje"
+        required: false
+        schema:
+          type: boolean
+        in: query
+      - name: format
+        description: "Formato de archivo"
+        required: false
+        default: json
+        schema:
+          type: string
+          enum:
+          - json
+          - geojson
+          - csv
+        in: query
       responses:
         '200':
           description: OK
@@ -2997,6 +3031,12 @@ paths:
         description: 'id alfanumérico de la fuentes (para obsTipo: puntual)'
         required: false
         schema: { "type": "string"} 
+        in: query
+      - name: pais
+        description: País de origen
+        required: false
+        schema:
+          type: string
         in: query
       - name: id_externo
         description: 'id alfanumérico externo de la estación (para obsTipo: puntual)'
@@ -6109,6 +6149,9 @@ components:
           description: identificación alfanumérica de la fuente (red) a la que pertenece
             la estación
           schema: { "type": "string"} 
+        drainage_basin:
+          description: área de drenaje aguas arriba de la estación hidrométrica
+          $ref: "#/components/schemas/Feature"
     Area:
       type: object
       properties:
@@ -6453,6 +6496,8 @@ components:
     Feature:
       type: object
       properties:
+        type:
+          const: Feature
         id:
           type: number
         geometry:
