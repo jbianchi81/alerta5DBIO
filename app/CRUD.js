@@ -3930,7 +3930,7 @@ internal.observacion = class extends baseModel {
 	/**
 	 * parses csv string into new observacion. Takes only first line of csv_string
 	 */
-	static fromCSV(csv_string,sep=",",header=["id","tipo","series_id","timestart","timeend","nombre","descripcion","unit_id","timeupdate","valor","stats.percentage_of_average","stats.rank","stats.count","stats.month","stats.historical_monthly_mean","stats.weibull_percentile","stats.percentile_category.name","stats.percentile_category.range.0","stats.percentile_category.range.1"]) {
+	static fromCSV(csv_string,sep=",",header=["id","tipo","series_id","timestart","timeend","nombre","descripcion","unit_id","timeupdate","valor","stats.percentage_of_average","stats.rank","stats.count","stats.month","stats.historical_monthly_mean","stats.weibull_percentile","stats.percentile_category.name","stats.percentile_category.range.0","stats.percentile_category.range.1","stats.percentile_category.number"]) {
 		var data = CSV.parse(csv_string,sep)[0]
 		const observacion = {}
 		for(var i in header) {
@@ -3967,8 +3967,19 @@ internal.observacion = class extends baseModel {
 	}
 	toCSV(options={}) {
 		var sep = options.sep ?? ","
-		var format_string_1 = ",%.2f,%d,%d,%d,%.2f,%.2f,%s,%.2f,%.2f".replace(/\,/g,sep)
-		var stats_string = (this.stats) ? sprintf(format_string_1, this.stats.percentage_of_average,this.stats.rank,this.stats.count,this.stats.month,this.stats.historical_monthly_mean,this.stats.weibull_percentile, this.stats.percentile_category.name, this.stats.percentile_category.range[0], this.stats.percentile_category.range[1]) : ""
+		var format_string_1 = ",%.2f,%d,%d,%d,%.2f,%.2f,%s,%.2f,%.2f,%d".replace(/\,/g,sep)
+		var stats_string = (this.stats) ? sprintf(
+			format_string_1, 
+			this.stats.percentage_of_average,
+			this.stats.rank,
+			this.stats.count,
+			this.stats.month,
+			this.stats.historical_monthly_mean,
+			this.stats.weibull_percentile, 
+			this.stats.percentile_category.name, 
+			this.stats.percentile_category.range[0], 
+			this.stats.percentile_category.range[1],
+			this.stats.percentile_category.number) : ""
 		const result = [this.id,((this.tipo) ? this.tipo : "puntual"),this.series_id,((this.timestart) ? this.timestart.toISOString() : ""),((this.timeend) ? this.timeend.toISOString() : ""),this.nombre,((this.descripcion) ? this.descripcion : ""),((this.unit_id) ? this.unit_id : ""),((this.timeupdate) ? this.timeupdate.toISOString() : ""),((parseFloat(this.valor).toString() !== 'NaN') ? this.valor.toString() : "")].join(sep) + stats_string
 		return result 
 	}

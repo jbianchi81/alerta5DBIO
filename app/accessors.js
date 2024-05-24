@@ -6001,6 +6001,7 @@ internal.a5 = class {
 			params.estacion_id = filter.estacion_id
 			params.tabla_id = (filter.tabla_id) ? filter.tabla_id : filter.tabla
 			params.id_externo = filter.id_externo
+			params.pais = filter.pais
 		} else if (filter.tipo == "areal") {
 			params.area_id = filter.area_id
 			params.tabla_id = (filter.tabla_id) ? filter.tabla_id : filter.tabla
