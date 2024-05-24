@@ -502,6 +502,7 @@ internal.estacion = class extends baseModel  {
 					this.drainage_basin.geometry
 				]
 			}
+			geojson.properties = {...geojson.properties, ...this.drainage_basin.properties}
 		}
 		return geojson
 	}
