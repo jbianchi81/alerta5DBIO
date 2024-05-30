@@ -1,0 +1,277 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json 
+sequence:
+- procedureName: CreateProcedure
+  arguments:
+    class_name: fuente
+    jsonfile: sample_data/fuente_gfs.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1    
+# - procedureName: CreateProcedure
+#   arguments:
+#     class_name: accessor
+#     jsonfile: sample_data/accessor_a5.json
+# - procedureName: DownloadFromAccessorProcedure
+#   arguments:
+#     accessor_id: a5
+#     filter:
+#       tipo: raster
+#       series_id: 8
+#       timestart:
+#       # 2023-09-01T12:00:00.000Z
+#         days: -7
+#       roundTo:
+#         hours: 12
+#       timeend:
+#       # 2023-09-08T12:00:00.000Z
+#         days: 0
+#     output_format: raster
+#     options:
+#       output_individual_files:
+#         base_path: outputs
+#         pattern: serie.rast.{{id}}.{{timestart}}
+#         iter_field: observaciones
+#   tests:
+#   - testName: ResultIsInstanceOfTest
+#     arguments:
+#       class_name: serie
+#   # - testName: OutputFileTest
+#   #   arguments:
+#   #     class_name: observacion
+#   #     output: outputs/serie.rast.8.2023-09-01T12:00:00.000Z.tif
+#   #     output_format: buffer
+#   #     result_deep_property: 0.observaciones.0.valor
+# - procedureName: CreateProcedure
+#   arguments:
+#     class_name: fuente
+#     jsonfile: sample_data/fuente.json
+#     options:
+#       create_cube_table: true
+# - procedureName: CreateProcedure
+#   arguments:
+#     class_name: escena
+#     jsonfile: sample_data/escena.json
+# - procedureName: CreateProcedure
+#   arguments:
+#     class_name: serie
+#     jsonfile: sample_data/serie_raster.json
+# - procedureName: CreateProcedure
+#   arguments:
+#     class_name: observacion
+#     elements:
+#     - tipo: raster
+#       series_id: 3
+#       timestart: 2023-09-01T12:00:00.000Z
+#       timeend: 2023-09-02T12:00:00.000Z
+#       filename: sample_data/serie.rast.8.2023-09-01T12:00:00.000Z.tif
+#     output: outputs/created_obs.tif
+#     output_format: raster
+#     options:
+#       upsert_estacion: true
+#   tests:
+#   - testName: ArrayLengthTest
+#     arguments:
+#       min_length: 1
+#   - testName: ResultIsInstanceOfTest
+#     arguments:
+#       class_name: observacion
+#   - testName: OutputFileTest
+#     arguments:
+#       class_name: observacion
+#       output: outputs/created_obs.tif
+#       output_format: buffer
+#       result_deep_property: 0.valor
+# - procedureName: ReadProcedure
+#   arguments:
+#     class_name: observacion
+#     filter:
+#       tipo: raster
+#       series_id: 3
+#       timestart: 2023-09-01T12:00:00.000Z
+#     output: outputs/read_obs.tif
+#     output_format: raster 
+#   tests:
+#   - testName: ArrayLengthTest
+#     arguments:
+#       min_length: 1
+#   - testName: ResultIsInstanceOfTest
+#     arguments:
+#       class_name: observacion
+#   - testName: OutputFileTest
+#     arguments:
+#       class_name: observacion
+#       output: outputs/read_obs.tif
+#       output_format: buffer
+#       result_deep_property: 0.valor
+# - procedureName: CreateProcedure
+#   arguments:
+#     class_name: observacion
+#     elements:
+#     - tipo: raster
+#       series_id: 3
+#       timestart: 2023-09-02T12:00:00.000Z
+#       timeend: 2023-09-03T12:00:00.000Z
+#       filename: sample_data/serie.rast.8.2023-09-02T12:00:00.000Z.tif
+#     output: outputs/created_obs_2.tif
+#     output_format: raster
+#     options:
+#       upsert_estacion: true
+#   tests:
+#   - testName: ArrayLengthTest
+#     arguments:
+#       min_length: 1
+#   - testName: ResultIsInstanceOfTest
+#     arguments:
+#       class_name: observacion
+#   - testName: OutputFileTest
+#     arguments:
+#       class_name: observacion
+#       output: outputs/created_obs_2.tif
+#       output_format: buffer
+#       result_deep_property: 0.valor
+# - procedureName: UpdateCubeFromSeriesProcedure
+#   arguments:
+#     series_id: 3
+#     timestart: 2023-09-01T12:00:00.000Z
+#     timeend: 2023-09-03T12:00:00.000Z
+#     fuentes_id: 5
+#   tests:
+#   - testName: ArrayLengthTest
+#     arguments:
+#       min_length: 2
+#       max_length: 2
+# - procedureName: UpdateSerieRastFromCubeProcedure
+#   arguments:
+#     filter:
+#       series_id: 3
+#       timestart: 2023-09-01T12:00:00.000Z
+#       timeend: 2023-09-03T12:00:00.000Z
+#       fuentes_id: 5
+#   tests:
+#   - testName: ArrayLengthTest
+#     arguments:
+#       min_length: 2
+#       max_length: 2
+# - procedureName: RastExtractProcedure
+#   arguments:
+#     filter:
+#       series_id: 3
+#       timestart: 2023-09-01T12:00:00.000Z
+#       timeend: 2023-09-03T12:00:00.000Z
+#     output: outputs/rast_extract.tif
+#     output_format: raster 
+#   tests:
+#   - testName: ArrayLengthTest
+#     arguments:
+#       min_length: 1
+#   - testName: ResultIsInstanceOfTest
+#     arguments:
+#       class_name: observacion
+#   - testName: OutputFileTest
+#     arguments:
+#       class_name: observacion
+#       output: outputs/rast_extract.tif
+#       output_format: buffer
+#       result_deep_property: 0.valor
+# - procedureName: UpdateProcedure
+#   arguments:
+#     class_name: observacion
+#     filter:
+#       tipo: raster
+#       series_id: 3
+#       timestart: 2023-09-01T12:00:00.000Z
+#       timeend: 2023-09-02T12:00:00.000Z
+#     update:
+#       timeupdate: 2023-03-01T12:00:00.001Z
+#     output: outputs/updated_obs.tif 
+#     output_format: raster
+#   tests:
+#   - testName: PropertyEqualsTest
+#     arguments:
+#       property_name: timeupdate
+#       property_value: 2023-03-01T12:00:00.001Z
+#   - testName: ArrayLengthTest
+#     arguments:
+#       min_length: 1
+#       max_length: 1
+#   - testName: OutputFileTest
+#     arguments:
+#       class_name: observacion
+#       output_format: buffer
+#       result_deep_property: 0.valor
+#       output: outputs/updated_obs.tif
+# - procedureName: DeleteProcedure
+#   arguments:
+#     class_name: observacion
+#     filter:
+#       tipo: raster
+#       series_id: 3
+#       timestart: 2023-09-01T12:00:00.000Z
+#       timeend: 2023-09-02T12:00:00.000Z
+#     output: outputs/deleted_obs.tif
+#     output_format: raster
+#   tests:
+#   - testName: PropertyEqualsTest
+#     arguments:
+#       property_name: timestart
+#       property_value: 2023-09-01T12:00:00.000Z
+#   - testName: ArrayLengthTest
+#     arguments:
+#       min_length: 1
+#       max_length: 1
+#   - testName: OutputFileTest
+#     arguments:
+#       class_name: observacion
+#       output: outputs/deleted_obs.tif
+#       output_format: buffer
+#       result_deep_property: 0.valor
+# - procedureName: DeleteProcedure
+#   arguments:
+#     class_name: observacion
+#     filter:
+#       tipo: raster
+#       series_id: 3
+#       timestart: 2023-09-02T12:00:00.000Z
+#       timeend: 2023-09-03T12:00:00.000Z
+#     output: outputs/deleted_obs.tif
+#     output_format: raster
+#   tests:
+#   - testName: PropertyEqualsTest
+#     arguments:
+#       property_name: timestart
+#       property_value: 2023-09-02T12:00:00.000Z
+#   - testName: ArrayLengthTest
+#     arguments:
+#       min_length: 1
+#       max_length: 1
+#   - testName: OutputFileTest
+#     arguments:
+#       class_name: observacion
+#       output: outputs/deleted_obs.tif
+#       output_format: buffer
+#       result_deep_property: 0.valor
+# - procedureName: DeleteProcedure
+#   arguments:
+#     class_name: serie
+#     filter:
+#       tipo: raster
+#       id: 3
+# - procedureName: DeleteProcedure
+#   arguments:
+#     class_name: escena
+#     filter:
+#       id: 15
+# - procedureName: DeleteProcedure
+#   arguments:
+#     class_name: fuente
+#     filter:
+#       id: 5
+#     options:
+#       drop_cube_table: true
+# - procedureName: DeleteProcedure
+#   arguments:
+#     class_name: accessor
+#     filter:
+#       name: a5

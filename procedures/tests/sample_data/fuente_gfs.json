@@ -1,0 +1,78 @@
+{
+    "id": 5,
+    "nombre": "gfs_diario",
+    "data_table": "gfs_diario",
+    "data_column": "rast",
+    "tipo": "QPF",
+    "def_proc_id": 4,
+    "def_dt": {
+        "years": 0,
+        "months": 0,
+        "days": 1,
+        "hours": 0,
+        "minutes": 0,
+        "seconds": 0,
+        "milliseconds": 0
+    },
+    "hora_corte": {
+        "years": 0,
+        "months": 0,
+        "days": 0,
+        "hours": 9,
+        "minutes": 0,
+        "seconds": 0,
+        "milliseconds": 0
+    },
+    "def_unit_id": 22,
+    "def_var_id": 1,
+    "fd_column": "fecha_emision",
+    "mad_table": "pmad_gfs",
+    "scale_factor": null,
+    "data_offset": null,
+    "def_pixel_height": 0.248963,
+    "def_pixel_width": 0.248756,
+    "def_srid": 4326,
+    "def_extent": {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [
+                    -90,
+                    -10
+                ],
+                [
+                    -40,
+                    -10
+                ],
+                [
+                    -40,
+                    -70
+                ],
+                [
+                    -90,
+                    -70
+                ],
+                [
+                    -90,
+                    -10
+                ]
+            ]
+        ]
+    },
+    "date_column": "date",
+    "def_pixeltype": "64BF",
+    "abstract": "Pronóstico de precipitación a paso diario del modelo GFS",
+    "source": "http://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl",
+    "public": false,
+    "constraints": [
+        {
+            "table_name": "gfs_diario",
+            "constraint_name": "gfs_diario_fecha_emision_date_key",
+            "constraint_type": "u",
+            "column_names": [
+                "fecha_emision",
+                "date"
+            ]
+        }
+    ]
+}
