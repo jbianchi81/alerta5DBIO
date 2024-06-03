@@ -2694,6 +2694,68 @@ internal.serie = class extends baseModel {
 		}
 		return true
 	}
+
+	static async getDerivedSerie(
+		tipo="puntual",
+		series_id,
+		timestart,
+		timeend,
+		method="expression",
+		expression="${valor_0}",
+		join_type="left" 
+	) {
+		const series = []
+		for(var id of series_id) {
+			series.push(await internal.CRUD.getSerie(tipo, id, timestart, timeend))
+		}
+		return this.computeExpression(series, method, expression, join_type)
+	}
+	// series are joined by exact timestart match
+	// expression must be a valid js expression and may use variable names timestart, timeend and valor_0 [valor_1, valor_2, ...]
+	static computeExpression(
+		series=[],
+		method="expression",
+		expression="${valor_0}",
+		join_type="left"
+	) {
+		if(!series.length) {
+			throw("Series is of length 0")
+		}
+		var serie_0 = series[0]
+		if(!serie_0.observaciones || !serie_0.observaciones.length) {
+			throw("Missing observaciones for serie id: " + serie_0.id + " i: 0")
+		}
+		var value_keys = series.map((el, i) => `valor_${i}`)
+		
+		expression = expression.replace("timestart", `o.timestart`)
+		expression = expression.replace("timeend", `o.timeend`)
+		for(var value_key of value_keys) {
+			expression = expression.replace(value_key, `o.${value_key}`)
+		}
+
+		for(var o of serie_0.observaciones) {
+			o.valor_0 = o.valor
+			o.valor = undefined
+			for(var i=1; i<series.length; i++) {
+				var serie = series[i]
+				var key = value_keys[i]
+				if(!serie.observaciones || !serie.observaciones.length) {
+					throw("Missing observaciones for serie id: " + serie.id + " i: " + i)
+				}
+				const matches = serie.observaciones.filter(oj=> oj.timestart == o.timestart)
+				if(!matches.length) {
+					if(join_type=="inner") {
+						throw("Missing timestart " + o.timestart)
+					}
+					o[key] = null
+				} else {
+					o[key] = matches[0].valor
+				}
+			}	
+			o.valor = eval(expression)
+		}
+		return serie_0
+	}
 }
 
 const asc = arr => arr.sort((a, b) => a - b)
