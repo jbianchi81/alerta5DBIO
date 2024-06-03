@@ -3157,6 +3157,86 @@ internal.RastExtractProcedure = class extends internal.CrudProcedure {
     }
 }
 
+internal.RastExtractByAreaProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "RastExtractByAreaProcedure"
+        if(!arguments[0].filter) {
+            throw("Missing filter")
+        }
+        if(!arguments[0].filter.series_id) {
+            throw("missing filter.series_id [of series_rast]")
+        }
+        if(!arguments[0].filter.timestart) {
+            throw("missing filter.timestart")
+        }
+        if(!arguments[0].filter.timeend) {
+            throw("missing filter.timeend")
+        }
+        this.series_id = arguments[0].filter.series_id
+        this.timestart = DateFromDateOrInterval(arguments[0].filter.timestart)
+        this.timeend = DateFromDateOrInterval(arguments[0].filter.timeend)
+        if(!arguments[0].filter.area_id) {
+            if(!arguments[0].filter.area_geom) {
+                throw("Missing either filter.area_id or filter.area_geom")
+            }            
+            this.area = arguments[0].filter.area_geom
+        } else {
+            this.area = arguments[0].filter.area_id
+        }
+        // options:
+        // - agg_func
+        // - no_insert
+        // - no_send_data
+    }
+    async run() {
+        const result_serie = await crud.rastExtractByArea(this.series_id,this.timestart,this.timeend,this.area, this.options)
+        this.result = result_serie.observaciones
+        return this.result
+    }
+}
+
+internal.RastExtractByPointProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "RastExtractByPointProcedure"
+        if(!arguments[0].filter) {
+            throw("Missing filter")
+        }
+        if(!arguments[0].filter.series_id) {
+            throw("missing filter.series_id [of series_rast]")
+        }
+        if(!arguments[0].filter.timestart) {
+            throw("missing filter.timestart")
+        }
+        if(!arguments[0].filter.timeend) {
+            throw("missing filter.timeend")
+        }
+        this.series_id = arguments[0].filter.series_id
+        this.timestart = DateFromDateOrInterval(arguments[0].filter.timestart)
+        this.timeend = DateFromDateOrInterval(arguments[0].filter.timeend)
+        if(!arguments[0].filter.estacion_id) {
+            if(!arguments[0].filter.estacion_geom) {
+                throw("Missing either filter.estacion_id or filter.estacion_geom")
+            }            
+            this.point = arguments[0].filter.estacion_geom
+        } else {
+            this.point = arguments[0].filter.estacion_id
+        }
+        // options:
+        // - funcion
+        // - max_distance
+        // - buffer
+        // - output_series_id
+    }
+    async run() {
+        const result_serie = await crud.rastExtractByPoint(this.series_id,this.timestart,this.timeend,this.point,this.options)
+        this.result = result_serie.observaciones
+        return this.result
+    }
+}
+
+
 ////////////////////////////////////////
 
 const availableCrudProcedures = {
@@ -3205,7 +3285,9 @@ const availableCrudProcedures = {
     "GetSeriesBySiteAndVarProcedure": internal.GetSeriesBySiteAndVarProcedure,
     "UpdateSeriesPronoDateRangeProcedure": internal.UpdateSeriesPronoDateRangeProcedure,
     "RastToArealProcedure": internal.RastToArealProcedure,
-    "RastExtractProcedure": internal.RastExtractProcedure
+    "RastExtractProcedure": internal.RastExtractProcedure,
+    "RastExtractByAreaProcedure": internal.RastExtractByAreaProcedure,
+    "RastExtractByPointProcedure": internal.RastExtractByPointProcedure
 }
 
 internal.availableTests = {

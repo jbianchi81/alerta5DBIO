@@ -12269,7 +12269,9 @@ internal.CRUD = class {
 			}
 			return Promise.reject("falta timestart y/o timeend")
 		}
-		if(parseInt(area).toString() != "NaN") {
+		if(typeof(area) == 'object' || typeof(area) == 'string' && /\,/.test(area)) {
+			area = new internal.area({geom:area})
+		} else {
 			try {
 				area = await this.getArea(parseInt(area),undefined,client)
 			}catch(e) {
@@ -12278,9 +12280,7 @@ internal.CRUD = class {
 				}
 				throw(e)	
 			}
-		} else {
-			area = new internal.area({geom:area})
-		}
+		} 
 		if(!area) {
 			if(release_client) {
 				client.release()
@@ -12534,112 +12534,101 @@ internal.CRUD = class {
 		}
 	}
 	
-	static async rastExtractByPoint(series_id,timestart,timeend,point,options) {
-		var promises =[]
-		if(parseInt(point)) {
-			promises.push(this.getEstacion(parseInt(point)))
+	static async rastExtractByPoint(series_id,timestart,timeend,point,options={}) {
+		if(typeof(point) == 'object' || typeof(point) == 'string' && /\,/.test(point)) {
+			var point = new internal.estacion({nombre:"Punto arbitrario", geom: point})
 		} else {
-			promises.push(new internal.estacion({nombre:"Punto arbitrario", geom: point}))
+			var point = await this.getEstacion(parseInt(point))
 		}
-		return Promise.all(promises)
-		.then(result => {
-			point = result[0]
-			return this.getSerie("rast",series_id)
-			.then(serie=>{
-				if(!serie) {
-					console.error("serie no encontrada")
-					return
-				}
-				if(!serie.id) {
-					console.log("serie no encontrada")
-					return
-				}
-				options.funcion = (!options.funcion) ? "nearest" : options.funcion.toLowerCase()
-				const valid_funciones = ['mean','sum','count','min','max','stddev','nearest']
-				if(valid_funciones.map(f=> (f == options.funcion.toLowerCase()) ? 1 : 0).reduce( (a,b)=>a+b) == 0) {
-					console.error("Invalid funcion:" + options.funcion)
-					return
-				}
-				serie.estacion = point
-				serie.tipo = "puntual"
-				serie.id= undefined
-				var max_distance = (options.max_distance) ? parseFloat(options.max_distance) : serie.fuente.def_pixel_width
-				var buffer = (options.buffer) ? parseFloat(options.buffer) : serie.fuente.def_pixel_width
-				var transform = (serie.fuente.scale_factor) ? " * " + serie.fuente.scale_factor : ""
-				transform += (serie.fuente.data_offset) ? " + " + serie.fuente.data_offset : ""
-				serie.extractionParameters = {funcion:options.funcion, max_distance: max_distance, buffer: buffer}
-				var stmt
-				var args
-				if(options.funcion.toLowerCase() == "nearest") {
-					//~ console.log([series_id,timestart,timeend,serie.estacion.geom.toString(),serie.fuente.def_srid,serie.fuente.hora_corte,serie.fuente.def_dt,max_distance])
-					stmt= "WITH centroids AS (\
-					  SELECT timestart,val,x,y,geom,timeupdate\
-					  FROM (\
-					    SELECT timestart,timeupdate,dp.*\
-					    FROM observaciones_rast, lateral st_pixelascentroids(observaciones_rast.valor) AS dp\
-						WHERE observaciones_rast.series_id=$1\
-						AND observaciones_rast.timestart >= $2\
-						AND observaciones_rast.timeend<= $3) foo),\
-					distancias as (\
-						SELECT timestart,\
-							   timeupdate,\
-							   val,\
-							   x,\
-							   y,\
-							   centroids.geom,\
-						       st_distance(ST_GeomFromText($4,$5),centroids.geom) distance,\
-						       row_number() over (partition by timestart order by st_distance(st_GeomFromText($4,$5),centroids.geom)) as rk\
-						FROM centroids ORDER BY centroids.timestart,centroids.x,centroids.y\
-						)\
-					SELECT timestart + $6::interval timestart, \
-						   timestart + $6::interval + $7::interval timeend,\
-						   round(val::numeric,2) valor,\
-						   timeupdate\
-					FROM distancias\
-					WHERE rk=1\
-					AND distance<=$8\
-					ORDER BY timestart"
-					args = [series_id,timestart,timeend,serie.estacion.geom.toString(),serie.fuente.def_srid,serie.fuente.hora_corte,serie.fuente.def_dt,max_distance]
-				} else {
-					 stmt = "SELECT observaciones_rast.timestart + $1::interval timestart, \
-								    observaciones_rast.timestart + $1::interval + $2::interval timeend,\
-									round(((st_summarystats(st_clip(observaciones_rast.valor,st_buffer(st_envelope(st_geomfromtext($3,$4)),$5))))." + options.funcion + " " + transform + ")::numeric,2) valor,\
-									timeupdate\
-									FROM observaciones_rast\
-									WHERE series_id=$6\
-									AND timestart>=$7\
-									AND timeend<=$8\
-									ORDER BY observaciones_rast.timestart"
-					 args = [serie.fuente.hora_corte, serie.fuente.def_dt, serie.estacion.geom.toString(), serie.fuente.def_srid, buffer, series_id, timestart, timeend]
-				}
-				return global.pool.query(stmt,args)
-				.then(result=>{
-					if(!result.rows) {
-						console.log("No raster values found")
-						return serie
-					}
-					if(result.rows.length == 0) {
-						console.log("No raster values found")
-						return serie
-					}
-					console.log("Found " + result.rows.length + " values")
-					const observaciones = result.rows.map(obs=> {
-						//~ console.log(obs)
-						return new internal.observacion({tipo:"puntual",timestart:obs.timestart,timeend:obs.timeend,valor:obs.valor, nombre:options.funcion, descripcion: "extracción puntual", unit_id: serie.unidades.id})
-					})
-					serie.observaciones = observaciones
-					return serie
-				})
-				.catch(e=>{
-					console.error(e)
-					return serie
-				})
-			})
-			.catch(e=>{
-				console.error(e)
-				return null
-			})
+		if(!point) {
+			throw("Missing point or station not found")
+		}
+		var serie = await this.getSerie("rast",series_id)
+		if(!serie) {
+			console.error("serie no encontrada")
+			return
+		}
+		if(!serie.id) {
+			console.log("serie no encontrada")
+			return
+		}
+		options.funcion = (!options.funcion) ? "nearest" : options.funcion.toLowerCase()
+		const valid_funciones = ['mean','sum','count','min','max','stddev','nearest']
+		if(valid_funciones.map(f=> (f == options.funcion.toLowerCase()) ? 1 : 0).reduce( (a,b)=>a+b) == 0) {
+			console.error("Invalid funcion:" + options.funcion)
+			return
+		}
+		serie.estacion = point
+		serie.tipo = "puntual"
+		serie.id= options.output_series_id ?? undefined
+		var max_distance = (options.max_distance) ? parseFloat(options.max_distance) : serie.fuente.def_pixel_width
+		var buffer = (options.buffer) ? parseFloat(options.buffer) : serie.fuente.def_pixel_width
+		var transform = (serie.fuente.scale_factor) ? " * " + serie.fuente.scale_factor : ""
+		transform += (serie.fuente.data_offset) ? " + " + serie.fuente.data_offset : ""
+		serie.extractionParameters = {funcion:options.funcion, max_distance: max_distance, buffer: buffer}
+		var stmt
+		var args
+		if(options.funcion.toLowerCase() == "nearest") {
+			//~ console.log([series_id,timestart,timeend,serie.estacion.geom.toString(),serie.fuente.def_srid,serie.fuente.hora_corte,serie.fuente.def_dt,max_distance])
+			stmt= "WITH centroids AS (\
+				SELECT timestart,val,x,y,geom,timeupdate\
+				FROM (\
+				SELECT timestart,timeupdate,dp.*\
+				FROM observaciones_rast, lateral st_pixelascentroids(observaciones_rast.valor) AS dp\
+				WHERE observaciones_rast.series_id=$1\
+				AND observaciones_rast.timestart >= $2\
+				AND observaciones_rast.timeend<= $3) foo),\
+			distancias as (\
+				SELECT timestart,\
+						timeupdate,\
+						val,\
+						x,\
+						y,\
+						centroids.geom,\
+						st_distance(ST_GeomFromText($4,$5),centroids.geom) distance,\
+						row_number() over (partition by timestart order by st_distance(st_GeomFromText($4,$5),centroids.geom)) as rk\
+				FROM centroids ORDER BY centroids.timestart,centroids.x,centroids.y\
+				)\
+			SELECT timestart + $6::interval timestart, \
+					timestart + $6::interval + $7::interval timeend,\
+					round(val::numeric,2) valor,\
+					timeupdate\
+			FROM distancias\
+			WHERE rk=1\
+			AND distance<=$8\
+			ORDER BY timestart"
+			args = [series_id,timestart,timeend,serie.estacion.geom.toString(),serie.fuente.def_srid,serie.fuente.hora_corte,serie.fuente.def_dt,max_distance]
+		} else {
+				stmt = "SELECT observaciones_rast.timestart + $1::interval timestart, \
+							observaciones_rast.timestart + $1::interval + $2::interval timeend,\
+							round(((st_summarystats(st_clip(observaciones_rast.valor,st_buffer(st_envelope(st_geomfromtext($3,$4)),$5))))." + options.funcion + " " + transform + ")::numeric,2) valor,\
+							timeupdate\
+							FROM observaciones_rast\
+							WHERE series_id=$6\
+							AND timestart>=$7\
+							AND timeend<=$8\
+							ORDER BY observaciones_rast.timestart"
+				args = [serie.fuente.hora_corte, serie.fuente.def_dt, serie.estacion.geom.toString(), serie.fuente.def_srid, buffer, series_id, timestart, timeend]
+		}
+		var result = await global.pool.query(stmt,args)
+		if(!result.rows) {
+			console.log("No raster values found")
+			return serie
+		}
+		if(result.rows.length == 0) {
+			console.log("No raster values found")
+			return serie
+		}
+		console.log("Found " + result.rows.length + " values")
+		const observaciones = result.rows.map(obs=> {
+			//~ console.log(obs)
+			return new internal.observacion({tipo:"puntual",timestart:obs.timestart,timeend:obs.timeend,valor:obs.valor, nombre:options.funcion, descripcion: "extracción puntual", unit_id: serie.unidades.id})
 		})
+		serie.observaciones = new internal.observaciones(observaciones)
+		if(options.output_series_id) {
+			await serie.createObservaciones()
+		}
+		return serie
 	}
 	
 	static async getRegularSeries(tipo="puntual",series_id,dt="1 days",timestart,timeend,options,client) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate
