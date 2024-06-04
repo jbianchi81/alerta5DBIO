@@ -2702,13 +2702,19 @@ internal.serie = class extends baseModel {
 		timeend,
 		method="expression",
 		expression="${valor_0}",
-		join_type="left" 
+		join_type="left",
+		output_series_id = undefined,
+		create_observaciones = false
 	) {
 		const series = []
 		for(var id of series_id) {
 			series.push(await internal.CRUD.getSerie(tipo, id, timestart, timeend))
 		}
-		return this.computeExpression(series, method, expression, join_type)
+		const result_serie = await this.computeExpression(series, method, expression, join_type, output_series_id)
+		if(create_observaciones) {
+			await result_serie.createObservaciones()
+		}
+		return result_serie
 	}
 	// series are joined by exact timestart match
 	// expression must be a valid js expression and may use variable names timestart, timeend and valor_0 [valor_1, valor_2, ...]
@@ -2716,33 +2722,40 @@ internal.serie = class extends baseModel {
 		series=[],
 		method="expression",
 		expression="${valor_0}",
-		join_type="left"
+		join_type="left",
+		output_series_id=undefined
 	) {
 		if(!series.length) {
 			throw("Series is of length 0")
 		}
 		var serie_0 = series[0]
+		if(!serie_0) {
+			throw("Series[0] is undefined")
+		}
 		if(!serie_0.observaciones || !serie_0.observaciones.length) {
 			throw("Missing observaciones for serie id: " + serie_0.id + " i: 0")
 		}
+		serie_0.id = output_series_id
 		var value_keys = series.map((el, i) => `valor_${i}`)
-		
 		expression = expression.replace("timestart", `o.timestart`)
 		expression = expression.replace("timeend", `o.timeend`)
 		for(var value_key of value_keys) {
-			expression = expression.replace(value_key, `o.${value_key}`)
+			var re = new RegExp(value_key, 'g')
+			expression = expression.replace(re, `o.${value_key}`)
 		}
+		// console.debug("series.length: " + series.length + ", value_keys: " + value_keys, "expression: " + expression)
 
 		for(var o of serie_0.observaciones) {
 			o.valor_0 = o.valor
 			o.valor = undefined
+			o.series_id = output_series_id
 			for(var i=1; i<series.length; i++) {
 				var serie = series[i]
 				var key = value_keys[i]
 				if(!serie.observaciones || !serie.observaciones.length) {
 					throw("Missing observaciones for serie id: " + serie.id + " i: " + i)
 				}
-				const matches = serie.observaciones.filter(oj=> oj.timestart == o.timestart)
+				const matches = serie.observaciones.filter(oj=> oj.timestart.getTime() == o.timestart.getTime())
 				if(!matches.length) {
 					if(join_type=="inner") {
 						throw("Missing timestart " + o.timestart)

@@ -3236,6 +3236,57 @@ internal.RastExtractByPointProcedure = class extends internal.CrudProcedure {
     }
 }
 
+internal.GetDerivedSerieProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "GetDerivedSerieProcedure"
+        if(!arguments[0].filter) {
+            throw("Missing filter")
+        }
+        if(!arguments[0].filter.series_id) {
+            throw("missing filter.series_id")
+        }
+        this.series_id = arguments[0].filter.series_id
+        if(!Array.isArray(this.series_id)) {
+            this.series_id = [this.series_id]
+        }
+        if(!arguments[0].filter.timestart) {
+            throw("missing filter.timestart")
+        }
+        if(!arguments[0].filter.timeend) {
+            throw("missing filter.timeend")
+        }
+        if(!this.options.expression) {
+            throw("missing options.expression")
+        }
+        if(this.options.create_observaciones && !this.options.output_series_id) {
+            throw("Missing options.output_series_id (create_observaciones is true")
+        }
+        this.tipo = arguments[0].filter.tipo ?? "puntual"
+        this.timestart = DateFromDateOrInterval(arguments[0].filter.timestart)
+        this.timeend = DateFromDateOrInterval(arguments[0].filter.timeend)
+        // options:
+        // - expression (mandatory, string)
+        // - output_series_id (optional (mandatory if create_observaciones=true), int)
+        // - create_observaciones (optional, bool, default false)
+    }
+    async run() {
+        // console.debug("tipo: " + this.tipo + ", series_id: " + this.series_id)
+        const result_serie = await CRUD.serie.getDerivedSerie(
+            this.tipo, 
+            this.series_id, 
+            this.timestart,
+            this.timeend,
+            "expression",
+            this.options.expression,
+            undefined,
+            this.options.output_series_id,
+            this.options.create_observaciones
+        )        
+        this.result = result_serie.observaciones
+        return this.result
+    }
+}
 
 ////////////////////////////////////////
 
@@ -3287,7 +3338,8 @@ const availableCrudProcedures = {
     "RastToArealProcedure": internal.RastToArealProcedure,
     "RastExtractProcedure": internal.RastExtractProcedure,
     "RastExtractByAreaProcedure": internal.RastExtractByAreaProcedure,
-    "RastExtractByPointProcedure": internal.RastExtractByPointProcedure
+    "RastExtractByPointProcedure": internal.RastExtractByPointProcedure,
+    "GetDerivedSerieProcedure": internal.GetDerivedSerieProcedure
 }
 
 internal.availableTests = {
