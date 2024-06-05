@@ -3284,7 +3284,6 @@ internal.GetDerivedSerieProcedure = class extends internal.CrudProcedure {
             undefined,
             this.options.output_series_id,
             this.options.create_observaciones,
-            this.options.use_source_unit_id,
             this.options.unit_id
         )        
         this.result = result_serie.observaciones

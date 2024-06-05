@@ -2705,14 +2705,13 @@ internal.serie = class extends baseModel {
 		join_type="left",
 		output_series_id = undefined,
 		create_observaciones = false,
-		use_source_unit_id = True,
 		unit_id = undefined
 	) {
 		const series = []
 		for(var id of series_id) {
 			series.push(await internal.CRUD.getSerie(tipo, id, timestart, timeend))
 		}
-		const result_serie = await this.computeExpression(series, method, expression, join_type, output_series_id, use_source_unit_id, unit_id)
+		const result_serie = await this.computeExpression(series, method, expression, join_type, output_series_id, unit_id)
 		if(create_observaciones) {
 			await result_serie.createObservaciones()
 		}
@@ -2726,8 +2725,7 @@ internal.serie = class extends baseModel {
 		expression="${valor_0}",
 		join_type="left",
 		output_series_id=undefined,
-		use_source_unit_id=True,
-		unit_id=undefined,
+		unit_id=undefined
 	) {
 		if(!series.length) {
 			throw("Series is of length 0")
@@ -2752,7 +2750,7 @@ internal.serie = class extends baseModel {
 		for(var o of serie_0.observaciones) {
 			o.valor_0 = o.valor
 			o.valor = undefined
-			o.unit_id = (use_source_unit_id) ? o.unit_id : unit_id
+			o.unit_id = unit_id ?? o.unit_id
 			o.nombre = undefined
 			o.timeupdate = undefined
 			o.id = undefined
