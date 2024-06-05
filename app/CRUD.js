@@ -2748,6 +2748,10 @@ internal.serie = class extends baseModel {
 		for(var o of serie_0.observaciones) {
 			o.valor_0 = o.valor
 			o.valor = undefined
+			o.unit_id = undefined
+			o.nombre = undefined
+			o.timeupdate = undefined
+			o.id = undefined
 			o.series_id = output_series_id
 			for(var i=1; i<series.length; i++) {
 				var serie = series[i]
