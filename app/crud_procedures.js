@@ -3269,6 +3269,8 @@ internal.GetDerivedSerieProcedure = class extends internal.CrudProcedure {
         // - expression (mandatory, string)
         // - output_series_id (optional (mandatory if create_observaciones=true), int)
         // - create_observaciones (optional, bool, default false)
+        // - use_source_unit_id (optiona, bool, default true)
+        // - unit_id (optional, int)
     }
     async run() {
         // console.debug("tipo: " + this.tipo + ", series_id: " + this.series_id)
@@ -3281,7 +3283,9 @@ internal.GetDerivedSerieProcedure = class extends internal.CrudProcedure {
             this.options.expression,
             undefined,
             this.options.output_series_id,
-            this.options.create_observaciones
+            this.options.create_observaciones,
+            this.options.use_source_unit_id,
+            this.options.unit_id
         )        
         this.result = result_serie.observaciones
         return this.result
