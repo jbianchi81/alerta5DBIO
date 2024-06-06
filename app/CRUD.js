@@ -32,7 +32,7 @@ var pointsWithinPolygon = require("@turf/points-within-polygon")
 
 // const series2waterml2 = require('./series2waterml2');
 // const { relativeTimeThreshold } = require('moment-timezone');
-const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2, control_filter3 } = require('./utils');
+const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2, control_filter3, control_query_args } = require('./utils');
 const { DateFromDateOrInterval } = require('./timeSteps');
 // const { isContext } = require('vm');
 const logger = require('./logger');
@@ -833,14 +833,48 @@ internal.area = class extends baseModel  {
 		) {
 		const geojson_data = JSON.parse(fs.readFileSync(geojson_file,'utf-8'))
 		const areas = []
-		for(const item of geojson_data.features) {
+		if(geojson_data.type == "Feature") {
 			areas.push(new this({
-				nombre: item.properties[nombre_property],
-				id: item.properties[id_property],
-				geom: item.geometry
+				nombre: geojson_data.properties[nombre_property],
+				id: geojson_data.properties[id_property],
+				geom: geojson_data.geometry
 			}))
+		} else {
+			// assumes featureCollection type
+			for(const item of geojson_data.features) {
+				areas.push(new this({
+					nombre: item.properties[nombre_property],
+					id: item.properties[id_property],
+					geom: item.geometry
+				}))
+			}
 		}
 		return areas 
+	}
+	toGeoJSON(includeProperties=true, includeOutlet=true) {
+		var geojson
+		geojson = turfHelpers.polygon(this.geom.coordinates)
+		if(includeProperties) {
+			geojson.properties = {}
+			Object.keys(this).forEach(key=>{
+				if(key == "geom" || key == "exutorio") {
+					return
+				}
+				geojson.properties[key] = this[key]
+			})
+		}
+		if(includeOutlet && this.exutorio) {
+			const area_geometry = {...geojson.geometry} 
+			geojson.geometry = {
+				type: "GeometryCollection",
+				geometries: [
+					area_geometry,
+					this.exutorio.geom
+				]
+			}
+			geojson.properties = {...geojson.properties, ...this.exutorio.properties}
+		}
+		return geojson
 	}
 }
 
@@ -6126,7 +6160,17 @@ internal.pronostico = class extends baseModel {
 		this.id = m.id
 		this.timestart = m.timestart
 		this.timeend = (m.timeend) ? m.timeend : m.timestart
-		this.valor = m.valor
+		if(m.valor != null) {
+			if(m.valor instanceof Buffer) {
+				this.valor = m.valor
+			} else if(m.valor instanceof Object && m.valor.type == "Buffer") {
+				this.valor = Buffer.from(m.valor.data)
+			} else {
+				this.valor = m.valor
+			}
+		} else if(m.filename) {
+			this.valor = fs.readFileSync(m.filename)
+		}
 		this.qualifier = m.qualifier
 		this.cor_id = m.cor_id
 		this.series_id = m.series_id
@@ -6141,6 +6185,25 @@ internal.pronostico = class extends baseModel {
 	toCSVless() {
 		return this.id + "," + this.timestart.toISOString() + "," + this.timeend.toISOString() + "," + this.valor + "," + this.qualifier
 	}
+	toRaster(output_file) {
+		if(this.valor != null) {
+			fs.writeFileSync(output_file,new Buffer.from(this.valor))
+		} else {
+			logger.error(`No raster data found for series_id:${this.series_id}, timestart:${this.timestart.toISOString()}. Skipping`)
+		}
+	}
+	static fromRaster(input_file) {
+		const observacion = internal.observacion.fromRaster(input_file)
+		return new internal.pronostico({
+			series_table: "series_rast",
+			valor: observacion.valor,
+			id: observacion.id, 
+			series_id: observacion.series_id,
+			timestart: observacion.timestart,
+			timeend: observacion.timeend
+		})
+	}
+
 	static async delete(filter={},options={}) {
 		const deleted = await internal.CRUD.deletePronosticos(
 			filter.cor_id,
@@ -6197,6 +6260,35 @@ internal.pronostico = class extends baseModel {
 		}
 	}
 }	
+
+/**
+ * Pronostico class represents a single timestamp - value pair that may be part of a forecast timeseries (class SerieTemporalSim)
+ */
+internal.Pronostico = class extends internal.pronostico {
+	/**
+	 * Retrieves pronosticos that match the provided filter
+	 * @param {Object} filter - the query filter.
+	 * @param{integer} filter.id
+	 * @param{integer} filter.cal_id
+	 * @param{integer} filter.cor_id
+	 * @param{integer} filter.series_id
+	 * @param{String}  filter.tipo - one of: puntual, areal, rast
+	 * @param{Date}    filter.timestart
+	 * @param{Date}    filter.timeend
+	 * @param{Date}    filter.forecast_date
+	 * @param{integer} filter.estacion_id
+	 * @param{integer} filter.var_id
+	 * @param{String}  filter.qualifier
+     * @param{String}  filter.tabla
+	 * @param {Object} options 
+	 * @returns Array[Pronostico]
+	 */
+	static async read(filter={}, options={}) {
+		return (await internal.CRUD.getPronosticosArray(filter, options)).map(p=>{
+			return new internal.Pronostico(p)
+		})
+	}
+}
 
 // accessors
 
@@ -12338,7 +12430,7 @@ internal.CRUD = class {
 		})
 	}
 
-	static async rastExtractByArea(series_id,timestart,timeend,area,options={},client) {
+	static async rastExtractByArea(series_id,timestart,timeend,area,options={},client,cor_id, cal_id, forecast_date) {
 		var release_client = false
 		if(!client) {
 			release_client = true
@@ -12404,21 +12496,61 @@ internal.CRUD = class {
 		serie.tipo = "areal"
 		serie.id= undefined
 		// console.log({geom:area.geom.toString(),srid:serie.fuente.def_srid})
-		var stmt = "WITH s as (\
-			SELECT timestart timestart,\
+		if(cor_id) {
+			var stmt = "WITH s as (\
+					SELECT timestart timestart,\
 						timeend timeend,\
+						cor_id cor_id,\
+						qualifier qualifier,\
 						(st_summarystats(st_clip(st_resample(st_clip(valor,1,st_buffer(st_envelope(st_geomfromtext($1,$2)),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,$2),-9999,true)))." + options.funcion.toLowerCase() + " valor\
-					FROM observaciones_rast \
+					FROM pronosticos_rast \
 					WHERE series_id=$3\
 					AND timestart>=$4\
-					AND timeend<=$5)\
-				SELECT timestart, timeend, to_char(valor,'S99990.99')::numeric valor\
+					AND timeend<=$5\
+					AND cor_id=$6\
+				)\
+				SELECT timestart, timeend, qualifier, cor_id, to_char(valor,'S99990.99')::numeric valor\
 					FROM s\
 					WHERE valor IS NOT NULL\
 				ORDER BY timestart;"
-		var args = [area.geom.toString(),serie.fuente.def_srid,series_id,timestart,timeend] // [serie.fuente.hora_corte,serie.fuente.def_dt, area.geom.toString(),serie.fuente.def_srid,timestart,timeend]
-			// console.log(internal.utils.pasteIntoSQLQuery(stmt,args))
-		try{ 
+			var args = [area.geom.toString(),serie.fuente.def_srid,series_id,timestart,timeend,cor_id]
+		} else if(cal_id && forecast_date) {
+			var stmt = "WITH s as (\
+					SELECT pronosticos_rast.timestart timestart,\
+						pronosticos_rast.timeend timeend,\
+						pronosticos_rast.cor_id cor_id,\
+						qualifier qualifier,\
+						(st_summarystats(st_clip(st_resample(st_clip(pronosticos_rast.valor,1,st_buffer(st_envelope(st_geomfromtext($1,$2)),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,$2),-9999,true)))." + options.funcion.toLowerCase() + " valor\
+					FROM pronosticos_rast \
+					JOIN corridas ON corridas.id=pronosticos_rast.cor_id \
+					WHERE pronosticos_rast.series_id=$3\
+					AND pronosticos_rast.timestart>=$4\
+					AND pronosticos_rast.timeend<=$5\
+					AND corridas.cal_id=$6\
+					AND corridas.date=$7\
+				)\
+				SELECT timestart, timeend, qualifier, cor_id, to_char(valor,'S99990.99')::numeric valor\
+					FROM s\
+					WHERE valor IS NOT NULL\
+				ORDER BY timestart;"
+			var args = [area.geom.toString(),serie.fuente.def_srid,series_id,timestart,timeend, cal_id, forecast_date]
+		} else {
+			var stmt = "WITH s as (\
+				SELECT timestart timestart,\
+							timeend timeend,\
+							(st_summarystats(st_clip(st_resample(st_clip(valor,1,st_buffer(st_envelope(st_geomfromtext($1,$2)),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,$2),-9999,true)))." + options.funcion.toLowerCase() + " valor\
+						FROM observaciones_rast \
+						WHERE series_id=$3\
+						AND timestart>=$4\
+						AND timeend<=$5)\
+					SELECT timestart, timeend, to_char(valor,'S99990.99')::numeric valor\
+						FROM s\
+						WHERE valor IS NOT NULL\
+					ORDER BY timestart;"
+			var args = [area.geom.toString(),serie.fuente.def_srid,series_id,timestart,timeend] // [serie.fuente.hora_corte,serie.fuente.def_dt, area.geom.toString(),serie.fuente.def_srid,timestart,timeend]
+				// console.log(internal.utils.pasteIntoSQLQuery(stmt,args))
+		}
+		try { 
 			var result = await client.query(stmt,args)
 		} catch(e) {
 			if(release_client) {
@@ -12457,6 +12589,16 @@ internal.CRUD = class {
 		console.log("Found " + result.rows.length + " values")
 		const observaciones = result.rows.map(obs=> {
 			//~ console.log(obs)
+			if(obs.cor_id) {
+				return new internal.Pronostico({
+					series_table:"series_areal",
+					timestart:obs.timestart,
+					timeend:obs.timeend,
+					qualifier:obs.qualifier,
+					valor:obs.valor, 
+					cor_id:obs.cor_id
+				})				
+			}
 			return new internal.observacion({tipo:"areal",timestart:obs.timestart,timeend:obs.timeend,valor:obs.valor, nombre:options.funcion, descripcion: "agregación espacial", unit_id: serie.unidades.id})
 		})
 		if(options.only_obs) {
@@ -12465,7 +12607,33 @@ internal.CRUD = class {
 			}
 			return observaciones
 		} else {
-			serie.observaciones = observaciones
+			if(cor_id || cal_id && forecast_date) {
+				var series_areal_id = undefined
+				if(area.id) {
+					var series_areales = await internal.serie.read({
+						tipo: "areal",
+						var_id: serie.var.id,
+						proc_id: serie.procedimiento.id,
+						unit_id: serie.unidades.id,
+						fuentes_id: serie.fuente.id,
+						estacion_id: area.id
+					})
+					console.debug("Found " + series_areales.length + " series areales matching area_id: " + area.id)
+					series_areal_id = (series_areales.length) ? series_areales[0].id : undefined
+					observaciones.forEach(o=>{
+						o.series_id = series_areal_id
+					})
+				}
+				serie = new internal.SerieTemporalSim({
+					series_table: "areal",
+					cor_id: observaciones[0].cor_id,
+					qualifier: observaciones[0].qualifier,
+					pronosticos: observaciones,
+					series_id: series_areal_id
+				})
+			} else {
+				serie.observaciones = observaciones
+			}
 			if(release_client) {
 				client.release()
 			}
@@ -12473,7 +12641,7 @@ internal.CRUD = class {
 		}
 	}
 	
-	static async rast2areal(series_id,timestart,timeend,area,options={},client) {
+	static async rast2areal(series_id,timestart,timeend,area,options={},client,cor_id, cal_id, forecast_date) {
 		var release_client = false
 		if(!client) {
 			release_client = true
@@ -12502,7 +12670,7 @@ internal.CRUD = class {
 				const serie_areal = result.rows[i]
 				//~ console.log([series_id,timestart,timeend,serie_areal.area_id])
 				try {
-					var serie = await this.rastExtractByArea(series_id,timestart,timeend,serie_areal.area_id,options,client)
+					var serie = await this.rastExtractByArea(series_id,timestart,timeend,serie_areal.area_id,options,client,cor_id,cal_id,forecast_date)
 				} catch(e) {
 					console.error(e)
 					continue
@@ -12511,20 +12679,38 @@ internal.CRUD = class {
 					console.log("serie rast no encontrada")
 					continue
 				}
-				if(!serie.observaciones) {
-					console.log("observaciones no encontradas")
-					continue
+				if(cor_id || cal_id && forecast_date) {
+					// pronosticos areales
+					if(!serie.pronosticos) {
+						console.log("pronosticos no encontrados")
+						continue
+					}
+					if(serie.pronosticos.length == 0) {
+						console.log("pronosticos no encontrados: length=0")
+						continue
+					}
+					// serie.series_id = serie_areal.id
+					// serie.pronosticos = serie.pronosticos.map(obs=> {
+					// 	obs.series_id = serie_areal.id
+					// 	obs.tipo = "areal" // just to ensure
+					// 	return obs
+					// })
+				} else {
+					if(!serie.observaciones) {
+						console.log("observaciones no encontradas")
+						continue
+					}
+					if(serie.observaciones.length == 0) {
+						console.log("observaciones no encontradas")
+						continue
+					}
+					console.log("Found serie_areal.id:" + serie_areal.id)
+					serie.observaciones = serie.observaciones.map(obs=> {
+						obs.series_id = serie_areal.id
+						obs.tipo = "areal" // just to ensure
+						return obs
+					})
 				}
-				if(serie.observaciones.length == 0) {
-					console.log("observaciones no encontradas")
-					continue
-				}
-				console.log("Found serie_areal.id:" + serie_areal.id)
-				serie.observaciones = serie.observaciones.map(obs=> {
-					obs.series_id = serie_areal.id
-					obs.tipo = "areal" // just to ensure
-					return obs
-				})
 				if(options.no_insert) {
 					if(release_client) {
 						client.release()
@@ -12532,17 +12718,22 @@ internal.CRUD = class {
 					results.push(serie.observaciones)
 					continue
 				}
-				try {
-					var upserted = await internal.observaciones.create(serie.observaciones) //,'areal',serie_areal.id,undefined) // removed client, non-transactional
-				} catch(e) {
-					console.error(e)
-					continue
+				if(cor_id || cal_id && forecast_date) {
+					// create pronosticos areales
+					var upserted = await internal.CRUD.upsertPronosticos(client,this.pronosticos)
+				} else {
+					try {
+						var upserted = await internal.observaciones.create(serie.observaciones) //,'areal',serie_areal.id,undefined) // removed client, non-transactional
+					} catch(e) {
+						console.error(e)
+						continue
+					}
 				}
 				console.log("Upserted " + upserted.length + " observaciones")
 				results.push(upserted)
 			}
 			if(results.length == 0) {
-				console.log("no observaciones areales created")
+				console.log("no observaciones or pronosticos areales created")
 				if(release_client) {
 					client.release()
 				}
@@ -12560,7 +12751,7 @@ internal.CRUD = class {
 			})
 			return arr
 		} else {
-			const serie = await this.rastExtractByArea(series_id,timestart,timeend,area,options,client)
+			const serie = await this.rastExtractByArea(series_id,timestart,timeend,area,options,client,cor_id,cal_id,forecast_date)
 			if(!serie) {
 				console.log("serie rast no encontrada")
 				if(release_client) {
@@ -12568,46 +12759,60 @@ internal.CRUD = class {
 				}
 				return
 			}
-			if(!serie.observaciones) {
-				console.log("observaciones no encontradas")
-				if(release_client) {
-					client.release()
+			if(cor_id || cal_id && forecast_date) {
+				if(!serie.pronosticos) {
+					console.log("pronosticos no encontrados")
+					return
 				}
-				return
-			}
-			if(serie.observaciones.length == 0) {
-				console.log("observaciones no encontradas")
-				if(release_client) {
-					client.release()
+				if(serie.pronosticos.length == 0) {
+					console.log("pronosticos no encontrados: length=0")
+					return
 				}
-				return
-			}
-			// console.log({tipo:"areal", "var":serie["var"], procedimiento:serie.procedimiento, unidades:serie.unidades, estacion:serie.estacion, fuente:serie.fuente})
-			const serie_areal = new internal.serie({tipo:"areal", "var":serie["var"], procedimiento:serie.procedimiento, unidades:serie.unidades, estacion:serie.estacion, fuente:serie.fuente})
-			const id = await serie_areal.getId(undefined,client)
-			console.log("Found serie_areal.id:" + serie_areal.id)
-			serie.observaciones = serie.observaciones.map(obs=> {
-				obs.series_id = serie_areal.id
-				return obs
-			})
-			if(options.no_insert) {
-				if(release_client) {
-					client.release()
+				if(options.no_insert) {
+					if(release_client) {
+						client.release()
+					}
+					return serie.pronosticos
 				}
-				return serie.observaciones
-			}
-			if(config.verbose) {
-				// console.log("crud.rast2areal: obs:" + JSON.stringify(serie.observaciones))
-			}
-			try {
-				var upserted = await internal.observaciones.create(serie.observaciones) // this.upsertObservaciones(serie.observaciones,undefined,undefined,undefined) // removed client, non-transactional
-			} catch(e) {
-				if(release_client) {
-					client.release()
+				var upserted = await this.upsertPronosticos(client, serie.pronosticos)
+			} else {
+				if(!serie.observaciones) {
+					console.log("observaciones no encontradas")
+					if(release_client) {
+						client.release()
+					}
+					return
 				}
-				throw(e)
+				if(serie.observaciones.length == 0) {
+					console.log("observaciones no encontradas")
+					if(release_client) {
+						client.release()
+					}
+					return
+				}
+				const serie_areal = new internal.serie({tipo:"areal", "var":serie["var"], procedimiento:serie.procedimiento, unidades:serie.unidades, estacion:serie.estacion, fuente:serie.fuente})
+				await serie_areal.getId(undefined,client)
+				console.log("Found serie_areal.id:" + serie_areal.id)
+				serie.observaciones = serie.observaciones.map(obs=> {
+					obs.series_id = serie_areal.id
+					return obs
+				})
+				if(options.no_insert) {
+					if(release_client) {
+						client.release()
+					}
+					return serie.observaciones
+				}
+				try {
+					var upserted = await internal.observaciones.create(serie.observaciones) // this.upsertObservaciones(serie.observaciones,undefined,undefined,undefined) // removed client, non-transactional
+				} catch(e) {
+					if(release_client) {
+						client.release()
+					}
+					throw(e)
+				}
 			}
-			console.log("Upserted " + upserted.length + " observaciones")
+			console.log("Upserted " + upserted.length + " observaciones/pronosticos")
 			if(release_client) {
 				client.release()
 			}
@@ -16098,7 +16303,7 @@ ORDER BY cal.cal_id`
 			// 	var_id:{type:"integer","table":"series"},
 			// 	qualifier:{type:"string","table":"pronosticos"},
 			// 	series_id:{type:"integer","table":"pronosticos"}},filter)
-		filter.series_table = filter.series_table ?? ((filter.tipo) ? (filter.tipo == "puntual") ? "series" : (filter.tipo == "areal") ? "series_areal" : undefined : undefined)
+		filter.series_table = filter.series_table ?? ((filter.tipo) ? (filter.tipo == "puntual") ? "series" : (filter.tipo == "areal") ? "series_areal" : (filter.tipo == "raster" || filteri.tipo == "rast") ? "series_rast" : undefined : undefined)
 		if(options.group_by_qualifier) {
 			var filter_string = internal.utils.control_filter2(
 				{
@@ -16389,6 +16594,10 @@ ORDER BY cal.cal_id`
 			var pronos_areal = await this.getPronosticosAreal(filter,client)
 			result.push(...pronos_areal)
 		}
+		if((!filter.tipo && !filter.series_id) || filter.tipo == "rast") {
+			var pronos_rast = await this.getPronosticosRast(filter,client)
+			result.push(...pronos_rast)
+		}
 		return result
 	}
 
@@ -16403,6 +16612,7 @@ ORDER BY cal.cal_id`
 			timeend:filter.timeend,
 			cal_id: filter.cal_id,
 			cor_id:filter.cor_id,
+			forecast_date: filter.forecast_date,
 			estacion_id:filter.estacion_id,
 			var_id:filter.var_id,
 			qualifier:filter.qualifier, 
@@ -16414,6 +16624,7 @@ ORDER BY cal.cal_id`
 			timeend:{type:"timeend","table":"pronosticos","column":"timestart"}, 
 			cal_id:{type:"integer", table:"corridas"}, 
 			cor_id:{type:"integer","table":"pronosticos"}, 
+			forecast_date:{type:"date", table: "corridas", column: "date"},
 			estacion_id:{type:"integer","table":"series"}, 
 			var_id:{type:"integer","table":"series"}, 
 			qualifier:{type:"string","table":"pronosticos"}, 
@@ -16491,6 +16702,7 @@ ORDER BY cal.cal_id`
 			timeend:{type:"timeend","table":"pronosticos_areal","column":"timestart"}, 
 			cal_id:{type:"integer", table:"corridas"}, 
 			cor_id:{type:"integer","table":"pronosticos_areal"}, 
+			forecast_date:{type:"date", table: "corridas", column: "date"},
 			estacion_id:{type:"integer","table":"series_areal","column":"area_id"}, 
 			var_id:{type:"integer","table":"series_areal"}, 
 			qualifier:{type:"string","table":"pronosticos_areal"},
@@ -16501,6 +16713,7 @@ ORDER BY cal.cal_id`
 			timeend:filter.timeend,
 			cal_id: filter.cal_id,
 			cor_id: filter.cor_id,
+			forecast_date: filter.forecast_date,
 			estacion_id: filter.estacion_id,
 			var_id: filter.var_id,
 			qualifier: filter.qualifier, 
@@ -16532,6 +16745,57 @@ ORDER BY cal.cal_id`
 		}
 		return result.rows
 	}
+
+	static async getPronosticosRast(filter={},client) {
+		var release_client = false
+		if(!client) {
+			release_client = true
+			client = await global.pool.connect()
+		}
+		var filter_string = internal.utils.control_filter2({
+			timestart:{type:"timestart","table":"pronosticos_rast"},
+			timeend:{type:"timeend","table":"pronosticos_rast","column":"timestart"}, 
+			cal_id:{type:"integer", table:"corridas"}, 
+			cor_id:{type:"integer","table":"pronosticos_rast"},
+			forecast_date:{type:"date", table: "corridas", column: "date"},
+			estacion_id:{type:"integer","table":"series_rast","column":"escena_id"}, 
+			var_id:{type:"integer","table":"series_rast"}, 
+			qualifier:{type:"string","table":"pronosticos_rast"},
+			series_id:{type:"integer","table":"pronosticos_rast"}
+		},{
+			timestart:filter.timestart,
+			timeend:filter.timeend,
+			cal_id: filter.cal_id,
+			cor_id: filter.cor_id,
+			forecast_date: filter.forecast_date,
+			estacion_id: filter.estacion_id,
+			var_id: filter.var_id,
+			qualifier: filter.qualifier, 
+			series_id: filter.series_id
+		})
+		const result = await client.query("SELECT \
+		    pronosticos_rast.id AS id,\
+			corridas.id AS cor_id,\
+			series_rast.id series_id,\
+			'series_rast' AS series_table,\
+			series_rast.escena_id AS estacion_id,\
+			null as tabla,\
+			series_rast.var_id,\
+			pronosticos_rast.timestart::timestamptz  timestart, \
+			pronosticos_rast.timeend::timestamptz timeend, \
+			ST_AsGDALRaster(pronosticos_rast.valor,'GTiff') as valor,\
+			pronosticos_rast.qualifier\
+		FROM pronosticos_rast\
+		JOIN series_rast ON series_rast.id=pronosticos_rast.series_id\
+		JOIN corridas ON pronosticos_rast.cor_id=corridas.id\
+		WHERE 1=1 " + filter_string + "\
+		ORDER BY pronosticos_rast.series_id,pronosticos_rast.timestart")
+		if(release_client) {
+			client.release()
+		}
+		return result.rows
+	}
+
 
 	static groupByQualifier(series={},pronosticos=[]) {
 		for(var p of pronosticos) {
@@ -16569,12 +16833,14 @@ ORDER BY cal.cal_id`
 					pronosticos: []
 				})
 			}
-			series[key].pronosticos.push({
-				timestart: p.timestart,
-				timeend: p.timeend,
-				valor: p.valor,
-				qualifier: p.qualifier
-			}) // cor_id:r.cor_id,series_id:p.series_id,
+			series[key].pronosticos.push(
+				new internal.pronostico({
+					timestart: p.timestart,
+					timeend: p.timeend,
+					valor: p.valor,
+					qualifier: p.qualifier
+				})
+			) // cor_id:r.cor_id,series_id:p.series_id,
 		}
 	}
 	
@@ -16660,6 +16926,44 @@ ORDER BY cal.cal_id`
 				var result = await client.query(stmt)
 				deleted_pronosticos.push(result.rows.map(r=>{
 					r.series_table = 'series_areal'
+					return new internal.pronostico(r)
+				}))
+			}
+			if(!tipo || tipo == "rast" || tipo == "raster") { 
+				const filter_string = internal.utils.control_filter2(
+					{
+						timestart: {type: "timestart"},
+						timeend: {type: "timeend", column: "timestart"},
+						series_id: {type: "integer"},
+						cor_id: {type: "integer"},
+						cal_id: {type: "integer", table: "corridas"},
+						forecast_date: {type: "timestamp", table: "corridas", column: "date"},
+						estacion_id: {type: "integer", table: "series_rast", column: "escena_id"},
+						var_id: {type: "integer", table: "series_rast"},
+						fuentes_id: {type: "integer", table: "series_rast"},
+						qualifier: {type: "string"}
+					},{
+						cor_id: cor_id,
+						cal_id: cal_id,
+						forecast_date: forecast_date,
+						timestart: timestart,
+						timeend: timeend,
+						series_id: series_id,
+						estacion_id: estacion_id,
+						var_id: var_id,
+						fuentes_id: fuentes_id,
+						qualifier: qualifier
+					},
+					"pronosticos_rast"
+				)
+				if(only_sim) {
+					filter_string += " AND pronosticos_rast.timestart<corridas.date"
+				}
+				const stmt = "DELETE FROM pronosticos_rast USING corridas,series_rast WHERE pronosticos_rast.cor_id=corridas.id AND series_rast.id=pronosticos_rast.series_id" + filter_string + " returning *"
+				// console.log(stmt)
+				var result = await client.query(stmt)
+				deleted_pronosticos.push(result.rows.map(r=>{
+					r.series_table = 'series_rast'
 					return new internal.pronostico(r)
 				}))
 			}
@@ -16941,8 +17245,14 @@ ORDER BY cal.cal_id`
 	}
 	
 	static async upsertCorrida(corrida,replace_last=false) {
-		if(!corrida || !corrida.cal_id || !corrida.forecast_date) {
-			return Promise.reject("Faltan parámetros")
+		if(!corrida) {
+			return Promise.reject("Faltan parámetros: corrida")
+		}
+		if(!corrida.cal_id) {
+			return Promise.reject("Faltan parámetros: cal_id")
+		}
+		if(!corrida.forecast_date) {
+			return Promise.reject("Faltan parámetros: forecast_date")
 		}
 		try {
 			var client = await global.pool.connect()
@@ -17299,13 +17609,86 @@ ORDER BY cal.cal_id`
 		// filter by series_table
 		var values = [] 
 		var values_areal = [] 
-		for(var p of pronosticos) {
+		var values_rast = []
+		for (var [i, p] of pronosticos.entries()) {
 			var timeend = (p.timeend) ? p.timeend : p.timestart
 			// console.log([p.series_id,p.cor_id,p.timestart.toISOString(),timeend.toISOString(),p.qualifier,parseFloat(p.valor)])
 			if(p.series_table && p.series_table == "series_areal") {
-				values_areal.push(sprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',%f)", p.series_id,p.cor_id,p.timestart.toISOString(),timeend.toISOString(),p.qualifier,parseFloat(p.valor)))
-			} else { 
-				values.push(sprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',%f)", p.series_id,p.cor_id,p.timestart.toISOString(),timeend.toISOString(),p.qualifier,parseFloat(p.valor)))
+				const args = [
+					p.series_id, 
+					p.cor_id, 
+					p.timestart.toISOString(),
+					timeend.toISOString(),
+					p.qualifier,
+					parseFloat(p.valor)
+				]
+				try {
+					control_query_args(
+						[
+							{name: "series_id", type:"integer"},
+							{name: "cor_id", type:"integer"},
+							{name: "timestart", type:"string"},
+							{name: "timeend", type:"string"},
+							{name: "qualifier", type:"string"},
+							{name: "valor", type:"float"}
+						],
+						args
+					)
+				} catch(e) {
+					throw("Invalid values at index [" + i + "]: " + e.toString())
+				}
+				values_areal.push(vsprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',%f)", args))
+			} else if(p.series_table && p.series_table == "series_rast") {
+				const args = [
+					p.series_id, 
+					p.cor_id, 
+					p.timestart.toISOString(), 
+					timeend.toISOString(), 
+					p.qualifier, 
+					// new Buffer.from(p.valor).toString('hex')
+					(p.valor instanceof Buffer) ?  "\\x" + p.valor.toString('hex') : p.valor
+				]
+				try {
+					control_query_args(
+						[
+							{name: "series_id", type:"integer"},
+							{name: "cor_id", type:"integer"},
+							{name: "timestart", type:"string"},
+							{name: "timeend", type:"string"},
+							{name: "qualifier", type:"string"},
+							{name: "valor", type:"string"}
+						],
+						args
+					)
+				} catch(e) {
+					throw("Invalid values at index [" + i + "]: " + e.toString())
+				}
+				values_rast.push(vsprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',ST_FromGDALRaster('%s'))", args))
+			} else {
+				const args = [
+					p.series_id, 
+					p.cor_id, 
+					p.timestart.toISOString(), 
+					timeend.toISOString(), 
+					p.qualifier, 
+					parseFloat(p.valor)
+				]
+				try {
+					control_query_args(
+						[
+							{name: "series_id", type:"integer"},
+							{name: "cor_id", type:"integer"},
+							{name: "timestart", type:"string"},
+							{name: "timeend", type:"string"},
+							{name: "qualifier", type:"string"},
+							{name: "valor", type:"float"}
+						],
+						args
+					)
+				} catch(e) {
+					throw("Invalid values at index [" + i + "]: " + e.toString())
+				}	
+				values.push(vsprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',%f)", args))
 			}
 		}
 		var pronosticos_result = []
@@ -17316,6 +17699,14 @@ ORDER BY cal.cal_id`
 			RETURNING id,series_id,'series_areal' as series_table,cor_id,timestart,timeend,qualifier,valor`
 			const result_areal = await client.query(stmt)
 			pronosticos_result.push(...result_areal.rows)
+		}
+		if(values_rast.length) {
+			var stmt = `INSERT INTO pronosticos_rast (series_id,cor_id,timestart,timeend,qualifier,valor) \
+			VALUES ${values_rast.join(",")} ON CONFLICT (series_id,cor_id,timestart,qualifier)\
+			DO UPDATE SET valor=excluded.valor, timeend=excluded.timeend\
+			RETURNING id,series_id,'series_rast' as series_table,cor_id,timestart,timeend,qualifier,valor`
+			const result_rast = await client.query(stmt)
+			pronosticos_result.push(...result_rast.rows)
 		}
 		if(values.length) {
 			try {

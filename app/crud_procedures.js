@@ -135,13 +135,17 @@ internal.CrudProcedure = class  {
         output_format = (output_format) ? output_format : this.output_format
         if(this.options && this.options.output_individual_files) {
             var base_path = (this.options.output_individual_files.base_path) ? this.options.output_individual_files.base_path : ""
-            var pattern = (this.options.output_individual_files.pattern) ? this.options.output_individual_files.pattern : "${class_name}_${id}"
+            var pattern = (this.options.output_individual_files.pattern) ? this.options.output_individual_files.pattern : "{{class_name}}_{{id}}"
             pattern = (output_format && ["csv","csv_cat"].indexOf(output_format) >= 0) ? `${pattern}.csv` : (output_format && output_format == "raster") ? `${pattern}.tif` : `${pattern}.json`
             const results = (Array.isArray(this.result)) ? this.result : [this.result]
             for(var i in results) {
                 var filename = pattern.toString()
                 filename = filename.replace(new RegExp('{{class_name}}',"g"),this.class_name)
                 filename = filename.replace(new RegExp('{{id}}',"g"),results[i].id)
+                for(var key of Object.keys(results[i])) {
+                    const string_value = (results[i][key]) ? (results[i][key] instanceof Date) ? results[i][key].toISOString() : results[i][key].toString() : "undefined"
+                    filename = filename.replace(new RegExp('{{' + key + '}}',"g"),string_value)                    
+                }
                 filename = replacePlaceholders(filename,results[i])
                 if(this.options.output_individual_files.iter_field) {
                     for(var j in results[i][this.options.output_individual_files.iter_field]) {
@@ -3113,13 +3117,16 @@ internal.RastToArealProcedure = class extends internal.CrudProcedure {
         this.series_id = arguments[0].filter.series_id
         this.timestart = DateFromDateOrInterval(arguments[0].filter.timestart)
         this.timeend = DateFromDateOrInterval(arguments[0].filter.timeend)
+        this.cor_id = arguments[0].filter.cor_id
+        this.cal_id = arguments[0].filter.cal_id
+        this.forecast_date = (arguments[0].filter.forecast_date) ? DateFromDateOrInterval(arguments[0].filter.forecast_date) : undefined
         // options:
         // - no_insert
         // - funcion
         // - only_obs
     }
     async run() {
-        this.result = await crud.rast2areal(this.series_id,this.timestart,this.timeend,this.area_id,this.options)
+        this.result = await crud.rast2areal(this.series_id,this.timestart,this.timeend,this.area_id,this.options, undefined, this.cor_id, this.cal_id, this.forecast_date)
         return this.result
     }
 }

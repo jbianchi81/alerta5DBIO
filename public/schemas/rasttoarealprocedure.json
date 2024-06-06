@@ -1,0 +1,58 @@
+{
+    "$id": "rastextractprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "RastExtractProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "rastextractprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "RastToArealProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "filter": {
+                    "description": "filter to select which raster records to extract and the area to use to clip the rasters",
+                    "type": "object",
+                    "properties": {
+                        "series_id": {
+                            "type": "integer"
+                        },
+                        "timestart": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "timeend": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "area_id": {
+                            "oneOf": [
+                                {
+                                    "type": "integer"
+                                },
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "$ref": "geometry.json"
+                                }
+                            ]
+                        },
+                        "cor_id": {
+                            "type": "integer"
+                        },
+                        "cal_id": {
+                            "type": "integer"
+                        },
+                        "forecast_date": {
+                            "$ref": "dateorinterval.json"
+                        }                        
+                    },
+                    "additionalProperties": true
+                }
+            },
+            "required": [
+                "filter"
+            ]
+        }
+    }
+}

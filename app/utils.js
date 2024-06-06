@@ -772,6 +772,64 @@ internal.getConfig = function(config,default_config) {
 	return result
 }
 
+/**
+ * Assert validity of query arguments list
+ * @param {Array[Object]} valid_types. Item properties:
+ *      type: oneOf: ["string", "integer", "float", "boolean"]
+ *      allowNull: boolean default false 
+ *      name: string, optional  
+ * @param {Array} args 
+ */
+internal.control_query_args = function(valid_types, args) {
+	for(const [index, value] of args.entries()) {
+		if(index + 1 > valid_types.length ) {
+			throw("Invalid query args: index " + index + " out of bounds")
+		}
+		try {
+			internal.control_query_arg(valid_types[index], value)
+		} catch(e) {
+			throw("Bad query argument at index " + index + ": " + e.toString())
+		}
+	}
+}
+
+/**
+ * Assert that value is a valid valid_type PG query argument
+ * @param {Object} valid_type 
+ *      type: oneOf: ["string", "integer", "float"]
+ *      allowNull: boolean default false 
+ *      name: string, optional  
+ * @param {*} value 
+ */
+internal.control_query_arg = function(valid_type={}, value) {
+	const name = valid_type.name ?? ""
+	if(value == null) {
+		if(!valid_type.allowNulls) {
+			throw(`Invalid argument: ${name} can't be null`)
+		}
+		return
+	}
+	if(valid_type.type == "integer") {
+		if(parseInt(value).toString() == "NaN") {
+			throw(`Invalid integer argument ${name}: ${value}`)
+		}
+	} else if(valid_type.type == "float") {
+		if(parseFloat(value).toString() == "NaN") {
+			throw(`Invalid float argument ${name}: ${value}`)
+		}
+	} else if(valid_type.type == "boolean") {
+		if(["true", "false"].indexOf(value.toString().toLowerCase()) < 0) {
+			throw(`Invalid boolean argument ${name}: ${value}`)
+		}
+	} else { // if(valid_type.type == "string") 
+		if(/[';]/.test(value)) {
+			throw(`Invalid string argument ${name}: ${value}. Forbidden characters found`)
+		}
+	}
+
+
+}
+
 function changeRef(object,key) {
     if(key == "$ref") {
         object[key] = "/" + object[key].split("/").pop()

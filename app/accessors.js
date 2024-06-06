@@ -501,7 +501,8 @@ internal.gfs_smn = class {
 			ftp_connection_pars: {host:"", user: "", password: ""},
 			localcopy: '/tmp/gfs.local-copy.grb',
 			outputdir: "/tmp", 
-			series_id: undefined
+			series_id: undefined,
+			cal_id: 675
 		}
 		this.config = this.default_config
 		if(config) {
@@ -531,6 +532,28 @@ internal.gfs_smn = class {
 		var time = (options.time) ? options.time : 6
 		var series_id = (filter.series_id) ? filter.series_id : 2
 		return this.gfs2db(crud,series_id,time,options)
+	}
+	async getPronostico(filter={},options={}) {
+		const pronosticos = await this.get(filter,options)
+		if(!pronosticos.length) {
+			throw("No se encontraron pronosticos")
+		}
+		return new CRUD.corrida({
+			cal_id: this.config.cal_id,
+			forecast_date: this.time_update,
+			series: [
+				{
+					series_id: this.config.series_id,
+					series_table: "series_rast",
+					qualifier: "main",
+					pronosticos: pronosticos
+				}
+			]
+		})
+	}
+	async updatePronostico(filter={},options={}) {
+		const corrida = await this.getPronostico(filter,options)
+		return corrida.create()
 	}
 	async getGFS(time,output=this.config.localcopy,options={}) {
 		var url = sprintf("vila/precip_%02d_gfs.grb", time)
