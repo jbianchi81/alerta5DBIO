@@ -12502,54 +12502,55 @@ internal.CRUD = class {
 						timeend timeend,\
 						cor_id cor_id,\
 						qualifier qualifier,\
-						(st_summarystats(st_clip(st_resample(st_clip(valor,1,st_buffer(st_envelope(st_geomfromtext($1,$2)),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,$2),-9999,true)))." + options.funcion.toLowerCase() + " valor\
+						(st_summarystats(st_clip(st_resample(st_clip(valor,1,st_buffer(st_envelope(st_geomfromtext($1,st_srid(valor))),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,st_srid(valor)),-9999,true)))." + options.funcion.toLowerCase() + " valor\
 					FROM pronosticos_rast \
-					WHERE series_id=$3\
-					AND timestart>=$4\
-					AND timeend<=$5\
-					AND cor_id=$6\
+					WHERE series_id=$2\
+					AND timestart::timestamptz>=$3::timestamptz\
+					AND timeend::timestamptz<=$4::timestamptz\
+					AND cor_id=$5\
 				)\
 				SELECT timestart, timeend, qualifier, cor_id, to_char(valor,'S99990.99')::numeric valor\
 					FROM s\
 					WHERE valor IS NOT NULL\
 				ORDER BY timestart;"
-			var args = [area.geom.toString(),serie.fuente.def_srid,series_id,timestart,timeend,cor_id]
+			var args = [area.geom.toString(),series_id,timestart,timeend,cor_id]
 		} else if(cal_id && forecast_date) {
 			var stmt = "WITH s as (\
 					SELECT pronosticos_rast.timestart timestart,\
 						pronosticos_rast.timeend timeend,\
 						pronosticos_rast.cor_id cor_id,\
 						qualifier qualifier,\
-						(st_summarystats(st_clip(st_resample(st_clip(pronosticos_rast.valor,1,st_buffer(st_envelope(st_geomfromtext($1,$2)),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,$2),-9999,true)))." + options.funcion.toLowerCase() + " valor\
+						(st_summarystats(st_clip(st_resample(st_clip(pronosticos_rast.valor,1,st_buffer(st_envelope(st_geomfromtext($1,st_srid(valor))),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,st_srid(valor)),-9999,true)))." + options.funcion.toLowerCase() + " valor\
 					FROM pronosticos_rast \
 					JOIN corridas ON corridas.id=pronosticos_rast.cor_id \
-					WHERE pronosticos_rast.series_id=$3\
-					AND pronosticos_rast.timestart>=$4\
-					AND pronosticos_rast.timeend<=$5\
-					AND corridas.cal_id=$6\
-					AND corridas.date=$7\
+					WHERE pronosticos_rast.series_id=$2\
+					AND pronosticos_rast.timestart::timestamptz>=$3::timestamptz\
+					AND pronosticos_rast.timeend::timestamptz<=$4::timestamptz\
+					AND corridas.cal_id=$5\
+					AND corridas.date::timestamptz=$6::timestamptz\
 				)\
 				SELECT timestart, timeend, qualifier, cor_id, to_char(valor,'S99990.99')::numeric valor\
 					FROM s\
 					WHERE valor IS NOT NULL\
 				ORDER BY timestart;"
-			var args = [area.geom.toString(),serie.fuente.def_srid,series_id,timestart,timeend, cal_id, forecast_date]
+			var args = [area.geom.toString(),series_id,timestart,timeend, cal_id, forecast_date]
 		} else {
 			var stmt = "WITH s as (\
 				SELECT timestart timestart,\
 							timeend timeend,\
-							(st_summarystats(st_clip(st_resample(st_clip(valor,1,st_buffer(st_envelope(st_geomfromtext($1,$2)),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,$2),-9999,true)))." + options.funcion.toLowerCase() + " valor\
+							(st_summarystats(st_clip(st_resample(st_clip(valor,1,st_buffer(st_envelope(st_geomfromtext($1,st_srid(valor))),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,st_srid(valor)),-9999,true)))." + options.funcion.toLowerCase() + " valor\
 						FROM observaciones_rast \
-						WHERE series_id=$3\
-						AND timestart>=$4\
-						AND timeend<=$5)\
+						WHERE series_id=$2\
+						AND timestart::timestamptz>=$3::timestamptz\
+						AND timeend::timestamptz<=$4::timestamptz)\
 					SELECT timestart, timeend, to_char(valor,'S99990.99')::numeric valor\
 						FROM s\
 						WHERE valor IS NOT NULL\
 					ORDER BY timestart;"
-			var args = [area.geom.toString(),serie.fuente.def_srid,series_id,timestart,timeend] // [serie.fuente.hora_corte,serie.fuente.def_dt, area.geom.toString(),serie.fuente.def_srid,timestart,timeend]
+			var args = [area.geom.toString(),series_id,timestart,timeend] // [serie.fuente.hora_corte,serie.fuente.def_dt, area.geom.toString(),serie.fuente.def_srid,timestart,timeend]
 				// console.log(internal.utils.pasteIntoSQLQuery(stmt,args))
 		}
+		// console.debug(pasteIntoSQLQuery(stmt, args))
 		try { 
 			var result = await client.query(stmt,args)
 		} catch(e) {
@@ -12641,7 +12642,17 @@ internal.CRUD = class {
 		}
 	}
 	
-	static async rast2areal(series_id,timestart,timeend,area,options={},client,cor_id, cal_id, forecast_date) {
+	static async rast2areal(
+		series_id,
+		timestart,
+		timeend,
+		area,
+		options={},
+		client,
+		cor_id, 
+		cal_id, 
+		forecast_date
+		) {
 		var release_client = false
 		if(!client) {
 			release_client = true
