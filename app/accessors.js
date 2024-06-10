@@ -32,6 +32,7 @@ const wof = require('./wmlclient')
 const printRast = require('./print_rast')
 const utils = require('./utils')
 const { client } = require('./wmlclient')
+const accessor_utils = require('./accessor_utils')
 // const { relativeTimeThreshold } = require('moment-timezone')
 // const { util } = require('config')
 
@@ -41,6 +42,8 @@ internal.genica = require('./accessors/genica_accessor').Client
 internal.om_ogc_timeseries_client = require('./accessors/om_ogc_timeseries_client').client
 internal.prevenir = require('./accessors/prevenir_accessor').Client
 internal.snih = require('./accessors/snih').client
+internal.gfs_nomads = require('./accessors/gfs_nomads').Client
+
 // Promise.allSettled polyfill
 
 
@@ -624,10 +627,10 @@ internal.gfs_smn = class {
 						console.log("pushing layer " + i +", valid_time " + valid_time.toISOString())
 						var obs = await this.rast2obs(gtiff_filename)
 						//~ var child = exec('gdal_translate -b ' + band.band + ' -a_srs EPSG:4326 -a_ullr -150 0 20 -90 -of GTiff ' + input + ' ' + gtiff_filename)
-						//~ var obs = await promiseFromChildProcess(child,gtiff_filename)
+						//~ var obs = await accessor_utils.promiseFromChildProcess(child,gtiff_filename)
 						//~ .then(filename=>{
 							//~ var child2 = exec('gdal_edit.py -scale 10800 -mo "UNITS=millimeters" ' + filename)
-							//~ return promiseFromChildProcess(child2,filename)
+							//~ return accessor_utils.promiseFromChildProcess(child2,filename)
 						//~ })
 						//~ .then(filename=>{
 							//~ console.log("Se escribió el archivo " + filename)
@@ -1566,9 +1569,9 @@ internal.paraguay09 = class {
 		// get Paraguay alturas from borus at win "/mount/win/CRITICO/Alerta/Planillas_Juan_Borús/Paraguay_09.xls"
 		
 		if(startDate) {
-			startDate = toDate(startDate)
+			startDate = accessor_utils.toDate(startDate)
 		}
-		endDate = toDate(endDate)
+		endDate = accessor_utils.toDate(endDate)
 		var filename = '/tmp/Paraguay_09.txt.1'
 		return new Promise( ( resolve, reject)=> {
 			exec('ssconvert -S -O "locale=en_US.utf8 separator=, quoting-mode=never" '+input+' /tmp/Paraguay_09.txt', (err,stdout,stderr) => {
@@ -1579,11 +1582,11 @@ internal.paraguay09 = class {
 				}
 				console.log(`stdout: ${stdout}`);
 				console.error(`stderr: ${stderr}`);
-				//~ promiseFromChildProcess(child,filename)
+				//~ accessor_utils.promiseFromChildProcess(child,filename)
 		//~ .then(filename=>{
 			//~ var filename = '/tmp/Paraguay_09.csv.1'
 			//~ console.log("xls converted, waiting 3 seconds to read file at " + new Date())
-			//~ return delay(3000)
+			//~ return accessor_utils.delay(3000)
 		//~ })
 		//~ .then(() => {
 				resolve(fsPromises.readFile(filename,{encoding:'ascii'}))
@@ -2336,14 +2339,14 @@ internal.tabprono = class {
 							properties: {
 								estacion_id: r[0],
 								estacion_nombre: r[1].toString(),
-								nivel_hoy: [dates[0], roundTo(r[2],2)],
+								nivel_hoy: [dates[0], accessor_utils.roundTo(r[2],2)],
 								"altura_media_mensual(1994-2018)": [mes, parseFloat(r[3])],
 								nivel_de_aguas_bajas: parseFloat(r[4]),
 								nivel_de_alerta: parseFloat(r[5]),
 								nivel_de_evacuacion: parseFloat(r[6]),
-								pronostico: [dates[1], roundTo(r[7],2), roundTo(r[8],2), roundTo(r[9],2)],
+								pronostico: [dates[1], accessor_utils.roundTo(r[7],2), accessor_utils.roundTo(r[8],2), accessor_utils.roundTo(r[9],2)],
 								estado_pronostico: estado_prono,
-								tendencia: [dates[2], roundTo(r[11],2), roundTo(r[12],2), roundTo(r[13],2)],
+								tendencia: [dates[2], accessor_utils.roundTo(r[11],2), accessor_utils.roundTo(r[12],2), accessor_utils.roundTo(r[13],2)],
 								estado_tendencia: estado_tendencia
 							}
 						}
@@ -2353,9 +2356,9 @@ internal.tabprono = class {
 							estacion_id:unid[k],
 							var_id:2,
 							pronosticos: [
-								{ timestart: dates[0].toISOString(), timeend: dates[0].toISOString(), valor: roundTo(r[2],2) },
-								{ timestart: dates[1].toISOString(), timeend: dates[1].toISOString(), valor: roundTo(r[8],2) },
-								{ timestart: dates[2].toISOString(), timeend: dates[2].toISOString(), valor: roundTo(r[12],2) }
+								{ timestart: dates[0].toISOString(), timeend: dates[0].toISOString(), valor: accessor_utils.roundTo(r[2],2) },
+								{ timestart: dates[1].toISOString(), timeend: dates[1].toISOString(), valor: accessor_utils.roundTo(r[8],2) },
+								{ timestart: dates[2].toISOString(), timeend: dates[2].toISOString(), valor: accessor_utils.roundTo(r[12],2) }
 							]
 						}
 						pronosticos_central.series.push(prono_central)
@@ -2365,9 +2368,9 @@ internal.tabprono = class {
 							estacion_id:unid[k],
 							var_id:2,
 							pronosticos: [
-								{ timestart: dates[0].toISOString(), timeend: dates[0].toISOString(), valor: roundTo(r[2],2) },
-								{ timestart: dates[1].toISOString(), timeend: dates[1].toISOString(), valor: roundTo(r[7],2) },
-								{ timestart: dates[2].toISOString(), timeend: dates[2].toISOString(), valor: roundTo(r[11],2) }
+								{ timestart: dates[0].toISOString(), timeend: dates[0].toISOString(), valor: accessor_utils.roundTo(r[2],2) },
+								{ timestart: dates[1].toISOString(), timeend: dates[1].toISOString(), valor: accessor_utils.roundTo(r[7],2) },
+								{ timestart: dates[2].toISOString(), timeend: dates[2].toISOString(), valor: accessor_utils.roundTo(r[11],2) }
 							]
 						}
 						pronosticos_min.series.push(prono_min)
@@ -2377,9 +2380,9 @@ internal.tabprono = class {
 							estacion_id:unid[k],
 							var_id:2,
 							pronosticos: [
-								{ timestart: dates[0].toISOString(), timeend: dates[0].toISOString(), valor: roundTo(r[2],2) },
-								{ timestart: dates[1].toISOString(), timeend: dates[1].toISOString(), valor: roundTo(r[9],2) },
-								{ timestart: dates[2].toISOString(), timeend: dates[2].toISOString(), valor: roundTo(r[13],2) }
+								{ timestart: dates[0].toISOString(), timeend: dates[0].toISOString(), valor: accessor_utils.roundTo(r[2],2) },
+								{ timestart: dates[1].toISOString(), timeend: dates[1].toISOString(), valor: accessor_utils.roundTo(r[9],2) },
+								{ timestart: dates[2].toISOString(), timeend: dates[2].toISOString(), valor: accessor_utils.roundTo(r[13],2) }
 							]
 						}
 						pronosticos_max.series.push(prono_max)
@@ -2604,7 +2607,7 @@ internal.ons = class {
 									console.error("Invalid value at row " + index + ", column " + cols[i])
 									return
 								}	
-								valor = (var_id == 2 || var_id == 26) ? roundTo(valor,2) : roundTo(valor,0)
+								valor = (var_id == 2 || var_id == 26) ? accessor_utils.roundTo(valor,2) : accessor_utils.roundTo(valor,0)
 								registros.push({tipo:"puntual", series_id:series[var_id], estacion_id: unid, id_externo: data[1], var_id: var_id, timestart: dia, timeend: timeend, valor: valor}) 
 								if(var_id == 2) { // inserta H media diaria var_id=33
 									registros.push({tipo:"puntual", series_id:series[39], estacion_id: unid, id_externo: data[1], var_id: 39, timestart: dia, timeend: timeend, valor: valor})
@@ -2660,7 +2663,7 @@ internal.ana = class {
 		options.update=false
 		return this.getDadosANABatch(filter,options)
 		.then(result=>{
-			return flatten(result).filter(o=>o)
+			return accessor_utils.flatten(result).filter(o=>o)
 		})
 	}
 	async getAll(filter,options={}) {
@@ -3111,7 +3114,7 @@ internal.sarws = class {
 		options.update=false
 		return this.getDadosHistoricosSINBatch(filter,options)
 		.then(result=>{
-			return flatten(result).filter(o=>o)
+			return accessor_utils.flatten(result).filter(o=>o)
 		})
 	}
 	async getAll(filter,options={}) {
@@ -3579,7 +3582,7 @@ internal.mch_py = class {
 					})
 				}))
 			}
-			sites = filterSites(sites,params)
+			sites = accessor_utils.filterSites(sites,params)
 			if(result.data.payload.stations.next_page_url) {
 				return this.getSitesPage(result.data.payload.stations.next_page_url,params,sites,return_raw)
 			} else {
@@ -3701,7 +3704,7 @@ internal.mch_py = class {
 							if(global.config.verbose) {
 								console.error(e)
 							} else {
-								printAxiosGetError(e)
+								accessor_utils.printAxiosGetError(e)
 							}
 						}
 					}
@@ -3713,7 +3716,7 @@ internal.mch_py = class {
 						if(global.config.verbose) {
 							console.error(e)
 						} else {
-							printAxiosGetError(e)
+							accessor_utils.printAxiosGetError(e)
 						}
 					}
 				}
@@ -3728,7 +3731,7 @@ internal.mch_py = class {
 					if(global.config.verbose) {
 						console.error(e)
 					} else {
-						printAxiosGetError(e)
+						accessor_utils.printAxiosGetError(e)
 					}
 				}
 			}
@@ -3740,7 +3743,7 @@ internal.mch_py = class {
 				if(global.config.verbose) {
 					console.error(e)
 				} else {
-					printAxiosGetError(e)
+					accessor_utils.printAxiosGetError(e)
 				}
 			}
 		}
@@ -5150,7 +5153,7 @@ internal.sat2 = class {
 			})
 		})
 		.then(result=>{
-			return flatten(result).filter(o=>o)
+			return accessor_utils.flatten(result).filter(o=>o)
 		})
 	}
 	update(filter={},options) {
@@ -5343,12 +5346,12 @@ internal.gefs_wave = class {
 			return new Promise((resolve, reject) => {
 				writer.once('finish', ()=>{
 					setTimeout(()=>{
-						resolve(grib2obs({filepath:localfilepath,variable_map:this.config.variable_map,bbox:this.config.bbox,units:"metros_por_segundo"})) //this.grib2obs(localfilepath))
+						resolve(accessor_utils.grib2obs({filepath:localfilepath,variable_map:this.config.variable_map,bbox:this.config.bbox,units:"metros_por_segundo"})) //this.accessor_utils.grib2obs(localfilepath))
 					},1000)
 				})
 				writer.on('error', reject)
 				//~ response.data.on('end',()=>{
-					//~ resolve(this.grib2obs(localfilepath))
+					//~ resolve(this.accessor_utils.grib2obs(localfilepath))
 				//~ })
 				response.data.on('error', (e) =>{
 					reject("file:" + localfilepath + " write failed, error:" + e.toString())
@@ -5357,12 +5360,12 @@ internal.gefs_wave = class {
 			// })
 		}))
 		.then(results=>{
-			var observaciones = flatten(results.map(result=>{
+			var observaciones = accessor_utils.flatten(results.map(result=>{
 				if(result.status == "rejected") {
 					if(global.config.verbose) {
 						console.error(result.reason)
 					} else {
-						printAxiosGetError(result.reason)
+						accessor_utils.printAxiosGetError(result.reason)
 					}
 					return null
 				}
@@ -8364,171 +8367,5 @@ internal.hmfs = require('./hmfs_accessor').hmfs
 	
 // }
 
-// aux functions 
-
-function grib2obs(config={}) { // LEE 1 GRIB, GENERA GTIFFs  // config={filepath:string, variable_map:{"key":{var_id:int,proc_id:int,unit_id:int,series_id:int},...},bbox:{leftlon:number,toplat:number, rightlon:number,bottomlat:number}, units: string}
-	if(!config.filepath) {
-		return Promise.reject("Falta filepath")
-	}
-	if(!config.variable_map) {
-		return Promise.reject("Falta variable_map")
-	}
-	return pexec('gdalinfo -json ' + config.filepath)
-	.then(result=>{
-		var stdout = result.stdout
-		var stderr = result.stderr
-		var gdalinfo = JSON.parse(stdout)
-		//~ var time_update = new Date(parseInt(gdalinfo.bands[0].metadata[""].GRIB_REF_TIME.split(/\s/)[0])*1000)
-		return Promise.all(gdalinfo.bands.map(band=> {
-			var ref_time = new Date(parseInt(band.metadata[""].GRIB_REF_TIME.split(/\s/)[0])*1000)
-			var valid_time = new Date(parseInt(band.metadata[""].GRIB_VALID_TIME.split(/\s/)[0])*1000)
-			var var_index  =  Object.keys(config.variable_map).indexOf(band.metadata[""].GRIB_ELEMENT)
-			if(var_index >= 0) {
-				var variable = config.variable_map[band.metadata[""].GRIB_ELEMENT]
-				var gtiff_filename = config.filepath.replace(/\.grib2$/,"." + variable.name + ".tif")
-				return pexec('gdal_translate -b ' + band.band + ' -a_srs EPSG:4326 -a_ullr ' + config.bbox.leftlon + ' ' + config.bbox.toplat + ' ' + config.bbox.rightlon + ' ' + config.bbox.bottomlat + ' -of GTiff ' + config.filepath + ' ' + gtiff_filename)
-				.then(()=>{
-					return pexec('gdal_edit.py -mo "UNITS=meters_per_second" ' + gtiff_filename)
-				}).then(()=>{
-					//~ console.log({gtiff_filename:gtiff_filename,series_id:variable.series_id})
-					return rast2obs(gtiff_filename,variable.series_id)
-				})
-			} else {
-				console.error("band not mapped:"+band.metadata[""].GRIB_ELEMENT)
-				return
-			}
-		}))
-		//~ return Promise.all(promises)
-		.then(observaciones=>{
-			console.log("got " + observaciones.filter(o=>o).length + " observaciones")
-			//~ if(series_id) {
-				//~ observaciones = observaciones.map(o=> {
-					//~ o.series_id = series_id
-					//~ return o
-				//~ })
-			//~ }
-			return observaciones.filter(o=>o)
-		})
-	})
-}
-function rast2obs(filename,series_id) { // LEE GTIFF , GENERA observación  // filename, series_id, 
-	var observacion = {}
-	return pexec('gdalinfo -json '+filename)
-	.then(result=>{
-		var stdout = result.stdout
-		var stderr = result.stderr
-		if(stderr) {
-			console.error(stderr)
-		}
-		var gdalinfo = JSON.parse(stdout)
-		var band = gdalinfo.bands[0]
-		var ref_time = new Date(parseInt(band.metadata[""].GRIB_REF_TIME.split(/\s/)[0])*1000)
-		var valid_time = new Date(parseInt(band.metadata[""].GRIB_VALID_TIME.split(/\s/)[0])*1000)
-		observacion = {tipo:"rast",timeupdate:ref_time,timestart: valid_time, timeend: valid_time}
-		if(series_id) {
-			observacion.series_id = series_id
-		}
-		return fsPromises.readFile(filename, 'hex')
-	})
-	.then(data => {
-		observacion.valor = '\\x' + data
-		return observacion //new CRUD.observacion({tipo: "rast", series_id:series_id, timestart: previous_time, timeend: valid_time, valor: data}))
-	})
-}
-
-function roundTo(value,precision) {
-	value = parseFloat(value.toString().replace(/\s.*$/,"").replace(",","."))
-	var regexp = new RegExp("^(\\d+\\." + "\\d".repeat(precision) + ")\\d+$")
-	return parseFloat((value+.5/10**precision).toString().replace(regexp,"$1"))
-}
-
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-var promiseFromChildProcess = function (child,filename) {
-	return new Promise(function (resolve, reject) {
-		child.addListener("error", reject);
-		child.addListener("exit", resolve(filename));
-		child.stdout.on('data', function(data) {
-			console.log('stdout: ' + data);
-		});
-		child.stderr.on('data', function(data) {
-			console.log('stderr: ' + data);
-		});
-	});
-}
-	
-function toDate(d) {
-	if(d instanceof Date) {
-		return d
-	} else {
-		var d2;
-		if(/^\d{4}-\d{2}-\d{2}\s*$/.test(d)) {
-			d2 = d.replace(/\s+/,"");
-			d2 = d2 + "T00:00:00.000Z";
-		} else if(/^\d{4}-\d{2}-\d{2}[\s|T]\d{2}(:\d{2})?(:\d{2})?$/.test(d)) {
-			d2 = d.replace(/\s/,"T") + ":00:00.000Z".substring(d.length-13);
-		} else {
-			d2=d;
-		}			
-		return new Date(d2);
-	}
-}
-function flatten(arr) {
-  return arr.reduce(function (flat, toFlatten) {
-    return flat.concat(Array.isArray(toFlatten) ? flatten(toFlatten) : toFlatten);
-  }, []);
-}
-
-function printAxiosGetError(error) {
-	if(error && error.response) {
-		console.error(error.toString() + ". " + error.response.statusText + ": " + error.request.res.responseUrl)	
-	} else {
-		console.error(error.toString())
-	}
-
-}
-
-function filterSites(sites=[],params=[]) {
-	return sites.filter(s=>{
-		if(params.name && s.name != params.name) {
-			return false
-		}
-		if(params.id_externo && s.id_externo != params.id_externo) {
-			return false
-		}
-		if(params.estacion_id && s.id != params.id) {
-			return false
-		}
-		if(params.geom && !isWithinBBox(params.geom,s.geom)){
-			return false
-		}
-		return true
-	})
-}
-
-function isWithinBBox(bbox,point) {
-	// TODO
-	return true
-}
-
-function filterSeries(series=[],params={}) {
-	return series.filter(s=>{
-		if(params.estacion_id && s.estacion.id != params.estacion_id) {
-			return false
-		}
-		if(params.var_id && s.var.id != params.var_id) {
-			return false
-		}
-		if(params.unit_id && s.unidades.id != params.unit_id) {
-			return false
-		}
-		if(params.id_externo && s.estacion.id_externo != params.id_externo) {
-			return false
-		}
-		return true
-	})
-}
 
 module.exports = internal

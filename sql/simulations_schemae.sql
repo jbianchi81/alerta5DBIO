@@ -1584,6 +1584,39 @@ SELECT series_areal.id AS series_id,
   GROUP BY series_areal.id, pronosticos_areal.cor_id, pronosticos_areal.qualifier
 ;
 
+CREATE TABLE public.pronosticos_rast (
+    id integer NOT NULL,
+    cor_id integer NOT NULL,
+    series_id integer NOT NULL,
+    timestart timestamp without time zone NOT NULL,
+    timeend timestamp without time zone NOT NULL,
+    qualifier character varying(50) DEFAULT 'main'::character varying,
+    valor raster NOT NULL
+);
+
+CREATE SEQUENCE public.pronosticos_rast_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.pronosticos_rast_id_seq OWNED BY public.pronosticos_rast.id;
+
+ALTER TABLE ONLY public.pronosticos_rast ALTER COLUMN id SET DEFAULT nextval('public.pronosticos_rast_id_seq'::regclass);
+
+ALTER TABLE ONLY public.pronosticos_rast
+    ADD CONSTRAINT pronosticos_rast_cor_id_series_id_timestart_qualifier_key UNIQUE (cor_id, series_id, timestart, qualifier);
+
+ALTER TABLE ONLY public.pronosticos_rast
+    ADD CONSTRAINT pronosticos_rast_id_key UNIQUE (id);
+
+ALTER TABLE ONLY public.pronosticos_rast
+    ADD CONSTRAINT pronosticos_rast_cor_id_fkey FOREIGN KEY (cor_id) REFERENCES public.corridas(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.pronosticos_rast
+    ADD CONSTRAINT pronosticos_rast_series_id_fkey FOREIGN KEY (series_id) REFERENCES public.series_rast(id) ON DELETE CASCADE;
+
 CREATE TABLE series_rast_prono_date_range_by_qualifier (
     series_id integer not null references series_rast(id),
     cor_id integer not null references corridas(id),
@@ -1773,38 +1806,5 @@ ALTER TABLE ONLY public.extra_pars
 
 ALTER TABLE ONLY public.extra_pars
     ADD CONSTRAINT extra_pars_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.modelos(id);
-
-CREATE TABLE public.pronosticos_rast (
-    id integer NOT NULL,
-    cor_id integer NOT NULL,
-    series_id integer NOT NULL,
-    timestart timestamp without time zone NOT NULL,
-    timeend timestamp without time zone NOT NULL,
-    qualifier character varying(50) DEFAULT 'main'::character varying,
-    valor raster NOT NULL
-);
-
-CREATE SEQUENCE public.pronosticos_rast_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-ALTER SEQUENCE public.pronosticos_rast_id_seq OWNED BY public.pronosticos_rast.id;
-
-ALTER TABLE ONLY public.pronosticos_rast ALTER COLUMN id SET DEFAULT nextval('public.pronosticos_rast_id_seq'::regclass);
-
-ALTER TABLE ONLY public.pronosticos_rast
-    ADD CONSTRAINT pronosticos_rast_cor_id_series_id_timestart_qualifier_key UNIQUE (cor_id, series_id, timestart, qualifier);
-
-ALTER TABLE ONLY public.pronosticos_rast
-    ADD CONSTRAINT pronosticos_rast_id_key UNIQUE (id);
-
-ALTER TABLE ONLY public.pronosticos_rast
-    ADD CONSTRAINT pronosticos_rast_cor_id_fkey FOREIGN KEY (cor_id) REFERENCES public.corridas(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY public.pronosticos_rast
-    ADD CONSTRAINT pronosticos_rast_series_id_fkey FOREIGN KEY (series_id) REFERENCES public.series_rast(id) ON DELETE CASCADE;
 
 COMMIT;

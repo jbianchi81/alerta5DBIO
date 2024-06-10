@@ -2,276 +2,117 @@
 sequence:
 - procedureName: CreateProcedure
   arguments:
-    class_name: fuente
-    jsonfile: sample_data/fuente_gfs.json
-  tests:
-  - testName: ArrayLengthTest
-    arguments:
-      min_length: 1
-      max_length: 1    
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: accessor
-#     jsonfile: sample_data/accessor_a5.json
-# - procedureName: DownloadFromAccessorProcedure
-#   arguments:
-#     accessor_id: a5
-#     filter:
-#       tipo: raster
-#       series_id: 8
-#       timestart:
-#       # 2023-09-01T12:00:00.000Z
-#         days: -7
-#       roundTo:
-#         hours: 12
-#       timeend:
-#       # 2023-09-08T12:00:00.000Z
-#         days: 0
-#     output_format: raster
-#     options:
-#       output_individual_files:
-#         base_path: outputs
-#         pattern: serie.rast.{{id}}.{{timestart}}
-#         iter_field: observaciones
-#   tests:
-#   - testName: ResultIsInstanceOfTest
-#     arguments:
-#       class_name: serie
-#   # - testName: OutputFileTest
-#   #   arguments:
-#   #     class_name: observacion
-#   #     output: outputs/serie.rast.8.2023-09-01T12:00:00.000Z.tif
-#   #     output_format: buffer
-#   #     result_deep_property: 0.observaciones.0.valor
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: fuente
-#     jsonfile: sample_data/fuente.json
-#     options:
-#       create_cube_table: true
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: escena
-#     jsonfile: sample_data/escena.json
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: serie
-#     jsonfile: sample_data/serie_raster.json
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: observacion
-#     elements:
-#     - tipo: raster
-#       series_id: 3
-#       timestart: 2023-09-01T12:00:00.000Z
-#       timeend: 2023-09-02T12:00:00.000Z
-#       filename: sample_data/serie.rast.8.2023-09-01T12:00:00.000Z.tif
-#     output: outputs/created_obs.tif
-#     output_format: raster
-#     options:
-#       upsert_estacion: true
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 1
-#   - testName: ResultIsInstanceOfTest
-#     arguments:
-#       class_name: observacion
-#   - testName: OutputFileTest
-#     arguments:
-#       class_name: observacion
-#       output: outputs/created_obs.tif
-#       output_format: buffer
-#       result_deep_property: 0.valor
-# - procedureName: ReadProcedure
-#   arguments:
-#     class_name: observacion
-#     filter:
-#       tipo: raster
-#       series_id: 3
-#       timestart: 2023-09-01T12:00:00.000Z
-#     output: outputs/read_obs.tif
-#     output_format: raster 
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 1
-#   - testName: ResultIsInstanceOfTest
-#     arguments:
-#       class_name: observacion
-#   - testName: OutputFileTest
-#     arguments:
-#       class_name: observacion
-#       output: outputs/read_obs.tif
-#       output_format: buffer
-#       result_deep_property: 0.valor
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: observacion
-#     elements:
-#     - tipo: raster
-#       series_id: 3
-#       timestart: 2023-09-02T12:00:00.000Z
-#       timeend: 2023-09-03T12:00:00.000Z
-#       filename: sample_data/serie.rast.8.2023-09-02T12:00:00.000Z.tif
-#     output: outputs/created_obs_2.tif
-#     output_format: raster
-#     options:
-#       upsert_estacion: true
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 1
-#   - testName: ResultIsInstanceOfTest
-#     arguments:
-#       class_name: observacion
-#   - testName: OutputFileTest
-#     arguments:
-#       class_name: observacion
-#       output: outputs/created_obs_2.tif
-#       output_format: buffer
-#       result_deep_property: 0.valor
-# - procedureName: UpdateCubeFromSeriesProcedure
-#   arguments:
-#     series_id: 3
-#     timestart: 2023-09-01T12:00:00.000Z
-#     timeend: 2023-09-03T12:00:00.000Z
-#     fuentes_id: 5
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 2
-#       max_length: 2
-# - procedureName: UpdateSerieRastFromCubeProcedure
-#   arguments:
-#     filter:
-#       series_id: 3
-#       timestart: 2023-09-01T12:00:00.000Z
-#       timeend: 2023-09-03T12:00:00.000Z
-#       fuentes_id: 5
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 2
-#       max_length: 2
-# - procedureName: RastExtractProcedure
-#   arguments:
-#     filter:
-#       series_id: 3
-#       timestart: 2023-09-01T12:00:00.000Z
-#       timeend: 2023-09-03T12:00:00.000Z
-#     output: outputs/rast_extract.tif
-#     output_format: raster 
-#   tests:
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 1
-#   - testName: ResultIsInstanceOfTest
-#     arguments:
-#       class_name: observacion
-#   - testName: OutputFileTest
-#     arguments:
-#       class_name: observacion
-#       output: outputs/rast_extract.tif
-#       output_format: buffer
-#       result_deep_property: 0.valor
-# - procedureName: UpdateProcedure
-#   arguments:
-#     class_name: observacion
-#     filter:
-#       tipo: raster
-#       series_id: 3
-#       timestart: 2023-09-01T12:00:00.000Z
-#       timeend: 2023-09-02T12:00:00.000Z
-#     update:
-#       timeupdate: 2023-03-01T12:00:00.001Z
-#     output: outputs/updated_obs.tif 
-#     output_format: raster
-#   tests:
-#   - testName: PropertyEqualsTest
-#     arguments:
-#       property_name: timeupdate
-#       property_value: 2023-03-01T12:00:00.001Z
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 1
-#       max_length: 1
-#   - testName: OutputFileTest
-#     arguments:
-#       class_name: observacion
-#       output_format: buffer
-#       result_deep_property: 0.valor
-#       output: outputs/updated_obs.tif
-# - procedureName: DeleteProcedure
-#   arguments:
-#     class_name: observacion
-#     filter:
-#       tipo: raster
-#       series_id: 3
-#       timestart: 2023-09-01T12:00:00.000Z
-#       timeend: 2023-09-02T12:00:00.000Z
-#     output: outputs/deleted_obs.tif
-#     output_format: raster
-#   tests:
-#   - testName: PropertyEqualsTest
-#     arguments:
-#       property_name: timestart
-#       property_value: 2023-09-01T12:00:00.000Z
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 1
-#       max_length: 1
-#   - testName: OutputFileTest
-#     arguments:
-#       class_name: observacion
-#       output: outputs/deleted_obs.tif
-#       output_format: buffer
-#       result_deep_property: 0.valor
-# - procedureName: DeleteProcedure
-#   arguments:
-#     class_name: observacion
-#     filter:
-#       tipo: raster
-#       series_id: 3
-#       timestart: 2023-09-02T12:00:00.000Z
-#       timeend: 2023-09-03T12:00:00.000Z
-#     output: outputs/deleted_obs.tif
-#     output_format: raster
-#   tests:
-#   - testName: PropertyEqualsTest
-#     arguments:
-#       property_name: timestart
-#       property_value: 2023-09-02T12:00:00.000Z
-#   - testName: ArrayLengthTest
-#     arguments:
-#       min_length: 1
-#       max_length: 1
-#   - testName: OutputFileTest
-#     arguments:
-#       class_name: observacion
-#       output: outputs/deleted_obs.tif
-#       output_format: buffer
-#       result_deep_property: 0.valor
-# - procedureName: DeleteProcedure
-#   arguments:
-#     class_name: serie
-#     filter:
-#       tipo: raster
-#       id: 3
-# - procedureName: DeleteProcedure
-#   arguments:
-#     class_name: escena
-#     filter:
-#       id: 15
-# - procedureName: DeleteProcedure
-#   arguments:
-#     class_name: fuente
-#     filter:
-#       id: 5
-#     options:
-#       drop_cube_table: true
-# - procedureName: DeleteProcedure
-#   arguments:
-#     class_name: accessor
-#     filter:
-#       name: a5
+    class_name: serie
+    jsonfile: sample_data/serie_rast_5.json
+    options:
+      all: true
+- procedureName: CreateProcedure
+  arguments:
+    class_name: calibrado
+    elements:
+    - id: 676
+      nombre: gfs_nomads
+      model_id: 305
+
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor
+    elements:
+    - name: gfs_nomads
+      class: gfs_nomads
+      config:
+        url: https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl
+        file_pattern: gfs.t%02dz.pgrb2.0p25.f%03d
+        bbox:
+          leftlon: -70
+          rightlon: -40 
+          toplat: -10
+          bottomlat: -40
+        level: surface
+        var: APCP
+        latency: 4
+        start_hour: 6
+        end_hour: 384
+        step_hour: 6
+        localfilepath: data/nomads_gfs/nomads_gfs.grib2
+        localfile_pattern: nomads_gfs_%03d.grib2
+        units: milímetros
+        variable_map:
+          APCP06:
+            name: precipitación 6 horaria
+            series_id: 5
+        data_dir: data/nomads_gfs
+        cal_id: 676
+
+- procedureName: GetPronosticoFromAccessorProcedure
+  arguments:
+    accessor_id: gfs_nomads
+    filter: {}
+    output: ../../tmp/corrida_gfs_nomads.json
+
+- procedureName: UpdatePronosticoFromAccessorProcedure
+  arguments:
+    accessor_id: gfs_nomads
+    filter: {}
+    output: ../../tmp/corrida_gfs_nomads.json
+
+- procedureName: ReadProcedure
+  arguments:
+    class_name: Pronostico
+    filter:
+      cal_id: 676
+      forecast_date: "2024-06-10T12:00:00.000Z"
+      series_id: 5
+      tipo: rast
+      timestart: "2024-06-10T06:00:00.000Z"
+      timeend: "2024-06-10T12:00:00.000Z"
+    output: ../../tmp/prono_nomads.tif
+    options:
+      output_format: raster
+- procedureName: CreateProcedure
+  arguments:
+    class_name: serie
+    elements:
+    - tipo: areal
+      estacion_id: 134
+      var_id: 1
+      proc_id: 4
+      unit_id: 22
+      fuentes_id: 44
+
+- procedureName: RastToArealProcedure
+  arguments:
+    filter:
+        series_id: 5
+        timestart: "2024-06-10T12:00:00.000Z"
+        timeend: "2024-06-26T06:00:00.000Z"
+        area_id: 134
+        cal_id: 676
+        forecast_date: "2024-06-10T12:00:00.000Z"
+    options:
+      funcion: mean
+      no_insert: false
+      pretty: true
+    output: ../../tmp/serie_areal_from_rast.json
+
+- procedureName: ReadProcedure
+  arguments:
+    class_name: pronostico
+    filter:
+      tipo: areal
+      estacion_id: 134
+      cal_id: 676
+      forecast_date:
+        days: 0
+        roundTo:
+          hours: 12          
+      timestart:
+        days: 0
+        roundTo:
+          hours: 0          
+      timeend:
+        days: 16
+    output: ../../tmp/gfs_nomads_pma.json
+    options:
+      includeProno: true
+      pretty: true
