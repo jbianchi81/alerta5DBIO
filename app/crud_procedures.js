@@ -3950,7 +3950,7 @@ if(1==1) {
             }
             const update = parseKVPArray(options.update)
             try {
-                var procedure = new internal.UpdateProcedure({class_name: class_name, filter:filter, output: path.resolve(options.output), output_format: options.format, options: update_options, update:update})
+                var procedure = new internal.UpdateProcedure({class_name: class_name, filter:filter, output: (options.output) ? path.resolve(options.output) : undefined, output_format: options.format, options: update_options, update:update})
             } catch(e) {
                 logger.error(e)
                 process.exit(1)

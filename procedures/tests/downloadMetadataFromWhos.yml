@@ -113,6 +113,19 @@ sequence:
     arguments:
       min_length: 3
       max_length: 3
+- procedureName: UpdateProcedure
+  arguments:
+    class_name: estacion
+    filter:
+      tabla: whos_plata
+      id_externo: 16A422256C2D7B8A38B3809501D6B6ABB6A49ED2
+    update:
+      id: 16000
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: id
+      property_value: 16000    
 - procedureName: GetMetadataFromAccessorProcedure
   arguments:
     accessor_id: whos_om_ogc_timeseries_api
@@ -234,7 +247,7 @@ sequence:
   arguments:
     accessor_id: whos_om_ogc_timeseries_api
     filter:
-      estacion_id: [97,16]
+      estacion_id: [16000]
       var_id: 31
       timestart: 2022-01-01T03:00:00.000Z
       timeend:

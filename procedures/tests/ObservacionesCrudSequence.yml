@@ -9,6 +9,12 @@ sequence:
       timestart: 1990-01-01 00:00:00
       timeend: 2021-01-01 00:00:00
     output: outputs/deleted_observaciones.json
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: estacion
+    filter:
+      id:
+      - 55
 - procedureName: CreateProcedure
   arguments:
     class_name: estacion

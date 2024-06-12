@@ -556,9 +556,34 @@ internal.estacion = class extends baseModel  {
 		return internal.CRUD.upsertEstaciones(data,options)
 	}
 	async update(fields={}) {
-		this.set(fields)
-		return internal.CRUD.updateEstacion(this)
+		if(fields.id) {
+			await this.updateId(fields.id)
+		}
+		if(Object.keys(fields).filter(k=> k != "id").length) {
+			this.set(fields)
+			return internal.CRUD.updateEstacion(this)
+		} else {
+			return this
+		}
 	}
+	async updateId(id) {
+		try {
+			var result = await global.pool.query(`
+				UPDATE estaciones
+				SET unid=$1
+				WHERE tabla=$2
+				AND id_externo=$3
+				RETURNING unid as id`, [id, this.tabla, this.id_externo])
+		} catch(e) {
+			throw("estacion.updateId failed: " + e.toString())
+		}
+		if(!result.rows.length) {
+			throw("Nothing updated")
+		}
+		this.set({id:result.rows[0].id})
+		return
+	} 
+
 	async delete() {
 		return internal.CRUD.deleteEstacion(this.id)
 	}
@@ -5262,12 +5287,99 @@ internal.modelo = class extends baseModel {
 		return this.id + "," + this.nombre + "," + this.tipo
 	} 
 	async create() {
-		const created = await internal.CRUD.upsertModelos([this])
-		if(created.length) {
-			Object.assign(this,created[0])
-			return this
+		const required_fields = ["nombre", "tipo", "def_var_id", "def_unit_id"]
+		required_fields.forEach(key=>{
+			if(typeof this[key] === undefined) {
+				throw("Invalid modelo. Missing " + key)
+			}
+			if(this[key] == null) {
+				throw("Invalid modelo. " + key + " is null")
+			}
+		})
+		const client = await global.pool.connect()
+		await client.query("BEGIN")
+		if(this.id) {
+			var result = await client.query(`
+				INSERT INTO modelos (
+					id,
+					nombre,
+					tipo,
+					def_var_id,
+					def_unit_id
+				)
+				VALUES (
+					$1,
+					$2,
+					$3,
+					$4,
+					$5
+			    )
+				ON CONFLICT (id) 
+				DO UPDATE SET 
+					nombre=excluded.nombre, 
+					tipo=excluded.tipo, 
+					def_var_id=excluded.def_var_id, 
+					def_unit_id=excluded.def_unit_id 
+				RETURNING *
+			`, [this.id, this.nombre, this.tipo, this.def_var_id, this.def_unit_id])
+		} else {
+			var result = await client.query(`
+				INSERT INTO modelos (
+					nombre,
+					tipo,
+					def_var_id,
+					def_unit_id
+				)
+				VALUES (
+					$1,
+					$2,
+					$3,
+					$4
+			    )
+				ON CONFLICT (name) 
+				DO UPDATE SET 
+					tipo=excluded.tipo, 
+					def_var_id=excluded.def_var_id, 
+					def_unit_id=excluded.def_unit_id 
+				RETURNING *
+			`, [this.nombre, this.tipo, this.def_var_id, this.def_unit_id])
 		}
-		return
+		if(!result.rows.length) {
+			throw("Nothing created")
+		}
+		Object.assign(this,result.rows[0])
+		if(this.parametros) {
+			for(var j=0;j<this.parametros.length;j++) {
+				// console.log(this.parametros[j])
+				this.parametros[j].model_id = this.id 
+				const parametro = await this.upsertParametroDeModelo(client,this.parametros[j])
+				this.parametros[j].id = parametro.id
+			}
+		}
+		if(this.estados) {
+			for(var j=0;j<this.estados.length;j++) {
+				// console.log(this.estados[j])
+				this.estados[j].model_id = this.id 
+				const estado = await this.upsertEstadoDeModelo(client,this.estados[j])
+				this.estados[j].id = estado.id
+			}
+		}
+		if(this.forzantes) {
+			for(var j=0;j<this.forzantes.length;j++) {
+				this.forzantes[j].model_id = this.id 
+				const forzante = await this.upsertForzanteDeModelo(client,this.forzantes[j])
+				this.forzantes[j].id = forzante.id
+			}
+		}
+		if(this.outputs) {
+			for(var j=0;j<this.outputs.length;j++) {
+				this.outputs[j].model_id = this.id 
+				const output = await this.upsertOutputDeModelo(client,this.outputs[j])
+				this.outputs[j].id = output.id
+			}
+		}
+		await client.query("COMMIT")		
+		return this		
 	}
 	static async read(filter={}) {
 		return internal.CRUD.getModelos(filter.id ?? filter.model_id, filter.tipo,filter.name)
@@ -6936,6 +7048,7 @@ internal.CRUD = class {
 			RETURNING unid id, nombre, st_asGeoJSON(geom)::json geom, distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev, URL, localidad, real, cero_ign, altitud, ubicacion"
 			query_params = [estacion.nombre, estacion.id_externo, (estacion.geom) ? estacion.geom.coordinates[0] : undefined, (estacion.geom) ? estacion.geom.coordinates[1] : undefined, estacion.tabla, estacion.provincia, estacion.pais, estacion.rio, estacion.has_obs, estacion.tipo, estacion.automatica, estacion.habilitar, estacion.propietario, estacion.abreviatura, estacion.URL, estacion.localidad, estacion.real, estacion.id, estacion.cero_ign, estacion.altitud, estacion.ubicacion]
 		}
+		console.debug(pasteIntoSQLQuery(query, query_params))
 		const result = await client.query(query,query_params) 
 		if(result.rows.length<=0) {
 			console.error("No se encontró la estación")
@@ -15013,12 +15126,16 @@ SELECT mod.id, \
 				}
 			})
 			var modelo = new internal.modelo(m)
-			return sprintf("('%s','%s',%d,%d)",modelo.nombre,modelo.tipo,modelo.def_var_id,modelo.def_unit_id)
+			if(m.id) {
+				return sprintf("(%d,'%s','%s',%d,%d)",modelo.id, modelo.nombre, modelo.tipo, modelo.def_var_id, modelo.def_unit_id)
+			} else {
+				return sprintf("(nextval('modelos_id_seq'::regclass),%d,'%s','%s',%d,%d)",modelo.id, modelo.nombre, modelo.tipo, modelo.def_var_id, modelo.def_unit_id)
+			}
 		})
 		const client = await global.pool.connect()
 		try {
 			await client.query("BEGIN")
-			var result = await client.query("INSERT INTO modelos (nombre,tipo,def_var_id,def_unit_id) VALUES " + rows.join(",") + " ON CONFLICT (nombre) DO UPDATE SET tipo=excluded.tipo, def_var_id=excluded.def_var_id, def_unit_id=excluded.def_unit_id RETURNING *")
+			var result = await client.query("INSERT INTO modelos (id,nombre,tipo,def_var_id,def_unit_id) VALUES " + rows.join(",") + " ON CONFLICT (nombre) DO UPDATE SET tipo=excluded.tipo, def_var_id=excluded.def_var_id, def_unit_id=excluded.def_unit_id RETURNING *")
 			for(var i = 0;i<result.rows.length;i++) {
 				modelos[i].id = result.rows[i].id
 				if(modelos[i].parametros) {

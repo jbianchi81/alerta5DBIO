@@ -34,6 +34,23 @@ sequence:
   #     output: outputs/serie.rast.8.2023-09-01T12:00:00.000Z.tif
   #     output_format: buffer
   #     result_deep_property: 0.observaciones.0.valor
+- procedureName: DeleteProcedure
+  arguments: 
+    class_name: serie
+    filter:
+      tipo: areal
+      fuentes_id: 7
+- procedureName: DeleteProcedure
+  arguments: 
+    class_name: serie
+    filter:
+      tipo: rast
+      fuentes_id: 7
+- procedureName: DeleteProcedure
+  arguments: 
+    class_name: fuente
+    filter:
+      id: 7
 - procedureName: CreateProcedure
   arguments:
     class_name: fuente
