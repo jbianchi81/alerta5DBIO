@@ -4861,7 +4861,7 @@ function getPronostico(req,res) {   // requiere id de corrida, devuelve objeto C
 			res.status(400).send(e)
 		})
 	} else {
-		crud.getPronosticos(filter.cor_id,filter.cal_id,undefined,undefined,undefined,filter.timestart,filter.timeend,filter.qualifier,filter.estacion_id,filter.var_id,options.includeProno,filter.public,filter.series_id,options.series_metadata)
+		crud.getPronosticos(filter.cor_id,filter.cal_id,undefined,undefined,undefined,filter.timestart,filter.timeend,filter.qualifier,filter.estacion_id,filter.var_id,options.includeProno,filter.public,filter.series_id,options.series_metadata, undefined, undefined, undefined, filter.tipo, filter.tabla ?? filter.tabla_id)
 		.then(result=>{
 			if(result.length==0) {
 				res.status(404).send({message:"Corrida not found",error:"Corrida not found"})
