@@ -1551,7 +1551,7 @@ internal.fuente = class extends baseModel {
 		return internal.CRUD.getFuentes(filter,options)
 	}
 	async create(options={}) {
-		console.log({options:options})
+		// console.log({options:options})
 		const created = await internal.CRUD.upsertFuente(this)
 		if(created) {
 			Object.assign(this,created)
@@ -8119,26 +8119,18 @@ internal.CRUD = class {
 	// FUENTE //
 			
 	static async upsertFuente(fuente) {
-		return fuente.getId(global.pool)
-		.then(()=>{
-			// console.log(fuente)
-			var query = this.upsertFuenteQuery(fuente)
-			// if(config.verbose) {
-			// 	console.log("crud.upsertFuente: " + query)
-			// }
-			return global.pool.query(query)
-		}).then(async result=>{
-			if(result.rows.length<=0) {
-				console.error("Upsert failed")
-				return
-			}
-			console.log("Upserted fuentes.id=" + result.rows[0].id)
-			const fuente = new internal.fuente(result.rows[0])
-			return fuente
-		}).catch(e=>{
-			console.error(e)
-			return
-		})
+		await fuente.getId(global.pool)
+		// console.log(fuente)
+		var query = this.upsertFuenteQuery(fuente)
+		// if(config.verbose) {
+		// 	console.log("crud.upsertFuente: " + query)
+		// }
+		const result = await global.pool.query(query)
+		if(result.rows.length<=0) {
+			throw("Upsert failed")
+		}
+		console.log("Upserted fuentes.id=" + result.rows[0].id)
+		return new internal.fuente(result.rows[0])
 	}
 
 	static upsertFuenteQuery(fuente) {
@@ -12156,6 +12148,9 @@ internal.CRUD = class {
 		} catch(e) {
 			client.release()
 			throw(e)
+		}
+		if(!fuente) {
+			throw("Fuente not found")
 		}
 		if(!fuente.data_table) {
 			client.release()

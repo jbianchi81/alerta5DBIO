@@ -127,7 +127,7 @@ sequence:
     series_id: 3
     timestart: 2023-09-01T12:00:00.000Z
     timeend: 2023-09-03T12:00:00.000Z
-    fuentes_id: 5
+    fuentes_id: 7
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -139,7 +139,7 @@ sequence:
       series_id: 3
       timestart: 2023-09-01T12:00:00.000Z
       timeend: 2023-09-03T12:00:00.000Z
-      fuentes_id: 5
+      fuentes_id: 7
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -258,7 +258,7 @@ sequence:
   arguments:
     class_name: fuente
     filter:
-      id: 5
+      id: 7
     options:
       drop_cube_table: true
 - procedureName: DeleteProcedure

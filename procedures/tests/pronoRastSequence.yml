@@ -1,99 +1,116 @@
 # yaml-language-server: $schema=../../public/schemas/sequence.json 
 sequence:
-- procedureName: CreateProcedure
-  arguments:
-    class_name: serie
-    jsonfile: sample_data/serie_rast_5.json
-    options:
-      all: true
-- procedureName: CreateProcedure
-  arguments:
-    class_name: calibrado
-    elements:
-    - id: 676
-      nombre: gfs_nomads
-      model_id: 305
+# - procedureName: CreateProcedure
+#   arguments:
+#     class_name: serie
+#     jsonfile: sample_data/serie_rast_5.json
+#     options:
+#       all: true
+# - procedureName: CreateProcedure
+#   arguments:
+#     class_name: calibrado
+#     elements:
+#     - id: 676
+#       nombre: gfs_nomads
+#       model_id: 305
 
-- procedureName: CreateProcedure
-  arguments:
-    class_name: accessor
-    elements:
-    - name: gfs_nomads
-      class: gfs_nomads
-      config:
-        url: https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl
-        file_pattern: gfs.t%02dz.pgrb2.0p25.f%03d
-        bbox:
-          leftlon: -70
-          rightlon: -40 
-          toplat: -10
-          bottomlat: -40
-        level: surface
-        var: APCP
-        latency: 4
-        start_hour: 6
-        end_hour: 384
-        step_hour: 6
-        localfilepath: data/nomads_gfs/nomads_gfs.grib2
-        localfile_pattern: nomads_gfs_%03d.grib2
-        units: milímetros
-        variable_map:
-          APCP06:
-            name: precipitación 6 horaria
-            series_id: 5
-        data_dir: data/nomads_gfs
-        cal_id: 676
+# - procedureName: CreateProcedure
+#   arguments:
+#     class_name: accessor
+#     elements:
+#     - name: gfs_nomads
+#       class: gfs_nomads
+#       config:
+#         url: https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl
+#         file_pattern: gfs.t%02dz.pgrb2.0p25.f%03d
+#         bbox:
+#           leftlon: -70
+#           rightlon: -40 
+#           toplat: -10
+#           bottomlat: -40
+#         level: surface
+#         var: APCP
+#         latency: 4
+#         start_hour: 6
+#         end_hour: 384
+#         step_hour: 6
+#         localfilepath: data/nomads_gfs/nomads_gfs.grib2
+#         localfile_pattern: nomads_gfs_%03d.grib2
+#         units: milímetros
+#         variable_map:
+#           APCP06:
+#             name: precipitación 6 horaria
+#             series_id: 5
+#         data_dir: data/nomads_gfs
+#         cal_id: 676
 
-- procedureName: GetPronosticoFromAccessorProcedure
-  arguments:
-    accessor_id: gfs_nomads
-    filter: {}
-    output: ../../tmp/corrida_gfs_nomads.json
+# - procedureName: GetPronosticoFromAccessorProcedure
+#   arguments:
+#     accessor_id: gfs_nomads
+#     filter: {}
+#     output: ../../tmp/corrida_gfs_nomads.json
 
-- procedureName: UpdatePronosticoFromAccessorProcedure
-  arguments:
-    accessor_id: gfs_nomads
-    filter: {}
-    output: ../../tmp/corrida_gfs_nomads.json
+# - procedureName: UpdatePronosticoFromAccessorProcedure
+#   arguments:
+#     accessor_id: gfs_nomads
+#     filter: {}
+#     output: ../../tmp/corrida_gfs_nomads.json
 
-- procedureName: ReadProcedure
-  arguments:
-    class_name: Pronostico
-    filter:
-      cal_id: 676
-      forecast_date: "2024-06-10T12:00:00.000Z"
-      series_id: 5
-      tipo: rast
-      timestart: "2024-06-10T06:00:00.000Z"
-      timeend: "2024-06-10T12:00:00.000Z"
-    output: ../../tmp/prono_nomads.tif
-    options:
-      output_format: raster
-- procedureName: CreateProcedure
-  arguments:
-    class_name: serie
-    elements:
-    - tipo: areal
-      estacion_id: 134
-      var_id: 1
-      proc_id: 4
-      unit_id: 22
-      fuentes_id: 44
+# - procedureName: ReadProcedure
+#   arguments:
+#     class_name: Pronostico
+#     filter:
+#       cal_id: 676
+#       # forecast_date: "2024-06-10T12:00:00.000Z"
+#       forecast_date: # "2024-06-10T12:00:00.000Z"
+#           days: 0
+#           roundTo:
+#             hours: 6
+#       series_id: 5
+#       tipo: rast
+#       timestart: # "2024-06-10T06:00:00.000Z"
+#         hours: -6
+#       timeend: #"2024-06-10T12:00:00.000Z"
+#         hours: 18
+#     output: ../../tmp/prono_nomads.tif
+#     options:
+#       output_format: raster
 
-- procedureName: RastToArealProcedure
-  arguments:
-    filter:
-        series_id: 5
-        timestart: "2024-06-10T12:00:00.000Z"
-        timeend: "2024-06-26T06:00:00.000Z"
-        area_id: 134
-        cal_id: 676
-        forecast_date: "2024-06-10T12:00:00.000Z"
-    options:
-      funcion: mean
-      no_insert: false
-      pretty: true
-    output: ../../tmp/serie_areal_from_rast.json
+# - procedureName: CreateProcedure
+#   arguments:
+#     class_name: area
+#     geojsonfile: sample_data/area_134.json  
+
+# - procedureName: CreateProcedure
+#   arguments:
+#     class_name: serie
+#     elements:
+#     - tipo: areal
+#       estacion_id: 134
+#       var_id: 1
+#       proc_id: 4
+#       unit_id: 22
+#       fuentes_id: 44
+
+# - procedureName: RastToArealProcedure
+#   arguments:
+#     filter:
+#         series_id: 5
+#         timestart: #"2024-06-10T12:00:00.000Z"
+#           hours: -6
+#         timeend: #"2024-06-27T06:00:00.000Z"
+#           days: 16
+#         area_id: 134
+#         cal_id: 676
+#         forecast_date: # "2024-06-10T12:00:00.000Z"
+#           days: 0
+#           roundTo:
+#             hours: 6
+#     options:
+#       funcion: mean
+#       no_insert: false
+#       pretty: true
+#     output: ../../tmp/serie_areal_from_rast.json
 
 - procedureName: ReadProcedure
   arguments:
@@ -102,14 +119,12 @@ sequence:
       tipo: areal
       estacion_id: 134
       cal_id: 676
-      forecast_date:
-        days: 0
+      forecast_date: # "2024-06-11T06:00:00.000Z"
+        hours: -4
         roundTo:
-          hours: 12          
+          hours: 6         
       timestart:
-        days: 0
-        roundTo:
-          hours: 0          
+        hours: -10
       timeend:
         days: 16
     output: ../../tmp/gfs_nomads_pma.json
