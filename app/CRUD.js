@@ -15473,7 +15473,7 @@ ORDER BY cal.cal_id`
 		var filter_string = internal.utils.control_filter2(
 			{
 				series_id: {type: "integer"},
-				date: {type: "timestamp", table: "corridas"}
+				date: {type: "date", table: "corridas"}
 			},
 			{
 				series_id: series_id,
@@ -15589,7 +15589,7 @@ ORDER BY cal.cal_id`
 		var series_prono_last
 		if(series_id && tipo == "areal") {
 			series_prono_last = await this.getSeriesArealPronoLast(series_id,forecast_date)
-			// console.log({series_prono_last:series_prono_last})
+			console.debug({series_prono_last:series_prono_last})
 			const cal_ids = new Set(series_prono_last.map(result=>result.cal_id))
 			filter.id = Array.from(cal_ids)
 			if(!filter.id.length) {
@@ -15629,7 +15629,7 @@ ORDER BY cal.cal_id`
 			}
 			if(forecast_date) {
 				for(var i in calibrados) {
-					const corridas = await this.getPronosticos(undefined,calibrados[i].id,undefined,undefined,forecast_date,timestart,timeend,qualifier,calibrados[i].out_id,var_id,true,isPublic,series_id,false,undefined,true)
+					const corridas = await this.getPronosticos(undefined,calibrados[i].id,undefined,undefined,forecast_date,timestart,timeend,qualifier,calibrados[i].out_id,var_id,true,isPublic,series_id,false,undefined,true, undefined, tipo)
 					if(corridas.length > 0) {
 						calibrados[i].corrida = corridas[0]
 					} else {
@@ -15641,7 +15641,7 @@ ORDER BY cal.cal_id`
 					// console.log(`this.getLastCorrida(${calibrados[i].out_id},${var_id},${calibrados[i].id},${timestart},${timeend},${qualifier},true,${isPublic},${series_id},undefined,true,undefined,undefined)`)
 					const estacion_id_filter = (Array.isArray(calibrados[i].out_id)) ? calibrados[i].out_id.map(s=>(typeof s == "number") ? s : s.estacion_id) : calibrados[i].out_id
 					// console.log("estacion_id_filter: " + estacion_id_filter)
-					const corrida = await this.getLastCorrida(estacion_id_filter,var_id,calibrados[i].id,timestart,timeend,qualifier,true,isPublic,series_id,undefined,true,undefined,undefined)
+					const corrida = await this.getLastCorrida(estacion_id_filter,var_id,calibrados[i].id,timestart,timeend,qualifier,true,isPublic,series_id,undefined,true,tipo,undefined)
 					calibrados[i].corrida = corrida
 					// console.log(JSON.stringify(calibrados[i].corrida,null,2))
 				}
@@ -16355,7 +16355,7 @@ ORDER BY cal.cal_id`
 				"cal_grupo_id": { type: "integer", table: "calibrados", column: "grupo_id"},
 				"forecast_timestart": { type: "timestart", table: "corridas", column: "date"},
 				"forecast_timeend": { type: "timeend", table: "corridas", column: "date"},
-				"forecast_date": { type: "timestamp", table: "corridas", column: "date"}
+				"forecast_date": { type: "date", table: "corridas", column: "date"}
 			},
 			{
 				cal_id: cal_id,
@@ -16364,7 +16364,8 @@ ORDER BY cal.cal_id`
 				isPublic: isPublic,
 				cal_grupo_id: cal_grupo_id,
 				forecast_timestart: forecast_timestart,
-				forecast_timeend: forecast_timeend
+				forecast_timeend: forecast_timeend,
+				forecast_date: forecast_date
 			},
 			"corridas",
 			undefined,
@@ -16381,7 +16382,7 @@ ORDER BY cal.cal_id`
 		WHERE 1=1 \
 		" + filter_string + "\
 		ORDER BY corridas.cal_id, corridas.date"
-		// console.debug(query)
+		console.debug(query)
 		const result = await global.pool.query(query)
 		if(!result.rows) {
 			return
