@@ -12858,6 +12858,14 @@ internal.CRUD = class {
 				}
 				return []
 			}
+			if(cor_id || cal_id && forecast_date) {
+				await this.updateSeriesPronoDateRange({
+					cor_id: cor_id,
+					cal_id: cal_id,
+					forecast_date: forecast_date,
+					tipo: "areal"
+				})
+			}
 			const arr = []
 			results.map(s=> {
 				if(s) {
@@ -12894,6 +12902,13 @@ internal.CRUD = class {
 					return serie.pronosticos
 				}
 				var upserted = await this.upsertPronosticos(client, serie.pronosticos)
+				await this.updateSeriesPronoDateRange({
+					cor_id: cor_id,
+					cal_id: cal_id,
+					forecast_date: forecast_date,
+					tipo: "areal",
+					series_id: serie.id
+				})
 			} else {
 				if(!serie.observaciones) {
 					console.log("observaciones no encontradas")
@@ -16555,7 +16570,9 @@ ORDER BY cal.cal_id`
 				series_id: {type: "integer"},
 				estacion_id: {type: "integer", table: "series"},
 				tabla: {type: "string", table: "estaciones"},
-				var_id: {type: "integer", table: "series"} //,
+				var_id: {type: "integer", table: "series"},
+				cal_id: {type: "integer", table: "corridas"},
+				forecast_date: {type: "date", table: "corridas", column: "date"}  //,
 				// qualifier: {type: "string"}
 			},
 			filter,
@@ -16570,6 +16587,7 @@ ORDER BY cal.cal_id`
 				FROM estaciones
 				JOIN series ON estaciones.unid = series.estacion_id
 				JOIN pronosticos ON series.id = pronosticos.series_id
+				JOIN corridas ON corridas.id = pronosticos.cor_id
 				WHERE 1=1 ${filter_string}
 				GROUP BY series.id,pronosticos.cor_id
 			ON CONFLICT (series_id,cor_id) DO UPDATE SET
@@ -16586,7 +16604,10 @@ ORDER BY cal.cal_id`
 				series_id: {type: "integer"},
 				estacion_id: {type: "integer", table: "series_areal", column:"area_id"},
 				tabla: {type: "string", table: "estaciones"},
-				var_id: {type: "integer", table: "series_areal"} //,
+				var_id: {type: "integer", table: "series_areal"},
+				cal_id: {type: "integer", table: "corridas"},
+				forecast_date: {type: "date", table: "corridas", column: "date"} 
+				//,
 				// qualifier: {type: "string"}
 			},
 			filter,
@@ -16600,6 +16621,7 @@ ORDER BY cal.cal_id`
 					json_agg(DISTINCT qualifier) AS qualifiers
 				FROM series_areal
 				JOIN pronosticos_areal ON series_areal.id = pronosticos_areal.series_id
+				JOIN corridas ON corridas.id = pronosticos_areal.cor_id
 				JOIN areas_pluvio ON series_areal.area_id = areas_pluvio.unid
 				LEFT JOIN estaciones ON areas_pluvio.exutorio_id = estaciones.unid
 				WHERE 1=1 ${filter_string}
