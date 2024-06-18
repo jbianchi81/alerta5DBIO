@@ -1032,7 +1032,7 @@ var metadataElements = {
 					name: "observaciones"
 				} 
 			},
-			area_id: {
+			estacion_id: {
 				type: "select_api",
 				title: "id de área",
 				required: true,
@@ -1054,7 +1054,7 @@ var metadataElements = {
 					name: "Área"
 				} 
 			},
-			area_nombre: {
+			estacion_nombre: {
 				type: "text",
 				title: "nombre de área",
 				required: false,

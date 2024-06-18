@@ -1,5 +1,10 @@
 # yaml-language-server: $schema=../../public/schemas/sequence.json 
 sequence:
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: estacion
+    filter:
+      id: 8
 - procedureName: CreateProcedure
   arguments:
     class_name: estacion

@@ -1,0 +1,19 @@
+{
+    "id": 3,
+    "tipo": "rast",
+    "estacion": {
+        "id": 16
+    },
+    "var": {
+        "id": 34
+    },
+    "procedimiento": {
+        "id": 4
+    },
+    "unidades": {
+        "id": 9
+    },
+    "fuente": {
+        "id": 35
+    }
+}

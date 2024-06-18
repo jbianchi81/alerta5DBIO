@@ -66,9 +66,9 @@ create table accessor_feature_of_interest (
     name varchar,
     geometry geometry,
     result jsonb,
-    estacion_id integer references estaciones(unid) on delete set null,
-    area_id integer references areas_pluvio(unid)  on delete set null,
-    escena_id integer references escenas(id)  on delete set null,
+    estacion_id integer references estaciones(unid) on delete set null on update cascade,
+    area_id integer references areas_pluvio(unid)  on delete set null on update cascade,
+    escena_id integer references escenas(id)  on delete set null on update cascade,
     network_id varchar references redes(tabla_id)  on delete set null,
     primary key(accessor_id,feature_id)
 );

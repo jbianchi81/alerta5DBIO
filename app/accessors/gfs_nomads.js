@@ -86,8 +86,25 @@ internal.Client = class extends AbstractAccessorEngine {
     }
 
     async get(filter={},options={}) {
+        var forecast_date = filter.forecast_date
+        if(!forecast_date) {
+            forecast_date = new Date()
+            forecast_date.setUTCHours(forecast_date.getUTCHours() - this.config.latency)
+            forecast_date.setUTCHours(forecast_date.getUTCHours() - forecast_date.getUTCHours() % 6)
+            forecast_date.setMinutes(0, 0, 0)
+        }
         const o = []
         for(var i=this.config.start_hour;i<=this.config.end_hour;i=i+this.config.step_hour) {
+            const timestart = new Date(forecast_date)
+            timestart.setUTCHours(timestart.getUTCHours() + i - this.config.step_hour)
+            if(filter.timestart && filter.timestart.getTime() > timestart.getTime()) {
+                // console.debug(`timestart ${timestart.toISOString()} predates filter.timestart ${filter.timestart.toISOString()}. Skipping`)
+                continue
+            }
+            if(filter.timeend && filter.timeend.getTime() < timestart.getTime()) {
+                // console.debug(`timestart ${timestart.toISOString()} exceeds filter.timeend ${filter.timeend.toISOString()}. Skipping`)
+                continue
+            }
             var filepath = path.resolve(this.config.data_dir, sprintf(this.config.localfile_pattern, i))
             const observacion = await this.getFile(filter.forecast_date, i, this.config.bbox, this.config.level, this.config.var, filepath)
             observacion.timestart.setUTCHours(observacion.timestart.getUTCHours() - this.config.step_hour)

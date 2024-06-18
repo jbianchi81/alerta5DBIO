@@ -556,9 +556,34 @@ internal.estacion = class extends baseModel  {
 		return internal.CRUD.upsertEstaciones(data,options)
 	}
 	async update(fields={}) {
-		this.set(fields)
-		return internal.CRUD.updateEstacion(this)
+		if(fields.id) {
+			await this.updateId(fields.id)
+		}
+		if(Object.keys(fields).filter(k=> k != "id").length) {
+			this.set(fields)
+			return internal.CRUD.updateEstacion(this)
+		} else {
+			return this
+		}
 	}
+	async updateId(id) {
+		try {
+			var result = await global.pool.query(`
+				UPDATE estaciones
+				SET unid=$1
+				WHERE tabla=$2
+				AND id_externo=$3
+				RETURNING unid as id`, [id, this.tabla, this.id_externo])
+		} catch(e) {
+			throw("estacion.updateId failed: " + e.toString())
+		}
+		if(!result.rows.length) {
+			throw("Nothing updated")
+		}
+		this.set({id:result.rows[0].id})
+		return
+	} 
+
 	async delete() {
 		return internal.CRUD.deleteEstacion(this.id)
 	}
@@ -5262,12 +5287,99 @@ internal.modelo = class extends baseModel {
 		return this.id + "," + this.nombre + "," + this.tipo
 	} 
 	async create() {
-		const created = await internal.CRUD.upsertModelos([this])
-		if(created.length) {
-			Object.assign(this,created[0])
-			return this
+		const required_fields = ["nombre", "tipo", "def_var_id", "def_unit_id"]
+		required_fields.forEach(key=>{
+			if(typeof this[key] === undefined) {
+				throw("Invalid modelo. Missing " + key)
+			}
+			if(this[key] == null) {
+				throw("Invalid modelo. " + key + " is null")
+			}
+		})
+		const client = await global.pool.connect()
+		await client.query("BEGIN")
+		if(this.id) {
+			var result = await client.query(`
+				INSERT INTO modelos (
+					id,
+					nombre,
+					tipo,
+					def_var_id,
+					def_unit_id
+				)
+				VALUES (
+					$1,
+					$2,
+					$3,
+					$4,
+					$5
+			    )
+				ON CONFLICT (id) 
+				DO UPDATE SET 
+					nombre=excluded.nombre, 
+					tipo=excluded.tipo, 
+					def_var_id=excluded.def_var_id, 
+					def_unit_id=excluded.def_unit_id 
+				RETURNING *
+			`, [this.id, this.nombre, this.tipo, this.def_var_id, this.def_unit_id])
+		} else {
+			var result = await client.query(`
+				INSERT INTO modelos (
+					nombre,
+					tipo,
+					def_var_id,
+					def_unit_id
+				)
+				VALUES (
+					$1,
+					$2,
+					$3,
+					$4
+			    )
+				ON CONFLICT (name) 
+				DO UPDATE SET 
+					tipo=excluded.tipo, 
+					def_var_id=excluded.def_var_id, 
+					def_unit_id=excluded.def_unit_id 
+				RETURNING *
+			`, [this.nombre, this.tipo, this.def_var_id, this.def_unit_id])
 		}
-		return
+		if(!result.rows.length) {
+			throw("Nothing created")
+		}
+		Object.assign(this,result.rows[0])
+		if(this.parametros) {
+			for(var j=0;j<this.parametros.length;j++) {
+				// console.log(this.parametros[j])
+				this.parametros[j].model_id = this.id 
+				const parametro = await this.upsertParametroDeModelo(client,this.parametros[j])
+				this.parametros[j].id = parametro.id
+			}
+		}
+		if(this.estados) {
+			for(var j=0;j<this.estados.length;j++) {
+				// console.log(this.estados[j])
+				this.estados[j].model_id = this.id 
+				const estado = await this.upsertEstadoDeModelo(client,this.estados[j])
+				this.estados[j].id = estado.id
+			}
+		}
+		if(this.forzantes) {
+			for(var j=0;j<this.forzantes.length;j++) {
+				this.forzantes[j].model_id = this.id 
+				const forzante = await this.upsertForzanteDeModelo(client,this.forzantes[j])
+				this.forzantes[j].id = forzante.id
+			}
+		}
+		if(this.outputs) {
+			for(var j=0;j<this.outputs.length;j++) {
+				this.outputs[j].model_id = this.id 
+				const output = await this.upsertOutputDeModelo(client,this.outputs[j])
+				this.outputs[j].id = output.id
+			}
+		}
+		await client.query("COMMIT")		
+		return this		
 	}
 	static async read(filter={}) {
 		return internal.CRUD.getModelos(filter.id ?? filter.model_id, filter.tipo,filter.name)
@@ -6936,6 +7048,7 @@ internal.CRUD = class {
 			RETURNING unid id, nombre, st_asGeoJSON(geom)::json geom, distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev, URL, localidad, real, cero_ign, altitud, ubicacion"
 			query_params = [estacion.nombre, estacion.id_externo, (estacion.geom) ? estacion.geom.coordinates[0] : undefined, (estacion.geom) ? estacion.geom.coordinates[1] : undefined, estacion.tabla, estacion.provincia, estacion.pais, estacion.rio, estacion.has_obs, estacion.tipo, estacion.automatica, estacion.habilitar, estacion.propietario, estacion.abreviatura, estacion.URL, estacion.localidad, estacion.real, estacion.id, estacion.cero_ign, estacion.altitud, estacion.ubicacion]
 		}
+		console.debug(pasteIntoSQLQuery(query, query_params))
 		const result = await client.query(query,query_params) 
 		if(result.rows.length<=0) {
 			console.error("No se encontró la estación")
@@ -12831,6 +12944,14 @@ internal.CRUD = class {
 				}
 				return []
 			}
+			if(cor_id || cal_id && forecast_date) {
+				await this.updateSeriesPronoDateRange({
+					cor_id: cor_id,
+					cal_id: cal_id,
+					forecast_date: forecast_date,
+					tipo: "areal"
+				})
+			}
 			const arr = []
 			results.map(s=> {
 				if(s) {
@@ -12867,6 +12988,13 @@ internal.CRUD = class {
 					return serie.pronosticos
 				}
 				var upserted = await this.upsertPronosticos(client, serie.pronosticos)
+				await this.updateSeriesPronoDateRange({
+					cor_id: cor_id,
+					cal_id: cal_id,
+					forecast_date: forecast_date,
+					tipo: "areal",
+					series_id: serie.id
+				})
 			} else {
 				if(!serie.observaciones) {
 					console.log("observaciones no encontradas")
@@ -15099,12 +15227,16 @@ SELECT mod.id, \
 				}
 			})
 			var modelo = new internal.modelo(m)
-			return sprintf("('%s','%s',%d,%d)",modelo.nombre,modelo.tipo,modelo.def_var_id,modelo.def_unit_id)
+			if(m.id) {
+				return sprintf("(%d,'%s','%s',%d,%d)",modelo.id, modelo.nombre, modelo.tipo, modelo.def_var_id, modelo.def_unit_id)
+			} else {
+				return sprintf("(nextval('modelos_id_seq'::regclass),%d,'%s','%s',%d,%d)",modelo.id, modelo.nombre, modelo.tipo, modelo.def_var_id, modelo.def_unit_id)
+			}
 		})
 		const client = await global.pool.connect()
 		try {
 			await client.query("BEGIN")
-			var result = await client.query("INSERT INTO modelos (nombre,tipo,def_var_id,def_unit_id) VALUES " + rows.join(",") + " ON CONFLICT (nombre) DO UPDATE SET tipo=excluded.tipo, def_var_id=excluded.def_var_id, def_unit_id=excluded.def_unit_id RETURNING *")
+			var result = await client.query("INSERT INTO modelos (id,nombre,tipo,def_var_id,def_unit_id) VALUES " + rows.join(",") + " ON CONFLICT (nombre) DO UPDATE SET tipo=excluded.tipo, def_var_id=excluded.def_var_id, def_unit_id=excluded.def_unit_id RETURNING *")
 			for(var i = 0;i<result.rows.length;i++) {
 				modelos[i].id = result.rows[i].id
 				if(modelos[i].parametros) {
@@ -15427,7 +15559,7 @@ ORDER BY cal.cal_id`
 		var filter_string = internal.utils.control_filter2(
 			{
 				series_id: {type: "integer"},
-				date: {type: "timestamp", table: "corridas"}
+				date: {type: "date", table: "corridas"}
 			},
 			{
 				series_id: series_id,
@@ -15543,7 +15675,7 @@ ORDER BY cal.cal_id`
 		var series_prono_last
 		if(series_id && tipo == "areal") {
 			series_prono_last = await this.getSeriesArealPronoLast(series_id,forecast_date)
-			// console.log({series_prono_last:series_prono_last})
+			console.debug({series_prono_last:series_prono_last})
 			const cal_ids = new Set(series_prono_last.map(result=>result.cal_id))
 			filter.id = Array.from(cal_ids)
 			if(!filter.id.length) {
@@ -15583,7 +15715,7 @@ ORDER BY cal.cal_id`
 			}
 			if(forecast_date) {
 				for(var i in calibrados) {
-					const corridas = await this.getPronosticos(undefined,calibrados[i].id,undefined,undefined,forecast_date,timestart,timeend,qualifier,calibrados[i].out_id,var_id,true,isPublic,series_id,false,undefined,true)
+					const corridas = await this.getPronosticos(undefined,calibrados[i].id,undefined,undefined,forecast_date,timestart,timeend,qualifier,calibrados[i].out_id,var_id,true,isPublic,series_id,false,undefined,true, undefined, tipo)
 					if(corridas.length > 0) {
 						calibrados[i].corrida = corridas[0]
 					} else {
@@ -15595,7 +15727,7 @@ ORDER BY cal.cal_id`
 					// console.log(`this.getLastCorrida(${calibrados[i].out_id},${var_id},${calibrados[i].id},${timestart},${timeend},${qualifier},true,${isPublic},${series_id},undefined,true,undefined,undefined)`)
 					const estacion_id_filter = (Array.isArray(calibrados[i].out_id)) ? calibrados[i].out_id.map(s=>(typeof s == "number") ? s : s.estacion_id) : calibrados[i].out_id
 					// console.log("estacion_id_filter: " + estacion_id_filter)
-					const corrida = await this.getLastCorrida(estacion_id_filter,var_id,calibrados[i].id,timestart,timeend,qualifier,true,isPublic,series_id,undefined,true,undefined,undefined)
+					const corrida = await this.getLastCorrida(estacion_id_filter,var_id,calibrados[i].id,timestart,timeend,qualifier,true,isPublic,series_id,undefined,true,tipo,undefined)
 					calibrados[i].corrida = corrida
 					// console.log(JSON.stringify(calibrados[i].corrida,null,2))
 				}
@@ -16309,7 +16441,7 @@ ORDER BY cal.cal_id`
 				"cal_grupo_id": { type: "integer", table: "calibrados", column: "grupo_id"},
 				"forecast_timestart": { type: "timestart", table: "corridas", column: "date"},
 				"forecast_timeend": { type: "timeend", table: "corridas", column: "date"},
-				"forecast_date": { type: "timestamp", table: "corridas", column: "date"}
+				"forecast_date": { type: "date", table: "corridas", column: "date"}
 			},
 			{
 				cal_id: cal_id,
@@ -16318,7 +16450,8 @@ ORDER BY cal.cal_id`
 				isPublic: isPublic,
 				cal_grupo_id: cal_grupo_id,
 				forecast_timestart: forecast_timestart,
-				forecast_timeend: forecast_timeend
+				forecast_timeend: forecast_timeend,
+				forecast_date: forecast_date
 			},
 			"corridas",
 			undefined,
@@ -16335,7 +16468,7 @@ ORDER BY cal.cal_id`
 		WHERE 1=1 \
 		" + filter_string + "\
 		ORDER BY corridas.cal_id, corridas.date"
-		// console.debug(query)
+		console.debug(query)
 		const result = await global.pool.query(query)
 		if(!result.rows) {
 			return
@@ -16524,7 +16657,9 @@ ORDER BY cal.cal_id`
 				series_id: {type: "integer"},
 				estacion_id: {type: "integer", table: "series"},
 				tabla: {type: "string", table: "estaciones"},
-				var_id: {type: "integer", table: "series"} //,
+				var_id: {type: "integer", table: "series"},
+				cal_id: {type: "integer", table: "corridas"},
+				forecast_date: {type: "date", table: "corridas", column: "date"}  //,
 				// qualifier: {type: "string"}
 			},
 			filter,
@@ -16539,6 +16674,7 @@ ORDER BY cal.cal_id`
 				FROM estaciones
 				JOIN series ON estaciones.unid = series.estacion_id
 				JOIN pronosticos ON series.id = pronosticos.series_id
+				JOIN corridas ON corridas.id = pronosticos.cor_id
 				WHERE 1=1 ${filter_string}
 				GROUP BY series.id,pronosticos.cor_id
 			ON CONFLICT (series_id,cor_id) DO UPDATE SET
@@ -16555,7 +16691,10 @@ ORDER BY cal.cal_id`
 				series_id: {type: "integer"},
 				estacion_id: {type: "integer", table: "series_areal", column:"area_id"},
 				tabla: {type: "string", table: "estaciones"},
-				var_id: {type: "integer", table: "series_areal"} //,
+				var_id: {type: "integer", table: "series_areal"},
+				cal_id: {type: "integer", table: "corridas"},
+				forecast_date: {type: "date", table: "corridas", column: "date"} 
+				//,
 				// qualifier: {type: "string"}
 			},
 			filter,
@@ -16569,6 +16708,7 @@ ORDER BY cal.cal_id`
 					json_agg(DISTINCT qualifier) AS qualifiers
 				FROM series_areal
 				JOIN pronosticos_areal ON series_areal.id = pronosticos_areal.series_id
+				JOIN corridas ON corridas.id = pronosticos_areal.cor_id
 				JOIN areas_pluvio ON series_areal.area_id = areas_pluvio.unid
 				LEFT JOIN estaciones ON areas_pluvio.exutorio_id = estaciones.unid
 				WHERE 1=1 ${filter_string}

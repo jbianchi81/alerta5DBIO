@@ -1,0 +1,68 @@
+{
+    "id": 44,
+    "nombre": "sqpe_smn",
+    "data_table": "sqpe_smn",
+    "data_column": "rast",
+    "tipo": "QPE",
+    "def_proc_id": 5,
+    "def_dt": {
+        "years": 0,
+        "months": 0,
+        "days": 1,
+        "hours": 0,
+        "minutes": 0,
+        "seconds": 0,
+        "milliseconds": 0
+    },
+    "hora_corte": {
+        "years": 0,
+        "months": 0,
+        "days": 0,
+        "hours": 9,
+        "minutes": 0,
+        "seconds": 0,
+        "milliseconds": 0
+    },
+    "def_unit_id": 22,
+    "def_var_id": 1,
+    "fd_column": null,
+    "mad_table": "sqpe_smn_mad",
+    "scale_factor": null,
+    "data_offset": null,
+    "def_pixel_height": 0.1,
+    "def_pixel_width": 0.1,
+    "def_srid": 4326,
+    "def_extent": {
+        "type": "Polygon",
+        "coordinates": [
+            [
+                [
+                    -66.1,
+                    -27.9
+                ],
+                [
+                    -66.1,
+                    -42.1
+                ],
+                [
+                    -55.9,
+                    -42.1
+                ],
+                [
+                    -55.9,
+                    -27.9
+                ],
+                [
+                    -66.1,
+                    -27.9
+                ]
+            ]
+        ]
+    },
+    "date_column": "date",
+    "def_pixeltype": "32BF",
+    "abstract": "Estimación satelital de precipitación a paso diario con corrección con datos de campo. Producto experimental SMN",
+    "source": "Servicio Meteorológico Nacional",
+    "public": false,
+    "constraints": []
+}

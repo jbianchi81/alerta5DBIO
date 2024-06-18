@@ -860,7 +860,7 @@ ALTER TABLE public.observaciones_areal DISABLE TRIGGER obs_range_tr;
 --
 
 ALTER TABLE ONLY public.areas_pluvio
-    ADD CONSTRAINT areas_pluvio_exutorio_id_fkey FOREIGN KEY (exutorio_id) REFERENCES public.estaciones(unid);
+    ADD CONSTRAINT areas_pluvio_exutorio_id_fkey FOREIGN KEY (exutorio_id) REFERENCES public.estaciones(unid) ON UPDATE CASCADE;
 
 
 --
@@ -908,7 +908,7 @@ ALTER TABLE ONLY public.fuentes
 --
 
 ALTER TABLE ONLY public.observaciones_areal
-    ADD CONSTRAINT observaciones_areal_series_id_fkey FOREIGN KEY (series_id) REFERENCES public.series_areal(id);
+    ADD CONSTRAINT observaciones_areal_series_id_fkey FOREIGN KEY (series_id) REFERENCES public.series_areal(id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 
 --
@@ -924,7 +924,7 @@ ALTER TABLE ONLY public.observaciones_areal
 --
 
 ALTER TABLE ONLY public.observaciones
-    ADD CONSTRAINT observaciones_series_id_fkey FOREIGN KEY (series_id) REFERENCES public.series(id) ON DELETE CASCADE;
+    ADD CONSTRAINT observaciones_series_id_fkey FOREIGN KEY (series_id) REFERENCES public.series(id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 
 --
@@ -940,7 +940,7 @@ ALTER TABLE ONLY public.observaciones
 --
 
 ALTER TABLE ONLY public.series_areal
-    ADD CONSTRAINT series_areal_area_id_fkey FOREIGN KEY (area_id) REFERENCES public.areas_pluvio(unid);
+    ADD CONSTRAINT series_areal_area_id_fkey FOREIGN KEY (area_id) REFERENCES public.areas_pluvio(unid) ON DELETE CASCADE ON UPDATE CASCADE;
 
 
 --
@@ -948,7 +948,7 @@ ALTER TABLE ONLY public.series_areal
 --
 
 ALTER TABLE ONLY public.series_areal
-    ADD CONSTRAINT series_areal_fuentes_id_fkey FOREIGN KEY (fuentes_id) REFERENCES public.fuentes(id);
+    ADD CONSTRAINT series_areal_fuentes_id_fkey FOREIGN KEY (fuentes_id) REFERENCES public.fuentes(id) ON UPDATE CASCADE;
 
 
 --
@@ -980,7 +980,7 @@ ALTER TABLE ONLY public.series_areal
 --
 
 ALTER TABLE ONLY public.series
-    ADD CONSTRAINT series_estacion_id_fkey FOREIGN KEY (estacion_id) REFERENCES public.estaciones(unid);
+    ADD CONSTRAINT series_estacion_id_fkey FOREIGN KEY (estacion_id) REFERENCES public.estaciones(unid) ON DELETE CASCADE ON UPDATE CASCADE;
 
 
 --
@@ -1028,7 +1028,7 @@ ALTER TABLE ONLY public.series
 --
 
 ALTER TABLE ONLY public.valores_num_areal
-    ADD CONSTRAINT valores_num_areal_obs_id_fkey FOREIGN KEY (obs_id) REFERENCES public.observaciones_areal(id);
+    ADD CONSTRAINT valores_num_areal_obs_id_fkey FOREIGN KEY (obs_id) REFERENCES public.observaciones_areal(id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 
 --
@@ -1036,7 +1036,7 @@ ALTER TABLE ONLY public.valores_num_areal
 --
 
 ALTER TABLE ONLY public.valores_num
-    ADD CONSTRAINT valores_num_obs_id_fkey FOREIGN KEY (obs_id) REFERENCES public.observaciones(id) ON DELETE CASCADE;
+    ADD CONSTRAINT valores_num_obs_id_fkey FOREIGN KEY (obs_id) REFERENCES public.observaciones(id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 
 --
@@ -1044,7 +1044,7 @@ ALTER TABLE ONLY public.valores_num
 --
 
 ALTER TABLE ONLY public.valores_numarr_areal
-    ADD CONSTRAINT valores_numarr_areal_obs_id_fkey FOREIGN KEY (obs_id) REFERENCES public.observaciones_areal(id);
+    ADD CONSTRAINT valores_numarr_areal_obs_id_fkey FOREIGN KEY (obs_id) REFERENCES public.observaciones_areal(id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 
 --
@@ -1052,7 +1052,7 @@ ALTER TABLE ONLY public.valores_numarr_areal
 --
 
 ALTER TABLE ONLY public.valores_numarr
-    ADD CONSTRAINT valores_numarr_obs_id_fkey FOREIGN KEY (obs_id) REFERENCES public.observaciones(id) ON DELETE CASCADE;
+    ADD CONSTRAINT valores_numarr_obs_id_fkey FOREIGN KEY (obs_id) REFERENCES public.observaciones(id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 
 --
@@ -1109,7 +1109,7 @@ ALTER TABLE ONLY public.alturas_alerta
 --
 
 ALTER TABLE ONLY public.alturas_alerta
-    ADD CONSTRAINT alturas_alerta_unid_fkey FOREIGN KEY (unid) REFERENCES public.estaciones(unid) ON DELETE CASCADE;
+    ADD CONSTRAINT alturas_alerta_unid_fkey FOREIGN KEY (unid) REFERENCES public.estaciones(unid) ON DELETE CASCADE ON UPDATE CASCADE;
 
 
 --
@@ -1296,7 +1296,7 @@ ALTER TABLE ONLY public.series_rast
 --
 
 ALTER TABLE ONLY public.observaciones_rast
-    ADD CONSTRAINT observaciones_rast_series_id_fkey FOREIGN KEY (series_id) REFERENCES public.series_rast(id);
+    ADD CONSTRAINT observaciones_rast_series_id_fkey FOREIGN KEY (series_id) REFERENCES public.series_rast(id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 
 --
@@ -1304,7 +1304,7 @@ ALTER TABLE ONLY public.observaciones_rast
 --
 
 ALTER TABLE ONLY public.series_rast
-    ADD CONSTRAINT series_rast_escena_id_fkey FOREIGN KEY (escena_id) REFERENCES public.escenas(id);
+    ADD CONSTRAINT series_rast_escena_id_fkey FOREIGN KEY (escena_id) REFERENCES public.escenas(id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 
 --
@@ -1312,7 +1312,7 @@ ALTER TABLE ONLY public.series_rast
 --
 
 ALTER TABLE ONLY public.series_rast
-    ADD CONSTRAINT series_rast_fuentes_id_fkey FOREIGN KEY (fuentes_id) REFERENCES public.fuentes(id);
+    ADD CONSTRAINT series_rast_fuentes_id_fkey FOREIGN KEY (fuentes_id) REFERENCES public.fuentes(id) ON UPDATE CASCADE;
 
 
 --
@@ -1542,7 +1542,7 @@ ALTER TABLE ONLY public.asociaciones
 --
 
 ALTER TABLE ONLY public.asociaciones
-    ADD CONSTRAINT asociaciones_dest_series_id_fkey FOREIGN KEY (dest_series_id) REFERENCES public.series(id);
+    ADD CONSTRAINT asociaciones_dest_series_id_fkey FOREIGN KEY (dest_series_id) REFERENCES public.series(id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 
 --
@@ -1550,7 +1550,7 @@ ALTER TABLE ONLY public.asociaciones
 --
 
 ALTER TABLE ONLY public.asociaciones
-    ADD CONSTRAINT asociaciones_source_series_id_fkey FOREIGN KEY (source_series_id) REFERENCES public.series(id);
+    ADD CONSTRAINT asociaciones_source_series_id_fkey FOREIGN KEY (source_series_id) REFERENCES public.series(id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Name: datatypes; Type: TABLE; Schema: public; Owner: 
