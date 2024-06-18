@@ -23,7 +23,19 @@
                         },
                         "timeend": {
                             "$ref": "dateorinterval.json"
-                        }                        
+                        },
+                        "cal_id": {
+                            "type": "integer"
+                        },
+                        "cor_id": {
+                            "type": "integer"
+                        },
+                        "forecast_date": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "qualifier": {
+                            "type": "string"
+                        } 
                     },
                     "additionalProperties": true
                 }
