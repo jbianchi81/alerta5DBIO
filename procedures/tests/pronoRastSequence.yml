@@ -112,22 +112,61 @@ sequence:
 #       pretty: true
 #     output: ../../tmp/serie_areal_from_rast.json
 
-- procedureName: ReadProcedure
+# - procedureName: ReadProcedure
+#   arguments:
+#     class_name: pronostico
+#     filter:
+#       tipo: areal
+#       estacion_id: 134
+#       cal_id: 676
+#       forecast_date: # "2024-06-11T06:00:00.000Z"
+#         hours: -4
+#         roundTo:
+#           hours: 6         
+#       timestart:
+#         hours: -10
+#       timeend:
+#         days: 16
+#     output: ../../tmp/gfs_nomads_pma.json
+#     options:
+#       includeProno: true
+#       pretty: true
+
+# - procedureName: RastExtractProcedure
+#   arguments:
+#     filter:
+#       series_id: 5
+#       cal_id: 676
+#       forecast_date: "2024-06-11T06:00:00.000Z"
+#       timestart: "2024-06-11T06:00:00.000Z"
+#       timeend: "2024-06-12T05:59:59.999Z"
+#     output: ../../tmp/gfs_nomads_pma_extract.json
+#     options:
+#       pretty: true
+#       min_obs: 4
+
+- procedureName: RastExtractProcedure
   arguments:
-    class_name: pronostico
     filter:
-      tipo: areal
-      estacion_id: 134
+      series_id: 5
       cal_id: 676
-      forecast_date: # "2024-06-11T06:00:00.000Z"
-        hours: -4
-        roundTo:
-          hours: 6         
-      timestart:
-        hours: -10
-      timeend:
-        days: 16
-    output: ../../tmp/gfs_nomads_pma.json
+      forecast_date: "2024-06-11T06:00:00.000Z"
+      timestart: "2024-06-11T06:00:00.000Z"
+      timeend: "2024-06-12T05:59:59.999Z"
+    output: ../../tmp/gfs_nomads_pma_extract.tif
     options:
-      includeProno: true
-      pretty: true
+      output_format: raster
+      min_obs: 4
+      funcion: sum
+
+- procedureName: CreateProcedure
+  arguments:
+  class_name: serie
+  elements:
+  - tipo: rast
+    id: 9
+    escena_id: 18
+    fuentes_id: 44
+    var_id: 1
+    proc_id: 4
+    unit_id: 22

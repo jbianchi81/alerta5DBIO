@@ -33,22 +33,22 @@
         }
     },
     "var": {
-        "id": 1,
-        "var": "P",
-        "nombre": "precipitación diaria 12Z",
-        "abrev": "precip_diaria_met",
+        "id": 91,
+        "var": "P6h",
+        "nombre": "precipitación 6 horaria",
+        "abrev": "precip_6_horaria",
         "type": "num",
         "datatype": "Succeeding Total",
         "valuetype": "Field Observation",
         "GeneralCategory": "Climate",
         "VariableName": "Precipitation",
         "SampleMedium": "Precipitation",
-        "def_unit_id": "22",
+        "def_unit_id": "9",
         "timeSupport": {
             "years": 0,
             "months": 0,
-            "days": 1,
-            "hours": 0,
+            "days": 0,
+            "hours": 6,
             "minutes": 0,
             "seconds": 0,
             "milliseconds": 0
@@ -57,7 +57,7 @@
             "years": 0,
             "months": 0,
             "days": 0,
-            "hours": 9,
+            "hours": 3,
             "minutes": 0,
             "seconds": 0,
             "milliseconds": 0

@@ -180,6 +180,7 @@ COPY public.var (id, var, nombre, abrev, type, datatype, valuetype, "GeneralCate
 66	vgrd	Viento - componente v	vgrd	num	Continuous	Model Simulation Result	Meteorology	Wind speed	Air	\N	355	00:00:00	\N
 85	H1h	Altura hidrométrica horaria	alturahora	num	Continuous	Field Observation	Hydrology	Gage height	Surface Water	\N	11	01:00:00	\N
 87	Q1h	Caudal horario	caudalhora	num	Continuous	Field Observation	Hydrology	Discharge	Surface Water	\N	10	01:00:00	\N
+91	P6h	precipitación 6 horaria	precip_6_horaria	num	Succeeding Total	Field Observation	Climate	Precipitation	Precipitation	\N	9	06:00:00	03:00:00
 \.
 
 

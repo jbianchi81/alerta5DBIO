@@ -12284,145 +12284,231 @@ internal.CRUD = class {
 		})
 	}
 
-	static async rastExtract(series_id,timestart,timeend,options,isPublic,client) {
+	static async rastExtract(series_id,timestart,timeend,options,isPublic,client,cal_id,cor_id,forecast_date,qualifier) {
 		var release_client = false
 		if(!client) {
 			release_client = true
 			client = await global.pool.connect()
 		}
-		return this.getSerie("raster",series_id,undefined,undefined,undefined,isPublic,undefined,client)
-		.then(serie=>{
-			if(!serie) {
-				console.error("serie no encontrada")
-				if(release_client) {
-					client.release()
-				}
-				return
+		const serie = await this.getSerie("raster",series_id,undefined,undefined,undefined,isPublic,undefined,client)
+		if(!serie) {
+			console.error("serie no encontrada")
+			if(release_client) {
+				client.release()
 			}
-			if(!serie.id) {
-				console.log("serie no encontrada")
-				if(release_client) {
-					client.release()
-				}
-				return
+			return
+		}
+		if(!serie.id) {
+			console.log("serie no encontrada")
+			if(release_client) {
+				client.release()
 			}
-			options.bbox = (!options.bbox) ? serie.fuente.def_extent : options.bbox
-			options.pixel_height = (!options.pixel_height) ? serie.fuente.def_pixel_height : options.pixel_height
-			options.pixel_width = (!options.pixel_width) ? serie.fuente.def_pixel_width : options.pixel_width
-			options.srid = (!options.srid) ? serie.fuente.def_srid : options.srid
-			var valid_func = [ 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE']
-			options.funcion = (!options.funcion) ? "SUM" : options.funcion.toUpperCase()
-			if(valid_func.indexOf(options.funcion) < 0) {
-				if(release_client) {
-					client.release()
-				}
-				return Promise.reject("'funcion' inválida. Opciones: 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE'")
+			return
+		}
+		options.bbox = (!options.bbox) ? serie.fuente.def_extent : options.bbox
+		options.pixel_height = (!options.pixel_height) ? serie.fuente.def_pixel_height : options.pixel_height
+		options.pixel_width = (!options.pixel_width) ? serie.fuente.def_pixel_width : options.pixel_width
+		options.srid = (!options.srid) ? serie.fuente.def_srid : options.srid
+		var valid_func = [ 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE']
+		options.funcion = (!options.funcion) ? "SUM" : options.funcion.toUpperCase()
+		if(valid_func.indexOf(options.funcion) < 0) {
+			if(release_client) {
+				client.release()
 			}
-			options.format = (!options.format) ? "GTiff" : options.format
-			const valid_formats = ["gtiff", "png"]
-			if(valid_formats.map(f=> (f == options.format.toLowerCase()) ? 1 : 0).reduce( (a,b)=>a+b) == 0) {
-				console.error("Invalid format:" + options.format)
-				if(release_client) {
-					client.release()
-				}
-				return
+			return Promise.reject("'funcion' inválida. Opciones: 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE'")
+		}
+		options.format = (!options.format) ? "GTiff" : options.format
+		const valid_formats = ["gtiff", "png"]
+		if(valid_formats.map(f=> (f == options.format.toLowerCase()) ? 1 : 0).reduce( (a,b)=>a+b) == 0) {
+			console.error("Invalid format:" + options.format)
+			if(release_client) {
+				client.release()
 			}
-			options.height = (!options.height) ? 300 : options.height
-			options.width = (!options.width) ? 300 : options.width
-			var rescale_band = (serie.fuente.scale_factor && serie.fuente.data_offset) ? "ST_mapAlgebra(rast,1,'32BF','[rast]*" + series.fuente.scale_factor + "+" + serie.fuente.data_offset + "')" : (serie.fuente.data_offset) ? "ST_MapAlgebra(rast,1,'32BF','[rast]+"  + serie.fuente.data_offset + "')" : "rast";
-			var stmt
-			var args
-			if(options.format.toLowerCase() == "png") {
-				stmt = "WITH rasts AS (\
-				  SELECT series_id,\
-				         count(timestart) as c,\
-				         min(timestart) timestart,\
-				         max(timestart) timeend, \
-				         max(timeupdate) timeupdate, \
-				         st_union(ST_Clip(st_rescale(valor,$1),'{1}',st_geomfromtext($2,$3)),$4) as rast\
-				   FROM observaciones_rast\
-				   WHERE series_id=$5 AND timestart>=$6 AND timeend<=$7\
-				   GROUP by series_id),\
-				  raststats AS (\
-					SELECT st_summarystats(rast) stats\
-					FROM rasts)\
-				  SELECT series_id, \
-				         timestart, \
-				         timeend, \
-				         timeupdate, \
-				         c AS obs_count, \
-				         (stats).*,\
-				         ST_asGDALRaster(st_colormap(st_resize(st_reclass(rast,'[' || (st_summarystats(rast)).min || '-' || (st_summarystats(rast)).max || ']:1-255, ' || st_bandnodatavalue(rast) || ':0','8BUI'),$8,$9),1,'grayscale','nearest'),$10) valor\
-				  FROM rasts, raststats"
-				if(options.min_count) {
-					stmt += sprintf(" WHERE rasts.c>=%d", options.min_count)
-				}
-				args = [options.pixel_height, options.bbox.toString(), options.srid, options.funcion, serie.id, timestart, timeend, options.height, options.width, options.format]
-				
+			return
+		}
+		options.height = (!options.height) ? 300 : options.height
+		options.width = (!options.width) ? 300 : options.width
+		var rescale_band = (serie.fuente.scale_factor && serie.fuente.data_offset) ? "ST_mapAlgebra(rast,1,'32BF','[rast]*" + series.fuente.scale_factor + "+" + serie.fuente.data_offset + "')" : (serie.fuente.data_offset) ? "ST_MapAlgebra(rast,1,'32BF','[rast]+"  + serie.fuente.data_offset + "')" : "rast";
+		if(cor_id || cal_id && forecast_date) {
+			var data_table = "pronosticos_rast JOIN corridas ON pronosticos_rast.cor_id=corridas.id"
+			var timeupdate_column = "corridas.date"
+			if(cor_id) {
+				var prono_filter = control_filter2(
+					{
+						"cor_id": {
+							type: "integer",
+							table: "pronosticos_rast"
+						},
+						"qualifier": {
+							type: "string",
+							table: "pronosticos_rast"
+						}
+					},
+					{
+						cor_id: cor_id,
+						qualifier: qualifier
+					},
+					"pronosticos_rast"
+				)
 			} else {
-				stmt  = "WITH rasts as (\
-				SELECT series_id, timestart, timeend, timeupdate, ST_Clip(observaciones_rast.valor,'{1}',ST_GeomFromText($1,$2)) AS rast\
-				FROM observaciones_rast\
-				WHERE series_id=$3 AND timestart>=$4 AND timeend<=$5),\
-				agg AS (\
-					SELECT series_id, min(timestart) timestart,max(timeend) timeend, max(timeupdate) timeupdate, count(timestart) count, sum(timeend - timestart) time_sum, ST_AddBand(ST_Union(" + rescale_band + ",$6),ST_Union(rast,'COUNT')) as rast from rasts group by series_id),\
-				raststats AS (\
-					SELECT st_summarystats(rast) stats\
-					FROM rasts)\
-				SELECT series_id,\
-				       timestart,\
-				       timeend,\
-				       timeupdate,\
-				       count AS obs_count,\
-				       time_sum,\
-				         (stats).*,\
-				       ST_AsGDALRaster(rast,$7) valor\
-				FROM agg,raststats"
-				if(options.min_count) {
-					stmt += sprintf(" WHERE agg.count>=%d", options.min_count)
-				}
-			    args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion,options.format]
-		    }
-			return client.query(stmt,args)
-			.then(result=>{
-				if(!result.rows) {
-					console.log("No raster values found")
-					if(release_client) {
-						client.release()
-					}
-					return serie
-				}
-				if(result.rows.length == 0) {
-					console.log("No raster values found")
-					if(release_client) {
-						client.release()
-					}
-					return serie
-				}
-				console.log("Unioned " + result.rows[0].obs_count + " values")
-				if(!result.rows[0].valor) {
-					console.log("No raster values unioned")
-					if(release_client) {
-						client.release()
-					}
-					return serie
-				}
-				const obs = new internal.observacion({tipo:"rast",series_id:result.rows[0].series_id,timestart:result.rows[0].timestart,timeend:result.rows[0].timeend,valor:result.rows[0].valor, nombre:options.funcion, descripcion: "agregación temporal", unit_id: serie.unidades.id, timeupdate: result.rows[0].timeupdate, count: result.rows[0].obs_count, options: options, stats: {count: result.rows[0].count, mean: result.rows[0].mean, stddev: result.rows[0].stddev, min: result.rows[0].min, max: result.rows[0].max}})
-				obs.time_sum = result.rows[0].time_sum
-				serie.observaciones = [obs]
-				if(release_client) {
-					client.release()
-				}
-				return serie
-			})
-			.catch(e=>{
-				if(release_client) {
-					client.release()
-				}
-				console.error(e)
-				return serie
-			})
-		})
+				var prono_filter = control_filter2(
+					{
+						"cal_id": {
+							type: "integer",
+							table: "corridas"
+						},
+						"forecast_date": {
+							type: "date",
+							table: "corridas",
+							column: "date"
+						},
+						"qualifier": {
+							type: "string",
+							table: "pronosticos_rast"
+						}
+					},
+					{
+						cal_id: cal_id,
+						forecast_date: forecast_date,
+						qualifier: qualifier
+					},
+					"pronosticos_rast"
+				)
+			}
+		} else {
+			var data_table = "observaciones_rast"
+			var prono_filter = ""
+			var timeupdate_column = "observaciones_rast.timeupdate"
+		}
+		var stmt
+		var args
+		if(options.format.toLowerCase() == "png") {
+			stmt = `WITH rasts AS (
+				SELECT series_id,
+						count(timestart) as c,
+						min(timestart) timestart,
+						max(timestart) timeend, 
+						max(${timeupdate_column}) timeupdate, 
+						st_union(ST_Clip(st_rescale(valor,$1),'{1}',st_geomfromtext($2,$3)),$4) as rast
+				FROM ${data_table}
+				WHERE series_id=$5 AND timestart>=$6 AND timeend<=$7
+				${prono_filter}
+				GROUP by series_id),
+				raststats AS (
+				SELECT st_summarystats(rast) stats
+				FROM rasts)
+				SELECT series_id, 
+						timestart, 
+						timeend, 
+						timeupdate, 
+						c AS obs_count, 
+						(stats).*,
+						ST_asGDALRaster(st_colormap(st_resize(st_reclass(rast,'[' || (st_summarystats(rast)).min || '-' || (st_summarystats(rast)).max || ']:1-255, ' || st_bandnodatavalue(rast) || ':0','8BUI'),$8,$9),1,'grayscale','nearest'),$10) valor
+				FROM rasts, raststats`
+			if(options.min_count) {
+				stmt += sprintf(" WHERE rasts.c>=%d", options.min_count)
+			}
+			args = [options.pixel_height, options.bbox.toString(), options.srid, options.funcion, serie.id, timestart, timeend, options.height, options.width, options.format]
+			
+		} else {
+			const min_count_filter = (options.min_count) ? sprintf(" WHERE agg.count>=%d", options.min_count) : ""
+			stmt  = `WITH rasts as (
+			SELECT 
+				series_id, 
+				timestart, 
+				timeend, 
+				${timeupdate_column} AS timeupdate, 
+				ST_Clip(
+					valor,
+					'{1}',
+					ST_GeomFromText($1,$2)
+				) AS rast
+			FROM ${data_table}
+			WHERE 
+				series_id=$3 
+			AND timestart>=$4 
+			AND timeend<=$5
+			${prono_filter}
+			),
+			agg AS (
+				SELECT 
+					series_id, 
+					min(timestart) timestart,
+					max(timeend) timeend, 
+					max(timeupdate) timeupdate, 
+					count(timestart) count, 
+					sum(timeend - timestart) time_sum, 
+					ST_AddBand(
+						ST_Union(
+							${rescale_band},
+							$6
+						),
+						ST_Union(
+							rast,
+							'COUNT'
+						)
+					) AS rast
+				FROM rasts 
+				GROUP By series_id
+			),
+			raststats AS (
+				SELECT 
+					st_summarystats(rast) stats
+				FROM rasts
+			)
+			SELECT series_id,
+					timestart,
+					timeend,
+					timeupdate,
+					count AS obs_count,
+					time_sum,
+						(stats).*,
+					ST_AsGDALRaster(
+					rast,
+					$7
+					) AS valor
+			FROM agg, raststats
+			${min_count_filter}`
+			args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion,options.format]
+		}
+		try {
+			var result = await client.query(stmt,args)
+		} catch(e) {
+			if(release_client) {
+				client.release()
+			}
+			console.error(e)
+			return serie
+		}
+		if(!result.rows) {
+			console.log("No raster values found")
+			if(release_client) {
+				client.release()
+			}
+			return serie
+		}
+		if(result.rows.length == 0) {
+			console.log("No raster values found")
+			if(release_client) {
+				client.release()
+			}
+			return serie
+		}
+		console.log("Unioned " + result.rows[0].obs_count + " values")
+		if(!result.rows[0].valor) {
+			console.log("No raster values unioned")
+			if(release_client) {
+				client.release()
+			}
+			return serie
+		}
+		const obs = new internal.observacion({tipo:"rast",series_id:result.rows[0].series_id,timestart:result.rows[0].timestart,timeend:result.rows[0].timeend,valor:result.rows[0].valor, nombre:options.funcion, descripcion: "agregación temporal", unit_id: serie.unidades.id, timeupdate: result.rows[0].timeupdate, count: result.rows[0].obs_count, options: options, stats: {count: result.rows[0].count, mean: result.rows[0].mean, stddev: result.rows[0].stddev, min: result.rows[0].min, max: result.rows[0].max}})
+		obs.time_sum = result.rows[0].time_sum
+		serie.observaciones = [obs]
+		if(release_client) {
+			client.release()
+		}
+		return serie
 	}
 
 	static async rastExtractByArea(series_id,timestart,timeend,area,options={},client,cor_id, cal_id, forecast_date) {
@@ -12923,7 +13009,7 @@ internal.CRUD = class {
 		return serie
 	}
 	
-	static async getRegularSeries(tipo="puntual",series_id,dt="1 days",timestart,timeend,options,client) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate
+	static async getRegularSeries(tipo="puntual",series_id,dt="1 days",timestart,timeend,options,client, cal_id, qualifier) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate
 		// console.log({tipo:tipo,series_id:series_id,dt:dt,timestart:timestart,timeend:timeend,options:options})
 		if(!series_id || !timestart || !timeend) {
 			return Promise.reject("series_id, timestart and/or timeend missing")
