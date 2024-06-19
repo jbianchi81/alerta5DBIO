@@ -280,6 +280,93 @@ sequence:
     options:
       pretty: true
 
+- procedureName: CreateProcedure
+  arguments:
+    class_name: serie
+    elements:
+    - tipo: areal
+      id: 2
+      estacion_id: 134
+      var_id: 1
+      proc_id: 4
+      unit_id: 22
+      fuentes_id: 44
+
+# - procedureName: RastToArealProcedure
+#   arguments:
+#     filter:
+#       series_id: 2
+#       forecast_date:
+#         hours: -4
+#         roundTo:
+#           hours: 6         
+#       timestart:
+#         hours: 0 
+#         roundTo:
+#           hours: 1
+#         set:
+#           hour: 9
+#       timeend:
+#         days: 3
+#         roundTo:
+#           hours: 1
+#         set:
+#           hour: 9
+#       area_id: 134
+#       cal_id: 676      
+#     options:
+#       funcion: mean
+#       no_insert: false
+#       pretty: true
+#     output: outputs/serie_areal_from_rast_diario.json
+
+- procedureName: CreateProcedure
+  arguments:
+    class_name: asociacion
+    elements:
+    - id: 6
+      source_series_id: 1
+      source_tipo: areal
+      dest_series_id: 2
+      dest_tipo: areal
+      agg_func: sum
+      t_offset:
+        hours: 9
+      dt:
+        days: 1
+      source_time_support:
+        hours: 6
+      precision: 2
+      cal_id: 676
+
+- procedureName: RunAsociacionProcedure
+  arguments:
+    id: 6
+    filter:
+      forecast_date: # "2024-06-11T06:00:00.000Z"
+        hours: -4
+        roundTo:
+          hours: 6         
+      timestart:
+        hours: 0 
+        roundTo:
+          hours: 1
+        set:
+          hour: 9
+      timeend:
+        days: 3
+        roundTo:
+          hours: 1
+        set:
+          hour: 9
+    options:
+      min_count: 4
+      no_insert_as_obs: true
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 2
+
 - procedureName: DeleteProcedure
   arguments:
     class_name: area
@@ -298,6 +385,13 @@ sequence:
     filter:
       id: 5
       asociacion_id: 5
+
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: asociacion
+    filter:
+      id: 6
+      asociacion_id: 6
 
 - procedureName: DeleteProcedure
   arguments:

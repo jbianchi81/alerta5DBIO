@@ -10065,7 +10065,7 @@ internal.CRUD = class {
 			})
 		} 
 		if(config.verbose) {
-			console.log("crud.upsertObservaciones: tipo: " + tipo)
+			console.debug("crud.upsertObservaciones: tipo: " + tipo)
 		}
 		var upserted = []
 		var errors = []
@@ -13143,7 +13143,7 @@ internal.CRUD = class {
 		return serie
 	}
 	
-	static async getRegularSeries(tipo="puntual",series_id,dt="1 days",timestart,timeend,options,client, cal_id, cor_id, forecast_date, qualifier) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate,no_insert_as_obs
+	static async getRegularSeries(tipo="puntual",series_id,dt="1 days",timestart,timeend,options,client, cal_id, cor_id, forecast_date, qualifier) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate,no_insert_as_obs,source_time_support
 		// console.log({tipo:tipo,series_id:series_id,dt:dt,timestart:timestart,timeend:timeend,options:options})
 		if(!series_id || !timestart || !timeend) {
 			return Promise.reject("series_id, timestart and/or timeend missing")
@@ -13286,27 +13286,16 @@ internal.CRUD = class {
 							await this.upsertObservaciones(observaciones,undefined,undefined,options) 
 						}
 						// then, upsert forecast as forecast
-						const corridas = await internal.corrida.read({
-							id: cor_id,
-							cal_id: cal_id,
-							forecast_date: forecast_date
-						})
-						if(!corridas.length) {
-							throw("Corrida not found")
-						}
-						await corridas[0].setSeries([
-							new internal.SerieTemporalSim({
-								series_table: "series_rast",
-								series_id: options.insertSeriesId,
-								pronosticos: observaciones
-							})
-						])
-						await corridas[0].create()
-						if(!corridas[0].series.length) {
-							console.warn("No forecast series upserted")
-							return []
-						}
-						return corridas[0].series[0].pronosticos
+						return this.upsertSerieSim(
+							observaciones,
+							{
+								cor_id: cor_id,
+								cal_id: cal_id,
+								forecast_date: forecast_date
+							},
+							options.insertSeriesId,
+							tipo
+						)
 					} else {
 						return this.upsertObservaciones(observaciones,undefined,undefined,options) 
 					}
@@ -13340,8 +13329,51 @@ internal.CRUD = class {
 			}
 		// PUNTUAL, AREAL //
 		} else {
-			var obs_t = ( tipo.toLowerCase() == "areal" ) ? "observaciones_areal" : "observaciones"
-			var val_t = ( tipo.toLowerCase() == "areal" ) ? "valores_num_areal" : "valores_num"
+			if(cor_id || cal_id) {
+				var obs_t = ( tipo.toLowerCase() == "areal" ) ? "pronosticos_areal" : "pronosticos"
+				var val_t = ( tipo.toLowerCase() == "areal" ) ? "pronosticos_areal" : "valores_prono_num"	
+				var join_clause = `JOIN ${obs_t} ON 1=1`
+				join_clause += (obs_t != val_t) ? ` JOIN ${val_t} ON ${obs_t}.id=${val_t}.prono_id` : ""
+				join_clause += ` JOIN corridas ON ${obs_t}.cor_id=corridas.id`
+				if(cor_id) {
+					var prono_filter = control_filter2(
+						{
+							cor_id: {type:"integer", table: obs_t},
+							qualifier: {type: "string", table: obs_t}
+						},
+						{
+							cor_id: cor_id,
+							qualifier: qualifier
+						}
+					)
+				} else {
+					if(!forecast_date) {
+						throw(new Error("forecast_date is required if cal_id is set"))
+					}					
+					var prono_filter = control_filter2(
+						{
+							cal_id: {type:"integer", table: "corridas"},
+							forecast_date: {type: "date", table: "corridas", column: "date"},
+							qualifier: {type: "string", table: obs_t}
+						},
+						{
+							cal_id: cal_id,
+							forecast_date: forecast_date,
+							qualifier: qualifier
+						}
+					)
+				}
+			} else {
+				var obs_t = ( tipo.toLowerCase() == "areal" ) ? "observaciones_areal" : "observaciones"
+				var val_t = ( tipo.toLowerCase() == "areal" ) ? "valores_num_areal" : "valores_num"
+				var join_clause = `JOIN ${obs_t} ON 1=1 JOIN ${val_t} ON ${obs_t}.id = ${val_t}.obs_id`
+				var prono_filter = ""
+			}
+			if(options.source_time_support) {
+				var timeend_expr = `${obs_t}.timestart + '${options.source_time_support}'::interval`
+			} else {
+				var timeend_expr = `${obs_t}.timeend`
+			}
 			var stmt
 			var args
 			var aggFunction
@@ -13403,87 +13435,96 @@ internal.CRUD = class {
 				//~ console.log({dt_to_string:timeSteps.interval2string(dt)})
 				var timeseries_stmt = (timeSteps.interval2string(dt).toLowerCase()=="1 day" || timeSteps.interval2string(dt).toLowerCase()=="1 days" ) ? "SELECT generate_series($1::date + $2::interval, $3::date + $2::interval - $4::interval, $4::interval) AS dd" : "SELECT generate_series($1::timestamptz + $2::interval, $3::timestamptz + $2::interval - $4::interval, $4::interval) AS dd"
 				//~ console.log(timeseries_stmt)
-				stmt = "WITH d AS (\
-					"+ timeseries_stmt + "\
-				),\
-				t AS (\
-					SELECT d.dd as fecha,\
-					case when timestart>=d.dd+$4::interval \
-					then '0'::interval\
-					when timestart>=d.dd\
-					then case when timeend>=d.dd+$4::interval\
-								then d.dd+$4::interval - timestart\
-								else  timeend - timestart\
-								end\
-					else case when timeend <= d.dd\
-								then '0'::interval\
-								when timeend<=d.dd + $4::interval\
-								then timeend - d.dd\
-								else $4::interval\
-								end\
-					end tt,\
-					timestart,\
-					timeend,\
-					valor\
-					FROM d," + obs_t + "," + val_t + "\
-					WHERE series_id=$5 \
-					AND " + obs_t + ".id=obs_id \
-					AND timeend>=$1 \
-					AND timestart<=$3::timestamp+$2::interval+$4::interval\
-					ORDER BY timestart\
-				),\
-				v as (\
-					SELECT fecha,\
-						" + aggStmt + " valor, \
-						count(tt) count\
-					FROM t \
-					WHERE extract(epoch from tt)>0 \
-					GROUP BY fecha\
-					ORDER BY fecha\
-					)\
-				SELECT d.dd timestart,\
-						d.dd + $4::interval timeend,\
-						v.valor,\
-						v.count\
-				FROM d\
-				LEFT JOIN v on (v.fecha=d.dd)\
-				ORDER BY d.dd"
+				stmt = `WITH d AS (
+					${timeseries_stmt}
+				),
+				t AS (
+					SELECT d.dd as fecha,
+					case when ${obs_t}.timestart>=d.dd+$4::interval
+					then '0'::interval
+					when ${obs_t}.timestart>=d.dd
+					then case when ${timeend_expr}>=d.dd+$4::interval
+								then d.dd + $4::interval - ${obs_t}.timestart
+								else  ${timeend_expr} - ${obs_t}.timestart
+								end
+					else case when ${timeend_expr} <= d.dd
+								then '0'::interval
+								when ${timeend_expr}<=d.dd + $4::interval
+								then ${timeend_expr} - d.dd
+								else $4::interval
+								end
+					end tt,
+					${obs_t}.timestart,
+					${timeend_expr} AS timeend,
+					${val_t}.valor
+					FROM d
+					${join_clause}
+					WHERE ${obs_t}.series_id = $5
+					AND ${timeend_expr} >= $1 
+					AND ${obs_t}.timestart <= $3::timestamp + $2::interval + $4::interval
+					${prono_filter}
+					ORDER BY ${obs_t}.timestart
+				),
+				v as (
+					SELECT fecha,
+						${aggStmt} AS valor, 
+						count(tt) AS count
+					FROM t 
+					WHERE extract(epoch from tt) > 0 
+					GROUP BY fecha
+					ORDER BY fecha
+					)
+				SELECT d.dd timestart,
+						d.dd + $4::interval timeend,
+						v.valor,
+						v.count
+				FROM d
+				LEFT JOIN v on (v.fecha=d.dd)
+				ORDER BY d.dd`
 			} else {
 				// SERIE INSTANTANEA //
 				aggFunction = (options.aggFunction) ? options.aggFunction : "nearest"
 				var precision = (options.precision) ? parseInt(options.precision) : 2
 				if(aggFunction.toLowerCase() == "nearest") {
 					args = [timestart, t_offset, timeend, dt, series_id, precision]
-					stmt="WITH d AS (\
-							SELECT generate_series($1::timestamp + $2::interval, $3::timestamp + $2::interval - $4::interval, $4::interval) AS dd\
-						),\
-						t as (\
-							SELECT d.dd as fecha,\
-											timestart - d.dd tt,\
-											timestart,\
-											timeend,\
-											valor,\
-											ROW_NUMBER() over(partition by d.dd order by abs(extract(epoch from (timestart - d.dd))::numeric)) AS rk\
-							from d," + obs_t + "," + val_t + "\
-							where series_id=$5 \
-							and " + obs_t + ".id=obs_id \
-							and timestart>=$1\
-							and timeend<=$3::timestamp+$2::interval+$4::interval\
-							and abs(extract(epoch from (timestart - dd))::numeric) < extract(epoch from $4::interval)::numeric/2\
-						),\
-						v as (select fecha,\
-								timestart,\
-								tt,\
-								round(valor::numeric,$6) valor\
-						from t where rk=1\
-						order by fecha\
-						)\
-						SELECT d.dd timestart,\
-								d.dd timeend,\
-								v.valor\
-						FROM d\
-						LEFT JOIN v on (v.fecha=d.dd)\
-						ORDER BY d.dd"
+					stmt=`WITH d AS (
+							SELECT generate_series(
+								$1::timestamp + $2::interval, 
+								$3::timestamp + $2::interval - $4::interval, 
+								$4::interval
+							) AS dd
+						),
+						t as (
+							SELECT d.dd as fecha,
+								${obs_t}.timestart - d.dd tt,
+								${obs_t}.timestart,
+								${timeend_expr} AS timeend,
+								${val_t}.valor,
+								ROW_NUMBER() over(
+									partition by d.dd 
+									order by abs(extract(epoch from (${obs_t}.timestart - d.dd))::numeric)
+								) AS rk
+							from d
+							${join_clause}
+							where ${obs_t}.series_id = $5
+							and ${obs_t}.timestart >= $1
+							and ${timeend_expr} <= $3::timestamp + $2::interval + $4::interval
+							and abs(extract(epoch from (${obs_t}.timestart - dd))::numeric) < extract(epoch from $4::interval)::numeric / 2
+							${prono_filter}
+						),
+						v as (select fecha,
+								timestart,
+								tt,
+								round(valor::numeric,$6) valor
+						from t where rk=1
+						order by fecha
+						)
+						SELECT d.dd timestart,
+								d.dd timeend,
+								v.valor
+						FROM d
+						LEFT JOIN v on (v.fecha=d.dd)
+						ORDER BY d.dd`
 				} else {
 					var aggFunc
 					switch (aggFunction.toLowerCase()) {
@@ -13520,79 +13561,102 @@ internal.CRUD = class {
 								client.release()
 							}
 							throw("Bad aggregate function")
-					} if (dt.toLowerCase()=="1 days" || dt.toLowerCase()=="1 day" ) {
+					}
+					if (dt.toLowerCase()=="1 days" || dt.toLowerCase()=="1 day" ) {
 						console.log("inst, dt 1 days")
 						args = [timestart,t_offset, timeend, dt, series_id]
-						stmt = "WITH s AS (\
-							SELECT generate_series($1::date,$3::date,'1 days'::interval) d\
-							), obs AS (\
-							SELECT timestart,timeend,valor\
-							FROM " + obs_t + "," + val_t + "\
-							WHERE series_id=$5\
-								AND " + obs_t + ".id=obs_id \
-								AND timestart>=$1\
-								AND timestart<=$3::timestamp+$2::interval+$4::interval\
-								ORDER BY timestart\
-							)\
-							SELECT s.d+$2::interval timestart,\
-									s.d+$4::interval+$2::interval timeend,\
-									" + aggFunc + " valor\
-									FROM s\
-									LEFT JOIN obs ON (s.d::date=(obs.timestart-$2::interval)::date)\
-									GROUP BY s.d+$2::interval, s.d+$4::interval+$2::interval\
-								ORDER BY s.d+$2::interval"
+						stmt = `WITH s AS (
+								SELECT generate_series(
+									$1::date,
+									$3::date,
+									'1 days'::interval
+								) d
+							), obs AS (
+							SELECT ${obs_t}.timestart,
+								${timeend_expr} AS timeend,
+								${val_t}.valor
+							FROM (SELECT 1) AS foo
+							${join_clause}
+							WHERE ${obs_t}.series_id = $5
+							AND ${obs_t}.timestart >= $1
+							AND ${obs_t}.timestart <= $3::timestamp + $2::interval + $4::interval
+							${prono_filter}
+							ORDER BY ${obs_t}.timestart
+							)
+							SELECT s.d + $2::interval timestart,
+									s.d + $4::interval + $2::interval timeend,
+									${aggFunc} AS valor
+							FROM s
+							LEFT JOIN obs ON (s.d::date=(obs.timestart - $2::interval)::date)
+							GROUP BY s.d + $2::interval, s.d + $4::interval + $2::interval
+							ORDER BY s.d + $2::interval`
 					}
 						else if (dt.toLowerCase()=="1 months" || dt.toLowerCase()=="1 month"  || dt.toLowerCase()=="1 mon" ) {
 						console.log("inst, dt 1 month")
 						args = [timestart,t_offset, timeend, dt, series_id]
-						stmt = "WITH s AS (\
-							SELECT generate_series('" + timestart.toISOString() +"'::timestamptz,'" + timeend.toISOString() +"'::timestamptz - '1 months'::interval,'1 months'::interval) d\
-							), obs AS (\
-							SELECT timestart,timeend,valor\
-							FROM " + obs_t + "," + val_t + "\
-							WHERE series_id=$5\
-								AND " + obs_t + ".id=obs_id \
-								AND timestart>=$1\
-								AND timestart<=$3::timestamp+$2::interval+$4::interval\
-								ORDER BY timestart\
-							)\
-							SELECT s.d timestart,\
-									s.d+$4::interval timeend,\
-									" + aggFunc + " valor\
-									FROM s\
-									LEFT JOIN obs ON (extract(month from s.d)=extract(month from obs.timestart) AND extract(year from s.d)=extract(year from obs.timestart))\
-									GROUP BY s.d, s.d+$4::interval\
-								ORDER BY s.d"
+						stmt = `WITH s AS (
+							SELECT generate_series(
+								'${timestart.toISOString()}'::timestamptz,
+								'${timeend.toISOString()}'::timestamptz - '1 months'::interval,
+								'1 months'::interval) d
+							), obs AS (
+							SELECT ${obs_t}.timestart,
+								${obs_t}timeend,
+								${val_t}.valor
+							FROM (SELECT 1) AS foo
+							${join_clause}
+							WHERE ${obs_t}.series_id = $5
+							AND ${obs_t}.timestart >= $1
+							AND ${obs_t}.timestart <= $3::timestamp + $2::interval + $4::interval
+							${prono_filter}
+							ORDER BY ${obs_t}.timestart
+							)
+							SELECT s.d timestart,
+									s.d + $4::interval timeend,
+									${aggFunc} AS valor
+							FROM s
+							LEFT JOIN obs ON (
+								extract(month from s.d) = extract(month from obs.timestart) 
+								AND extract(year from s.d)=extract(year from obs.timestart)
+							)
+							GROUP BY s.d, s.d + $4::interval
+							ORDER BY s.d`
 					} 
 					else {
 						args = [timestart,t_offset, timeend, dt, series_id]
 						//~ console.log("SELECT generate_series('" + timestart.toISOString() + "'::timestamptz + '" + t_offset + "'::interval, '" + timeend.toISOString() + "'::timestamptz + '" + t_offset + "'::interval - '" + dt + "'::interval, '" + dt + "'::interval)")
-						stmt = "WITH d AS (\
-							SELECT generate_series($1::timestamp + $2::interval, $3::timestamp + $2::interval - $4::interval, $4::interval) AS dd\
-											),\
-							data as (\
-								SELECT timestart,\
-										valor\
-								FROM " + obs_t  + "," + val_t + "\
-								WHERE series_id=$5\
-								AND " + obs_t + ".id=obs_id \
-								AND timestart>=$1\
-								AND timestart<=$3::timestamp+$2::interval+$4::interval\
-								ORDER BY timestart\
-							)\
-							SELECT d.dd timestart,\
-									d.dd+$4::interval timeend,\
-									" + aggFunc + " valor,\
-									count(valor) count\
-							FROM d\
-							LEFT JOIN data ON (data.timestart>=d.dd and data.timestart" + ((aggFunction.toLowerCase()=="increment") ? "<=" : "<") + "d.dd+$4::interval)\
-							GROUP BY d.dd\
-							ORDER BY d.dd"
+						stmt = `WITH d AS (
+								SELECT generate_series(
+									$1::timestamp + $2::interval, 
+									$3::timestamp + $2::interval - $4::interval, 
+									$4::interval
+								) AS dd
+							),
+							data as (
+								SELECT ${obs_t}.timestart,
+									${val_t}.valor
+								FROM (SELECT 1) AS foo
+								${join_clause}
+								WHERE ${obs_t}.series_id = $5
+								AND ${obs_t}.timestart >= $1
+								AND ${obs_t}.timestart <= $3::timestamp + $2::interval + $4::interval
+								${prono_filter}
+								ORDER BY ${obs_t}.timestart
+							)
+							SELECT d.dd timestart,
+									d.dd + $4::interval timeend,
+									${aggFunc} AS valor,
+									count(valor) count
+							FROM d
+							LEFT JOIN data ON (
+								data.timestart >= d.dd 
+								and data.timestart ${(aggFunction.toLowerCase()=="increment") ? "<=" : "<"} d.dd + $4::interval)
+							GROUP BY d.dd
+							ORDER BY d.dd`
 					}
 				}
 			}
-			//~ console.log(stmt)
-			//~ console.log(args)
+			// console.debug(pasteIntoSQLQuery(stmt,args))
 			const result = await client.query(stmt,args)
 			if(release_client) {
 				client.release()
@@ -13618,16 +13682,34 @@ internal.CRUD = class {
 				if(options.no_insert) {
 					return observaciones
 				}
-				try {
-					var obs = await this.upsertObservaciones(observaciones.filter(o=> o.valor),tipo.toLowerCase(),undefined,options)	// filter out null values and return
-					console.debug("Inserted " + obs.length + " observaciones")
-					if(options.no_send_data) {
-						return obs.length
+				if(cor_id || cal_id) {
+					if(!options.no_insert_as_obs) {
+						// first, upsert forecast as observations
+						await this.upsertObservaciones(observaciones.filter(o=>o.valor),tipo,options.insertSeriesId,options) 
 					}
-					return obs
-				} catch(e) {
-					console.error(e)
-					return
+					// then, upsert forecast as forecast
+					return this.upsertSerieSim(
+						observaciones.filter(o=>o.valor),
+						{
+							cor_id: cor_id,
+							cal_id: cal_id,
+							forecast_date: forecast_date
+						},
+						options.insertSeriesId,
+						tipo
+					)
+				} else {
+					try {
+						var obs = await this.upsertObservaciones(observaciones.filter(o=> o.valor),tipo.toLowerCase(),undefined,options)	// filter out null values and return
+						console.debug("Inserted " + obs.length + " observaciones")
+						if(options.no_send_data) {
+							return obs.length
+						}
+						return obs
+					} catch(e) {
+						console.error(e)
+						return
+					}
 				}
 			} else if (options.asArray) {
 				observaciones = observaciones.map(o=>{
@@ -13639,6 +13721,35 @@ internal.CRUD = class {
 			}
 		}
 	}	
+
+	static async upsertSerieSim(
+		pronosticos,
+		corrida_filter,
+		series_id,
+		tipo = "puntual"
+	) {
+		const corridas = await internal.corrida.read({
+			id: corrida_filter.cor_id,
+			cal_id: corrida_filter.cal_id,
+			forecast_date: corrida_filter.forecast_date
+		})
+		if(!corridas.length) {
+			throw(new Error("Corrida not found"))
+		}
+		await corridas[0].setSeries([
+			new internal.SerieTemporalSim({
+				series_table: internal.serie.getSeriesTable(tipo),
+				series_id: series_id,
+				pronosticos: pronosticos
+			})
+		])
+		await corridas[0].create()
+		if(!corridas[0].series.length) {
+			console.warn("No forecast series upserted")
+			return []
+		}
+		return corridas[0].series[0].pronosticos
+	}
 	
 	static async getMultipleRegularSeries(series,dt="1 days",timestart,timeend,options) {
 		// series: [{tipo:...,id:...},{..},...]
@@ -14410,6 +14521,9 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 		}
 		if(options.no_send_data) {
 			opt.no_send_data = options.no_send_data
+		}
+		if(options.no_insert_as_obs) {
+			opt.no_insert_as_obs = true
 		}
 		if(!filter.timestart || !filter.timeend) {
 			throw("missing timestart and/or timeend")
@@ -17877,7 +17991,7 @@ ORDER BY cal.cal_id`
 		var values_rast = []
 		for (var [i, p] of pronosticos.entries()) {
 			var timeend = (p.timeend) ? p.timeend : p.timestart
-			// console.log([p.series_id,p.cor_id,p.timestart.toISOString(),timeend.toISOString(),p.qualifier,parseFloat(p.valor)])
+			// console.debug([p.series_id,p.cor_id,p.timestart.toISOString(),timeend.toISOString(),p.qualifier,p.valor])
 			if(p.series_table && p.series_table == "series_areal") {
 				const args = [
 					p.series_id, 
