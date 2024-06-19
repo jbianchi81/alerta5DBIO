@@ -488,7 +488,8 @@ internal.DateFromInterval = function(interval,date=new Date(),roundTo,truncate=f
 	var new_date = internal.advanceInterval(date, new_interval)
 	if(roundTo) {
 		return internal.roundDateTo(new_date,roundTo,truncate.valueOf,m)
-	} else if (interval.roundTo) {
+	} 
+	if (interval.roundTo) {
 		// roundTo = internal.createInterval(interval.roundTo)
 		roundTo = interval.roundTo
 		if(Object.keys(roundTo).length < 1) {
@@ -500,11 +501,71 @@ internal.DateFromInterval = function(interval,date=new Date(),roundTo,truncate=f
 			// console.log("roundToUnits: " + key + ", roundToValue: " + value)
 			new_date = internal.roundDateTo(new_date,key,truncate.valueOf,value)
 		}
-		return new_date
-	} else {
-		return new_date
 	}
+	if (interval.set) {
+		const set = interval.set
+		if(Object.keys(set).length < 1) {
+			throw("DateFromInterval: Invalid set interval")
+		}
+		// var roundToUnits = Object.keys(roundTo)[0]
+		// var roundToValue = roundTo[roundToUnits]
+		for( const [key,value] of Object.entries(set)) {
+			// console.log("roundToUnits: " + key + ", roundToValue: " + value)
+			internal.setDatePart(new_date,key,value)
+		}
+	}
+	return new_date
 
+}
+
+internal.setDatePart = function(date, date_part, value, utc=false) {
+	if(["date","day","days"].indexOf(date_part.toLowerCase()) >= 0) {
+		if(utc) {
+			date.setUTCDate(value)
+		} else {
+			date.setDate(value)
+		}
+	} else if (["year","years"].indexOf(date_part.toLowerCase()) >= 0) {
+		if(utc) {
+			date.setUTCFullYear(value)
+		} else {
+			date.setFullYear(value)
+		}
+	} else if (["hour","hours"].indexOf(date_part.toLowerCase()) >= 0) {
+		if(utc) {
+			date.setUTCHours(value)
+		} else {
+			date.setHours(value)
+		}
+	} else if (["milliseconds","millisecond"].indexOf(date_part.toLowerCase()) >= 0) {
+		if(utc) {
+			date.setUTCMilliseconds(value)
+		} else {
+			date.setMilliseconds(value)
+		}
+	} else if (["minute","minutes"].indexOf(date_part.toLowerCase()) >= 0) {
+		if(utc) {
+			date.setUTCMinutes(value)
+		} else {
+			date.setMinutes(value)
+		}
+	} else if (["month","months"].indexOf(date_part.toLowerCase()) >= 0) {
+		if(utc) {
+			date.setUTCMonth(value - 1)
+		} else {
+			date.setMonth(value - 1)
+		}
+	} else if (["second","seconds"].indexOf(date_part.toLowerCase()) >= 0) {
+		if(utc) {
+			date.setUTCSeconds(value)
+		} else {
+			date.setSeconds(value)
+		}
+	} else if (["time"].indexOf(date_part.toLowerCase()) >= 0) {
+		date.setTime(value)
+	} else {
+		throw("Invalid date part '" + date_part + "'")
+	}
 }
 
 internal.parseDateString = function(date) {
@@ -529,6 +590,9 @@ internal.DateFromDateOrInterval = function(date,reference_date,roundTo,truncate,
 		date = internal.parseDateString(date)
 	} else if (date instanceof Object) {
 		date = internal.DateFromInterval(date,reference_date,roundTo,truncate,m)
+	}
+	if(!date) {
+		throw("date not defined")
 	}
 	if(date.toString() == "Invalid Date") {
 		throw("Invalid Date")

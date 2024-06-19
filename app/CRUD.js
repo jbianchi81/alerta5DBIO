@@ -33,7 +33,7 @@ var pointsWithinPolygon = require("@turf/points-within-polygon")
 // const series2waterml2 = require('./series2waterml2');
 // const { relativeTimeThreshold } = require('moment-timezone');
 const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2, control_filter3, control_query_args } = require('./utils');
-const { DateFromDateOrInterval } = require('./timeSteps');
+const { DateFromDateOrInterval, Interval } = require('./timeSteps');
 // const { isContext } = require('vm');
 const logger = require('./logger');
 const { crud } = require('./informe_semanal');
@@ -6704,13 +6704,14 @@ internal.asociacion = class extends baseModel {
 		this.dest_tipo = arguments[0].dest_tipo
 		this.dest_series_id = arguments[0].dest_series_id
 		this.agg_func = arguments[0].agg_func
-		this.dt = arguments[0].dt
-		this.t_offset = arguments[0].t_offset
+		this.dt = new Interval(arguments[0].dt)
+		this.t_offset = new Interval(arguments[0].t_offset)
 		this.precision = arguments[0].precision
-		this.source_time_support = arguments[0].source_time_support
+		this.source_time_support = new Interval(arguments[0].source_time_support)
 		this.source_is_inst = arguments[0].source_is_inst
 		this.habilitar = arguments[0].habilitar
 		this.expresion = arguments[0].expresion
+		this.cal_id = arguments[0].cal_id
 	}
 	async create() {
 		const created = new internal.asociacion(await internal.CRUD.upsertAsociacion(this))
@@ -12493,6 +12494,11 @@ internal.CRUD = class {
 			var prono_filter = ""
 			var timeupdate_column = "observaciones_rast.timeupdate"
 		}
+		if(options.source_time_support) {
+			var timeend_column = pasteIntoSQLQuery("timestart + $1::interval", [options.source_time_support])
+		} else {
+			var timeend_column = "timeend"
+		}
 		var stmt
 		var args
 		if(options.format.toLowerCase() == "png") {
@@ -12500,7 +12506,7 @@ internal.CRUD = class {
 				SELECT series_id,
 						count(timestart) as c,
 						min(timestart) timestart,
-						max(timestart) timeend, 
+						max(${timeend_column}) timeend, 
 						max(${timeupdate_column}) timeupdate, 
 						st_union(ST_Clip(st_rescale(valor,$1),'{1}',st_geomfromtext($2,$3)),$4) as rast
 				FROM ${data_table}
@@ -12529,7 +12535,7 @@ internal.CRUD = class {
 			SELECT 
 				series_id, 
 				timestart, 
-				timeend, 
+				${timeend_column} AS timeend, 
 				${timeupdate_column} AS timeupdate, 
 				ST_Clip(
 					valor,
@@ -13137,7 +13143,7 @@ internal.CRUD = class {
 		return serie
 	}
 	
-	static async getRegularSeries(tipo="puntual",series_id,dt="1 days",timestart,timeend,options,client, cal_id, qualifier) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate
+	static async getRegularSeries(tipo="puntual",series_id,dt="1 days",timestart,timeend,options,client, cal_id, cor_id, forecast_date, qualifier) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate,no_insert_as_obs
 		// console.log({tipo:tipo,series_id:series_id,dt:dt,timestart:timestart,timeend:timeend,options:options})
 		if(!series_id || !timestart || !timeend) {
 			return Promise.reject("series_id, timestart and/or timeend missing")
@@ -13149,6 +13155,11 @@ internal.CRUD = class {
 		}
 		if(timeend.toString() == 'Invalid Date') {
 			return Promise.reject("timeend: invalid date")
+		}
+		if(!cor_id && cal_id) {
+			if(!forecast_date) {
+				return Promise.reject("If cal_id is set, forecast_date must be defined")
+			}
 		}
 		var serie = await this.getSerie(tipo,series_id)
 		if(!serie) {
@@ -13179,92 +13190,127 @@ internal.CRUD = class {
 		if(tipo.toLowerCase() == 'rast' || tipo.toLowerCase() == 'raster')  {
 			//~ if (!inst) {
 			// SERIE NO INSTANTANEA //
-				var timeSupport
-				if (!options.timeSupport) {
-					timeSupport = serie["var"].timeSupport
+			var timeSupport
+			if (!options.timeSupport) {
+				timeSupport = serie["var"].timeSupport
+			} else {
+				if(/[';]/.test(options.timeSupport)) {
+					console.error("Invalid timeSupport")
+					return
 				} else {
-					if(/[';]/.test(options.timeSupport)) {
-						console.error("Invalid timeSupport")
-						return
-					} else {
-						timeSupport = options.timeSupport
-					}
+					timeSupport = options.timeSupport
 				}
-				return Promise.all([this.date2obj(timestart),this.date2obj(timeend),this.interval2epoch(dt), this.interval2epoch(t_offset)])
-				.then(async (results)=>{
-					// console.log({dates:results})
-					var timestart =results[0]
-					var timeend = results[1] 
-					var dt = results[2] * 1000
-					dt_epoch = (inst) ? 0 : dt
-					var t_offset = results[3] * 1000
-					var timestart_time = (timestart.getHours()*3600 + timestart.getMinutes()*60 + timestart.getSeconds()) * 1000 + timestart.getMilliseconds() + timestart.getTimezoneOffset()*60*1000
-					if(timestart_time < t_offset) {
-						console.log("timestart < t_offset;timestart:" + timestart + ", " + timestart_time + " < " + t_offset)
-						timestart.setTime(timestart.getTime() - timestart_time + t_offset)
-					} else if (timestart_time > t_offset) {
-						console.log("timestart > t_offset;" + timestart + " > " + t_offset)
-						timestart.setTime(timestart.getTime() - timestart_time + t_offset + dt)
-					}
-					var timeend_time = (timeend.getHours()*3600 + timeend.getMinutes()*60 + timeend.getSeconds())*1000 + timeend.getMilliseconds() + timeend.getTimezoneOffset()*60*1000
-					if(timeend_time > t_offset) {
-						timeend.setTime(timeend.getTime() - timeend_time + t_offset)
-					} else if (timeend_time < t_offset) {
-						timeend.setTime(timeend.getTime() - timeend_time + t_offset + dt)
-					}
-					console.log({timestart:timestart,timeend:timeend,dt:dt})
-					var results = []
-					for(var i=timestart.getTime();i<timeend.getTime();i=i+dt) {
-						var stepstart = new Date(i)
-						var stepend = new Date(i+dt)
-						if(config.verbose) {
-							console.log("crud.getRegularSeries: stepstart:" +stepstart.toISOString() + ",stepend:" + stepend.toISOString())
+			}
+			// const results = await Promise.all([this.date2obj(timestart),this.date2obj(timeend),this.interval2epoch(dt), this.interval2epoch(t_offset)])
+			// console.log({dates:results})
+			var timestart = await this.date2obj(timestart)
+			var timeend = await this.date2obj(timeend) 
+			var dt = await this.interval2epoch(dt) * 1000
+			dt_epoch = (inst) ? 0 : dt
+			var t_offset = await this.interval2epoch(t_offset) * 1000
+			var timestart_time = (timestart.getHours()*3600 + timestart.getMinutes()*60 + timestart.getSeconds()) * 1000 + timestart.getMilliseconds() + timestart.getTimezoneOffset()*60*1000
+			if(timestart_time < t_offset) {
+				console.log("timestart < t_offset;timestart:" + timestart + ", " + timestart_time + " < " + t_offset)
+				timestart.setTime(timestart.getTime() - timestart_time + t_offset)
+			} else if (timestart_time > t_offset) {
+				console.log("timestart > t_offset;" + timestart + " > " + t_offset)
+				timestart.setTime(timestart.getTime() - timestart_time + t_offset + dt)
+			}
+			var timeend_time = (timeend.getHours()*3600 + timeend.getMinutes()*60 + timeend.getSeconds())*1000 + timeend.getMilliseconds() + timeend.getTimezoneOffset()*60*1000
+			if(timeend_time > t_offset) {
+				timeend.setTime(timeend.getTime() - timeend_time + t_offset)
+			} else if (timeend_time < t_offset) {
+				timeend.setTime(timeend.getTime() - timeend_time + t_offset + dt)
+			}
+			console.debug({timestart:timestart,timeend:timeend,dt:dt})
+			var obs = []
+			for(var i=timestart.getTime();i<timeend.getTime();i=i+dt) {
+				var stepstart = new Date(i)
+				var stepend = new Date(i+dt)
+				if(config.verbose) {
+					console.debug({
+						series_id: series_id,
+						stepstart: stepstart.toISOString(),
+						stepend: stepend.toISOString(),
+						options: options,
+						cal_id: cal_id, 
+						cor_id: cor_id, 
+						forecast_date: forecast_date, 
+						qualifier: qualifier
+					})
+				}
+				obs.push(await this.rastExtract(series_id,stepstart,stepend,options,undefined,client, cal_id, cor_id, forecast_date, qualifier))
+			}
+			if(obs) {
+				var observaciones = obs.map((o,i)=> {
+					if(o.observaciones) {
+						if(!o.observaciones.length) {
+							console.warn("crud.getRegularSeries: obs[" + i + "].observaciones.length = 0")
+							return null
 						}
-						results.push(await this.rastExtract(series_id,stepstart,stepend,options,undefined,client))
+						// console.log("crud.getRegularSeries: obs[" + i + "].observaciones[0] = " + o.observaciones[0].toString())
+						return o.observaciones[0]
+					} else {
+						console.warn("crud.getRegularSeries: obs[" + i + "].observaciones undefined")
+						return null
 					}
-					return results // Promise.all(promises)
-				})
-				.then(obs=>{
-					if(obs) {
-						var observaciones = obs.map((o,i)=> {
-							if(o.observaciones) {
-								if(!o.observaciones.length) {
-									console.warn("crud.getRegularSeries: obs[" + i + "].observaciones.length = 0")
-									return null
-								}
-								// console.log("crud.getRegularSeries: obs[" + i + "].observaciones[0] = " + o.observaciones[0].toString())
-								return o.observaciones[0]
-							} else {
-								console.warn("crud.getRegularSeries: obs[" + i + "].observaciones undefined")
-								return null
-							}
-						}).filter(o=> o !== null)
-						if(dt_epoch) {
-							observaciones = observaciones.filter(o=>{
-								var time_sum_epoch = timeSteps.interval2epochSync(o.time_sum) * 1000
-								console.log("crud.getRegularSeries: dt:" + dt_epoch, "o.time_sum:"  + time_sum_epoch + ", min_time_fraction: " + min_time_fraction)
-								if(time_sum_epoch / dt_epoch < min_time_fraction) {
-									console.error("crud.getRegularSeries: la observación no alcanza la mínima fracción de tiempo")
-									return false
-								} else {
-									return true
-								}
-							})
+				}).filter(o=> o !== null)
+				if(dt_epoch) {
+					observaciones = observaciones.filter(o=>{
+						var time_sum_epoch = timeSteps.interval2epochSync(o.time_sum) * 1000
+						console.debug("crud.getRegularSeries: dt:" + dt_epoch, "o.time_sum:"  + time_sum_epoch + ", min_time_fraction: " + min_time_fraction)
+						if(time_sum_epoch / dt_epoch < min_time_fraction) {
+							console.error("crud.getRegularSeries: la observación no alcanza la mínima fracción de tiempo")
+							return false
+						} else {
+							return true
 						}
-						if(options.insertSeriesId) {
-							observaciones = observaciones.map(o=> {
-								o.series_id = options.insertSeriesId
-								if (options.timeupdate) {
-									o.timeupdate = options.timeupdate
-								}
-								if(dt / o.time_sum * 1000 < min_time_fraction) {
-									console.error("la observación no alcanza la mínima fracción de tiempo")
-									return null
-								} else {
-									return o
-								}
+					})
+				}
+				if(options.insertSeriesId) {
+					observaciones = observaciones.map(o=> {
+						o.series_id = options.insertSeriesId
+						if (options.timeupdate) {
+							o.timeupdate = options.timeupdate
+						}
+						if(dt / o.time_sum * 1000 < min_time_fraction) {
+							console.error("la observación no alcanza la mínima fracción de tiempo")
+							return null
+						} else {
+							return o
+						}
+					})
+					if(cal_id && forecast_date || cor_id) {
+						if(!options.no_insert_as_obs) {
+							// first, upsert forecast as observations
+							await this.upsertObservaciones(observaciones,undefined,undefined,options) 
+						}
+						// then, upsert forecast as forecast
+						const corridas = await internal.corrida.read({
+							id: cor_id,
+							cal_id: cal_id,
+							forecast_date: forecast_date
+						})
+						if(!corridas.length) {
+							throw("Corrida not found")
+						}
+						await corridas[0].setSeries([
+							new internal.SerieTemporalSim({
+								series_table: "series_rast",
+								series_id: options.insertSeriesId,
+								pronosticos: observaciones
 							})
-							return this.upsertObservaciones(observaciones,undefined,undefined,options) // removed client, non-transactional
+						])
+						await corridas[0].create()
+						if(!corridas[0].series.length) {
+							console.warn("No forecast series upserted")
+							return []
+						}
+						return corridas[0].series[0].pronosticos
+					} else {
+						return this.upsertObservaciones(observaciones,undefined,undefined,options) 
+					}
+						// removed client, non-transactional
 							//~ .then(results=>{
 								//~ return results.map(o=>{
 									//~ if(o instanceof Buffer) {
@@ -13272,31 +13318,26 @@ internal.CRUD = class {
 									//~ }
 								//~ })
 							//~ })
-						} else if (options.asArray) {
-							observaciones = observaciones.map(o=>{
-								return [o.timestart, o.timeend, o.valor]
-							})
-							if(release_client) {
-								client.release()
-							}
-							return observaciones
-						} else {
-							if(release_client) {
-								client.release()
-							}
-							return observaciones
-						}
-					} else {
-						if(release_client) {
-							client.release()
-						}
-						return []
+				} else if (options.asArray) {
+					observaciones = observaciones.map(o=>{
+						return [o.timestart, o.timeend, o.valor]
+					})
+					if(release_client) {
+						client.release()
 					}
-				})
-		
-			//~ }
-				
-				
+					return observaciones
+				} else {
+					if(release_client) {
+						client.release()
+					}
+					return observaciones
+				}
+			} else {
+				if(release_client) {
+					client.release()
+				}
+				return []
+			}
 		// PUNTUAL, AREAL //
 		} else {
 			var obs_t = ( tipo.toLowerCase() == "areal" ) ? "observaciones_areal" : "observaciones"
@@ -13552,57 +13593,50 @@ internal.CRUD = class {
 			}
 			//~ console.log(stmt)
 			//~ console.log(args)
-			return client.query(stmt,args)
-			.then((result)=>{
-				if(release_client) {
-					client.release()
-				}
-				if(!result.rows) {
-					console.error("Nothing found")
-					return []
-				}
-				if(result.rows.length == 0) {
-					console.error("No observaciones found")
-					return []
-				}
-				//~ console.log(result.rows)
-				var observaciones = result.rows.map(obs=> new internal.observacion({timestart:obs.timestart, timeend:obs.timeend, valor:obs.valor, tipo:tipo, nombre:aggFunction, descripcion:"serie regular",series_id:series_id}))
-				if(options.insertSeriesId) {
-					observaciones = observaciones.map(o=> {
-						o.series_id = options.insertSeriesId
-						if (options.timeupdate) {
-							o.timeupdate = options.timeupdate
-						}
-						return o
-					})
-					if(options.no_insert) {
-						return observaciones
+			const result = await client.query(stmt,args)
+			if(release_client) {
+				client.release()
+			}
+			if(!result.rows) {
+				console.error("Nothing found")
+				return []
+			}
+			if(result.rows.length == 0) {
+				console.error("No observaciones found")
+				return []
+			}
+			//~ console.log(result.rows)
+			var observaciones = result.rows.map(obs=> new internal.observacion({timestart:obs.timestart, timeend:obs.timeend, valor:obs.valor, tipo:tipo, nombre:aggFunction, descripcion:"serie regular",series_id:series_id}))
+			if(options.insertSeriesId) {
+				observaciones = observaciones.map(o=> {
+					o.series_id = options.insertSeriesId
+					if (options.timeupdate) {
+						o.timeupdate = options.timeupdate
 					}
-					return this.upsertObservaciones(observaciones.filter(o=> o.valor),tipo.toLowerCase(),undefined,options)	// filter out null values and return
-					.then(obs=>{
-						console.log("Inserted " + obs.length + " observaciones")
-						if(options.no_send_data) {
-							return obs.length
-						}
-						return obs
-					})
-					.catch(e=>{
-						console.error(e)
-						return
-					})
-				} else if (options.asArray) {
-					observaciones = observaciones.map(o=>{
-						return [o.timestart, o.timeend, o.valor]
-					})
-					return observaciones
-				} else {
+					return o
+				})
+				if(options.no_insert) {
 					return observaciones
 				}
-			})
-			.catch(e=>{
-				console.error(e)
-				return
-			})
+				try {
+					var obs = await this.upsertObservaciones(observaciones.filter(o=> o.valor),tipo.toLowerCase(),undefined,options)	// filter out null values and return
+					console.debug("Inserted " + obs.length + " observaciones")
+					if(options.no_send_data) {
+						return obs.length
+					}
+					return obs
+				} catch(e) {
+					console.error(e)
+					return
+				}
+			} else if (options.asArray) {
+				observaciones = observaciones.map(o=>{
+					return [o.timestart, o.timeend, o.valor]
+				})
+				return observaciones
+			} else {
+				return observaciones
+			}
 		}
 	}	
 	
@@ -14144,7 +14178,7 @@ internal.CRUD = class {
 				throw("query error")
 			}
 			if(result.rows.length==0) {
-				throw("nothing found")
+				throw("No asociacion found with id " + id)
 			}
 			var asociacion = result.rows[0]
 			var tabla_sitios = (asociacion.source_tipo=="areal") ? "areas_pluvio" : (asociacion.source_tipo=='raster') ? "escenas" : "estaciones"
@@ -14165,6 +14199,7 @@ internal.CRUD = class {
 									   a.source_time_support::text, \
 									   a.source_is_inst, \
 									   a.expresion,\
+									   a.cal_id,\
 									   row_to_json(s) source_series, \
 									   row_to_json(d) dest_series, \
 									   row_to_json(e) site\
@@ -14178,7 +14213,7 @@ internal.CRUD = class {
 					throw("query error")
 				}
 				if(result.rows.length==0) {
-					throw("not found")
+					throw("Asociacion not found")
 				}
 				//~ console.log({result:result.rows})
 				return result.rows[0]
@@ -14193,8 +14228,9 @@ internal.CRUD = class {
 		if(!asociacion.dest_series_id) {
 			return Promise.reject("missing dest_series_id")
 		}
-		return global.pool.query("INSERT INTO asociaciones (source_tipo, source_series_id, dest_tipo, dest_series_id, agg_func, dt, t_offset, precision, source_time_support, source_is_inst, habilitar, expresion) \
-VALUES (coalesce($1,'puntual'),$2,coalesce($3,'puntual'),$4,$5,$6,$7,$8,$9,$10,coalesce($11,true),$12)\
+		const client = await global.pool.connect()
+		const result = await client.query("INSERT INTO asociaciones (source_tipo, source_series_id, dest_tipo, dest_series_id, agg_func, dt, t_offset, precision, source_time_support, source_is_inst, habilitar, expresion, cal_id) \
+VALUES (coalesce($1,'puntual'),$2,coalesce($3,'puntual'),$4,$5,$6,$7,$8,$9,$10,coalesce($11,true),$12,$13)\
 ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 	source_tipo=excluded.source_tipo,\
 	source_series_id=excluded.source_series_id,\
@@ -14205,50 +14241,49 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 	source_time_support=excluded.source_time_support,\
 	source_is_inst=excluded.source_is_inst,\
 	habilitar=excluded.habilitar,\
-	expresion=excluded.expresion\
-	RETURNING *",[asociacion.source_tipo, asociacion.source_series_id, asociacion.dest_tipo, asociacion.dest_series_id, asociacion.agg_func, asociacion.dt, asociacion.t_offset, asociacion.precision, asociacion.source_time_support, asociacion.source_is_inst, asociacion.habilitar, asociacion.expresion])
-		.then(result=>{
-			//~ console.log({result:result})
-			if(!result) {
-				console.error("query error")
-				throw("query error")
+	expresion=excluded.expresion,\
+	cal_id=excluded.cal_id\
+	RETURNING *",[asociacion.source_tipo, asociacion.source_series_id, asociacion.dest_tipo, asociacion.dest_series_id, asociacion.agg_func, asociacion.dt, asociacion.t_offset, asociacion.precision, asociacion.source_time_support, asociacion.source_is_inst, asociacion.habilitar, asociacion.expresion,asociacion.cal_id])
+		//~ console.log({result:result})
+		if(!result) {
+			console.error("query error")
+			throw("query error")
+		}
+		if(result.rows.length==0){
+			throw("Nothing upserted")
+		}
+		if(asociacion.id) {
+			try {
+				const updated_result = await client.query(`
+					UPDATE asociaciones
+					SET id=$1
+					WHERE id=$2
+					RETURNING id
+				`, [asociacion.id, result.rows[0].id])
+				result.rows[0].id = updated_result.rows[0].id
+			} catch(e) {
+				await client.query("ROLLBACK")
+				await client.release()
+				throw(e)
 			}
-			if(result.rows.length==0){
-				console.error("Nothing upserted")
-				return
-			}
-			return result.rows[0]
-		})
+		}
+		await client.query("commit")
+		await client.release()
+		return new internal.asociacion(result.rows[0])
 	}
 	
 	static async upsertAsociaciones(asociaciones) {
 		if(!asociaciones || asociaciones.length == 0) {
 			return Promise.reject("Faltan asociaciones")
 		}
-		var upserted = asociaciones.map(asociacion=>{
-			return this.upsertAsociacion(asociacion)
-		})
-		return Promise.allSettled(upserted)
-		.then(result=>{
-			if(result.length == 0) {
-				throw("Nada fue acualizado/creado")
-			}			
-			var errors = []
-			var valid_results = result.map(r=>{
-				if(r.status == 'fulfilled') {
-					return r.value
-				} else {
-					console.error(r.reason)
-					errors.push(r.reason)
-					return
-				}
-			}).filter(r=>r)
-			if(valid_results.length == 0) {
-				throw(errors[0])
-			}
-			return valid_results
-		})
-		
+		var upserted = []
+		for(var asociacion of asociaciones) {
+			upserted.push(await this.upsertAsociacion(asociacion))
+		}
+		if(upserted.length == 0) {
+			throw("Nada fue acualizado/creado")
+		}			
+		return upserted	
 	}
 	
 	static async runAsociaciones(filter,options={},client) {
@@ -14309,7 +14344,7 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 							const observaciones = serie.aggregateMonthly(filter.timestart,filter.timeend,a.agg_func,a.precision,opt.source_time_support,a.expression,opt.inst)
 							result = await this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id,undefined) // remove client, non-transactional
 						} else {
-							result =  await this.getRegularSeries(a.source_tipo,a.source_series_id,a.dt,filter.timestart,filter.timeend,opt,client)
+							result =  await this.getRegularSeries(a.source_tipo,a.source_series_id,a.dt,filter.timestart,filter.timeend,opt,client,a.cal_id, filter.cor_id, filter.forecast_date, filter.qualifier)
 						}
 					} else if(a.source_tipo=="raster" && a.dest_tipo=="areal") {
 						console.log("Running asociacion raster to areal")
@@ -14354,59 +14389,55 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 	}
 	
 	static async runAsociacion(id,filter={},options={}) {
-		return this.getAsociacion(id)
-		.then(a=>{
-			console.log("Got asociacion " + a.id)
-			var opt = {aggFunction: a.agg_func, t_offset: a.t_offset, insertSeriesId: a.dest_series_id}
-			if(a.source_time_support) {
-				opt.source_time_support = a.source_time_support
+		const a = await this.getAsociacion(id)
+		console.debug("Got asociacion " + a.id)
+		var opt = {aggFunction: a.agg_func, t_offset: a.t_offset, insertSeriesId: a.dest_series_id}
+		if(a.source_time_support) {
+			opt.source_time_support = a.source_time_support
+		}
+		if(a.precision) {
+			opt.precision = a.precision
+		}
+		if(options.inst) {
+			opt.inst = options.inst
+		} else if (a.source_is_inst) {
+			opt.inst = a.source_is_inst
+		}
+		if(options.no_insert) {
+			opt.no_insert = true
+		}
+		if(options.no_send_data) {
+			opt.no_send_data = options.no_send_data
+		}
+		if(!filter.timestart || !filter.timeend) {
+			throw("missing timestart and/or timeend")
+		}
+		var timestart = new Date(filter.timestart)
+		var timeend = new Date(filter.timeend)
+		if(timestart.toString() == "Invalid Date") {
+			throw("invalid timestart")
+		}
+		if(timeend.toString() == "Invalid Date") {
+			throw("invalid timeend")
+		}
+		if(a.agg_func && a.agg_func == "math") {
+			if(a.source_tipo != "puntual") {
+				throw("Tipo inválido para convertir por expresión (math)")
 			}
-			if(a.precision) {
-				opt.precision = a.precision
+			return this.getSerieAndConvert(a.source_series_id,timestart,timeend,a.expresion,a.dest_series_id)
+		} else if (a.agg_func && a.agg_func == "pulse"){
+			if(a.source_tipo != "puntual" && a.source_tipo != "areal") {
+				throw("Tipo inválido para convertir por expresión (pulse)")
 			}
-			if(options.inst) {
-				opt.inst = options.inst
-			} else if (a.source_is_inst) {
-				opt.inst = a.source_is_inst
-			}
-			if(options.no_insert) {
-				opt.no_insert = true
-			}
-			if(options.no_send_data) {
-				opt.no_send_data = options.no_send_data
-			}
-			if(!filter.timestart || !filter.timeend) {
-				throw("missing timestart and/or timeend")
-			}
-			var timestart = new Date(filter.timestart)
-			var timeend = new Date(filter.timeend)
-			if(timestart.toString() == "Invalid Date") {
-				throw("invalid timestart")
-			}
-			if(timeend.toString() == "Invalid Date") {
-				throw("invalid timeend")
-			}
-			if(a.agg_func && a.agg_func == "math") {
-				if(a.source_tipo != "puntual") {
-					throw("Tipo inválido para convertir por expresión (math)")
-				}
-				return this.getSerieAndConvert(a.source_series_id,timestart,timeend,a.expresion,a.dest_series_id)
-			} else if (a.agg_func && a.agg_func == "pulse"){
-				if(a.source_tipo != "puntual" && a.source_tipo != "areal") {
-					throw("Tipo inválido para convertir por expresión (pulse)")
-				}
-				return this.getSerieAndExtractPulses(a.source_tipo,a.source_series_id,timestart,timeend,a.dest_series_id)
-			} else if ( (a.dt == "1 month" || a.dt == "1 mon" || a.dt == "1 months") && a.source_tipo !="raster" && a.source_tipo != "rast") {
-				console.log("running aggregateMonthly")
-				return internal.serie.read({tipo:a.source_tipo,id:a.source_series_id,timestart:timestart,timeend:timeend})
-				.then(serie=>{
-					const observaciones = serie.aggregateMonthly(timestart,timeend,a.agg_func,a.precision,a.timeSupport,a.expression)
-					return this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id)
-				})			
-			} else {
-				return this.getRegularSeries(a.source_tipo,a.source_series_id,a.dt,timestart,timeend,opt)
-			}
-		})
+			return this.getSerieAndExtractPulses(a.source_tipo,a.source_series_id,timestart,timeend,a.dest_series_id)
+		} else if ( (a.dt == "1 month" || a.dt == "1 mon" || a.dt == "1 months") && a.source_tipo !="raster" && a.source_tipo != "rast") {
+			console.debug("running aggregateMonthly")
+			const serie = await internal.serie.read({tipo:a.source_tipo,id:a.source_series_id,timestart:timestart,timeend:timeend})
+			const observaciones = serie.aggregateMonthly(timestart,timeend,a.agg_func,a.precision,a.timeSupport,a.expression)
+			return this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id)
+		} else {
+			return this.getRegularSeries(a.source_tipo,a.source_series_id,a.dt,timestart,timeend,opt,undefined,a.cal_id,filter.cor_id,filter.forecast_date,filter.qualifier)
+		}
 	}
 	
 	static async getSerieAndExtractPulses(series_tipo,series_id,timestart,timeend,dest_series_id) {
@@ -16826,7 +16857,7 @@ ORDER BY cal.cal_id`
 			var pronos_areal = await this.getPronosticosAreal(filter,client)
 			result.push(...pronos_areal)
 		}
-		if((!filter.tipo && !filter.series_id) || filter.tipo == "rast") {
+		if((!filter.tipo && !filter.series_id) || filter.tipo == "rast" || filter.tipo == "raster") {
 			var pronos_rast = await this.getPronosticosRast(filter,client)
 			result.push(...pronos_rast)
 		}

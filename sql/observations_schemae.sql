@@ -1418,7 +1418,8 @@ CREATE TABLE public.asociaciones (
     source_time_support interval,
     source_is_inst boolean,
     habilitar boolean DEFAULT true,
-    expresion character varying
+    expresion character varying,
+    cal_id integer
 );
 
 
@@ -1541,16 +1542,16 @@ ALTER TABLE ONLY public.asociaciones
 -- Name: asociaciones asociaciones_dest_series_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.asociaciones
-    ADD CONSTRAINT asociaciones_dest_series_id_fkey FOREIGN KEY (dest_series_id) REFERENCES public.series(id) ON DELETE CASCADE ON UPDATE CASCADE;
+-- ALTER TABLE ONLY public.asociaciones
+--     ADD CONSTRAINT asociaciones_dest_series_id_fkey FOREIGN KEY (dest_series_id) REFERENCES public.series(id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 
 --
 -- Name: asociaciones asociaciones_source_series_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.asociaciones
-    ADD CONSTRAINT asociaciones_source_series_id_fkey FOREIGN KEY (source_series_id) REFERENCES public.series(id) ON DELETE CASCADE ON UPDATE CASCADE;
+-- ALTER TABLE ONLY public.asociaciones
+--     ADD CONSTRAINT asociaciones_source_series_id_fkey FOREIGN KEY (source_series_id) REFERENCES public.series(id) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Name: datatypes; Type: TABLE; Schema: public; Owner: 

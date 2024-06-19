@@ -1807,4 +1807,8 @@ ALTER TABLE ONLY public.extra_pars
 ALTER TABLE ONLY public.extra_pars
     ADD CONSTRAINT extra_pars_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.modelos(id);
 
+ALTER TABLE ONLY public.asociaciones
+    ADD CONSTRAINT asociaciones_cal_id_fkey FOREIGN KEY (cal_id) REFERENCES public.calibrados(id) ON DELETE CASCADE ON UPDATE CASCADE;
+
+
 COMMIT;

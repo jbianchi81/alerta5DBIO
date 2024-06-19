@@ -2394,8 +2394,14 @@ internal.RunAsociacionProcedure = class extends internal.CrudProcedure {
         arguments[0].filter.timestart = timeSteps.DateFromDateOrInterval(arguments[0].filter.timestart)
         arguments[0].filter.timeend = timeSteps.DateFromDateOrInterval(arguments[0].filter.timeend)
         this.asociacion_id = (arguments[0].id) ? arguments[0].id : arguments[0].asociacion_id
+        arguments[0].filter.forecast_date = timeSteps.DateFromDateOrInterval(arguments[0].filter.forecast_date)
         this.filter = arguments[0].filter
         // this.options = arguments[0].options
+        console.debug({
+            timestart: arguments[0].filter.timestart,
+            timeend: arguments[0].filter.timeend,
+            forecast_date: arguments[0].filter.forecast_date
+        })
     }
     async run() {
         this.result = await crud.runAsociacion(this.asociacion_id,this.filter,this.options)
@@ -3151,6 +3157,7 @@ internal.RastExtractProcedure = class extends internal.CrudProcedure {
         this.series_id = this.filter.series_id
         this.timestart = DateFromDateOrInterval(this.filter.timestart)
         this.timeend = DateFromDateOrInterval(this.filter.timeend)
+        this.forecast_date = DateFromDateOrInterval(this.filter.forecast_date)
         // more filters:
         // - cal_id
         // - cor_id
@@ -3164,7 +3171,7 @@ internal.RastExtractProcedure = class extends internal.CrudProcedure {
         // - funcion
     }
     async run() {
-        const result_serie = await crud.rastExtract(this.series_id,this.timestart,this.timeend,this.options,undefined, undefined, this.filter.cal_id, this.filter.cor_id, this.filter.forecast_date, this.filter.qualifier)
+        const result_serie = await crud.rastExtract(this.series_id,this.timestart,this.timeend,this.options,undefined, undefined, this.filter.cal_id, this.filter.cor_id, this.forecast_date, this.filter.qualifier)
         this.result = result_serie.observaciones
         return this.result
     }
