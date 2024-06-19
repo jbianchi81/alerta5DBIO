@@ -1452,8 +1452,8 @@ ALTER TABLE ONLY public.pronosticos_areal
     ADD CONSTRAINT pronosticos_areal_series_id_fkey FOREIGN KEY (series_id) REFERENCES public.series_areal(id) ON DELETE CASCADE;
 
 CREATE TABLE series_puntual_prono_date_range (
-    series_id integer not null references series(id),
-    cor_id integer not null references corridas(id),
+    series_id integer not null references series(id) ON DELETE CASCADE,
+    cor_id integer not null references corridas(id) ON DELETE CASCADE,
     begin_date timestamp not null,
     end_date timestamp not null,
     count integer not null,
@@ -1474,8 +1474,8 @@ SELECT series.id AS series_id,
   GROUP BY series.id,pronosticos.cor_id;
 
 CREATE TABLE series_areal_prono_date_range (
-    series_id integer not null references series_areal(id),
-    cor_id integer not null references corridas(id),
+    series_id integer not null references series_areal(id) ON DELETE CASCADE,
+    cor_id integer not null references corridas(id) ON DELETE CASCADE,
     begin_date timestamp not null,
     end_date timestamp not null,
     count integer not null,
@@ -1537,8 +1537,8 @@ COMMIT;
 
 BEGIN;
 CREATE TABLE series_puntual_prono_date_range_by_qualifier (
-    series_id integer not null references series(id),
-    cor_id integer not null references corridas(id),
+    series_id integer not null references series(id) ON DELETE CASCADE,
+    cor_id integer not null references corridas(id) ON DELETE CASCADE,
     qualifier varchar,
     begin_date timestamp not null,
     end_date timestamp not null,
@@ -1561,8 +1561,8 @@ SELECT series.id AS series_id,
   GROUP BY series.id, pronosticos.cor_id, pronosticos.qualifier;
 
 CREATE TABLE series_areal_prono_date_range_by_qualifier (
-    series_id integer not null references series_areal(id),
-    cor_id integer not null references corridas(id),
+    series_id integer not null references series_areal(id) ON DELETE CASCADE,
+    cor_id integer not null references corridas(id) ON DELETE CASCADE,
     qualifier varchar,
     begin_date timestamp not null,
     end_date timestamp not null,
@@ -1618,8 +1618,8 @@ ALTER TABLE ONLY public.pronosticos_rast
     ADD CONSTRAINT pronosticos_rast_series_id_fkey FOREIGN KEY (series_id) REFERENCES public.series_rast(id) ON DELETE CASCADE;
 
 CREATE TABLE series_rast_prono_date_range_by_qualifier (
-    series_id integer not null references series_rast(id),
-    cor_id integer not null references corridas(id),
+    series_id integer not null references series_rast(id) ON DELETE CASCADE,
+    cor_id integer not null references corridas(id) ON DELETE CASCADE,
     qualifier varchar,
     begin_date timestamp not null,
     end_date timestamp not null,

@@ -14187,27 +14187,29 @@ internal.CRUD = class {
 			var series_site_id_col = (asociacion.source_tipo=="areal") ? "area_id" : (asociacion.source_tipo=='raster') ? "escena_id" : "estacion_id"
 			var site_id_col = (asociacion.source_tipo=="areal") ? "unid" : (asociacion.source_tipo=='raster') ? "id" : "unid"
 			var provider_col = (asociacion.source_tipo=="areal") ? "s.fuentes_id" : (asociacion.source_tipo=='raster') ? "s.fuentes_id" : "e.tabla"
-			return global.pool.query("SELECT a.id,\
-									   a.source_tipo, \
-									   a.source_series_id, \
-									   a.dest_tipo, \
-									   a.dest_series_id, \
-									   a.agg_func, \
-									   a.dt::text, \
-									   a.t_offset::text, \
-									   a.precision, \
-									   a.source_time_support::text, \
-									   a.source_is_inst, \
-									   a.expresion,\
-									   a.cal_id,\
-									   row_to_json(s) source_series, \
-									   row_to_json(d) dest_series, \
-									   row_to_json(e) site\
-				FROM asociaciones a," + tabla_series + " s, "+ tabla_dest_series + " d," + tabla_sitios + " e\
-				WHERE a.id=$1 \
-				AND a.source_series_id=s.id\
-				AND a.dest_series_id=d.id\
-				AND s."+series_site_id_col + "=e."+site_id_col,[asociacion.id])
+			return global.pool.query(`
+				SELECT a.id,
+				    a.source_tipo, 
+					a.source_series_id, 
+					a.dest_tipo, 
+					a.dest_series_id, 
+					a.agg_func, 
+					a.dt::text,
+					a.t_offset::text, 
+					a.precision, 
+					a.source_time_support::text, 
+					a.source_is_inst, 
+					a.expresion,
+					a.cal_id,
+					row_to_json(s) source_series, 
+					row_to_json(d) dest_series, 
+					row_to_json(e) site
+				FROM asociaciones a
+				LEFT JOIN ${tabla_series} s ON (s.id=a.source_series_id)
+				LEFT JOIN ${tabla_dest_series} d ON (d.id=a.dest_series_id)
+				LEFT JOIN ${tabla_sitios} e ON (e.${site_id_col}=s.${series_site_id_col})
+				WHERE a.id=$1 
+				`,[asociacion.id])
 			.then(result=>{
 				if(!result) {
 					throw("query error")
@@ -17898,7 +17900,7 @@ ORDER BY cal.cal_id`
 						args
 					)
 				} catch(e) {
-					throw("Invalid values at index [" + i + "]: " + e.toString())
+					throw(new Error("Invalid values at index [" + i + "]: " + e.toString()))
 				}
 				values_areal.push(vsprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',%f)", args))
 			} else if(p.series_table && p.series_table == "series_rast") {
@@ -17924,7 +17926,7 @@ ORDER BY cal.cal_id`
 						args
 					)
 				} catch(e) {
-					throw("Invalid values at index [" + i + "]: " + e.toString())
+					throw(new Error("Invalid values at index [" + i + "]: " + e.toString()))
 				}
 				values_rast.push(vsprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',ST_FromGDALRaster('%s'))", args))
 			} else {
@@ -17949,7 +17951,7 @@ ORDER BY cal.cal_id`
 						args
 					)
 				} catch(e) {
-					throw("Invalid values at index [" + i + "]: " + e.toString())
+					throw(new Error("Invalid values at index [" + i + "]: " + e.toString()))
 				}	
 				values.push(vsprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',%f)", args))
 			}

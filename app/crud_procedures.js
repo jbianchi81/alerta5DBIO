@@ -2991,7 +2991,7 @@ internal.DeleteProcedure = class extends internal.CrudProcedure {
         }
         this.class_name = arguments[0].class_name
         this.class = CRUD[arguments[0].class_name]
-        this.filter = arguments[0].filter
+        this.filter = internal.parseFilter(arguments[0].filter)
     }
     async run() {
         this.result = await this.class.delete(this.filter,this.options)
@@ -3731,6 +3731,18 @@ function printErrorSummmary(error_log,n) {
             }
         }
     }
+}
+
+internal.parseFilter = function(filter) {
+    if(!filter) {
+        return filter
+    }
+    for(var key of Object.keys(filter)) {
+        if(["timestart","timeend","forecast_date"].indexOf(key) >= 0) {
+            filter[key] = DateFromDateOrInterval(filter[key])
+        }
+    }
+    return filter
 }
 
 if(1==1) {

@@ -1,247 +1,247 @@
 # yaml-language-server: $schema=../../public/schemas/sequence.json 
 sequence:
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: escena
-#     jsonfile: sample_data/escena_18.json
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: fuente
-#     jsonfile: sample_data/fuente_44.json
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: serie
-#     elements:
-#     - tipo: rast
-#       id: 1
-#       estacion_id: 18
-#       var_id: 91
-#       proc_id: 4
-#       unit_id: 22
-#       fuentes_id: 44
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: modelo
-#     elements:
-#     - id: 305
-#       nombre: gfs
-#       tipo: M
-#       def_var_id: 1
-#       def_unit_id: 22
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: calibrado
-#     elements:
-#     - id: 676
-#       nombre: gfs_nomads
-#       model_id: 305
+- procedureName: CreateProcedure
+  arguments:
+    class_name: escena
+    jsonfile: sample_data/escena_18.json
+- procedureName: CreateProcedure
+  arguments:
+    class_name: fuente
+    jsonfile: sample_data/fuente_44.json
+- procedureName: CreateProcedure
+  arguments:
+    class_name: serie
+    elements:
+    - tipo: rast
+      id: 1
+      estacion_id: 18
+      var_id: 91
+      proc_id: 4
+      unit_id: 22
+      fuentes_id: 44
+- procedureName: CreateProcedure
+  arguments:
+    class_name: modelo
+    elements:
+    - id: 305
+      nombre: gfs
+      tipo: M
+      def_var_id: 1
+      def_unit_id: 22
+- procedureName: CreateProcedure
+  arguments:
+    class_name: calibrado
+    elements:
+    - id: 676
+      nombre: gfs_nomads
+      model_id: 305
 
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: accessor
-#     elements:
-#     - name: gfs_nomads
-#       class: gfs_nomads
-#       config:
-#         url: https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl
-#         file_pattern: gfs.t%02dz.pgrb2.0p25.f%03d
-#         bbox:
-#           leftlon: -70
-#           rightlon: -40 
-#           toplat: -10
-#           bottomlat: -40
-#         level: surface
-#         var: APCP
-#         latency: 4
-#         start_hour: 6
-#         end_hour: 384
-#         step_hour: 6
-#         localfilepath: data/nomads_gfs/nomads_gfs.grib2
-#         localfile_pattern: nomads_gfs_%03d.grib2
-#         units: milímetros
-#         variable_map:
-#           APCP06:
-#             name: precipitación 6 horaria
-#             series_id: 1
-#         data_dir: data/nomads_gfs
-#         cal_id: 676
+- procedureName: CreateProcedure
+  arguments:
+    class_name: accessor
+    elements:
+    - name: gfs_nomads
+      class: gfs_nomads
+      config:
+        url: https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl
+        file_pattern: gfs.t%02dz.pgrb2.0p25.f%03d
+        bbox:
+          leftlon: -70
+          rightlon: -40 
+          toplat: -10
+          bottomlat: -40
+        level: surface
+        var: APCP
+        latency: 4
+        start_hour: 6
+        end_hour: 384
+        step_hour: 6
+        localfilepath: data/nomads_gfs/nomads_gfs.grib2
+        localfile_pattern: nomads_gfs_%03d.grib2
+        units: milímetros
+        variable_map:
+          APCP06:
+            name: precipitación 6 horaria
+            series_id: 1
+        data_dir: data/nomads_gfs
+        cal_id: 676
 
-# - procedureName: GetPronosticoFromAccessorProcedure
-#   arguments:
-#     accessor_id: gfs_nomads
-#     filter:
-#       timestart:
-#         hours: -4
-#       timeend:
-#         days: 1
-#     output: ../../tmp/corrida_gfs_nomads.json
+- procedureName: GetPronosticoFromAccessorProcedure
+  arguments:
+    accessor_id: gfs_nomads
+    filter:
+      timestart:
+        hours: -4
+      timeend:
+        days: 1
+    output: ../../tmp/corrida_gfs_nomads.json
 
-# - procedureName: UpdatePronosticoFromAccessorProcedure
-#   arguments:
-#     accessor_id: gfs_nomads
-#     filter:
-#       forecast_date:
-#         hours: -4
-#         roundTo:
-#           hours: 6
-#       timestart:
-#         hours: -4
-#       timeend:
-#         days: 2
-#         roundTo:
-#           hours: 9
-#     output: ../../tmp/corrida_gfs_nomads.json
+- procedureName: UpdatePronosticoFromAccessorProcedure
+  arguments:
+    accessor_id: gfs_nomads
+    filter:
+      forecast_date:
+        hours: -4
+        roundTo:
+          hours: 6
+      timestart:
+        hours: -4
+      timeend:
+        days: 2
+        roundTo:
+          hours: 9
+    output: ../../tmp/corrida_gfs_nomads.json
 
-# - procedureName: ReadProcedure
-#   arguments:
-#     class_name: Pronostico
-#     filter:
-#       cal_id: 676
-#       # forecast_date: "2024-06-10T12:00:00.000Z"
-#       forecast_date: # "2024-06-10T12:00:00.000Z"
-#           hours: -4
-#           roundTo:
-#             hours: 6
-#       series_id: 1
-#       tipo: rast
-#       timestart: # "2024-06-10T06:00:00.000Z"
-#         hours: -6
-#       timeend: #"2024-06-10T12:00:00.000Z"
-#         hours: 18
-#     output: ../../tmp/prono_nomads.tif
-#     options:
-#       output_format: raster
+- procedureName: ReadProcedure
+  arguments:
+    class_name: Pronostico
+    filter:
+      cal_id: 676
+      # forecast_date: "2024-06-10T12:00:00.000Z"
+      forecast_date: # "2024-06-10T12:00:00.000Z"
+          hours: -4
+          roundTo:
+            hours: 6
+      series_id: 1
+      tipo: rast
+      timestart: # "2024-06-10T06:00:00.000Z"
+        hours: -6
+      timeend: #"2024-06-10T12:00:00.000Z"
+        hours: 18
+    output: ../../tmp/prono_nomads.tif
+    options:
+      output_format: raster
 
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: area
-#     geojsonfile: sample_data/area_134.json  
+- procedureName: CreateProcedure
+  arguments:
+    class_name: area
+    geojsonfile: sample_data/area_134.json  
 
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: serie
-#     elements:
-#     - tipo: areal
-#       estacion_id: 134
-#       var_id: 1
-#       proc_id: 4
-#       unit_id: 22
-#       fuentes_id: 44
+- procedureName: CreateProcedure
+  arguments:
+    class_name: serie
+    elements:
+    - tipo: areal
+      estacion_id: 134
+      var_id: 91
+      proc_id: 4
+      unit_id: 22
+      fuentes_id: 44
 
-# - procedureName: RastToArealProcedure
-#   arguments:
-#     filter:
-#         series_id: 1
-#         timestart: #"2024-06-10T12:00:00.000Z"
-#           hours: -6
-#         timeend: #"2024-06-27T06:00:00.000Z"
-#           days: 1
-#         area_id: 134
-#         cal_id: 676
-#         forecast_date: # "2024-06-18T12:00:00.000Z"
-#           hours: -4
-#           roundTo:
-#             hours: 6
-#     options:
-#       funcion: mean
-#       no_insert: false
-#       pretty: true
-#     output: outputs/serie_areal_from_rast.json
+- procedureName: RastToArealProcedure
+  arguments:
+    filter:
+        series_id: 1
+        timestart: #"2024-06-10T12:00:00.000Z"
+          hours: -6
+        timeend: #"2024-06-27T06:00:00.000Z"
+          days: 1
+        area_id: 134
+        cal_id: 676
+        forecast_date: # "2024-06-18T12:00:00.000Z"
+          hours: -4
+          roundTo:
+            hours: 6
+    options:
+      funcion: mean
+      no_insert: false
+      pretty: true
+    output: outputs/serie_areal_from_rast.json
 
-# - procedureName: ReadProcedure
-#   arguments:
-#     class_name: pronostico
-#     filter:
-#       tipo: areal
-#       estacion_id: 134
-#       cal_id: 676
-#       forecast_date: # "2024-06-11T06:00:00.000Z"
-#         hours: -4
-#         roundTo:
-#           hours: 6         
-#       timestart:
-#         hours: -10
-#       timeend:
-#         days: 16
-#     output: outputs/gfs_nomads_pma.json
-#     options:
-#       includeProno: true
-#       pretty: true
+- procedureName: ReadProcedure
+  arguments:
+    class_name: pronostico
+    filter:
+      tipo: areal
+      estacion_id: 134
+      cal_id: 676
+      forecast_date: # "2024-06-11T06:00:00.000Z"
+        hours: -4
+        roundTo:
+          hours: 6         
+      timestart:
+        hours: -10
+      timeend:
+        days: 16
+    output: outputs/gfs_nomads_pma.json
+    options:
+      includeProno: true
+      pretty: true
 
-# - procedureName: RastExtractProcedure
-#   arguments:
-#     filter:
-#       series_id: 1
-#       cal_id: 676
-#       forecast_date: # "2024-06-11T06:00:00.000Z"
-#         hours: -4
-#         roundTo:
-#           hours: 6         
-#       timestart:
-#         hours: -10
-#       timeend:
-#         days: 1
-#     output: outputs/gfs_nomads_pma_extract.json
-#     options:
-#       pretty: true
-#       min_obs: 4
+- procedureName: RastExtractProcedure
+  arguments:
+    filter:
+      series_id: 1
+      cal_id: 676
+      forecast_date: # "2024-06-11T06:00:00.000Z"
+        hours: -4
+        roundTo:
+          hours: 6         
+      timestart:
+        hours: -10
+      timeend:
+        days: 1
+    output: outputs/gfs_nomads_pma_extract.json
+    options:
+      pretty: true
+      min_obs: 4
 
-# - procedureName: RastExtractProcedure
-#   arguments:
-#     filter:
-#       series_id: 1
-#       cal_id: 676
-#       forecast_date: # "2024-06-11T06:00:00.000Z"
-#         hours: -4
-#         roundTo:
-#           hours: 6         
-#       timestart:
-#         hours: -10
-#       timeend:
-#         days: 1
-#     output: outputs/gfs_nomads_pma.tif
-#     options:
-#       output_format: raster
-#       min_obs: 4
-#       funcion: sum
+- procedureName: RastExtractProcedure
+  arguments:
+    filter:
+      series_id: 1
+      cal_id: 676
+      forecast_date: # "2024-06-11T06:00:00.000Z"
+        hours: -4
+        roundTo:
+          hours: 6         
+      timestart:
+        hours: -10
+      timeend:
+        days: 1
+    output: outputs/gfs_nomads_pma.tif
+    options:
+      output_format: raster
+      min_obs: 4
+      funcion: sum
 
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: serie
-#     elements:
-#     - tipo: rast
-#       id: 9
-#       escena_id: 18
-#       fuentes_id: 44
-#       var_id: 1
-#       proc_id: 4
-#       unit_id: 22
+- procedureName: CreateProcedure
+  arguments:
+    class_name: serie
+    elements:
+    - tipo: rast
+      id: 9
+      escena_id: 18
+      fuentes_id: 44
+      var_id: 1
+      proc_id: 4
+      unit_id: 22
 
-# - procedureName: CreateProcedure
-#   arguments:
-#     class_name: asociacion
-#     elements:
-#     - id: 5
-#       source_series_id: 1
-#       source_tipo: raster
-#       dest_series_id: 9
-#       dest_tipo: raster
-#       agg_func: sum
-#       t_offset:
-#         hours: 9
-#       dt:
-#         days: 1
-#       source_time_support:
-#         hours: 6
-#       precision: 2
-#       cal_id: 676
+- procedureName: CreateProcedure
+  arguments:
+    class_name: asociacion
+    elements:
+    - id: 5
+      source_series_id: 1
+      source_tipo: raster
+      dest_series_id: 9
+      dest_tipo: raster
+      agg_func: sum
+      t_offset:
+        hours: 9
+      dt:
+        days: 1
+      source_time_support:
+        hours: 6
+      precision: 2
+      cal_id: 676
 
 - procedureName: RunAsociacionProcedure
   arguments:
     id: 5
     filter:
       forecast_date: # "2024-06-11T06:00:00.000Z"
-        hours: -5
+        hours: -4
         roundTo:
           hours: 6         
       timestart:
@@ -279,3 +279,53 @@ sequence:
     output: outputs/gfs_diario.json
     options:
       pretty: true
+
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: area
+    filter:
+      id: 134
+
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: escena
+    filter:
+      id: 18
+
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: asociacion
+    filter:
+      id: 5
+      asociacion_id: 5
+
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: corrida
+    filter:
+      cal_id: 676
+      forecast_date:
+        hours: -4
+        roundTo: 
+          hours: 6
+
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: calibrado
+    filter:
+      id: 676
+
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: fuente
+    filter:
+      id: 44
+
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: modelo
+    filter:
+      id: 305
+
+
+
