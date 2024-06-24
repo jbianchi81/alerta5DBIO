@@ -6,10 +6,14 @@ internal.AbstractAccessorEngine = class {
 
     config = {}
 
-    constructor(config={}) {
+    setConfig(config) {
         this.config = {}
         Object.assign(this.config,this.default_config)
         Object.assign(this.config,config)
+    }
+
+    constructor(config={}) {
+        this.setConfig(config)
     }
 }
 

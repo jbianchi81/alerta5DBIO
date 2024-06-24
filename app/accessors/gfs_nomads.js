@@ -39,6 +39,11 @@ internal.Client = class extends AbstractAccessorEngine {
         "cal_id": 676
     }
 
+    constructor(config={}) {
+        super(config)
+        this.setConfig(config)
+    }
+
     async getFile(
         date,
         hour,

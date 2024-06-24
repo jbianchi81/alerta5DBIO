@@ -35,3 +35,4 @@ sql/__pycache__
 public/rast
 public/planillas
 procedures/tests/outputs
+app/accessors/samples
