@@ -7049,7 +7049,7 @@ internal.CRUD = class {
 			RETURNING unid id, nombre, st_asGeoJSON(geom)::json geom, distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev, URL, localidad, real, cero_ign, altitud, ubicacion"
 			query_params = [estacion.nombre, estacion.id_externo, (estacion.geom) ? estacion.geom.coordinates[0] : undefined, (estacion.geom) ? estacion.geom.coordinates[1] : undefined, estacion.tabla, estacion.provincia, estacion.pais, estacion.rio, estacion.has_obs, estacion.tipo, estacion.automatica, estacion.habilitar, estacion.propietario, estacion.abreviatura, estacion.URL, estacion.localidad, estacion.real, estacion.id, estacion.cero_ign, estacion.altitud, estacion.ubicacion]
 		}
-		console.debug(pasteIntoSQLQuery(query, query_params))
+		// console.debug(pasteIntoSQLQuery(query, query_params))
 		const result = await client.query(query,query_params) 
 		if(result.rows.length<=0) {
 			console.error("No se encontró la estación")

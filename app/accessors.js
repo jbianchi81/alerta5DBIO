@@ -43,6 +43,7 @@ internal.om_ogc_timeseries_client = require('./accessors/om_ogc_timeseries_clien
 internal.prevenir = require('./accessors/prevenir_accessor').Client
 internal.snih = require('./accessors/snih').client
 internal.gfs_nomads = require('./accessors/gfs_nomads').Client
+internal.hidrowebservice = require('./accessors/hidrowebservice').Client
 
 // Promise.allSettled polyfill
 
