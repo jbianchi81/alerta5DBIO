@@ -12,7 +12,7 @@
             "type": "object",
             "properties": {
                 "filter": {
-                    "$ref": "getpronosticofromaccessorprocedure.json#definitions/PronosticosFilter"
+                    "$ref": "pronosticosfilter.json"
                 },
                 "time_step": {
                     "description": "time interval of aggregation",

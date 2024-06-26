@@ -1,0 +1,19 @@
+{
+    "$id": "procedurearguments.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ProcedureArguments",
+    "type": "object",
+    "properties": {
+        "options": {
+            "$ref": "crudprocedureoptions.json"
+        },
+        "output": {
+            "type": "string",
+            "description": "Route to the output file"
+        },
+        "output_format": {
+            "type": "string",
+            "description": "Output file format (json (default), csv, raster)"
+        }
+    }
+}
