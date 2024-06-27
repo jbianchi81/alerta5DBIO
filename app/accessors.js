@@ -44,6 +44,7 @@ internal.prevenir = require('./accessors/prevenir_accessor').Client
 internal.snih = require('./accessors/snih').client
 internal.gfs_nomads = require('./accessors/gfs_nomads').Client
 internal.hidrowebservice = require('./accessors/hidrowebservice').Client
+internal.hidrowebservice_historico = require('./accessors/hidrowebservice_historico').Client
 
 // Promise.allSettled polyfill
 
@@ -252,6 +253,7 @@ internal.Accessor = class {
 		filter.timeend = timeSteps.DateFromDateOrInterval(filter.timeend)
 		if(this.engine.constructor._get_is_multiseries) {
 			console.log("engine.get is multiseries. Calling engine.get")
+			options.return_series = true
 			return this.engine.get(filter,options)
 		}
 		if(!this.engine.getSeries) {
@@ -284,8 +286,20 @@ internal.Accessor = class {
 			}
 			console.log(`retrieving observaciones for serie ${series[i].id}`)
 			try {
-				series[i].setObservaciones(await this.engine.get({series_id:series[i].id,tipo:series[i].tipo, timestart:filter.timestart,timeend:filter.timeend,forecast_date: filter.forecast_date}))
-
+				series[i].setObservaciones(
+					await this.engine.get(
+						{
+							series_id: series[i].id,
+							tipo: series[i].tipo, 
+							timestart: filter.timestart,
+							timeend: filter.timeend,
+							forecast_date: filter.forecast_date
+						},
+						{
+							return_series: false
+						}
+					)
+				)
 				results.push(series[i])
 			} catch (e) {
 				console.error(e)
@@ -305,6 +319,7 @@ internal.Accessor = class {
 		filter.timestart = timeSteps.DateFromDateOrInterval(filter.timestart)
 		filter.timeend = timeSteps.DateFromDateOrInterval(filter.timeend)
 		if(this.engine.update && this.engine.constructor._get_is_multiseries) {
+			options.return_series = true
 			const series = await this.engine.update(filter,options,client)
 			if(!options.no_update_date_range) {
 				var types = Array.from(new Set(series.map(s=>s.tipo)))
@@ -341,6 +356,7 @@ internal.Accessor = class {
 		var series_filter = {...filter}
 		series_filter.timestart = filter.timeend
 		series_filter.timeend = filter.timestart
+		options.skip_new = true
 		const series = await this.engine.getSeries(series_filter,options,client)
 		console.log(`Got ${series.length} series`)
 		const results = []

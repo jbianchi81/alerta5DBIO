@@ -6,6 +6,8 @@ const axios = require('axios')
 const AbstractAccessorEngine = require('./abstract_accessor_engine').AbstractAccessorEngine
 const {DateFromDateOrInterval} = require('../timeSteps')
 const {serie: Serie, observacion: Observacion, observaciones: Observaciones} = require('../CRUD')
+const {arrayOfObjectsToCSV} = require('../utils')
+
 
 const internal = {}
 
@@ -57,7 +59,9 @@ internal.Client = class extends AbstractAccessorEngine {
                     Identificador: this.config.user,
                     Senha: this.config.password
                 }
-            })
+            }
+        )
+        console.debug(sprintf("GET %03d %s", response.status, response.config.url))
         return response.data
     }
 
@@ -118,6 +122,8 @@ internal.Client = class extends AbstractAccessorEngine {
                 }
             }
         )
+        console.debug(sprintf("GET %03d %s", response.status, response.config.url))
+        this.last_response = response
         return response.data  
     }
     
@@ -131,9 +137,21 @@ internal.Client = class extends AbstractAccessorEngine {
      * @param {string} filter.id_externo
      * @param {integer|Array<integer>} filter.var_id
      * @param {*} options 
+     * @param {string} options.raw_output_file
      * @returns 
      */
     async getSeries(filter={}, options={}) {
+        if(options.skip_new) {
+            return Serie.read({
+                id: filter.id ?? filter.series_id,
+                tipo: "puntual",
+                var_id: filter.var_id,
+                proc_id: filter.proc_id ?? 1,
+                unit_id: filter.unit_id,
+                id_externo: filter.id_externo,
+                tabla_id: filter.tabla_id ?? filter.tabla ?? this.config.tabla_id               
+            })
+        }
         const token = await this.getToken()
         var station_id = filter.id_externo ?? this.config.station_id ?? this.config.id_externo
         filter.var_id = (filter.var_id && !Array.isArray(filter.var_id)) ? [filter.var_id] : filter.var_id
@@ -148,21 +166,41 @@ internal.Client = class extends AbstractAccessorEngine {
                 throw("Missing either station_id, state_id or basin_id")
             }
         }
-        const data = await this.getHidroInventarioEstacoes(
-            station_id,
-            start_date,
-            end_date,
-            state_id,
-            basin_id,
-            undefined,
-            token
-        )
-        if(!data.items || !data.items.length) {
+        var items = []
+        if(station_id && Array.isArray(station_id)) {
+            for(var id of station_id) {
+                const data = await this.getHidroInventarioEstacoes(
+                    id,
+                    start_date,
+                    end_date,
+                    state_id,
+                    basin_id,
+                    undefined,
+                    token
+                )
+                items.push(...data.items)
+            }
+        } else {
+            const data = await this.getHidroInventarioEstacoes(
+                station_id,
+                start_date,
+                end_date,
+                state_id,
+                basin_id,
+                undefined,
+                token
+            )
+            items.push(...data.items)
+        }
+        if(!items.length) {
             console.warn("Nothing found at hidrowebservice.getHidroInventarioEstacoes")
             return []
         }
+        if(options.raw_output_file) {
+            arrayOfObjectsToCSV(items,options.raw_output_file)
+        }
         const series = []
-        for(var item of data.items) {
+        for(var item of items) {
             const estacion = {
                 altitud: parseFloat(item.Altitude),
                 nombre: item.Estacao_Nome,
@@ -286,6 +324,8 @@ internal.Client = class extends AbstractAccessorEngine {
                 }
             }
         )
+        console.debug(sprintf("GET %03d %s", response.status, response.config.url))
+        this.last_response = response
         return response.data  
     }
 
@@ -373,8 +413,12 @@ internal.Client = class extends AbstractAccessorEngine {
         for(var serie of series) {
             if(serie.observaciones) {
                 const created_obs = await serie.observaciones.create()
+                serie.setObservaciones(created_obs)
                 observaciones.push(...created_obs)
             }
+        }
+        if(options.return_series) {
+            return series
         }
         return observaciones
     }
@@ -403,7 +447,7 @@ internal.Client = class extends AbstractAccessorEngine {
             }))
         }
         return new Observaciones(observaciones).removeDuplicates()
-    }
+    }    
 
     HidroInventarioEstacoesResponseExample = {
         "status": "OK",

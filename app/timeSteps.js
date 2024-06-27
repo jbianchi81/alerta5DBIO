@@ -518,6 +518,12 @@ internal.DateFromInterval = function(interval,date=new Date(),roundTo,truncate=f
 
 }
 
+internal.setDateParts = function(date, interval, utc=false) {
+	for(const [key, value] of Object.entries(interval)) {
+		internal.setDatePart(date, key, value, utc)
+	}
+}
+
 internal.setDatePart = function(date, date_part, value, utc=false) {
 	if(["date","day","days"].indexOf(date_part.toLowerCase()) >= 0) {
 		if(utc) {

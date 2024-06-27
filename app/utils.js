@@ -12,6 +12,7 @@ var g = new Validator();
 for(var key in schemas) {
     g.addSchema(schemas[key],"/" + key)
 }
+const CSV = require('csv-string')
 
 // var geom =  new Geometry("POINT(-53 -32)")
 // console.log("util: geom instanceof Geometry: " + geom instanceof Geometry)
@@ -829,6 +830,40 @@ internal.control_query_arg = function(valid_type={}, value) {
 
 
 }
+
+/**
+ * Convert an array of objects to a csv string or file. 
+ * 
+ * Notes:
+ * - The keys of the first item are used as table headers. If Other keys exist in other items they are not included in the result.
+ * @param {Array<Object>} items - It is assumed that all items have the same keys and that the values are stringifiable
+ * @param {string=} output_file 
+ * @param {boolean=true} header - include table header
+ * @returns {string|undefined} The csv string if output_file is not set, else undefined
+ */
+internal.arrayOfObjectsToCSV = function(items,output_file,header=true) {
+	const header_fields = Object.keys(items[0])
+	const rows = items.map(i=>{
+		return header_fields.map(k=>i[k])
+	})
+	if(header) {
+		var csv_string = CSV.stringify(
+			[
+				header_fields,
+				...rows
+			]
+		)
+	} else {
+		var csv_string = CSV.stringify(rows)
+	}
+	if (output_file) {
+		fs.writeFileSync(output_file,csv_string)
+		return
+	}
+	return csv_string
+}
+
+
 
 function changeRef(object,key) {
     if(key == "$ref") {
