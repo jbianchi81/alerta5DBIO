@@ -78,6 +78,9 @@ internal.CrudProcedure = class  {
         if(this.options && this.options.output_individual_files) {
             this.options.output_individual_files.base_path = (this.options.output_individual_files.base_path) ? path.resolve(this.files_base_dir,this.options.output_individual_files.base_path) : path.resolve(this.files_base_dir)
         }
+        if(this.options && this.options.raw_output_file) {
+            this.options.raw_output_file = path.resolve(this.files_base_dir,this.options.raw_output_file)
+        }
         // logger.info("options: " + JSON.stringify(this.options))
     }
     run() {

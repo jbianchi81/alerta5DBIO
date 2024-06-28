@@ -310,13 +310,14 @@ internal.estacion = class extends baseModel  {
 		public: {type: "boolean"},
 		cero_ign: {type: "number"},
 		ubicacion: {type: "string"},
-		drainage_basin: {type: "object"}
+		drainage_basin: {type: "object"},
+		tabla: {foreign_key: true, type: "string", table: "redes", column: "tabla_id"}
 	}
 	constructor() {
-        super()
 		switch(arguments.length) {
 			case 1:
 				if(typeof(arguments[0]) === "string") {
+					super()
 					var arg_arr =  arguments[0].split(",")
 					this.id = arg_arr[0]
 					this.nombre = arg_arr[1]
@@ -344,34 +345,38 @@ internal.estacion = class extends baseModel  {
 					this.ubicacion = arg_arr[22]
 					this.drainage_basin = arg_arr[23]
 				} else {
-					this.id = arguments[0].id
-					this.nombre = arguments[0].nombre
-					this.id_externo = arguments[0].id_externo
-					this.geom = (arguments[0].hasOwnProperty("geom") && arguments[0].geom != null) ? new internal.geometry(arguments[0].geom) : undefined
-					this.tabla = arguments[0].tabla
-					this.provincia = (arguments[0].hasOwnProperty("provincia")) ? arguments[0].provincia : arguments[0].distrito
-					this.pais = arguments[0].pais
-					this.rio=arguments[0].rio
-					this.has_obs= arguments[0].has_obs
-					this.tipo =arguments[0].tipo
-					this.automatica =arguments[0].automatica
-					this.habilitar =arguments[0].habilitar
-					this.propietario =arguments[0].propietario
-					this.abreviatura =arguments[0].abreviatura
-					this.URL =arguments[0].URL
-					this.localidad =arguments[0].localidad
-					this.real =arguments[0].real
-					this.nivel_alerta = arguments[0].nivel_alerta
-					this.nivel_evacuacion = arguments[0].nivel_evacuacion
-					this.nivel_aguas_bajas = arguments[0].nivel_aguas_bajas
-					this.altitud = arguments[0].altitud
-					this.public = arguments[0].public
-					this.cero_ign = arguments[0].cero_ign
-					this.ubicacion = arguments[0].ubicacion
-					this.drainage_basin = arguments[0].drainage_basin
+					arguments[0].provincia = (arguments[0].hasOwnProperty("provincia")) ? arguments[0].provincia : arguments[0].distrito
+					delete arguments[0].distrito
+					super(arguments[0])
+					// this.id = arguments[0].id
+					// this.nombre = arguments[0].nombre
+					// this.id_externo = arguments[0].id_externo
+					// this.geom = (arguments[0].hasOwnProperty("geom") && arguments[0].geom != null) ? new internal.geometry(arguments[0].geom) : undefined
+					// this.tabla = arguments[0].tabla
+					// this.provincia = (arguments[0].hasOwnProperty("provincia")) ? arguments[0].provincia : arguments[0].distrito
+					// this.pais = arguments[0].pais
+					// this.rio=arguments[0].rio
+					// this.has_obs= arguments[0].has_obs
+					// this.tipo =arguments[0].tipo
+					// this.automatica =arguments[0].automatica
+					// this.habilitar =arguments[0].habilitar
+					// this.propietario =arguments[0].propietario
+					// this.abreviatura =arguments[0].abreviatura
+					// this.URL =arguments[0].URL
+					// this.localidad =arguments[0].localidad
+					// this.real =arguments[0].real
+					// this.nivel_alerta = arguments[0].nivel_alerta
+					// this.nivel_evacuacion = arguments[0].nivel_evacuacion
+					// this.nivel_aguas_bajas = arguments[0].nivel_aguas_bajas
+					// this.altitud = arguments[0].altitud
+					// this.public = arguments[0].public
+					// this.cero_ign = arguments[0].cero_ign
+					// this.ubicacion = arguments[0].ubicacion
+					// this.drainage_basin = arguments[0].drainage_basin
 				}
 				break;
 			default:
+				super()
 				this.nombre = arguments[0]
 				this.id_externo = arguments[1]
 				this.geom = arguments[2]
@@ -6971,8 +6976,8 @@ internal.CRUD = class {
 		VALUES ($1, $2, st_setsrid(st_point($3, $4),4326), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)" : "\
 		INSERT INTO estaciones (nombre, id_externo, geom, tabla,  distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev, URL, localidad, real, altitud, cero_ign, ubicacion) \
 		VALUES ($1, $2, st_setsrid(st_point($3, $4),4326), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)" 
-		var query = ins_query + " ON CONFLICT (tabla,id_externo) " + onconflictaction + "\
-			RETURNING unid id, nombre, id_externo, st_asGeoJSON(geom)::json geom, tabla, distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev, URL, localidad, real, altitud, cero_ign, ubicacion"
+		var query = `${ins_query} ON CONFLICT (tabla,id_externo) ${onconflictaction}
+			RETURNING unid id, nombre, id_externo, st_asGeoJSON(geom)::json geom, tabla, distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev AS abreviatura, URL as "URL", localidad, real, altitud, cero_ign, ubicacion`
 		var params = [estacion.nombre, estacion.id_externo, estacion.geom.coordinates[0], estacion.geom.coordinates[1], estacion.tabla, estacion.provincia, estacion.pais, estacion.rio, estacion.has_obs, estacion.tipo, estacion.automatica, estacion.habilitar, estacion.propietario, estacion.abreviatura, estacion.URL, estacion.localidad, estacion.real, estacion.altitud, estacion.cero_ign, estacion.ubicacion]
 		if(estacion.id) {
 			params.push(estacion.id)
@@ -7001,52 +7006,51 @@ internal.CRUD = class {
 			if(!estacion.tabla || !estacion.id_externo) {
 				return Promise.reject("Falta id o tabla + id_externo")
 			}
-			query = "\
-			UPDATE estaciones \
-			SET nombre=coalesce($1,nombre), \
-			geom=coalesce(st_setsrid(st_point($3, $4),4326),geom), \
-			distrito=coalesce($6,distrito), \
-			pais=coalesce($7,pais), \
-			rio=coalesce($8, rio), \
-			has_obs=coalesce($9,has_obs),\
-			tipo=coalesce($10,tipo),\
-			automatica=coalesce($11,automatica), \
-			habilitar=coalesce($12, habilitar), \
-			propietario=coalesce($13, propietario), \
-			abrev=coalesce($14, abrev),\
-			url=coalesce($15, url), \
-			localidad=coalesce($16, localidad), \
-			real=coalesce($17, real), \
-			cero_ign=coalesce($18,cero_ign), \
-			altitud=coalesce($19,altitud), \
-			ubicacion=coalesce($20, ubicacion)\
-			WHERE tabla=$5 and id_externo=$2\
-			RETURNING unid id, nombre, st_asGeoJSON(geom)::json geom, distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev, URL, localidad, real, cero_ign, altitud, tabla, id_externo, ubicacion"
+			query = `
+			UPDATE estaciones 
+			SET nombre=coalesce($1,nombre), 
+			geom=coalesce(st_setsrid(st_point($3, $4),4326),geom), 
+			distrito=coalesce($6,distrito), 
+			pais=coalesce($7,pais), 
+			rio=coalesce($8, rio), 
+			has_obs=coalesce($9,has_obs),
+			tipo=coalesce($10,tipo),
+			automatica=coalesce($11,automatica), 
+			habilitar=coalesce($12, habilitar), 
+			propietario=coalesce($13, propietario), 
+			abrev=coalesce($14, abrev),
+			url=coalesce($15, url), 
+			localidad=coalesce($16, localidad), 
+			real=coalesce($17, real), 
+			cero_ign=coalesce($18,cero_ign), 
+			altitud=coalesce($19,altitud), 
+			ubicacion=coalesce($20, ubicacion)
+			WHERE tabla=$5 and id_externo=$2
+			RETURNING unid id, nombre, st_asGeoJSON(geom)::json geom, distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev AS abreviatura, URL as "URL", localidad, real, cero_ign, altitud, tabla, id_externo, ubicacion`
 			query_params = [estacion.nombre, estacion.id_externo, (estacion.geom) ? estacion.geom.coordinates[0] : undefined, (estacion.geom) ? estacion.geom.coordinates[1] : undefined, estacion.tabla, estacion.provincia, estacion.pais, estacion.rio, estacion.has_obs, estacion.tipo, estacion.automatica, estacion.habilitar, estacion.propietario, estacion.abreviatura, estacion.URL, estacion.localidad, estacion.real, estacion.cero_ign, estacion.altitud, estacion.ubicacion]
 		} else {
-			query = "\
-			UPDATE estaciones \
-			SET nombre=coalesce($1,nombre), \
-			id_externo=coalesce($2,id_externo), \
-			geom=coalesce(st_setsrid(st_point($3, $4),4326),geom), \
-			tabla=coalesce($5,tabla),\
-			distrito=coalesce($6,distrito), \
-			pais=coalesce($7,pais), \
-			rio=coalesce($8, rio), \
-			has_obs=coalesce($9,has_obs),\
-			tipo=coalesce($10,tipo),\
-			automatica=coalesce($11,automatica), \
-			habilitar=coalesce($12, habilitar), \
-			propietario=coalesce($13, propietario), \
-			abrev=coalesce($14, abrev),\
-			url=coalesce($15, url), \
-			localidad=coalesce($16, localidad), \
-			real=coalesce($17, real), \
-			cero_ign=coalesce($19,cero_ign), \
-			altitud=coalesce($20,altitud),\
-			ubicacion=coalesce($21,ubicacion)\
-			WHERE unid = $18\
-			RETURNING unid id, nombre, st_asGeoJSON(geom)::json geom, distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev, URL, localidad, real, cero_ign, altitud, ubicacion"
+			query = `UPDATE estaciones 
+			SET nombre=coalesce($1,nombre),
+			id_externo=coalesce($2,id_externo), 
+			geom=coalesce(st_setsrid(st_point($3, $4),4326),geom), 
+			tabla=coalesce($5,tabla),
+			distrito=coalesce($6,distrito), 
+			pais=coalesce($7,pais), 
+			rio=coalesce($8, rio), 
+			has_obs=coalesce($9,has_obs),
+			tipo=coalesce($10,tipo),
+			automatica=coalesce($11,automatica), 
+			habilitar=coalesce($12, habilitar), 
+			propietario=coalesce($13, propietario), 
+			abrev=coalesce($14, abrev),
+			url=coalesce($15, url), 
+			localidad=coalesce($16, localidad), 
+			real=coalesce($17, real), 
+			cero_ign=coalesce($19,cero_ign), 
+			altitud=coalesce($20,altitud),
+			ubicacion=coalesce($21,ubicacion)
+			WHERE unid = $18
+			RETURNING unid id, nombre, st_asGeoJSON(geom)::json geom, distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev AS abreviatura, URL as "URL", localidad, real, cero_ign, altitud, ubicacion`
 			query_params = [estacion.nombre, estacion.id_externo, (estacion.geom) ? estacion.geom.coordinates[0] : undefined, (estacion.geom) ? estacion.geom.coordinates[1] : undefined, estacion.tabla, estacion.provincia, estacion.pais, estacion.rio, estacion.has_obs, estacion.tipo, estacion.automatica, estacion.habilitar, estacion.propietario, estacion.abreviatura, estacion.URL, estacion.localidad, estacion.real, estacion.id, estacion.cero_ign, estacion.altitud, estacion.ubicacion]
 		}
 		// console.debug(pasteIntoSQLQuery(query, query_params))
@@ -7336,19 +7340,46 @@ internal.CRUD = class {
 			pagination_clause = (filter.limit) ? `LIMIT ${filter.limit}` : ""
 			pagination_clause += (filter.offset) ? ` OFFSET ${filter.offset}`: ""
 		}
-		var res = await client.query("SELECT estaciones.nombre, estaciones.id_externo, st_x(estaciones.geom) geom_x, st_y(estaciones.geom) geom_y, estaciones.tabla,  estaciones.distrito, estaciones.pais, estaciones.rio, estaciones.has_obs, estaciones.tipo, estaciones.automatica, estaciones.habilitar, estaciones.propietario, estaciones.abrev, estaciones.URL, estaciones.localidad, estaciones.real, estaciones.id, estaciones.unid, nivel_alerta.valor nivel_alerta, nivel_evacuacion.valor nivel_evacuacion, nivel_aguas_bajas.valor nivel_aguas_bajas, cero_ign, redes.public, altitud\
-		FROM estaciones\
-		JOIN (select id fuentes_id, tabla_id, public, public_his_plata FROM redes) redes ON (estaciones.tabla=redes.tabla_id)\
-		LEFT OUTER JOIN alturas_alerta nivel_alerta ON (estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado='a') \
-		LEFT OUTER JOIN alturas_alerta nivel_evacuacion ON (estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado='e') \
-		LEFT OUTER JOIN alturas_alerta nivel_aguas_bajas ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b') \
-		WHERE estaciones.geom IS NOT NULL " + filter_string + " ORDER BY unid\
-		" + pagination_clause)
+		var res = await client.query(`
+			SELECT
+				estaciones.nombre, 
+				estaciones.id_externo, 
+				st_asGeoJSON(estaciones.geom) AS geom,
+				estaciones.tabla,  
+				estaciones.distrito, 
+				estaciones.pais, 
+				estaciones.rio, 
+				estaciones.has_obs, 
+				estaciones.tipo, 
+				estaciones.automatica, 
+				estaciones.habilitar, 
+				estaciones.propietario, 
+				estaciones.abrev AS abreviatura, 
+				estaciones.URL as "URL", 
+				estaciones.localidad, 
+				estaciones.real, 
+				estaciones.id,
+				estaciones.unid, 
+				nivel_alerta.valor nivel_alerta, 
+				nivel_evacuacion.valor nivel_evacuacion, 
+				nivel_aguas_bajas.valor nivel_aguas_bajas, 
+				cero_ign, 
+				redes.public, 
+				altitud
+		FROM estaciones
+		JOIN (select id fuentes_id, tabla_id, public, public_his_plata FROM redes) redes ON (estaciones.tabla=redes.tabla_id)
+		LEFT OUTER JOIN alturas_alerta nivel_alerta ON (estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado='a') 
+		LEFT OUTER JOIN alturas_alerta nivel_evacuacion ON (estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado='e') 
+		LEFT OUTER JOIN alturas_alerta nivel_aguas_bajas ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b') 
+		WHERE estaciones.geom IS NOT NULL ${filter_string} ORDER BY unid
+		${pagination_clause}`)
 		var estaciones = []
 		for(var row of res.rows) {
-			const geometry = new internal.geometry("Point", [row.geom_x, row.geom_y])
-			const estacion = new internal.estacion(row.nombre,row.id_externo,geometry,row.tabla,row.distrito,row.pais,row.rio,row.has_obs,row.tipo,row.automatica,row.habilitar,row.propietario,row.abrev,row.URL,row.localidad,row.real,row.nivel_alerta,row.nivel_evacuacion,row.nivel_aguas_bajas,row.altitud,row.public,row.cero_ign)
-			estacion.id = row.unid
+			// row.geom = new internal.geometry("Point", [row.geom_x, row.geom_y])
+			row.id = row.unid
+			delete row.unid
+			const estacion = new internal.estacion(row)
+			// estacion.id = row.unid
 			if(options && options.get_drainage_basin) {
 				await estacion.getDrainageBasin()
 			}
@@ -9640,6 +9671,10 @@ internal.CRUD = class {
 		// }
 		var series = []
 		for(var row of res.rows) {
+			delete row.estacion.longitude
+			delete row.estacion.latitude
+			delete row.estacion.red_id
+			delete row.estacion.red_nombre
 			try {
 				var serie = new internal.serie(row)
 			} catch(e) {
@@ -19664,7 +19699,7 @@ internal.utils = {
 				case "number":
 					value = parseFloat(params[i])
 					if(value.toString() == "NaN") {
-						throw("Invalid number")
+						throw(new Error("Invalid number"))
 					}
 					break
 				case "object":

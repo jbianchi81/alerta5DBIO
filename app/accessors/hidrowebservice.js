@@ -5,7 +5,7 @@ const sprintf = require('sprintf-js').sprintf
 const axios = require('axios')
 const AbstractAccessorEngine = require('./abstract_accessor_engine').AbstractAccessorEngine
 const {DateFromDateOrInterval} = require('../timeSteps')
-const {serie: Serie, observacion: Observacion, observaciones: Observaciones} = require('../CRUD')
+const {estacion: Estacion, serie: Serie, observacion: Observacion, observaciones: Observaciones} = require('../CRUD')
 const {arrayOfObjectsToCSV} = require('../utils')
 
 
@@ -201,8 +201,14 @@ internal.Client = class extends AbstractAccessorEngine {
         }
         const series = []
         for(var item of items) {
-            const estacion = {
-                altitud: parseFloat(item.Altitude),
+            if(parseFloat(item.Longitude).toString() == "NaN") {
+                console.warn("Invalid Longitude in station " + item.codigoestacao + ". skipping.")
+            }
+            if(parseFloat(item.Latitude).toString() == "NaN") {
+                console.warn("Invalid Latitude in station " + item.codigoestacao + ". skipping.")
+            }
+            const estacion = new Estacion({
+                altitud: (parseFloat(item.Altitude).toString() != "NaN") ? parseFloat(item.Altitude) : undefined,
                 nombre: item.Estacao_Nome,
                 geom: {
                     type: "Point",
@@ -219,63 +225,149 @@ internal.Client = class extends AbstractAccessorEngine {
                 distrito: item.UF_Estacao,
                 real: true,
                 automatica: (item.Tipo_Estacao_Telemetrica == "1") ? true : false
-            }
-            // add monthly, daily, 6-hourly, 3-hourly, hourly and instantaneous precipitation series. Units: millimeters
-            for(var var_id of [1,27,31,34,41,91]) {
-                if(filter.var_id && filter.var_id.indexOf(var_id) < 0) {
-                    continue
+            })
+            
+            // NOTE: historical hydrological and meteorological data is separated into different stations, while real time data (gauge height, discharge and precipitation) is in the same stations
+
+            // historical monthly and daily precipitation
+            // if Data_Periodo_Pluviometro_Inicio is not null historical data is available
+            // if Data_Periodo_Pluviometro_Fim is null the pluviometer is active
+            // Tipo_estacao_Pluviometro indicates if the pluviometer is active
+            if(item.Data_Periodo_Pluviometro_Inicio) {
+                for(var var_id of [1,41]) {
+                    if(!filter.var_id || filter.var_id.indexOf(var_id) >= 0) {
+                        series.push(
+                            new Serie({
+                                estacion: estacion,
+                                var_id: var_id,
+                                proc_id: 1,
+                                unit_id: (var_id == 1) ? 22 : 9,
+                                date_range: {
+                                    // assuming Brasilia timezone -03
+                                    timestart: new Date(item.Data_Periodo_Pluviometro_Inicio + "-03:00"),
+                                    timeend: (item.Data_Periodo_Pluviometro_Fim) ? new Date(item.Data_Periodo_Pluviometro_Fim + "-03:00") : undefined
+                                }
+                            })
+                        )
+                    }
                 }
-                series.push(
-                    new Serie({
-                        estacion: estacion,
-                        var_id: var_id,
-                        proc_id: 1,
-                        unit_id: (var_id == 1) ? 22 : 9,
-                        date_range: {
-                            // assuming Brasilia timezone -03
-                            timestart:(item.Data_Periodo_Pluviometro_Inicio)  ? new Date(item.Data_Periodo_Pluviometro_Inicio + "-03:00") : undefined,
-                            timeend: (item.Data_Periodo_Pluviometro_Fim) ? new Date(item.Data_Periodo_Pluviometro_Fim + "-03:00") : undefined
-                        }
-                    })
-                )
             }
-            // add monthly, daily, hourly and instantaneous discharge, Units: m3/s
-            for(var var_id of [4,40,48,87]) {
-                if(filter.var_id && filter.var_id.indexOf(var_id) < 0) {
-                    continue
+            
+            // historical monthly, daily discharge. Units: m3/s
+            // if Data_Periodo_Desc_liquida_Inicio (sic) is not null historical data is available
+            // if Data_Periodo_Desc_Liquida_Fim is null the gauge is active
+            // Tipo_estacao_Desc_Liquida indicates if the gauge is active
+            if(item.Data_Periodo_Desc_liquida_Inicio) {
+                for(var var_id of [40,48]) {
+                    if(filter.var_id && filter.var_id.indexOf(var_id) < 0) {
+                        continue
+                    }
+                    series.push(
+                        new Serie({
+                            estacion: estacion,
+                            var_id: var_id,
+                            proc_id: 1,
+                            unit_id: 10,
+                            date_range: {
+                                // assuming Brasilia timezone -03
+                                timestart: new Date(item.Data_Periodo_Desc_liquida_Inicio + "-03:00"),
+                                timeend: (item.Data_Periodo_Desc_Liquida_Fim) ? new Date(item.Data_Periodo_Desc_Liquida_Fim + "-03:00") : undefined
+                            }
+                        })
+                    )
                 }
-                series.push(
-                    new Serie({
-                        estacion: estacion,
-                        var_id: var_id,
-                        proc_id: 1,
-                        unit_id: 10,
-                        date_range: {
-                            // assuming Brasilia timezone -03
-                            timestart:(item.Data_Periodo_Desc_liquida_Inicio)  ? new Date(item.Data_Periodo_Desc_liquida_Inicio + "-03:00") : undefined,
-                            timeend: (item.Data_Periodo_Desc_Liquida_Fim) ? new Date(item.Data_Periodo_Desc_Liquida_Fim + "-03:00") : undefined
-                        }
-                    })
-                )
             }
-            // add monthly, daily, hourly and instantaneous gauge height. Units: meter
-            for(var var_id of [2,33,39,85]) {
-                if(filter.var_id && filter.var_id.indexOf(var_id) < 0) {
-                    continue
+
+            // historical monthly, daily gauge height. Units: meter
+            // if Data_Periodo_Escala_Inicio is not null historical data is available
+            // if Data_Periodo_Escala_Fim is null the gauge is active
+            // Tipo_estacao_Escala indicates if the gauge is active
+            if(item.Data_Periodo_Escala_Inicio) {
+                for(var var_id of [33,39]) {
+                    if(filter.var_id && filter.var_id.indexOf(var_id) < 0) {
+                        continue
+                    }
+                    series.push(
+                        new Serie({
+                            estacion: estacion,
+                            var_id: var_id,
+                            proc_id: 1,
+                            unit_id: 11,
+                            date_range: {
+                                // assuming Brasilia timezone -03
+                                timestart:new Date(item.Data_Periodo_Escala_Inicio + "-03:00"),
+                                timeend: (item.Data_Periodo_Escala_Fim) ? new Date(item.Data_Periodo_Escala_Fim + "-03:00") : undefined
+                            }
+                        })
+                    )
                 }
-                series.push(
-                    new Serie({
-                        estacion: estacion,
-                        var_id: var_id,
-                        proc_id: 1,
-                        unit_id: 11,
-                        date_range: {
-                            // assuming Brasilia timezone -03
-                            timestart:(item.Data_Periodo_Escala_Inicio)  ? new Date(item.Data_Periodo_Escala_Inicio + "-03:00") : undefined,
-                            timeend: (item.Data_Periodo_Escala_Fim) ? new Date(item.Data_Periodo_Escala_Fim + "-03:00") : undefined
-                        }
-                    })
-                )
+            }
+
+            // Telemetric data
+            // if Data_Periodo_Telemetrica_Inicio is not null telemetry data is available
+            // if Data_Periodo_Telemetrica_Fim is null telemetry is active, else data is available up to that date
+            // Tipo_Estacao_Telemetrica indicates if the telemetry is active
+            if(item.Data_Periodo_Telemetrica_Inicio) {    
+                // Telemetric 6-hourly, 3-hourly, hourly and instantaneous precipitation series. Units: millimeters
+                for(var var_id of [27,31,34,91]) {
+                    if(filter.var_id && filter.var_id.indexOf(var_id) < 0) {
+                        continue
+                    }
+                    series.push(
+                        new Serie({
+                            estacion: estacion,
+                            var_id: var_id,
+                            proc_id: 1,
+                            unit_id: 9,
+                            date_range: {
+                                // assuming Brasilia timezone -03
+                                timestart: new Date(item.Data_Periodo_Telemetrica_Inicio + "-03:00"),
+                                timeend: (item.Data_Periodo_Telemetrica_Fim) ? new Date(item.Data_Periodo_Telemetrica_Fim + "-03:00") : undefined
+                            }
+                        })
+                    )
+                }
+
+                // Telemetric hourly and instantaneous discharge, Units: m3/s
+                // 
+                for(var var_id of [4,87]) {
+                    if(filter.var_id && filter.var_id.indexOf(var_id) < 0) {
+                        continue
+                    }
+                    series.push(
+                        new Serie({
+                            estacion: estacion,
+                            var_id: var_id,
+                            proc_id: 1,
+                            unit_id: 10,
+                            date_range: {
+                                // assuming Brasilia timezone -03
+                                timestart: new Date(item.Data_Periodo_Telemetrica_Inicio + "-03:00"),
+                                timeend: (item.Data_Periodo_Telemetrica_Fim) ? new Date(item.Data_Periodo_Telemetrica_Fim + "-03:00") : undefined
+                            }
+                        })
+                    )
+                }
+
+                // Telemetric hourly and instantaneous gauge height. Units: meter
+                for(var var_id of [2,85]) {
+                    if(filter.var_id && filter.var_id.indexOf(var_id) < 0) {
+                        continue
+                    }
+                    series.push(
+                        new Serie({
+                            estacion: estacion,
+                            var_id: var_id,
+                            proc_id: 1,
+                            unit_id: 11,
+                            date_range: {
+                                // assuming Brasilia timezone -03
+                                timestart: new Date(item.Data_Periodo_Telemetrica_Inicio + "-03:00"),
+                                timeend: (item.Data_Periodo_Telemetrica_Fim) ? new Date(item.Data_Periodo_Telemetrica_Fim + "-03:00") : undefined
+                            }
+                        })
+                    )
+                }
             }
         }
         return series
@@ -449,104 +541,191 @@ internal.Client = class extends AbstractAccessorEngine {
         return new Observaciones(observaciones).removeDuplicates()
     }    
 
-    HidroInventarioEstacoesResponseExample = {
-        "status": "OK",
-        "code": 200,
-        "message": "Sucesso",
-        "items": [
-          {
-            "Altitude": "951.0",
-            "Area_Drenagem": null,
-            "Bacia_Nome": "RIO URUGUAI",
-            "Codigo_Adicional": null,
-            "Codigo_Operadora_Unidade_UF": null,
-            "Data_Periodo_Climatologica_Fim": null,
-            "Data_Periodo_Climatologica_Inicio": null,
-            "Data_Periodo_Desc_Liquida_Fim": null,
-            "Data_Periodo_Desc_liquida_Inicio": null,
-            "Data_Periodo_Escala_Fim": null,
-            "Data_Periodo_Escala_Inicio": null,
-            "Data_Periodo_Piezometria_Fim": null,
-            "Data_Periodo_Piezometria_Inicio": null,
-            "Data_Periodo_Pluviometro_Fim": null,
-            "Data_Periodo_Pluviometro_Inicio": "2024-04-01 00:00:00.0",
-            "Data_Periodo_Qual_Agua_Fim": null,
-            "Data_Periodo_Qual_Agua_Inicio": null,
-            "Data_Periodo_Registrador_Chuva_Fim": null,
-            "Data_Periodo_Registrador_Chuva_Inicio": null,
-            "Data_Periodo_Registrador_Nivel_Fim": null,
-            "Data_Periodo_Registrador_Nivel_Inicio": null,
-            "Data_Periodo_Sedimento_Inicio": null,
-            "Data_Periodo_Sedimento_fim": null,
-            "Data_Periodo_Tanque_Evapo_Fim": null,
-            "Data_Periodo_Tanque_Evapo_Inicio": null,
-            "Data_Periodo_Telemetrica_Fim": null,
-            "Data_Periodo_Telemetrica_Inicio": "2024-04-01 00:00:00.0",
-            "Data_Ultima_Atualizacao": "2024-06-06 00:00:00.0",
-            "Estacao_Nome": "CGH FRASCAL JUSANTE",
-            "Latitude": "-26.9642",
-            "Longitude": "-50.5067",
-            "Municipio_Codigo": "23153000",
-            "Municipio_Nome": "SANTA CECÍLIA",
-            "Operadora_Codigo": "1246",
-            "Operadora_Sigla": "FRASCAL",
-            "Operadora_Sub_Unidade_UF": "1",
-            "Operando": "1",
-            "Responsavel_Codigo": "1246",
-            "Responsavel_Sigla": "FRASCAL",
-            "Responsavel_Unidade_UF": "23",
-            "Rio_Codigo": null,
-            "Rio_Nome": "N/A",
-            "Sub_Bacia_Codigo": "71",
-            "Sub_Bacia_Nome": "RIO CANOAS",
-            "Tipo_Estacao": "Pluviometrica",
-            "Tipo_Estacao_Climatologica": "0",
-            "Tipo_Estacao_Desc_Liquida": "0",
-            "Tipo_Estacao_Escala": "0",
-            "Tipo_Estacao_Piezometria": "0",
-            "Tipo_Estacao_Pluviometro": "1",
-            "Tipo_Estacao_Qual_Agua": "0",
-            "Tipo_Estacao_Registrador_Chuva": "0",
-            "Tipo_Estacao_Registrador_Nivel": "0",
-            "Tipo_Estacao_Sedimentos": "0",
-            "Tipo_Estacao_Tanque_evapo": "0",
-            "Tipo_Estacao_Telemetrica": "1",
-            "Tipo_Rede_Basica": "0",
-            "Tipo_Rede_Captacao": "6",
-            "Tipo_Rede_Classe_Vazao": "0",
-            "Tipo_Rede_Curso_Dagua": "0",
-            "Tipo_Rede_Energetica": "1",
-            "Tipo_Rede_Estrategica": "0",
-            "Tipo_Rede_Navegacao": "0",
-            "Tipo_Rede_Qual_Agua": "0",
-            "Tipo_Rede_Sedimentos": "0",
-            "UF_Estacao": "SC",
-            "UF_Nome_Estacao": "SANTA CATARINA",
-            "codigobacia": "7",
-            "codigoestacao": "2650056"
-          }
-        ]
+    response_examples = {
+        HidroInventarioEstacoesResponse: {
+            "status": "OK",
+            "code": 200,
+            "message": "Sucesso",
+            "items": [
+                {
+                    "Altitude": "951.0",
+                    "Area_Drenagem": null,
+                    "Bacia_Nome": "RIO URUGUAI",
+                    "Codigo_Adicional": null,
+                    "Codigo_Operadora_Unidade_UF": null,
+                    "Data_Periodo_Climatologica_Fim": null,
+                    "Data_Periodo_Climatologica_Inicio": null,
+                    "Data_Periodo_Desc_Liquida_Fim": null,
+                    "Data_Periodo_Desc_liquida_Inicio": null,
+                    "Data_Periodo_Escala_Fim": null,
+                    "Data_Periodo_Escala_Inicio": null,
+                    "Data_Periodo_Piezometria_Fim": null,
+                    "Data_Periodo_Piezometria_Inicio": null,
+                    "Data_Periodo_Pluviometro_Fim": null,
+                    "Data_Periodo_Pluviometro_Inicio": "2024-04-01 00:00:00.0",
+                    "Data_Periodo_Qual_Agua_Fim": null,
+                    "Data_Periodo_Qual_Agua_Inicio": null,
+                    "Data_Periodo_Registrador_Chuva_Fim": null,
+                    "Data_Periodo_Registrador_Chuva_Inicio": null,
+                    "Data_Periodo_Registrador_Nivel_Fim": null,
+                    "Data_Periodo_Registrador_Nivel_Inicio": null,
+                    "Data_Periodo_Sedimento_Inicio": null,
+                    "Data_Periodo_Sedimento_fim": null,
+                    "Data_Periodo_Tanque_Evapo_Fim": null,
+                    "Data_Periodo_Tanque_Evapo_Inicio": null,
+                    "Data_Periodo_Telemetrica_Fim": null,
+                    "Data_Periodo_Telemetrica_Inicio": "2024-04-01 00:00:00.0",
+                    "Data_Ultima_Atualizacao": "2024-06-06 00:00:00.0",
+                    "Estacao_Nome": "CGH FRASCAL JUSANTE",
+                    "Latitude": "-26.9642",
+                    "Longitude": "-50.5067",
+                    "Municipio_Codigo": "23153000",
+                    "Municipio_Nome": "SANTA CECÍLIA",
+                    "Operadora_Codigo": "1246",
+                    "Operadora_Sigla": "FRASCAL",
+                    "Operadora_Sub_Unidade_UF": "1",
+                    "Operando": "1",
+                    "Responsavel_Codigo": "1246",
+                    "Responsavel_Sigla": "FRASCAL",
+                    "Responsavel_Unidade_UF": "23",
+                    "Rio_Codigo": null,
+                    "Rio_Nome": "N/A",
+                    "Sub_Bacia_Codigo": "71",
+                    "Sub_Bacia_Nome": "RIO CANOAS",
+                    "Tipo_Estacao": "Pluviometrica",
+                    "Tipo_Estacao_Climatologica": "0",
+                    "Tipo_Estacao_Desc_Liquida": "0",
+                    "Tipo_Estacao_Escala": "0",
+                    "Tipo_Estacao_Piezometria": "0",
+                    "Tipo_Estacao_Pluviometro": "1",
+                    "Tipo_Estacao_Qual_Agua": "0",
+                    "Tipo_Estacao_Registrador_Chuva": "0",
+                    "Tipo_Estacao_Registrador_Nivel": "0",
+                    "Tipo_Estacao_Sedimentos": "0",
+                    "Tipo_Estacao_Tanque_evapo": "0",
+                    "Tipo_Estacao_Telemetrica": "1",
+                    "Tipo_Rede_Basica": "0",
+                    "Tipo_Rede_Captacao": "6",
+                    "Tipo_Rede_Classe_Vazao": "0",
+                    "Tipo_Rede_Curso_Dagua": "0",
+                    "Tipo_Rede_Energetica": "1",
+                    "Tipo_Rede_Estrategica": "0",
+                    "Tipo_Rede_Navegacao": "0",
+                    "Tipo_Rede_Qual_Agua": "0",
+                    "Tipo_Rede_Sedimentos": "0",
+                    "UF_Estacao": "SC",
+                    "UF_Nome_Estacao": "SANTA CATARINA",
+                    "codigobacia": "7",
+                    "codigoestacao": "2650056"
+                }
+            ]
+        },
+        HidroinfoanaSerieTelemetricaAdotadaResponse: {
+            "status": "OK",
+            "code": 200,
+            "message": "Sucesso",
+            "items": [
+                {
+                    "Chuva_Adotada": "0.00",
+                    "Chuva_Adotada_Status": "0",
+                    "Cota_Adotada": "276.00",
+                    "Cota_Adotada_Status": "0",
+                    "Data_Atualizacao": "2024-06-24 00:55:04.273",
+                    "Data_Hora_Medicao": "2024-06-24 00:00:00.0",
+                    "Vazao_Adotada": "340.44",
+                    "Vazao_Adotada_Status": "0",
+                    "codigoestacao": "76300000"
+                }
+            ]
+        },
+        HidroinfoanaSerieVazaoResponse: {
+            status: 'OK',
+            code: 200,
+            message: 'Sucesso',
+            items: [
+              {
+                Data_Hora_Dado: '1986-01-01 00:00:00.0',
+                Data_Ultima_Alteracao: '2021-01-06 00:00:00.0',
+                Dia_Maxima: '24',
+                Dia_Minima: '11',
+                Maxima: '120.8094',
+                Maxima_Status: '2',
+                Media: '23.6587',
+                Media_Anual: '0.0',
+                Media_Anual_Status: '0',
+                Media_Status: '2',
+                Mediadiaria: '1',
+                Metodo_Obtencao_Vazoes: '1',
+                Minima: '3.4557',
+                Minima_Status: '2',
+                Nivel_Consistencia: '2',
+                Vazao_01: '15.2835',
+                Vazao_01_Status: '1',
+                Vazao_02: '21.0256',
+                Vazao_02_Status: '1',
+                Vazao_03: '15.8816',
+                Vazao_03_Status: '1',
+                Vazao_04: '10.8671',
+                Vazao_04_Status: '1',
+                Vazao_05: '8.9103',
+                Vazao_05_Status: '1',
+                Vazao_06: '11.3828',
+                Vazao_06_Status: '1',
+                Vazao_07: '7.5558',
+                Vazao_07_Status: '1',
+                Vazao_08: '7.5558',
+                Vazao_08_Status: '1',
+                Vazao_09: '5.9045',
+                Vazao_09_Status: '2',
+                Vazao_10: '4.0966',
+                Vazao_10_Status: '2',
+                Vazao_11: '3.4557',
+                Vazao_11_Status: '2',
+                Vazao_12: '4.785',
+                Vazao_12_Status: '2',
+                Vazao_13: '9.3834',
+                Vazao_13_Status: '2',
+                Vazao_14: '10.3619',
+                Vazao_14_Status: '2',
+                Vazao_15: '9.3834',
+                Vazao_15_Status: '2',
+                Vazao_16: '8.4479',
+                Vazao_16_Status: '2',
+                Vazao_17: '7.5558',
+                Vazao_17_Status: '2',
+                Vazao_18: '7.1263',
+                Vazao_18_Status: '1',
+                Vazao_19: '10.3619',
+                Vazao_19_Status: '1',
+                Vazao_20: '29.113',
+                Vazao_20_Status: '1',
+                Vazao_21: '37.4501',
+                Vazao_21_Status: '1',
+                Vazao_22: '30.7064',
+                Vazao_22_Status: '1',
+                Vazao_23: '64.4722',
+                Vazao_23_Status: '1',
+                Vazao_24: '120.8094',
+                Vazao_24_Status: '1',
+                Vazao_25: '78.618',
+                Vazao_25_Status: '1',
+                Vazao_26: '50.6434',
+                Vazao_26_Status: '1',
+                Vazao_27: '36.575',
+                Vazao_27_Status: '1',
+                Vazao_28: '32.3371',
+                Vazao_28_Status: '1',
+                Vazao_29: '23.1164',
+                Vazao_29_Status: '1',
+                Vazao_30: '20.3481',
+                Vazao_30_Status: '1',
+                Vazao_31: '29.905',
+                Vazao_31_Status: '1',
+                codigoestacao: '72849000'
+              }
+            ]
+        }
     }
-
-    HidroinfoanaSerieTelemetricaAdotadaResponseExample = {
-        "status": "OK",
-        "code": 200,
-        "message": "Sucesso",
-        "items": [
-            {
-                "Chuva_Adotada": "0.00",
-                "Chuva_Adotada_Status": "0",
-                "Cota_Adotada": "276.00",
-                "Cota_Adotada_Status": "0",
-                "Data_Atualizacao": "2024-06-24 00:55:04.273",
-                "Data_Hora_Medicao": "2024-06-24 00:00:00.0",
-                "Vazao_Adotada": "340.44",
-                "Vazao_Adotada_Status": "0",
-                "codigoestacao": "76300000"
-            }
-        ]
-    }
-
 }
 
 module.exports = internal

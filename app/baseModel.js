@@ -154,8 +154,14 @@ internal.baseModel = class {
 				if(definition.type == "string") {
 					return value.toString()
 				} else if (definition.type == "integer") {
+					if(parseInt(value).toString() == "NaN") {
+						throw(new Error("integer field sanitization error: value: '"+ value + "' can't be parsed as integer"))
+					}
 					return parseInt(value)
 				} else if (definition.type == "numeric" || definition.type == "real" || definition.type == "number"  || definition.type == "float") {
+					if(parseFloat(value).toString() == "NaN") {
+						throw(new Error("integer field sanitization error: value: '"+ value + "' can't be parsed as float"))
+					}
 					return parseFloat(value)
 				} else if (definition.type == "interval") {
 					return new Interval(value)
@@ -279,8 +285,12 @@ internal.baseModel = class {
 						break
 					}
 				}
-			} else { 
-				this[key] = this.constructor.sanitizeValue(key_value_pairs[key],this.constructor._fields[key])
+			} else {
+				try { 
+					this[key] = this.constructor.sanitizeValue(key_value_pairs[key],this.constructor._fields[key])
+				} catch(e) {
+					throw(new Error("Can't set property '" + key + "'. " + e.toString()))
+				}
 			}
 		}
 	}
