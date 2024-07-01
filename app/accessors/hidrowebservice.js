@@ -145,6 +145,7 @@ internal.Client = class extends AbstractAccessorEngine {
             return Serie.read({
                 id: filter.id ?? filter.series_id,
                 tipo: "puntual",
+                estacion_id: filter.estacion_id,
                 var_id: filter.var_id,
                 proc_id: filter.proc_id ?? 1,
                 unit_id: filter.unit_id,
@@ -421,14 +422,33 @@ internal.Client = class extends AbstractAccessorEngine {
         return response.data  
     }
 
+    /**
+     * 
+     * @param {*} filter 
+     * @param {Date} filter.timestart
+     * @param {Date} filter.timeend
+     * @param {integer|Array<integer>} filter.series_id
+     * @param {integer|Array<integer>} filter.estacion_id
+     * @param {integer|Array<integer>} filter.id_externo
+     * @param {integer|Array<integer>} filter.var_id
+     * @param {integer|Array<integer>} filter.unit_id
+     * @param {integer|Array<integer>} filter.proc_id
+     * @param {string} filter.tabla_id
+     * @param {*} options 
+     * @param {boolean} options.update - save results into database
+     * @param {boolean} options.return_series - return series objects. If false, returns observaciones of all series combined into the same array
+     * @returns 
+     */
     async get(filter={}, options={}) {
         if(!filter.timestart || !filter.timeend) {
             throw("missing filter.timestart and/or filter.timeend")
         }
         const token = await this.getToken()
+        filter.series_id = filter.id ?? filter.series_id
         const series = await Serie.read({
-            id: filter.id ?? filter.series_id,
+            id: filter.series_id,
             tipo: "puntual",
+            estacion_id: filter.estacion_id,
             var_id: filter.var_id,
             proc_id: filter.proc_id ?? 1,
             unit_id: filter.unit_id,
@@ -446,9 +466,14 @@ internal.Client = class extends AbstractAccessorEngine {
             console.warn("No series found in database")
             return []
         }
+        // console.debug("Got " + series.length + " series")
         const observaciones = []
         const group_by_estacion = {}
         for(var serie of series) {
+            if(!serie.estacion.id_externo) {
+                console.warn("Missing id_externo, estacion_id=" + serie.estacion.id + ". Skipping")
+                continue
+            }
             if(serie.estacion.id_externo.toString() in group_by_estacion) {
                 group_by_estacion[serie.estacion.id_externo.toString()].push(serie)
             } else {
@@ -456,10 +481,12 @@ internal.Client = class extends AbstractAccessorEngine {
             }
         }
         for(var id_externo of Object.keys(group_by_estacion)) {
+            // console.debug("group by estacion, id_externo: " + id_externo + " timestart: " + filter.timestart.toISOString().substring(0,10))
             const estacion_series = group_by_estacion[id_externo]
-            var date = filter.timestart
+            const date = new Date(filter.timestart)
             const data_items = []
             while(date < filter.timeend) {
+                // console.debug("date: " + date.toISOString().substring(0,10))
                 const data = await this.getHidroinfoanaSerieTelemetricaAdotada(
                     id_externo,
                     "DATA_LEITURA",
@@ -482,7 +509,10 @@ internal.Client = class extends AbstractAccessorEngine {
                     serie.setObservaciones(
                         obs
                     )
-
+                    if(options.update) {
+                        const created_obs = await serie.observaciones.create()
+                        serie.setObservaciones(created_obs)
+                    }
                     observaciones.push(...obs)
                 }
             }            
@@ -494,25 +524,32 @@ internal.Client = class extends AbstractAccessorEngine {
         }
     }
 
+    /**
+     * 
+     * @param {*} filter 
+     * @param {*} options 
+     * @returns 
+     */
     async update(filter={}, options={}) {
-        const series = await this.get(
+        return this.get(
             filter, 
             {
-                return_series: true
+                return_series: true,
+                update: true
             }
         )
-        const observaciones = []
-        for(var serie of series) {
-            if(serie.observaciones) {
-                const created_obs = await serie.observaciones.create()
-                serie.setObservaciones(created_obs)
-                observaciones.push(...created_obs)
-            }
-        }
-        if(options.return_series) {
-            return series
-        }
-        return observaciones
+        // const observaciones = []
+        // for(var serie of series) {
+        //     if(serie.observaciones) {
+                // const created_obs = await serie.observaciones.create()
+                // serie.setObservaciones(created_obs)
+        //         observaciones.push(...created_obs)
+        //     }
+        // }
+        // if(options.return_series) {
+        //     return series
+        // }
+        // return observaciones
     }
 
     dataItemsToObs(

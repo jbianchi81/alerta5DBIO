@@ -4622,6 +4622,10 @@ internal.observaciones = class extends BaseArray {
 	}
 	async create(options={}) {
 		var tipo = this.getTipo()
+		if(!this.length) {
+			console.warn("No observaciones to create")
+			return []
+		}
 		if(tipo == "raster") {
 			const results = []
 			for(var observacion of this) {
