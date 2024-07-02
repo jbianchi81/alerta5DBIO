@@ -400,7 +400,7 @@ internal.estacion = class extends baseModel  {
 				this.public = arguments[20]
 				this.cero_ign = arguments[21]
 				this.ubicacion = arguments[22]
-				this.drainage_Basin = arguments[23]
+				this.drainage_basin = arguments[23]
 				break;
 		}
 		//~ console.log({estacion:this})
