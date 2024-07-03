@@ -247,7 +247,13 @@ internal.red = class extends baseModel  {
 		}
 		Object.assign(this,created)
 		return this
-	}	
+	}
+	static async read(filter) {
+		if(filter.id) {
+			return internal.CRUD.getRed(filter.id)
+		}
+		return internal.CRUD.getRedes(filter)
+	}
 }
 
 internal.red.build_read_query = function (filter) {
@@ -4634,7 +4640,7 @@ internal.observaciones = class extends BaseArray {
 			return new internal.observaciones(results)
 		}
 		var query = this.createQuery(tipo,options)
-		// console.log(query)
+		// console.debug(query)
 		return new internal.observaciones(await executeQueryReturnRows(query,undefined))
 	}
 	static async create(observaciones, options={}) {
@@ -4654,6 +4660,12 @@ internal.observaciones = class extends BaseArray {
 		select ${obs_table}.id,${obs_table}.series_id,${obs_table}.timestart,${obs_table}.timeend,${obs_table}.timeupdate,${obs_table}.unit_id,${obs_table}.nombre,${obs_table}.descripcion,candidates.valor
 			from ${obs_table} join candidates ON (${obs_table}.series_id=candidates.series_id and ${obs_table}.timestart=candidates.timestart and ${obs_table}.timeend=candidates.timeend)`
 		const filtered_obs = this.filter(o=>o.valor!=null)
+		if(this.map(o=>(o.series_id) ? true : false).indexOf(false) >= 0) {
+			throw(new Error("Missing series_id"))
+		}
+		if(this.map(o=>(o.timestart) ? true : false).indexOf(false) >= 0) {
+			throw(new Error("Missing timestart"))
+		}
 		var params = [JSON.stringify(filtered_obs),tipo] // [JSON.stringify(this),tipo]
 		return pasteIntoSQLQuery(`with candidates as (
 			select * from json_populate_recordset(null::observacion_num,$1)
@@ -8471,7 +8483,7 @@ internal.CRUD = class {
 		var params = []
 		if(serie.tipo == "areal") {
 			if(!serie.estacion.id || !serie["var"].id || !serie.procedimiento.id || !serie.unidades.id || !serie.fuente.id) {
-				throw("Unable to insert/update serie:   serie.estacion.id or serie.var.id or serie.procedimiento.id or serie.unidades.id or serie.fuente.id")
+				throw(new Error("Unable to insert/update serie: serie.estacion.id or serie.var.id or serie.procedimiento.id or serie.unidades.id or serie.fuente.id"))
 			}
 			if(serie.id) {
 				query = "\
@@ -8492,7 +8504,7 @@ internal.CRUD = class {
 			}
 		} else if (serie.tipo == "rast" || serie.tipo == "raster") {
 			if(!serie.estacion.id || !serie["var"].id || !serie.procedimiento.id || !serie.unidades.id || !serie.fuente.id) {
-				throw("Unable to insert/update serie:   serie.estacion.id or serie.var.id or serie.procedimiento.id or serie.unidades.id or serie.fuente.id")
+				throw(new Error("Unable to insert/update serie: serie.estacion.id or serie.var.id or serie.procedimiento.id or serie.unidades.id or serie.fuente.id"))
 			}
 			if(serie.id) {
 				query = "\
@@ -8513,7 +8525,7 @@ internal.CRUD = class {
 			}
 		} else {
 			if(!serie.estacion.id || !serie["var"].id || !serie.procedimiento.id || !serie.unidades.id) {
-				throw("Unable to insert/update serie:   serie.estacion.id or serie.var.id or serie.procedimiento.id or serie.unidades.id")
+				throw(new Error("Unable to insert/update serie: serie.estacion.id or serie.var.id or serie.procedimiento.id or serie.unidades.id"))
 			}
 
 			if(serie.id) { // SI SE PROVEE ID Y YA EXISTE LA TUPLA ESTACION+VAR+PROC, ACTUALIZA ID
@@ -8616,21 +8628,34 @@ internal.CRUD = class {
 						serie_props.fuente = new internal.fuente(result.rows[0])
 					}
 				} else {
+					if(!serie.var.id) {
+						throw(new Error("var.id missing"))
+					}
 					serie_props["var"] = await internal.var.read({id:serie.var.id})
 					if(!serie_props["var"]) {
-						throw("var " + serie.var.id + " not found")
+						throw(new Error("var " + serie.var.id + " not found"))
+					}
+					if(!serie.procedimiento.id) {
+						throw(new Error("procedimiento.id missing"))
 					}
 					serie_props["procedimiento"] = await internal.procedimiento.read({id:serie.procedimiento.id})
 					if(!serie_props["procedimiento"]) {
-						throw("procedimiento " + serie.procedimiento.id + " not found")
+						throw(new Error("procedimiento " + serie.procedimiento.id + " not found"))
+					}
+					if(!serie.unidades.id) {
+						throw(new Error("unidades.id missing"))
 					}
 					serie_props["unidades"] = await internal.unidades.read({id:serie.unidades.id})
 					if(!serie_props["unidades"]) {
-						throw("unidades " + serie.unidades.id + " not found")
+						throw(new Error("unidades " + serie.unidades.id + " not found"))
+					}
+					if(["areal","rast","raster"].indexOf(serie.tipo) >= 0 && !serie.fuentes.id) {
+						throw(new Error("fuentes.id missing"))
 					}
 					serie_props["fuente"] = (serie.fuente.id != null) ? await internal.fuente.read({id:serie.fuente.id}) : {}
 				} 
 				if (all || upsert_estacion) {
+					console.debug("Upsert estacion of new serie")
 					if(serie.estacion instanceof internal.estacion) {
 						serie_props.estacion = await this.upsertEstacion(serie.estacion,undefined,client) //await client.query(this.upsertEstacionQuery(serie.estacion,{no_update_id:no_update_estacion_id}))
 						// serie_props.estacion = new internal.estacion(result.rows[0])
@@ -8643,6 +8668,9 @@ internal.CRUD = class {
 					} else if (serie.estacion instanceof internal.escena) {
 						var result = await this.upsertEscena(serie.estacion,client) // client.query(this.upsertEscenaQuery(serie.estacion))
 						serie_props.estacion = new internal.escena(result)
+					} else {
+						var result = await this.upsertEstacion(new internal.estacion(serie.estacion),client) // client.query(this.upsertEscenaQuery(serie.estacion))
+						serie_props.estacion = new internal.estacion(result)
 					}
 				} else {
 					// console.log("Searching for estacion: " + JSON.stringify(serie.estacion))
@@ -10181,7 +10209,7 @@ internal.CRUD = class {
 		//~ console.log({observaciones:observaciones})
 		//~ console.log({obs_values:obs_values})
 		if(obs_values.length == 0) {
-			return Promise.reject("no valid observations")
+			return Promise.reject(new Error("no valid observations"))
 		}
 		obs_values = obs_values.join(",")
 		var on_conflict_clause_obs = (no_update) ? " NOTHING " : (config.crud.update_observaciones_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\

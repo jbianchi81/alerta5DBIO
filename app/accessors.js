@@ -45,6 +45,7 @@ internal.snih = require('./accessors/snih').client
 internal.gfs_nomads = require('./accessors/gfs_nomads').Client
 internal.hidrowebservice = require('./accessors/hidrowebservice').Client
 internal.hidrowebservice_historico = require('./accessors/hidrowebservice_historico').Client
+internal.fewspirestwebservice = require('./accessors/fewspirestwebservice').Client
 
 // Promise.allSettled polyfill
 

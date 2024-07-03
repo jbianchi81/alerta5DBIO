@@ -124,19 +124,14 @@ internal.printAxiosGetError = function (error) {
 
 internal.filterSites = function(sites=[],params=[]) {
 	return sites.filter(s=>{
-		if(params.name && s.name != params.name) {
-			return false
-		}
-		if(params.id_externo && s.id_externo != params.id_externo) {
-			return false
-		}
-		if(params.estacion_id && s.id != params.id) {
-			return false
-		}
-		if(params.geom && !internal.isWithinBBox(params.geom,s.geom)){
-			return false
-		}
-		return true
+        return (
+            [
+                internal.filterByParam(params.name, s.name),
+                internal.filterByParam(params.id_externo, s.id_externo),
+                internal.filterByParam(params.estacion_id, s.id),
+                internal.filterByParam(params.geom,s.geom,internal.isWithinBBox)
+            ].indexOf(false) < 0
+        )
 	})
 }
 
@@ -145,21 +140,34 @@ internal.isWithinBBox = function(bbox,point) {
 	return true
 }
 
+internal.filterByParam = function(filter_value, item_value, func) {
+    if(!filter_value) {
+        return true
+    }
+    if(func) {
+        return func(filter_value, item_value)
+    }
+    if(Array.isArray(filter_value)) {
+        if(filter_value.indexOf(item_value) >= 0) {
+            return true
+        }
+    } else if(item_value == filter_value) {
+        return true
+    }
+    return false
+}
+
 internal.filterSeries = function(series=[],params={}) {
 	return series.filter(s=>{
-		if(params.estacion_id && s.estacion.id != params.estacion_id) {
-			return false
-		}
-		if(params.var_id && s.var.id != params.var_id) {
-			return false
-		}
-		if(params.unit_id && s.unidades.id != params.unit_id) {
-			return false
-		}
-		if(params.id_externo && s.estacion.id_externo != params.id_externo) {
-			return false
-		}
-		return true
+        return (
+            [
+                internal.filterByParam(params.estacion_id, s.estacion.id),
+                internal.filterByParam(params.var_id, s.var.id),
+                internal.filterByParam(params.unit_id, s.unidades.id),
+                internal.filterByParam(params.id_externo, s.estacion.id_externo)
+            ].indexOf(false) < 0
+        )
+		
 	})
 }
 
@@ -203,6 +211,20 @@ internal.fetch = async function(
             reject("file:" + localfilepath + " write failed, error:" + e.toString())
         })
     })
+}
+
+internal.createUrlParams = function(params) {
+    const url_params = new URLSearchParams()
+    for(const [key, value] of Object.entries(params)) {
+        if(Array.isArray(value)) {
+            for(const item of value) {
+                url_params.append(key, item)
+            }
+        } else if(value) {
+            url_params.append(key, value)
+        }
+    }
+    return url_params
 }
 
 module.exports = internal
