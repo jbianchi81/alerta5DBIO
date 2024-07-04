@@ -1,8 +1,9 @@
 const AbstractAccessorEngine = require('./abstract_accessor_engine').AbstractAccessorEngine
 const axios = require('axios')
-const { estacion: Estacion, variable: Variable, serie: Serie } = require('../CRUD')
+const { estacion: Estacion, variable: Variable, serie: Serie, SerieTemporalSim, corrida: Corrida } = require('../CRUD')
 const sprintf = require('sprintf-js').sprintf
 const {createUrlParams, filterSites, filterSeries} = require('../accessor_utils')
+const {DateFromInterval} = require('../timeSteps')
 
 const internal = {}
 
@@ -22,7 +23,11 @@ internal.Client = class extends AbstractAccessorEngine {
         },
         units_map: {
             10: "m3/s"
-        }
+        },
+        omit_missing: true, 
+        omit_empty_time_series: true,
+        timestart: DateFromInterval({years: -3}),
+        timeend: DateFromInterval({years: 1})
     }
 
     constructor(config) {
@@ -30,7 +35,7 @@ internal.Client = class extends AbstractAccessorEngine {
         this.setConfig(config)
     }
 
-    async getTimeSeries(
+    async getTimeSeries({
         filter_id, 
         location_ids, 
         parameter_ids, 
@@ -71,7 +76,7 @@ internal.Client = class extends AbstractAccessorEngine {
         time_series_type, 
         document_format = "PI_JSON", 
         document_version
-        ) {
+        } = {}) {
         const params = createUrlParams({
             "filterId": filter_id,
             "locationIds": location_ids,
@@ -120,7 +125,7 @@ internal.Client = class extends AbstractAccessorEngine {
                 "params": params
             }
         )
-        console.debug(sprintf("GET %03d %s", response.status, response.config.url))
+        console.debug(sprintf("GET %03d %s?%s", response.status, response.config.url, params.toString()))
         this.last_response = response
         return response.data  
     }
@@ -132,7 +137,11 @@ internal.Client = class extends AbstractAccessorEngine {
      * @param {*} series_id_map - mapping of remote location_id, parameter_id tuples to local series_id
      * @returns {Serie} - Serie object with valuable metadata and time-value pairs
      */
-    parseTimeSeries(ts, includeObservations=true, series_id_map) {
+    parseTimeSeries(
+        ts, 
+        includeObservations = true, 
+        series_id_map,
+        asForecast = false) {
         var var_id
         for(const [key, value] of Object.entries(this.config.variable_map)) {
             if(value == ts["header"]["parameterId"]) {
@@ -166,51 +175,81 @@ internal.Client = class extends AbstractAccessorEngine {
         } else {
             var series_id = undefined
         }
-        const serie = new Serie({
-            tipo: "puntual",
-            id: series_id,
-            "var": {
-            "id": var_id
-            },
-            unidades: {
-                id: unit_id
-            },
-            estacion: {
-                "tabla": this.config.tabla_id,
-                "id_externo": ts["header"]["locationId"],
-                "nombre": ts["header"]["stationName"],
-                "geom": {
-                  "type": "Point",
-                  "coordinates": [Number.parseFloat(ts["header"]["lon"]), Number.parseFloat(ts["header"]["lat"])]
-                }
-            },
-            procedimiento: {
-                id: this.config.proc_id
-            },
-            observaciones: (includeObservations) ? ts["events"].filter(
-                    event=>(parseFloat(event["value"]) != -999)
-                ).map(
-                    event=>{
-                        return {
-                            "timeupdate": this.parseDate(ts["header"]["forecastDate"]),
-                            "timestart": this.parseDate({
-                                "date": event["date"],
-                                "time": event["time"]
-                            }),
-                            "timeend": this.parseDate({
-                                "date": event["date"],
-                                "time": event["time"]
-                            }),
-                            "valor": Number.parseFloat(event["value"])
-                        }
+        if(asForecast) {
+            var serie = new SerieTemporalSim({
+                series_table: "series",
+		        series_id: series_id,
+		        // cor_id: undefined,
+		        // qualifier: undefined,
+		        pronosticos: (includeObservations  && ts["events"]) ? this.parseEvents(ts["events"],ts.header.forecastDate) : undefined,
+		        var_id: var_id,
+                // begin_date: undefined,
+                // end_date: undefined,
+                // qualifiers: undefined,
+                // count: undefined,
+                // estacion_id: undefined
+            })
+        } else {
+            var serie = new Serie({
+                tipo: "puntual",
+                id: series_id,
+                "var": {
+                "id": var_id
+                },
+                unidades: {
+                    id: unit_id
+                },
+                estacion: {
+                    "tabla": this.config.tabla_id,
+                    "id_externo": ts["header"]["locationId"],
+                    "nombre": ts["header"]["stationName"],
+                    "geom": {
+                    "type": "Point",
+                    "coordinates": [Number.parseFloat(ts["header"]["lon"]), Number.parseFloat(ts["header"]["lat"])]
                     }
-                ) : undefined         
-        })
-        serie.observaciones.setTipo("puntual")
-        if(serie.observaciones && series_id) {
-            serie.observaciones.setSeriesId(series_id)
-        }
+                },
+                procedimiento: {
+                    id: this.config.proc_id
+                },
+                observaciones: (includeObservations && ts["events"] != null) ? this.parseEvents(ts["events"],ts.header.forecastDate) : undefined,
+                beginTime: (ts.header.firstValueTime != null) ? this.parseDate(ts.header.firstValueTime) : undefined,
+                endTime: (ts.header.lastValueTime != null) ? this.parseDate(ts.header.lastValueTime) : undefined,
+                count: (ts.header.valueCount != null) ? parseInt(ts.header.valueCount) : undefined,
+                minValor: (ts.header.minValue != null) ? parseFloat(ts.header.minValue) : undefined,
+                maxValor: (ts.header.maxValue != null) ? parseFloat(ts.header.maxValue) : undefined
+            })
+            if(includeObservations  && ts["events"]) {
+                serie.observaciones.setTipo("puntual")
+                if(serie.observaciones && series_id) {
+                    serie.observaciones.setSeriesId(series_id)
+                }
+            }
+        }        
         return serie
+    }
+
+    parseEvents(
+        events=[],
+        forecastDate
+    ) {
+        return events.filter(
+            event=>(parseFloat(event["value"]) != -999)
+        ).map(
+            event=>{
+                return {
+                    "timeupdate": (forecastDate != null) ? this.parseDate(forecastDate) : undefined,
+                    "timestart": this.parseDate({
+                        "date": event["date"],
+                        "time": event["time"]
+                    }),
+                    "timeend": this.parseDate({
+                        "date": event["date"],
+                        "time": event["time"]
+                    }),
+                    "valor": Number.parseFloat(event["value"])
+                }
+            }
+        )
     }
 
     parseDate(date) {
@@ -305,9 +344,8 @@ internal.Client = class extends AbstractAccessorEngine {
         return Estacion.create(estaciones)
     }
 
-    async getSeries(
-        filter={},
-        options={}
+    async getLocationParameterFilters(
+        filter={}
     ) {
         if(filter.id_externo) {
             var location_ids = filter.id_externo
@@ -318,7 +356,7 @@ internal.Client = class extends AbstractAccessorEngine {
                 geom: filter.geom
             })
             if(!estaciones.length) {
-                console.warn("accessor getSeries: Estaciones not found. Run updateSites or try with other filter")
+                console.warn("accessor getLocationParameterFilters: Estaciones not found. Run updateSites or try with other filter")
                 return []
             }
             var location_ids = estaciones.map(e=>e.id_externo)
@@ -344,12 +382,26 @@ internal.Client = class extends AbstractAccessorEngine {
         } else {
             var parameter_ids = Object.values(this.config.variable_map)
         }
-        const series_response = await this.getTimeSeries(
-            this.config.filter_id,
-            location_ids,
-            parameter_ids,
-            this.config.module_instance_ids
-        )
+        return [location_ids, parameter_ids]
+    }
+
+    async getSeries(
+        filter={},
+        options={}
+    ) {
+        const [location_ids, parameter_ids] = await this.getLocationParameterFilters(filter)
+        const series_response = await this.getTimeSeries({
+            filter_id: this.config.filter_id,
+            location_ids: location_ids,
+            parameter_ids: parameter_ids,
+            module_instance_ids: this.config.module_instance_ids,
+            start_time: (this.config.timestart) ? this.config.timestart.toISOString() : undefined,
+            end_time: (this.config.timeend) ? this.config.timeend.toISOString() : undefined,
+            omit_missing: true,
+            omit_empty_time_series: true,
+            only_headers: true,
+            show_statistics: true
+        })
         if(!series_response.timeSeries.length) {
             console.warn("Accessor: no timeseries found")
             return []
@@ -402,36 +454,11 @@ internal.Client = class extends AbstractAccessorEngine {
         }
         const start_time = filter.timestart.toISOString()
         const end_time =  filter.timeend.toISOString()
-        const series = await Serie.read({
-            tipo: "puntual",
-            id: filter.series_id,
-            estacion_id: filter.estacion_id,
-            tabla_id: this.config.tabla_id,
-            var_id: filter.var_id,
-            proc_id: filter.proc_id,
-            unit_id: filter.unit_id,
-            geom: filter.geom,
-            id_externo: filter.id_externo
-        })
-        if(!series.length) {
-            console.warn("accessor get: No series found. Run updateSeries or change filter")
+        try {
+            var [location_ids, parameter_ids, series_id_map] = await this.getLocationParameterSeriesFilters(filter)
+        } catch(e) {
+            console.warn(e.toString())
             return []
-        }
-        const location_ids = new Set(series.map(s=>s.estacion.id_externo))
-        const parameter_ids = new Set()
-        this.series_id_map = {}
-        for(const serie of series) {
-            if(!serie.var.id in this.config.variable_map) {
-                console.warn("Accessor get: var " + serie.var.id + " not mapped. Skipping.")
-                continue
-            }
-            parameter_ids.add(this.config.variable_map[serie.var.id])            
-            if(serie.estacion.id_externo in this.series_id_map) {
-                this.series_id_map[serie.estacion.id_externo][this.config.variable_map[serie.var.id]] = serie.id
-            } else {
-                this.series_id_map[serie.estacion.id_externo] = {}
-                this.series_id_map[serie.estacion.id_externo][this.config.variable_map[serie.var.id]] = serie.id
-            }
         }
         if(filter.forecast_timestart) {
             var start_forecast_time = filter.forecast_timestart.toISOString()
@@ -452,53 +479,62 @@ internal.Client = class extends AbstractAccessorEngine {
         } else {
             var forecast_times = undefined
         }
-        const series_response = await this.getTimeSeries(
-            this.config.filter_id,
-            [...location_ids],
-            [...parameter_ids],
-            this.config.module_instance_ids,
-            filter.qualifier,
-            undefined,
-            start_time,
-            end_time,
-            undefined,
-            undefined,
-            undefined,
-            start_forecast_time,
-            end_forecast_time,
-            forecast_times,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            "PI_JSON",
-            undefined
-        )
+        const series_response = await this.getTimeSeries({
+            filter_id: this.config.filter_id,
+            location_ids: [...location_ids],
+            parameter_ids: [...parameter_ids],
+            module_instance_ids: this.config.module_instance_ids,
+            qualifier_ids: filter.qualifier,
+            start_time: start_time,
+            end_time: end_time,
+            start_forecast_time: start_forecast_time,
+            end_forecast_time: end_forecast_time,
+            external_forecast_times: forecast_times,
+            omit_missing: this.config.omit_missing, 
+            omit_empty_time_series: this.config.omit_empty_time_series,
+            document_format: "PI_JSON"
+        })
         if(!series_response.timeSeries.length) {
             console.warn("Accessor: no timeseries found")
             return []
         }
-        return series_response.timeSeries.map(ts=>this.parseTimeSeries(ts, true, this.series_id_map))
+        return series_response.timeSeries.map(ts=>this.parseTimeSeries(ts, true, series_id_map))
+    }
+
+    async getLocationParameterSeriesFilters(
+        filter={}
+    ) {
+        const series = await Serie.read({
+            tipo: "puntual",
+            id: filter.series_id,
+            estacion_id: filter.estacion_id,
+            tabla_id: this.config.tabla_id,
+            var_id: filter.var_id,
+            proc_id: filter.proc_id,
+            unit_id: filter.unit_id,
+            geom: filter.geom,
+            id_externo: filter.id_externo
+        })
+        if(!series.length) {
+            throw(new Error("accessor get: No series found. Run updateSeries or change filter"))
+        }
+        const location_ids = new Set(series.map(s=>s.estacion.id_externo))
+        const parameter_ids = new Set()
+        const series_id_map = {}
+        for(const serie of series) {
+            if(!serie.var.id in this.config.variable_map) {
+                console.warn("Accessor get: var " + serie.var.id + " not mapped. Skipping.")
+                continue
+            }
+            parameter_ids.add(this.config.variable_map[serie.var.id])            
+            if(serie.estacion.id_externo in series_id_map) {
+                series_id_map[serie.estacion.id_externo][this.config.variable_map[serie.var.id]] = serie.id
+            } else {
+                series_id_map[serie.estacion.id_externo] = {}
+                series_id_map[serie.estacion.id_externo][this.config.variable_map[serie.var.id]] = serie.id
+            }
+        }
+        return [location_ids, parameter_ids, series_id_map]
     }
 
     async update(
@@ -511,6 +547,82 @@ internal.Client = class extends AbstractAccessorEngine {
             serie.setObservaciones(created_obs)
         }
         return series
+    }
+
+    async getPronostico(
+        filter={},
+        options={}
+    ) {
+        try {
+            var [location_ids, parameter_ids, series_id_map] = await this.getLocationParameterSeriesFilters(filter)
+        } catch(e) {
+            console.warn(e.toString())
+        }
+
+        const retrieved_series = await this.getTimeSeries({
+            filter_id: this.config.filter_id, 
+            location_ids: [...location_ids], 
+            parameter_ids: [...parameter_ids], 
+            module_instance_ids: this.config.module_instance_ids, 
+            qualifier_ids: filter.qualifier, 
+            task_run_ids: this.config.task_run_ids, 
+            start_time: (filter.timestart) ? filter.timestart.toISOString() : undefined, 
+            end_time: (filter.timeend) ? filter.timeend.toISOString() : undefined, 
+            start_forecast_time: (filter.forecast_timestart) ? filter.forecast_timestart.toISOString() : undefined, 
+            end_forecast_time: (filter.forecast_timeend) ? filter.forecast_timeend.toISOString() : undefined, 
+            external_forecast_times: (filter.forecast_date) ? filter.forecast_date.toISOString() : undefined, 
+            ensemble_id: this.config.ensemble_id, 
+            ensemble_member_id: this.config.ensemble_member_id, 
+            thinning: this.config.thinning, 
+            export_unit_conversion_id: this.config.export_unit_conversion_id, 
+            time_zone_name: this.config.time_zone_name, 
+            convert_datum: this.config.convert_datum, 
+            show_ensemble_members_id: this.config.show_ensemble_members_id, 
+            use_display_units: this.config.use_display_units, 
+            show_thresholds: this.config.show_thresholds, 
+            omit_missing: this.config.omit_missing, 
+            omit_empty_time_series: this.config.omit_empty_time_series, 
+            only_manual_edits: this.config.only_manual_edits, 
+            only_headers: this.config.only_headers, 
+            only_forecasts: this.config.only_forecasts, 
+            show_statistics: this.config.show_statistics, 
+            document_format: "PI_JSON"
+        })
+        if(!retrieved_series.timeSeries.length) {
+            throw(new Error("No forecast series found"))
+        }
+        return this.parseForecastSeries(retrieved_series.timeSeries, series_id_map)
+    }
+
+    parseForecastSeries(
+        series = [],
+        series_id_map
+    ) {
+        if(!series.length) {
+            throw(new Error("series length must be > 0"))
+        }
+        return new Corrida({
+			cal_id: this.config.cal_id,
+			forecast_date: this.parseDate(series[0].header.forecastDate),
+			series: series.map(s=> this.parseTimeSeries(s,true,series_id_map,true))
+            // [
+			// 	{
+			// 		series_id: this.config.series_id,
+			// 		series_table: "series_rast",
+			// 		qualifier: "main",
+			// 		pronosticos: pronosticos
+			// 	}
+			// ]
+		})
+    }
+
+    async updatePronostico(
+        filter={},
+        options={}
+    ) {
+        const corrida = await this.getPronostico(filter, options)
+        await corrida.create()
+        return corrida
     }
 }
 

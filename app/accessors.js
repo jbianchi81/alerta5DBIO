@@ -403,6 +403,8 @@ internal.Accessor = class {
 		filter.timestart = (filter.timestart) ? timeSteps.DateFromDateOrInterval(filter.timestart) : undefined
 		filter.timeend = (filter.timeend) ? timeSteps.DateFromDateOrInterval(filter.timeend) : undefined
 		filter.forecast_date = (filter.forecast_date) ? timeSteps.DateFromDateOrInterval(filter.forecast_date) : undefined
+		filter.forecast_timestart = (filter.forecast_timestart) ? timeSteps.DateFromDateOrInterval(filter.forecast_timestart) : undefined
+		filter.forecast_timeend = (filter.forecast_timeend) ? timeSteps.DateFromDateOrInterval(filter.forecast_timeend) : undefined
 		
 		return this.engine.getPronostico(filter,options)
 	}
