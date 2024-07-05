@@ -8655,7 +8655,7 @@ internal.CRUD = class {
 					serie_props["fuente"] = (serie.fuente.id != null) ? await internal.fuente.read({id:serie.fuente.id}) : {}
 				} 
 				if (all || upsert_estacion) {
-					console.debug("Upsert estacion of new serie")
+					// console.debug("Upsert estacion of new serie")
 					if(serie.estacion instanceof internal.estacion) {
 						serie_props.estacion = await this.upsertEstacion(serie.estacion,undefined,client) //await client.query(this.upsertEstacionQuery(serie.estacion,{no_update_id:no_update_estacion_id}))
 						// serie_props.estacion = new internal.estacion(result.rows[0])

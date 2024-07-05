@@ -3135,7 +3135,14 @@ internal.RastToArealProcedure = class extends internal.CrudProcedure {
         // - only_obs
     }
     async run() {
-        this.result = await crud.rast2areal(this.series_id,this.timestart,this.timeend,this.area_id,this.options, undefined, this.cor_id, this.cal_id, this.forecast_date)
+        if(Array.isArray(this.area_id)) {
+            this.result = []
+            for(var a of this.area_id) {
+                this.result.push(await crud.rast2areal(this.series_id,this.timestart,this.timeend,a,this.options, undefined, this.cor_id, this.cal_id, this.forecast_date))
+            }
+        } else {
+            this.result = await crud.rast2areal(this.series_id,this.timestart,this.timeend,this.area_id,this.options, undefined, this.cor_id, this.cal_id, this.forecast_date)
+        }
         return this.result
     }
 }
