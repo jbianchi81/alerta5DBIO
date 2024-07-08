@@ -56,8 +56,8 @@ internal.rast2obs = async function(filename,series_id) { // LEE GTIFF , GENERA o
     observacion = {
         tipo: "rast",
         timeupdate: ref_time,
-        timestart: valid_time, 
-        timeend: valid_time
+        timestart: new Date(valid_time), 
+        timeend: new Date(valid_time)
     }
     if(series_id) {
         observacion.series_id = series_id

@@ -12999,6 +12999,24 @@ internal.CRUD = class {
 				if(cor_id || cal_id && forecast_date) {
 					// create pronosticos areales
 					var upserted = await internal.CRUD.upsertPronosticos(client,serie.pronosticos)
+					if(options.upsert_as_observaciones) {
+						try {
+							const obs = serie.pronosticos.map(o=>{
+								return {
+									tipo: "areal",
+									series_id: o.series_id,
+									timestart: o.timestart,
+									timeend: o.timeend,
+									valor: o.valor
+								}
+							})
+							// console.debug("To Upserte as obs: " + obs.length)
+							await internal.observaciones.create(obs) //,'areal',serie_areal.id,undefined) // removed client, non-transactional
+							console.debug("Prono upserted as obs: " + ups_obs.length)
+						} catch(e) {
+							console.error(e)
+						}	
+					}
 				} else {
 					try {
 						var upserted = await internal.observaciones.create(serie.observaciones) //,'areal',serie_areal.id,undefined) // removed client, non-transactional
@@ -13068,6 +13086,25 @@ internal.CRUD = class {
 					tipo: "areal",
 					series_id: serie.id
 				})
+				if(options.upsert_as_observaciones) {
+					try {
+						const obs = serie.pronosticos.map(o=>{
+							// console.debug("dt: " + (o.timeend.getTime() - o.timestart.getTime()))
+							return {
+								tipo: "areal",
+								series_id: o.series_id,
+								timestart: o.timestart,
+								timeend: o.timeend,
+								valor: o.valor
+							}
+						})
+						console.debug("To Upserte as obs: " + obs.length)
+						const ups_obs = await internal.observaciones.create(obs) //,'areal',serie_areal.id,undefined) // removed client, non-transactional
+						console.debug("Upserted as obs: " + ups_obs.length)
+					} catch(e) {
+						console.error(e)
+					}	
+				}
 			} else {
 				if(!serie.observaciones) {
 					console.log("observaciones no encontradas")
