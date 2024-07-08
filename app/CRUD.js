@@ -13011,7 +13011,7 @@ internal.CRUD = class {
 								}
 							})
 							// console.debug("To Upserte as obs: " + obs.length)
-							await internal.observaciones.create(obs) //,'areal',serie_areal.id,undefined) // removed client, non-transactional
+							const ups_obs = await internal.observaciones.create(obs) //,'areal',serie_areal.id,undefined) // removed client, non-transactional
 							console.debug("Prono upserted as obs: " + ups_obs.length)
 						} catch(e) {
 							console.error(e)
