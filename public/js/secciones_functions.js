@@ -1566,7 +1566,7 @@ function onSubmitMetadataSearch(event,metadataElement) {
 			}
 			content = content[metadataElement.object_property]
 		}
-		alert("Se encontraron " + content.length + " resultados de " + metadataElement.objectName)
+		alert("Se encontraron " + ((Array.isArray(content)) ? content.length : content.rows.length)+ " resultados de " + metadataElement.objectName)
 		$(this).find("button[type=submit]").prop('disabled',false)
 		return content
 	})
@@ -1849,7 +1849,14 @@ function loadMDTable(content,container,isWriter) {
 						'<a class="view" title="Ver metadatos" data-toggle="tooltip"><i class="material-icons">adjust</i></a>'
 	var public_actions = '<a class="view" title="Ver metadatos" data-toggle="tooltip"><i class="material-icons">adjust</i></a>'
 	// parse result into table rows
-	var rows = content.map(f=>{
+	if(Array.isArray(content)) {
+		var rows = content
+	} else if(content.hasOwnProperty("rows")) {
+		var rows = content.rows
+	} else {
+		throw(new TypeError("Invalid content: must be an Array or must have a rows property of Array type"))
+	}
+	rows = rows.map(f=>{
 		//~ console.log({feature:f})
 		var row = {}
 		Object.keys(global.mdElement.properties).forEach(key=>{
