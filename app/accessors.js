@@ -2472,7 +2472,7 @@ internal.ons = class {
 		this.config = config
 	}
 	test() {
-		return axios.get("http://sdro.ons.org.br/SDRO/DIARIO/")
+		return axios.get("https://sdro.ons.org.br/SDRO/DIARIO/")
 		.then(()=>{
 			return true
 		})
@@ -2540,10 +2540,10 @@ internal.ons = class {
 				console.log({dia:dia})
 				//~ # link Subsistema Sur
 				var link_sss = 
-				sprintf("http://sdro.ons.org.br/SDRO/DIARIO/%04d_%02d_%02d/HTML/23_SituacaoPrincipaisReservatorios_Regiao_%02d-%02d-%04d.xlsx", dia.getUTCFullYear(), dia.getUTCMonth()+1, dia.getUTCDate(), dia.getUTCDate(), dia.getUTCMonth()+1, dia.getUTCFullYear())
+				sprintf("https://sdro.ons.org.br/SDRO/DIARIO/%04d_%02d_%02d/HTML/23_SituacaoPrincipaisReservatorios_Regiao_%02d-%02d-%04d.xlsx", dia.getUTCFullYear(), dia.getUTCMonth()+1, dia.getUTCDate(), dia.getUTCDate(), dia.getUTCMonth()+1, dia.getUTCFullYear())
 				//~ # link Subsitema Sudeste-Centro y Oeste
 				var link_sssco = 
-						sprintf("http://sdro.ons.org.br/SDRO/DIARIO/%04d_%02d_%02d/HTML/24_SituacaoPrincipaisReservatorios_Regiao_%02d-%02d-%04d.xlsx", dia.getUTCFullYear(), dia.getUTCMonth()+1, dia.getUTCDate(), dia.getUTCDate(), dia.getUTCMonth()+1, dia.getUTCFullYear())
+						sprintf("https://sdro.ons.org.br/SDRO/DIARIO/%04d_%02d_%02d/HTML/24_SituacaoPrincipaisReservatorios_Regiao_%02d-%02d-%04d.xlsx", dia.getUTCFullYear(), dia.getUTCMonth()+1, dia.getUTCDate(), dia.getUTCDate(), dia.getUTCMonth()+1, dia.getUTCFullYear())
 				//~ #archivo guardado
 				var file_sss = 
 				sprintf("%s/%s/23_SituacaoPrincipaisReservatorios_Regiao_%02d-%02d-%04d.xlsx", __dirname, config.download_dir, dia.getUTCDate(), dia.getUTCMonth()+1, dia.getUTCFullYear())
@@ -2667,7 +2667,7 @@ internal.ana = class {
 		this.config.sites_local_file = (this.config.sites_local_file) ? (fs.existsSync(path.resolve(this.config.sites_local_file))) ? path.resolve(this.config.sites_local_file) : path.resolve(__dirname,"../data/ana/ListaEstacoesTelemetricas.xml") : path.resolve(__dirname,"../data/ana/ListaEstacoesTelemetricas.xml")
 	}
 	test() {
-		return axios.get("http://telemetriaws1.ana.gov.br/serviceANA.asmx")
+		return axios.get("https://telemetriaws1.ana.gov.br/serviceANA.asmx")
 		.then(()=>{
 			return true
 		})
@@ -2935,7 +2935,7 @@ internal.ana = class {
 
 	getDadosANA(codEstacao,dataInicio,dataFim,series_id={}) {
 		console.log({series_id:series_id})
-		return axios.get("http://telemetriaws1.ana.gov.br/serviceANA.asmx/DadosHidrometeorologicos", {
+		return axios.get("https://telemetriaws1.ana.gov.br/serviceANA.asmx/DadosHidrometeorologicos", {
 			params: {
 				codEstacao: codEstacao,
 				dataInicio: dataInicio,
@@ -3047,7 +3047,7 @@ internal.ana = class {
 		file = (file) ? file : this.config.sites_local_file // "data/ana/ListaEstacoesTelemetricas.xml"
 		if(download) {
 			const writer = fs.createWriteStream(file)
-			var response = await axios.get("http://telemetriaws1.ana.gov.br/serviceANA.asmx/ListaEstacoesTelemetricas", {
+			var response = await axios.get("https://telemetriaws1.ana.gov.br/serviceANA.asmx/ListaEstacoesTelemetricas", {
 				params: {
 					statusEstacoes: statusEstacoes, 
 					origem: origem
@@ -3088,7 +3088,7 @@ internal.ana = class {
 				automatica: true,
 				tipo: "A",
 				has_obs: (e.StatusEstacao) ? (e.StatusEstacao[0] == "Ativo") ? true : false : false,
-				url: "http://telemetriaws1.ana.gov.br/serviceANA.asmx/ListaEstacoesTelemetricas",
+				url: "https://telemetriaws1.ana.gov.br/serviceANA.asmx/ListaEstacoesTelemetricas",
 				habilitar: true,
 				real: true
 			})
@@ -3122,7 +3122,7 @@ internal.sarws = class {
 		this.config = config
 	}
 	test() {
-		return axios.get("http://sarws.ana.gov.br/SarWebService.asmx")
+		return axios.get("https://sarws.ana.gov.br/SarWebService.asmx")
 		.then(()=>{
 			return true
 		})
@@ -3175,7 +3175,7 @@ internal.sarws = class {
 		var ts = sprintf("%02d/%02d/%04d", DataInicial.getUTCDate(), DataInicial.getUTCMonth()+1, DataInicial.getUTCFullYear())
 		var te = sprintf("%02d/%02d/%04d", DataFinal.getUTCDate(), DataFinal.getUTCMonth()+1, DataFinal.getUTCFullYear())
 		//~ console.log({series_id:series_id, ts: ts, te: te, codigoReservatorio: codigoReservatorio})
-		return axios.get("http://sarws.ana.gov.br/SarWebService.asmx/DadosHistoricosSIN", {
+		return axios.get("https://sarws.ana.gov.br/SarWebService.asmx/DadosHistoricosSIN", {
 			params: {
 				codigoReservatorio: codigoReservatorio,
 				DataInicial: ts,
@@ -3348,9 +3348,9 @@ internal.sarws = class {
 	getSitesSIN(file="/home/leyden/Downloads/reservatoriosSIN.xml",download=false,format="json") {
 		return new Promise((resolve,reject)=>{
 			if(download) {
-				console.log("GET http://sarws.ana.gov.br/SarWebService.asmx/ReservatoriosSIN?")
+				console.log("GET https://sarws.ana.gov.br/SarWebService.asmx/ReservatoriosSIN?")
 				const writer = fs.createWriteStream(file)
-				return axios.get("http://sarws.ana.gov.br/SarWebService.asmx/ReservatoriosSIN?", {
+				return axios.get("https://sarws.ana.gov.br/SarWebService.asmx/ReservatoriosSIN?", {
 					params: {},
 					responseType:'stream'})
 				.then(response=>{
@@ -3409,7 +3409,7 @@ internal.sarws = class {
 								automatica: true,
 								tipo: "P",
 								has_obs: 1,
-								url: "http://sarws.ana.gov.br/SarWebService.asmx/ReservatoriosSIN",
+								url: "https://sarws.ana.gov.br/SarWebService.asmx/ReservatoriosSIN",
 								habilitar: true,
 								real: true
 							}
@@ -5845,7 +5845,7 @@ internal.sihn = class {
 			ids[key] = this.config.series_map[key].series_id
 			estacion_ids[key] = this.config.series_map[key].estacion_id
 		})
-		var url = this.config.url // "http://www.hidro.gob.ar/api/v1/AlturasHorarias/geojsonRiopla" // ; # "http://geoportal.ddns.net/Api/AAHH/geoJsonRiopla";
+		var url = this.config.url // "https://www.hidro.gob.ar/api/v1/AlturasHorarias/geojsonRiopla" // ; # "http://geoportal.ddns.net/Api/AAHH/geoJsonRiopla";
 		return axios.get(url,{responseType:"json"})
 		.then(response=>{
 			var data = response.data
