@@ -1559,7 +1559,8 @@ internal.telex = class {
 
 internal.paraguay09 = class {
 	constructor(config) {
-		this.config = config
+		this.config = config ?? {}
+		this.config.page_number = this.config.page_number ?? 0
 	}
 	test() {
 		return fsPromises.access(__dirname + "/" + this.config.file)
@@ -1585,14 +1586,15 @@ internal.paraguay09 = class {
 		})
 	}	
 
-	getParaguay09(startDate,endDate=new Date(), input= __dirname + "/" + this.config.file) {
+	getParaguay09(startDate,endDate=new Date(), input= __dirname + "/" + this.config.file, page_number) {
 		// get Paraguay alturas from borus at win "/mount/win/CRITICO/Alerta/Planillas_Juan_Borús/Paraguay_09.xls"
 		
 		if(startDate) {
 			startDate = accessor_utils.toDate(startDate)
 		}
 		endDate = accessor_utils.toDate(endDate)
-		var filename = '/tmp/Paraguay_09.txt.1'
+		page_number = page_number ?? this.config.page_number
+		var filename = `/tmp/Paraguay_09.txt.${page_number}`
 		return new Promise( ( resolve, reject)=> {
 			exec('ssconvert -S -O "locale=en_US.utf8 separator=, quoting-mode=never" '+input+' /tmp/Paraguay_09.txt', (err,stdout,stderr) => {
 				if(err) {
@@ -1618,6 +1620,7 @@ internal.paraguay09 = class {
 			var data = data.split("\n").map(r=> r.split(","))
 			for(var i = 0;i < data.length;i++) {
 				var r = data[i]
+				console.debug(r)
 				if(! /^\d{4}\/\d{1,2}\/\d{1,2}$/.test(r[0])) { continue }
 				var d = r[0].split("/")
 				var date = new Date(d[0],d[1]-1,d[2])
@@ -1626,7 +1629,6 @@ internal.paraguay09 = class {
 				}
 				if(date > endDate) { continue }
 				var sids = [153,155,55,57] // series_id de altura hidrométrica de bneg, pcon, pilc y form
-				//~ console.log(r)
 				for(var j=0;j<sids.length;j++) {
 					if(! /^\d+\.?\d*$/.test(r[j+1])) { continue }
 					observaciones.push({tipo: "puntual", series_id:sids[j], timestart: date, timeend: date, valor: Math.round(r[j+1])/100})
