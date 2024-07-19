@@ -1615,12 +1615,12 @@ internal.paraguay09 = class {
 			})
 		})
 		.then(data=>{
-			console.log("csv file read at " + new Date())
+			console.debug("csv file read at " + new Date())
 			var observaciones = []
 			var data = data.split("\n").map(r=> r.split(","))
 			for(var i = 0;i < data.length;i++) {
 				var r = data[i]
-				console.debug(r)
+				// console.debug(r)
 				if(! /^\d{4}\/\d{1,2}\/\d{1,2}$/.test(r[0])) { continue }
 				var d = r[0].split("/")
 				var date = new Date(d[0],d[1]-1,d[2])
@@ -1634,7 +1634,7 @@ internal.paraguay09 = class {
 					observaciones.push({tipo: "puntual", series_id:sids[j], timestart: date, timeend: date, valor: Math.round(r[j+1])/100})
 				}
 				if (r[5] != "") { 
-					console.log("Found HOY")
+					console.debug("Found HOY")
 					break
 				}
 			}
