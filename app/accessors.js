@@ -7226,6 +7226,7 @@ internal.acumar = class {
 			"url": "http://www.bdh.acumar.gov.ar/bdh3/meteo",
 			"filename": "downld08.txt",
 			"proc_id": 1,
+			"proxy": undefined,
 			"estaciones_map": {
 				"872": {
 					id:"boca",
@@ -7517,8 +7518,14 @@ internal.acumar = class {
 			throw("estacion_id not in config.estaciones_map")
 		}
 		var url = this.config.estaciones_map[estacion_id].url // `${this.config.url}/${this.config.estaciones_map[estacion_id]}/${this.config.filename}`
-		console.log({url:url})
-		return axios.get(url,{responseType: "text"})
+		console.debug({url:url})
+		return axios.get(
+			url,
+			{
+				responseType: "text", 
+				proxy: this.config.proxy
+			}
+		)
 		.then(response=>{
 			this.last_response = response.data
 			return this.parseData(response.data,this.config.estaciones_map[estacion_id].parser)
@@ -7529,6 +7536,7 @@ internal.acumar = class {
 			this.last_retrieved_data = data
 			var var_ids = Array.from(new Set(data.map(d=>d.var_id)))
 			try {
+				// console.debug({estacion_id:estacion_id, var_id: var_ids})
 				var var_series_map = await this.getVarSeriesMap(estacion_id,var_ids)
 			} catch(e) {
 				throw(e)
@@ -7544,8 +7552,9 @@ internal.acumar = class {
 
 	async getVarSeriesMap(estacion_id,var_ids) {
 		// FOR A ESTACION_ID GET MAPPING OF VAR_ID INTO SERIES_ID 
-		return crud.getSeries("puntual",{var_id:[var_ids],estacion_id:estacion_id,proc_id:this.config.proc_id},{no_metadata:true})
+		return crud.getSeries("puntual",{var_id: var_ids,estacion_id:estacion_id,proc_id:this.config.proc_id},{no_metadata:true})
 		.then(series=>{
+			// console.debug({series:series})
 			if(!series.length) {
 				throw("No series found")
 			}
