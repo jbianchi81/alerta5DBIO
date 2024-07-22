@@ -7427,12 +7427,14 @@ internal.acumar = class {
 				}
 			]
 		}
-		this.config = this.default_config
-        if(config) {
-            for(var key in Object.keys(config)) {
-                this.config[key] = config[key]
-            }
-        }
+		this.config = {}
+		Object.assign(this.config,this.default_config)
+        Object.assign(this.config,config)
+		//  {
+        //     for(var key in Object.keys(config)) {
+        //         this.config[key] = config[key]
+        //     }
+        // }
 		this.parsers = {
 			"acumar": this.parseAcumar.bind(this),
 			"mercobras": this.parseMercobras.bind(this),
@@ -7518,7 +7520,7 @@ internal.acumar = class {
 			throw("estacion_id not in config.estaciones_map")
 		}
 		var url = this.config.estaciones_map[estacion_id].url // `${this.config.url}/${this.config.estaciones_map[estacion_id]}/${this.config.filename}`
-		console.debug({url:url})
+		// console.debug({url:url, proxy: this.config.proxy})
 		return axios.get(
 			url,
 			{
