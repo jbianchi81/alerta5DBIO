@@ -3822,6 +3822,7 @@ if(1==1) {
     .option("-f, --format <value>",'input files format: json, csv or geojson (default: json)')
     .option("-H, --header",'use this option if csv input file has a header')
     .option("-a, --all", 'in serie creation, create parent objects (estacion, fuente, var, procedimiento, unidades')
+    .option("-s, --station", "create parent station (estacion)")
     .action(async (crud_class,files,options) => {
         var test_result = true
         if(!CRUD.hasOwnProperty(crud_class)) {
@@ -3846,6 +3847,9 @@ if(1==1) {
                 }
                 if(options.all) {
                     params.options.all = options.all
+                }
+                if(options.station) {
+                    params.options.upsert_estacion = true
                 }
                 var procedure = new internal.CreateProcedure(params)
             } catch(e) {

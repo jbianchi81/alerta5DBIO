@@ -10115,10 +10115,10 @@ internal.CRUD = class {
 			} catch(e) {
 				throw(e)
 			}
-			console.log("got series, var.timeSupport=" + serie.var.timeSupport.toString())
+			console.debug("got series, var.timeSupport=" + ((serie.var.timeSupport) ? serie.var.timeSupport.toString() : "null"))
 		}
 		if(config.verbose) {
-			console.log("crud.upsertObservaciones: tipo: " + tipo)
+			console.debug("crud.upsertObservaciones: tipo: " + tipo)
 		}
 		if(tipo) {
 			if(tipo=="puntual") {
@@ -10270,9 +10270,11 @@ internal.CRUD = class {
 				}
 			}
 			await client.query(enable_trigger)
-			 if(release_client) {
+			if(release_client) {
 				await client.query("COMMIT;")
 				await client.release()
+			} else {
+				await client.query("DROP table obs")
 			}
 			// console.log("upserted: " + result.rows.length + " obs_puntuales")
 			return rows
@@ -10716,6 +10718,7 @@ internal.CRUD = class {
 		} else {
 			const obs_tabla = (tipo == "areal") ? "observaciones_areal" : "observaciones"
 			const val_tabla = (tipo == "areal") ? "valores_num_areal" : "valores_num"
+			const series_tabla = (tipo == "areal") ? "series_areal" : "series"
 			var deleteValorText
 			var deleteObsText
 			var returning_clause = (options && options.no_send_data) ? " RETURNING 1 AS d" : " RETURNING *"
@@ -10739,18 +10742,88 @@ internal.CRUD = class {
 					timeend:{type:"timeend"},
 					unit_id:{type:"integer"},
 					timeupdate:{type:"string"},
-					valor:{type:"numeric_interval"}
+					valor:{type:"numeric_interval"},
+					var_id:{type:"integer",table:series_tabla},
+					proc_id:{type:"integer",table:series_tabla},
+					unit_id:{type:"integer",table:series_tabla}
 				}
-				var filter_string = internal.utils.control_filter2(valid_filters,filter)
+				var join_clause = ""
+				if(filter.var_id != undefined || filter.proc_id != undefined || filter.unit_id != undefined || filter.estacion_id != undefined || filter.area_id != undefined || filter.tabla != undefined || filter.tabla_id != undefined || filter.fuentes_id != undefined || filter.id_externo != undefined || filter.geom != undefined) {
+					join_clause += `JOIN ${series_tabla} ON (${series_tabla}.id = ${obs_tabla}.series_id)`
+					if(tipo == "areal") {
+						join_clause += `
+								JOIN areas_pluvio ON (areas_pluvio.unid = series_areal.area_id)`
+						valid_filters = Object.assign(
+							valid_filters, 
+							{
+								area_id: {
+									type: "integer",
+									table: "series_areal",
+									alias: "estacion_id"
+								},
+								fuentes_id: {
+									type: "integer",
+									table: "series_areal"
+								},
+								geom: {
+									type: "geometry",
+									table: "areas_pluvio"
+								}
+							}
+						)
+					} else {
+						join_clause += `
+								JOIN estaciones ON (estaciones.unid = series.estacion_id)`
+						valid_filters = Object.assign(
+							valid_filters, 
+							{
+								estacion_id: {
+									type: "integer",
+									table: "series"
+								},
+								tabla: {
+									type: "string",
+									table: "estaciones",
+									alias: "tabla_id"
+								},
+								id_externo: {
+									type: "string",
+									table: "estaciones"
+								},
+								geom: {
+									type: "geometry",
+									table: "estaciones"
+								}
+							}
+						)
+					}
+				}
+				const invalid_filter_keys = Object.keys(filter).filter(key => (valid_filters.indexOf(key) < 0))
+				if(invalid_filter_keys.length) {
+					throw(new Error("Invalid filter keys: " + invalid_filter_keys.toString()))
+				}
+				var filter_string = internal.utils.control_filter2(valid_filters,filter,undefined,true)
 				if(!filter_string) {
 					return Promise.reject(new Error("invalid filter value"))
 				}
-				deleteValorText = "WITH deleted AS (DELETE FROM " + val_tabla + " USING " + obs_tabla +" \
-					WHERE " + obs_tabla + ".id=" + val_tabla + ".obs_id " + filter_string + " \
-					"  + returning_clause + ") " + select_deleted_clause
-				deleteObsText = "		WITH deleted AS (DELETE FROM " + obs_tabla + " \
-				WHERE 1=1 " + filter_string + " \
-				"  + returning_clause + ") " + select_deleted_clause
+				deleteValorText = `
+					WITH deleted AS (
+						DELETE FROM ${val_tabla}
+						USING ${obs_tabla}
+						${join_clause}
+						WHERE ${obs_tabla}.id=${val_tabla}.obs_id 
+						${filter_string}
+						${returning_clause}
+					)
+					${select_deleted_clause}`
+				deleteObsText = `
+					WITH deleted AS (
+						DELETE FROM ${obs_tabla}
+						WHERE 1=1
+						${filter_string}
+						${returning_clause}
+					)
+					${select_deleted_clause}`
 			}
 			// console.log(deleteObsText)
 			// console.log(deleteValorText)
@@ -10960,7 +11033,6 @@ internal.CRUD = class {
 		var observaciones_table = (tipo=="puntual") ? "observaciones" : (tipo=="areal") ? "observaciones_areal" : "observaciones_rast" 
 		var valores_table = (tipo.toLowerCase() == "areal") ? (options && options.obs_type && options.obs_type.toLowerCase() == 'numarr') ? "valores_numarr_areal" : "valores_num_areal" : (tipo.toLowerCase() == "rast" || tipo.toLowerCase() == "raster") ? "observaciones_rast" : (options && options.obs_type && options.obs_type.toLowerCase() == 'numarr') ? "valores_numarr" : "valores_num"
 		var fuentes_table = (tipo.toLowerCase() == "areal") ? "fuentes" : (tipo.toLowerCase() == "rast" || tipo.toLowerCase() == "raster") ? "fuentes" : "redes"
-		var filter_string = "" 
 		var valid_filters = {
 			id:{type:"integer"},
 			series_id:{type:"integer"},
@@ -10974,6 +11046,7 @@ internal.CRUD = class {
 		if(tipo=="puntual") {
 			valid_filters["red_id"] = {type:"integer",table:"redes",column:"id"}
 			valid_filters["tabla_id"] = {type:"integer",table:"redes"}
+			valid_filters["tabla"] = {type: "string", table: "estaciones"}
 			valid_filters["estacion_id"] = {type:"integer",table: series_table}
 		} else if(tipo=="areal") {
 			valid_filters["fuentes_id"] = {type:"integer",table:series_table}
@@ -10982,10 +11055,22 @@ internal.CRUD = class {
 			valid_filters["fuentes_id"] = {type:"integer",table:series_table}
 			valid_filters["escena_id"] = {type:"integer",table: series_table}
 		}
-		filter_string += internal.utils.control_filter2(valid_filters,filter,observaciones_table)
+		var filter_string = internal.utils.control_filter2(valid_filters,filter,observaciones_table,true)
+		if(!filter_string) {
+			throw(new Error("Invalid filter values"))
+		}
 		// filter_string += internal.utils.control_filter({id:"integer",series_id:"integer",timestart:"timestart",timeend:"timeend",unit_id:"integer",timeupdate:"string"},filter, (tipo.toLowerCase() == "areal") ? "observaciones_areal" : (tipo.toLowerCase() == "rast" || tipo.toLowerCase() == "raster") ? "observaciones_rast" : "observaciones")
-		filter_string += internal.utils.control_filter({valor:"numeric_interval"},filter, valores_table)
-		filter_string += internal.utils.control_filter({public:"boolean_only_true"},filter, fuentes_table)
+		var filter_string_valor = internal.utils.control_filter({valor:"numeric_interval"},filter, valores_table)
+		if(!filter_string_valor) {
+			throw(new Error("Invalid filter values: valor"))
+		}
+		filter_string += filter_string_valor
+
+		var filter_string_public = internal.utils.control_filter({public:"boolean_only_true"},filter, fuentes_table)
+		if(!filter_string_public) {
+			throw(new Error("Invalid filter values: public"))
+		}
+		filter_string += filter_string_public
 		return filter_string
 	}
 
@@ -11152,7 +11237,7 @@ internal.CRUD = class {
 	static build_observaciones_query(tipo,filter,options) {
 		tipo = this.getTipo(tipo)
 		var filter_string = this.getObservacionesFilterString(tipo,filter,options) 
-		// console.log({filter_string:filter_string})
+		console.debug({filter_string:filter_string})
 		if(filter_string == "") {
 			throw "invalid filter value"
 		}
@@ -19321,232 +19406,289 @@ internal.utils = {
 		} else {
 			return ""
 		}
-	},	
-	control_filter2: function (valid_filters, filter, default_table) {
+	},
+	alert_error: function(message, throw_=false) {
+		if(throw_) {
+			throw(new Error(message))
+		} else {
+			console.error(message)
+		}
+	},
+	control_filter2: function (valid_filters, filter, default_table, throw_if_invalid=false) {
 		// valid_filters = { column1: { table: "table_name", type: "data_type", required: bool, column: "column_name"}, ... }  
 		// filter = { column1: "value1", column2: "value2", ....}
 		// default_table = "table"
 		var filter_string = " "
 		var control_flag = 0
-		loop1: for(var key of Object.keys(valid_filters)) {
-			var table_prefix = (valid_filters[key].table) ? '"' + valid_filters[key].table + '".' :  (default_table) ? '"' + default_table + '".' : ""
-			var column_name = (valid_filters[key].column) ? '"' + valid_filters[key].column + '"' : '"' + key + '"'
+		loop1: for(var filter_key of Object.keys(valid_filters)) {
+			var filter_def = valid_filters[filter_key]
+			var key = new String(filter_key.toString())
+			if(typeof filter[key] == "undefined" || filter[key] === null) {
+				if(filter_def.alias && filter[filter_def.alias]  != "undefined" && filter[filter_def.alias] !== null) {
+					key = new String(filter_def.alias.toString())
+				} else {
+					if (filter_def.required) {
+						internal.utils.alert_error(
+							"Missing value for mandatory filter key " + key,
+							throw_if_invalid
+						)
+						control_flag++
+					}
+					continue
+				}
+			}
+
+			var table_prefix = (filter_def.table) ? '"' + filter_def.table + '".' :  (default_table) ? '"' + default_table + '".' : ""
+			var column_name = (filter_def.column) ? '"' + filter_def.column + '"' : '"' + key + '"'
 			var fullkey = table_prefix + column_name
-			if(typeof filter[key] != "undefined" && filter[key] !== null) {
-				if(Array.isArray(filter[key])) {
-					for(var f of filter[key]) {
-						if(/[';]/.test(f)) {
-							console.error("Invalid filter value")
+
+
+			if(Array.isArray(filter[key])) {
+				for(var f of filter[key]) {
+					if(/[';]/.test(f)) {
+						internal.utils.alert_error(
+							"Invalid filter value: illegal characters found in key " + key,
+							throw_if_invalid)
+						control_flag++
+						break loop1	
+					}	
+				}
+			} else {
+				if(/[';]/.test(filter[key])) {
+					internal.utils.alert_error(
+						"Invalid filter value: illegal characters found in key " + key,
+						throw_if_invalid)
+					control_flag++
+					break loop1
+				}
+			}
+			if(filter_def.type == "regex_string") {
+				var regex = filter[key].replace('\\','\\\\')
+				filter_string += " AND " + fullkey  + " ~* '" + filter[key] + "'"
+			} else if(filter_def.type == "string") {
+				if(filter_def.case_insensitive) {
+					if(Array.isArray(filter[key])) {
+						if(filter[key].length) {
+							filter_string += ` AND lower(${fullkey}) IN (${filter[key].map(v=>`lower('${v}')`).join(",")})`
+						} else if(filter_def.required) {
+							internal.utils.alert_error(
+								"Falta valor para filtro obligatorio " + key + " (array vacío)",
+								throw_if_invalid)
 							control_flag++
-							break loop1	
-						}	
+						}
+					} else {
+						filter_string += ` AND lower(${fullkey})=lower('${filter[key]}')`
 					}
 				} else {
-					if(/[';]/.test(filter[key])) {
-						console.error("Invalid filter value")
-						control_flag++
-						break loop1
+					if(Array.isArray(filter[key])) {
+						if(filter[key].length) {
+							filter_string += ` AND ${fullkey} IN (${filter[key].map(v=>`'${v}'`).join(",")})`
+						} else if(filter_def.required) {
+							internal.utils.alert_error(
+								"Falta valor para filtro obligatorio " + key + " (array vacío)",
+								throw_if_invalid)
+							control_flag++
+						}
+					} else {
+						filter_string += " AND "+ fullkey + "='" + filter[key] + "'"
 					}
 				}
-				if(valid_filters[key].type == "regex_string") {
-					var regex = filter[key].replace('\\','\\\\')
-					filter_string += " AND " + fullkey  + " ~* '" + filter[key] + "'"
-				} else if(valid_filters[key].type == "string") {
-					if(valid_filters[key].case_insensitive) {
-						if(Array.isArray(filter[key])) {
-							if(filter[key].length) {
-								filter_string += ` AND lower(${fullkey}) IN (${filter[key].map(v=>`lower('${v}')`).join(",")})`
-							} else if(valid_filters[key].required) {
-								console.error("Falta valor para filtro obligatorio " + key + " (array vacío)")
-								control_flag++
-							}
-						} else {
-							filter_string += ` AND lower(${fullkey})=lower('${filter[key]}')`
-						}
-					} else {
-						if(Array.isArray(filter[key])) {
-							if(filter[key].length) {
-								filter_string += ` AND ${fullkey} IN (${filter[key].map(v=>`'${v}'`).join(",")})`
-							} else if(valid_filters[key].required) {
-								console.error("Falta valor para filtro obligatorio " + key + " (array vacío)")
-								control_flag++
-							}
-						} else {
-							filter_string += " AND "+ fullkey + "='" + filter[key] + "'"
-						}
-					}
-				} else if (valid_filters[key].type == "boolean") {
-					var boolean = (/^[yYtTvVsS1]/.test(filter[key])) ? "true" : "false"
-					filter_string += " AND "+ fullkey + "=" + boolean + ""
-				} else if (valid_filters[key].type == "boolean_only_true") {
-					if (/^[yYtTvVsS1]/.test(filter[key])) {
-						filter_string += " AND "+ fullkey + "=true"
-					} 
-				} else if (valid_filters[key].type == "boolean_only_false") {
-					if (!/^[yYtTvVsS1]/.test(filter[key])) {
-						filter_string += " AND "+ fullkey + "=false"
-					} 
-				} else if (valid_filters[key].type == "geometry") {
-					if(! filter[key] instanceof internal.geometry) {
-						console.error("Invalid geometry object")
+			} else if (filter_def.type == "boolean") {
+				var boolean = (/^[yYtTvVsS1]/.test(filter[key])) ? "true" : "false"
+				filter_string += " AND "+ fullkey + "=" + boolean + ""
+			} else if (filter_def.type == "boolean_only_true") {
+				if (/^[yYtTvVsS1]/.test(filter[key])) {
+					filter_string += " AND "+ fullkey + "=true"
+				} 
+			} else if (filter_def.type == "boolean_only_false") {
+				if (!/^[yYtTvVsS1]/.test(filter[key])) {
+					filter_string += " AND "+ fullkey + "=false"
+				} 
+			} else if (filter_def.type == "geometry") {
+				if(! filter[key] instanceof internal.geometry) {
+					internal.utils.alert_error(
+						"Invalid geometry object at filter key " + key,
+						throw_if_invalid)
+					control_flag++
+				} else if (filter[key].type == "Point"){
+					filter_string += "  AND ST_Distance(st_transform(" + fullkey + ",4326),st_Buffer(st_transform(" + filter[key].toSQL() + ",4326),0.001)) < 0.000001" 
+				} else {
+					filter_string += "  AND ST_Distance(st_transform(" + fullkey + ",4326),st_transform(" + filter[key].toSQL() + ",4326)) < 0.001" 
+				}
+			} else if (filter_def.type == "date") {
+				let d
+				if(filter[key] instanceof Date) {
+					d = filter[key]
+				} else {
+					d = new Date(filter[key])
+				}
+				filter_string += " AND " + fullkey + "::timestamptz='" + d.toISOString() + "'::timestamptz"
+			} else if (filter_def.type == "timestart") {
+				var ldate = (filter[key] instanceof Date) ? filter[key].toISOString() : timeSteps.parseDateString(filter[key]).toISOString()		
+				filter_string += " AND " + fullkey + "::timestamptz>='" + ldate + "'"
+			} else if (filter_def.type == "timeend") {
+				var ldate = (filter[key] instanceof Date) ? filter[key].toISOString() : timeSteps.parseDateString(filter[key]).toISOString()
+				filter_string += " AND " + fullkey + "::timestamptz<='" + ldate + "'"
+			} else if (filter_def.type == "numeric_interval") {
+				if(Array.isArray(filter[key])) {
+					if(filter[key].length < 2) {
+						internal.utils.alert_error(
+							"numeric_interval must have at least 2 items at filter key " + key,
+							throw_if_invalid)
 						control_flag++
-					} else if (filter[key].type == "Point"){
-						filter_string += "  AND ST_Distance(st_transform(" + fullkey + ",4326),st_Buffer(st_transform(" + filter[key].toSQL() + ",4326),0.001)) < 0.000001" 
 					} else {
-						filter_string += "  AND ST_Distance(st_transform(" + fullkey + ",4326),st_transform(" + filter[key].toSQL() + ",4326)) < 0.001" 
+						filter_string += " AND " + fullkey + ">=" + parseFloat(filter[key][0]) + " AND " + key + "<=" + parseFloat(filter[key][1])
 					}
-				} else if (valid_filters[key].type == "date") {
-					let d
-					if(filter[key] instanceof Date) {
-						d = filter[key]
-					} else {
-						d = new Date(filter[key])
-					}
-					filter_string += " AND " + fullkey + "::timestamptz='" + d.toISOString() + "'::timestamptz"
-				} else if (valid_filters[key].type == "timestart") {
-					var ldate = (filter[key] instanceof Date) ? filter[key].toISOString() : timeSteps.parseDateString(filter[key]).toISOString()		
-					filter_string += " AND " + fullkey + "::timestamptz>='" + ldate + "'"
-				} else if (valid_filters[key].type == "timeend") {
-					var ldate = (filter[key] instanceof Date) ? filter[key].toISOString() : timeSteps.parseDateString(filter[key]).toISOString()
-					filter_string += " AND " + fullkey + "::timestamptz<='" + ldate + "'"
-				} else if (valid_filters[key].type == "numeric_interval") {
-					if(Array.isArray(filter[key])) {
-						if(filter[key].length < 2) {
-							console.error("numeric_interval debe ser de al menos 2 valores")
+				} else {
+						filter_string += " AND " + fullkey + "=" + parseFloat(filter[key])
+				}
+			} else if(filter_def.type == "numeric_min") {
+				filter_string += " AND " + fullkey + ">=" + parseFloat(filter[key])
+			} else if(filter_def.type == "numeric_max") {
+				filter_string += " AND " + fullkey + "<=" + parseFloat(filter[key])
+			} else if (filter_def.type == "integer") {
+				if(Array.isArray(filter[key])) {
+					if(filter[key].length) {
+						var values = filter[key].map(v=>parseInt(v)).filter(v=>v.toString()!="NaN")
+						if(!values.length) {
+							internal.utils.alert_error(
+								"Invalid integer at filter key " + key,
+								throw_if_invalid
+							)
 							control_flag++
 						} else {
-							filter_string += " AND " + fullkey + ">=" + parseFloat(filter[key][0]) + " AND " + key + "<=" + parseFloat(filter[key][1])
+							filter_string += " AND "+ fullkey + " IN (" + values.join(",") + ")"
 						}
-					} else {
-						 filter_string += " AND " + fullkey + "=" + parseFloat(filter[key])
+					} else if(filter_def.required) {
+						internal.utils.alert_error(
+							"Missing value at mandatory filter key " + key + " (empty array)",
+							throw_if_invalid
+						)
+						control_flag++
 					}
-				} else if(valid_filters[key].type == "numeric_min") {
-					filter_string += " AND " + fullkey + ">=" + parseFloat(filter[key])
-				} else if(valid_filters[key].type == "numeric_max") {
-					filter_string += " AND " + fullkey + "<=" + parseFloat(filter[key])
-				} else if (valid_filters[key].type == "integer") {
-					if(Array.isArray(filter[key])) {
-						if(filter[key].length) {
-							var values = filter[key].map(v=>parseInt(v)).filter(v=>v.toString()!="NaN")
-							if(!values.length) {
-								console.error("Invalid integer")
-								control_flag++
-							} else {
-								filter_string += " AND "+ fullkey + " IN (" + values.join(",") + ")"
-							}
-						} else if(valid_filters[key].required) {
-							console.error("Falta valor para filtro obligatorio " + key + " (array vacío)")
-							control_flag++
-						}
+				} else {
+					var value = parseInt(filter[key])
+					if(value.toString() == "NaN") {
+						internal.utils.alert_error(
+							"Invalid integer at filter key " + key,
+							throw_if_invalid
+						)
+						control_flag++
 					} else {
-						var value = parseInt(filter[key])
-						if(value.toString() == "NaN") {
-							console.error("Invalid integer")
-							control_flag++
-						} else {
-							filter_string += " AND "+ fullkey + "=" + value + ""
-						}
+						filter_string += " AND "+ fullkey + "=" + value + ""
 					}
-				} else if (valid_filters[key].type == "number" || valid_filters[key].type == "float") {
-					if(Array.isArray(filter[key])) {
-						if(filter[key].length) {
-							var values = filter[key].map(v=>parseFloat(v)).filter(v=>v.toString()!="NaN")
-							if(!values.length) {
-								console.error("Invalid float")
-								control_flag++
-							} else {
-								filter_string += " AND "+ fullkey + " IN (" + values.join(",") + ")"
-							}
-						} else if(valid_filters[key].required) {
-							console.error("Falta valor para filtro obligatorio " + key + " (array vacío)")
-							control_flag++
-						}
-					} else {
-						var value = parseFloat(filter[key])
-						if(value.toString() == "NaN") {
-							console.error("Invalid integer")
+				}
+			} else if (filter_def.type == "number" || filter_def.type == "float") {
+				if(Array.isArray(filter[key])) {
+					if(filter[key].length) {
+						var values = filter[key].map(v=>parseFloat(v)).filter(v=>v.toString()!="NaN")
+						if(!values.length) {
+							internal.utils.alert_error(
+								"Invalid float at filter key " + key,
+								throw_if_invalid
+							)
 							control_flag++
 						} else {
-							filter_string += " AND "+ fullkey + "=" + value + ""
+							filter_string += " AND "+ fullkey + " IN (" + values.join(",") + ")"
 						}
+					} else if(filter_def.required) {
+						internal.utils.alert_error(
+							"Missing value for mandatory filter key " + key + " (empty array)",
+							throw_if_invalid
+						)
+						control_flag++
 					}
-				} else if (valid_filters[key].type == "interval") {
-					var value = timeSteps.createInterval(filter[key])
-					if(!value) {
-						throw("invalid interval filter: " + filter[key])
-					}
-					if(value.toPostgres() == '0') {
-						filter_string += ` AND (${fullkey}='${value.toPostgres()}'::interval OR ${fullkey} IS NULL)`	
+				} else {
+					var value = parseFloat(filter[key])
+					if(value.toString() == "NaN") {
+						internal.utils.alert_error(
+							"Invalid integer at filter key " + key,
+							throw_if_invalid
+						)
+						control_flag++
 					} else {
-						filter_string += ` AND ${fullkey}='${value.toPostgres()}'::interval`
+						filter_string += " AND "+ fullkey + "=" + value + ""
 					}
-				} else if (valid_filters[key].type == 'json_array') {
-					if(Array.isArray(filter[key])) {
-						if(filter[key].length) {
-							filter_string += " AND " + fullkey + "::jsonb ?& array[" + filter[key].map(v=>`'${v}'`).join(",") + "]"
-						} else if(valid_filters[key].required) {
-							console.error("Falta valor para filtro obligatorio " + key + " (array vacío)")
-							control_flag++
-						}
-					} else {
-						filter_string += " AND "+ fullkey + "::jsonb ?& array['" + filter[key] + "']"
+				}
+			} else if (filter_def.type == "interval") {
+				var value = timeSteps.createInterval(filter[key])
+				if(!value) {
+					throw("invalid interval filter: " + filter[key])
+				}
+				if(value.toPostgres() == '0') {
+					filter_string += ` AND (${fullkey}='${value.toPostgres()}'::interval OR ${fullkey} IS NULL)`	
+				} else {
+					filter_string += ` AND ${fullkey}='${value.toPostgres()}'::interval`
+				}
+			} else if (filter_def.type == 'json_array') {
+				if(Array.isArray(filter[key])) {
+					if(filter[key].length) {
+						filter_string += " AND " + fullkey + "::jsonb ?& array[" + filter[key].map(v=>`'${v}'`).join(",") + "]"
+					} else if(filter_def.required) {
+						internal.utils.alert_error(
+							"Missing value for mandatory filter key " + key + " (empty array)",
+							throw_if_invalid
+						)
+						control_flag++
 					}
-				} else if(valid_filters[key].type == "search") {
-					if(valid_filters[key].columns) {
-						var concat_fields = valid_filters[key].columns.map(column=> {
-							var table = column.table ?? valid_filters[key].table ?? default_table
-							if(table) {
-								return `"${table}"."${column.name}"::text`
-							} else {
-								return `"${column.name}"::text`
-							}
-						})
-						if(valid_filters[key].case_insensitive) {
-							fullkey = `lower(concat(${concat_fields.join(",")}))`
-							filter_string += " AND " + fullkey  + " ~* lower('" + filter[key] + "')"
+				} else {
+					filter_string += " AND "+ fullkey + "::jsonb ?& array['" + filter[key] + "']"
+				}
+			} else if(filter_def.type == "search") {
+				if(filter_def.columns) {
+					var concat_fields = filter_def.columns.map(column=> {
+						var table = column.table ?? filter_def.table ?? default_table
+						if(table) {
+							return `"${table}"."${column.name}"::text`
 						} else {
-							fullkey = `concat(${concat_fields.join(",")}))`
-							filter_string += " AND " + fullkey  + " ~* '" + filter[key] + "'"
+							return `"${column.name}"::text`
 						}
+					})
+					if(filter_def.case_insensitive) {
+						fullkey = `lower(concat(${concat_fields.join(",")}))`
+						filter_string += " AND " + fullkey  + " ~* lower('" + filter[key] + "')"
 					} else {
+						fullkey = `concat(${concat_fields.join(",")}))`
 						filter_string += " AND " + fullkey  + " ~* '" + filter[key] + "'"
 					}
-				// qualifiers::jsonb ?& array['1']
-				} else if(valid_filters[key].type == "data_availability") {
-					var d_a_values = ["H","C","NRT","RT"]
-					var apply_filter = false
-					if(filter[key].toLowerCase() == "r" || filter[key].toLowerCase() == "rt") {
-						d_a_values = ["RT"]
-						apply_filter = true
-					} else if(filter[key].toLowerCase() == "n" || filter[key].toLowerCase() == "nrt") {
-						d_a_values = ["NRT","RT"]
-						apply_filter = true
-					} else if(filter[key].toLowerCase() == "c") {
-						d_a_values = ["C","NRT","RT"]
-						apply_filter = true
-					} else if(filter[key].toLowerCase() == "h") {
-						d_a_values = ["H","C","NRT","RT"]
-						apply_filter = true
-					} 
-					if(apply_filter) {
-						var d_a_values_string = d_a_values.map(v=>`'${v}'`).join(",")
-						filter_string += ` AND ${fullkey} IN (${d_a_values_string})`
+				} else {
+					filter_string += " AND " + fullkey  + " ~* '" + filter[key] + "'"
+				}
+			// qualifiers::jsonb ?& array['1']
+			} else if(filter_def.type == "data_availability") {
+				var d_a_values = ["H","C","NRT","RT"]
+				var apply_filter = false
+				if(filter[key].toLowerCase() == "r" || filter[key].toLowerCase() == "rt") {
+					d_a_values = ["RT"]
+					apply_filter = true
+				} else if(filter[key].toLowerCase() == "n" || filter[key].toLowerCase() == "nrt") {
+					d_a_values = ["NRT","RT"]
+					apply_filter = true
+				} else if(filter[key].toLowerCase() == "c") {
+					d_a_values = ["C","NRT","RT"]
+					apply_filter = true
+				} else if(filter[key].toLowerCase() == "h") {
+					d_a_values = ["H","C","NRT","RT"]
+					apply_filter = true
+				} 
+				if(apply_filter) {
+					var d_a_values_string = d_a_values.map(v=>`'${v}'`).join(",")
+					filter_string += ` AND ${fullkey} IN (${d_a_values_string})`
+				}
+			} else {
+				if(Array.isArray(filter[key])) {
+					if(filter[key].length) {
+						filter_string += " AND "+ fullkey + " IN (" + filter[key].join(",") + ")"
+					} else if(filter_def.required) {
+						internal.utils.alert_error(
+							"Missing value for mandatory filter key " + key + " (empty array)",
+							throw_if_invalid
+						)
+						control_flag++
 					}
 				} else {
-					if(Array.isArray(filter[key])) {
-						if(filter[key].length) {
-							filter_string += " AND "+ fullkey + " IN (" + filter[key].join(",") + ")"
-						} else if(valid_filters[key].required) {
-							console.error("Falta valor para filtro obligatorio " + key + " (array vacío)")
-							control_flag++
-						}
-					} else {
-						filter_string += " AND "+ fullkey + "=" + filter[key] + ""
-					}
+					filter_string += " AND "+ fullkey + "=" + filter[key] + ""
 				}
-			} else if (valid_filters[key].required) {
-				console.error("Falta valor para filtro obligatorio " + key)
-				control_flag++
 			}
 		}
 		if(control_flag > 0) {
