@@ -1,0 +1,14 @@
+{
+    "$schema": "../public/schemas/alerta5dbio_config.json",
+    "database":
+	{
+	  "user": "user",
+	  "host": "host",
+	  "database": "database",
+	  "password": "password",
+	  "port": 5432,
+	  "idleTimeoutMillis": 250,
+	  "max": 200
+	},
+    "verbose": true
+}

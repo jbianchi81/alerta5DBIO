@@ -3667,8 +3667,8 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		console.error("invalid tipo")
 		throw "invalid tipo"
 	}
-	var filter_string=internal.utils.control_filter2(valid_filters,filter)
-	// console.log({filter:filter,filter_string:filter_string})
+	var filter_string=internal.utils.control_filter2(valid_filters,filter,undefined,true)
+	// console.debug({filter:filter,filter_string:filter_string})
 	var order_string = internal.utils.build_order_by_clause(sort_fields,options.sort,"series",["estacion_id","var_id","proc_id"],options.order)
 	// console.log({order_string:order_string,sort:options.sort,order:options.order})
 	select_fields.push(`count(*) OVER() AS total`)
@@ -19431,7 +19431,7 @@ internal.utils = {
 			var filter_def = valid_filters[filter_key]
 			var key = new String(filter_key.toString())
 			if(typeof filter[key] == "undefined" || filter[key] === null) {
-				if(filter_def.alias && filter[filter_def.alias]  != "undefined" && filter[filter_def.alias] !== null) {
+				if(filter_def.alias && filter[filter_def.alias]  != undefined) {
 					key = new String(filter_def.alias.toString())
 				} else {
 					if (filter_def.required) {

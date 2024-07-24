@@ -79,6 +79,14 @@ Commands:
 
 New procedures may be written following the schema found here: [http://localhost:3000/schemas/crudprocedure.json](http://localhost:3000/schemas/crudprocedure.json) (or locally: public/schemas/crudprocedure.json)
 
+## Testing
+
+1. Set up test database connection parameters in config/test.json (use config/test_template.json as template)
+
+2. Open a terminal, change to the base dir of the application, and run
+
+    node --test tests/*.js
+
 ## TODO list
 
 - [ ] DeleteSitesFromAccessorProcedure
