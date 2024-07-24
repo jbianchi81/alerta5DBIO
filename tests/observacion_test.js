@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('assert')
-const {serie: Serie, observacion: Observacion} = require('../app/CRUD')
+const {serie: Serie, observacion: Observacion, estacion: Estacion} = require('../app/CRUD')
 
 test('observacion crud sequence', async(t) => {
     await Serie.delete({
@@ -12,7 +12,6 @@ test('observacion crud sequence', async(t) => {
             "tipo": "puntual",
             "id": 3281,
             "estacion": {
-                "id": 872,
                 "nombre": "La Boca",
                 "id_externo": "http://www.bdh.acumar.gov.ar/bdh3/meteo/boca/downld08.txt",
                 "geom": {
@@ -117,6 +116,8 @@ test('observacion crud sequence', async(t) => {
                 }
             ],
             "pronosticos": null
+        },{
+            upsert_estacion: true
         })
         assert.equal(series.length, 1, "Length of created series must equal 1")
         serie = series[0]
@@ -138,7 +139,57 @@ test('observacion crud sequence', async(t) => {
         }
     })
 
-    await t.test("Delete observaciones", {TODO: true}, async(t) => {
-        return
+    await t.test("Delete observaciones", async(t) => {
+        const deleted = await Observacion.delete(
+            {
+                series_id: 3281,
+                timestart: new Date("2027-08-13T03:00:00.000Z"),
+                timeend: new Date("2027-08-13T03:00:00.000Z")
+            }
+        )
+        assert.equal(deleted.length,1, "Deleted observaciones must be of length 1")
+        for(const obs of deleted) {
+            assert.equal(obs.series_id,3281, "deleted observaciones must have series_id=3281")
+            assert(obs.timestart.getTime() >= new Date("2027-08-13T03:00:00.000Z").getTime(), "deleted observaciones must have timestart>='2027-08-13T03:00:00.000Z'")
+            assert(obs.timestart.getTime() <= new Date("2027-08-13T03:00:00.000Z").getTime(), "deleted observaciones must have timestart<='2027-08-13T03:00:00.000Z'")
+        }
     })
+
+    await t.test("Read remaining obs", async(t) => {
+        const observaciones = await Observacion.read({
+            series_id: 3281
+        })
+        assert.equal(observaciones.length, 2, "Length of remaining obs must be 2")
+    })
+
+    await t.test("Delete with fake tabla, no obs", async(t) => {
+        const deleted = await Observacion.delete(
+            {
+                tabla: "fake",
+                timestart: new Date("2027-03-03T03:08:00.000Z"),
+                timeend: new Date("2030-02-16T15:21:00.000Z")
+            }
+        )
+        assert.equal(deleted.length, 0, "Deleted observaciones must be of length 0")
+    })
+
+    await t.test("Delete with tabla, 2 obs", async(t) => {
+        const deleted = await Observacion.delete(
+            {
+                tabla: "red_acumar",
+                timestart: new Date("2027-03-03T03:08:00.000Z"),
+                timeend: new Date("2030-02-16T15:21:00.000Z")
+            }
+        )
+        assert.equal(deleted.length, 2, "Deleted observaciones must be of length 2")
+    })
+
+    await t.test("delete estacion", async(t)=> {
+        const deleted = await Estacion.delete({
+            "tabla": "red_acumar",
+            "id_externo": "http://www.bdh.acumar.gov.ar/bdh3/meteo/boca/downld08.txt"
+        })
+        assert.equal(deleted.length, 1, "One station deleted")
+    })
+
 })

@@ -36,13 +36,8 @@ const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, c
 const { DateFromDateOrInterval, Interval } = require('./timeSteps');
 // const { isContext } = require('vm');
 const logger = require('./logger');
-const { crud } = require('./informe_semanal');
-const { CRUD } = require('./mareas');
-const { valid } = require('node-html-parser');
-const { client } = require('./wmlclient');
 
 const { escapeIdentifier, escapeLiteral } = require('pg');
-const { area } = require('@turf/turf');
 
 const apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
 var schemas = apidoc.components.schemas
@@ -2370,8 +2365,8 @@ internal.serie = class extends baseModel {
 		if(matches != null && !Array.isArray(matches)) {
 			matches = [matches]
 		}
-		if(!matches.length) {
-			console.log("Nothing to delete")
+		if(matches == undefined || !matches.length) {
+			console.error("No series matched to delete")
 			return []
 		}
 		const deleted = []
@@ -4336,7 +4331,9 @@ internal.observacion = class extends baseModel {
 
 	static async delete() {
 		const observaciones = await internal.observaciones.delete(...arguments)
-		delete observaciones.metadata
+		if(observaciones != undefined) {
+			delete observaciones.metadata
+		}
 		return observaciones
 	}
 
@@ -10726,7 +10723,7 @@ internal.CRUD = class {
 			if(filter.id) {
 				if(Array.isArray(filter.id)) {
 					if(filter.id.length == 0) {
-						console.log("crud/deleteObservaciones: Nothing to delete (passed zero length id array)")
+						console.info("crud/deleteObservaciones: Nothing to delete (passed zero length id array)")
 						return Promise.resolve([])
 					}
 					deleteValorText = "WITH deleted AS (DELETE FROM " + val_tabla + " WHERE obs_id IN (" + filter.id.join(",") + ") " + returning_clause + ") " + select_deleted_clause
@@ -10748,10 +10745,16 @@ internal.CRUD = class {
 					unit_id:{type:"integer",table:series_tabla}
 				}
 				var join_clause = ""
+				var obs_using_clause = ""
+				var obs_where_clause = "WHERE 1=1"
 				if(filter.var_id != undefined || filter.proc_id != undefined || filter.unit_id != undefined || filter.estacion_id != undefined || filter.area_id != undefined || filter.tabla != undefined || filter.tabla_id != undefined || filter.fuentes_id != undefined || filter.id_externo != undefined || filter.geom != undefined) {
 					join_clause += `JOIN ${series_tabla} ON (${series_tabla}.id = ${obs_tabla}.series_id)`
+					obs_using_clause = `USING ${series_tabla}`
+					obs_where_clause = `WHERE ${series_tabla}.id = ${obs_tabla}.series_id`
 					if(tipo == "areal") {
 						join_clause += `
+								JOIN areas_pluvio ON (areas_pluvio.unid = series_areal.area_id)`
+						obs_using_clause += `
 								JOIN areas_pluvio ON (areas_pluvio.unid = series_areal.area_id)`
 						valid_filters = Object.assign(
 							valid_filters, 
@@ -10773,6 +10776,8 @@ internal.CRUD = class {
 						)
 					} else {
 						join_clause += `
+								JOIN estaciones ON (estaciones.unid = series.estacion_id)`
+						obs_using_clause += `
 								JOIN estaciones ON (estaciones.unid = series.estacion_id)`
 						valid_filters = Object.assign(
 							valid_filters, 
@@ -10798,7 +10803,7 @@ internal.CRUD = class {
 						)
 					}
 				}
-				const invalid_filter_keys = Object.keys(filter).filter(key => (valid_filters.indexOf(key) < 0))
+				const invalid_filter_keys = Object.keys(filter).filter(key => (Object.keys(valid_filters).indexOf(key) < 0))
 				if(invalid_filter_keys.length) {
 					throw(new Error("Invalid filter keys: " + invalid_filter_keys.toString()))
 				}
@@ -10819,14 +10824,15 @@ internal.CRUD = class {
 				deleteObsText = `
 					WITH deleted AS (
 						DELETE FROM ${obs_tabla}
-						WHERE 1=1
+						${obs_using_clause}
+						${obs_where_clause}
 						${filter_string}
 						${returning_clause}
 					)
 					${select_deleted_clause}`
 			}
-			// console.log(deleteObsText)
-			// console.log(deleteValorText)
+			// console.debug(deleteObsText)
+			// console.debug(deleteValorText)
 			if(!client) {
 				var release_client = true
 				client = await global.pool.connect()
@@ -10837,11 +10843,11 @@ internal.CRUD = class {
 				}
 				var result = await executeQueryReturnRows(deleteValorText,undefined,client)
 				if(result.length == 0) {
-					console.log("No se eliminó ningun valor")
+					console.info("No se eliminó ningun valor")
 				}
 				var deleted_valores={}
 				if(options && options.no_send_data) {
-					console.log(result[0].count + " valores marked for deletion")
+					console.debug(result[0].count + " valores marked for deletion")
 				} else {
 					result.forEach(row=> {
 						deleted_valores[row.obs_id] = row.valor 
@@ -10849,11 +10855,11 @@ internal.CRUD = class {
 				}
 				result = await executeQueryReturnRows(deleteObsText,undefined,client)
 				if(result.length == 0) {
-					console.log("No se eliminó ninguna observacion")
+					console.info("No se eliminó ninguna observacion")
 				}
 				var deleted_observaciones
 				if(options && options.no_send_data) {
-					console.log(result[0].count + " observaciones marked for deletion")
+					console.debug(result[0].count + " observaciones marked for deletion")
 				} else {
 					deleted_observaciones = result
 				}
@@ -11237,7 +11243,7 @@ internal.CRUD = class {
 	static build_observaciones_query(tipo,filter,options) {
 		tipo = this.getTipo(tipo)
 		var filter_string = this.getObservacionesFilterString(tipo,filter,options) 
-		console.debug({filter_string:filter_string})
+		// console.debug({filter_string:filter_string})
 		if(filter_string == "") {
 			throw "invalid filter value"
 		}
@@ -11470,6 +11476,7 @@ internal.CRUD = class {
 	static async getObservaciones(tipo="puntual",filter,options,client) {
 		try {
 			var stmt = this.build_observaciones_query(tipo,filter,options)
+			// console.debug(stmt)
 			if(!client) {
 				var res = await global.pool.query(stmt)
 			} else {
