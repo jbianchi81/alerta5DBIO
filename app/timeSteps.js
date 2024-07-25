@@ -209,15 +209,15 @@ internal.interval2epochSync = function(interval) {
 internal.getPreviousTimeStep = function(timestamp,def_hora_corte,timeSupport) {
 	var timeSupport_e = internal.interval2epochSync(timeSupport) * 1000
 	var def_hora_corte_e = internal.interval2epochSync(def_hora_corte) * 1000
-	console.log({timeSupport_e:timeSupport_e,def_hora_corte_e:def_hora_corte_e})
+	// console.log({timeSupport_e:timeSupport_e,def_hora_corte_e:def_hora_corte_e})
 	if(timeSupport_e >= 86400000) {
 		timestamp = new Date(timestamp.getFullYear(),timestamp.getMonth(),timestamp.getDate(),0,0,0,0) // timestamp % (24 * 60 * 60 * 1000)
 		timestamp.setTime(timestamp.getTime() + def_hora_corte_e)
 	} else {
 		var timestamp_d = new Date(timestamp.getFullYear(),timestamp.getMonth(),timestamp.getDate(),0,0,0,0)
-		console.log({timestamp_d:timestamp_d})
+		// console.log({timestamp_d:timestamp_d})
 		var time = timestamp.getTime() -  timestamp_d.getTime() //% (24 * 60 * 60 * 1000)
-		console.log({time:time})
+		// console.log({time:time})
 		timestamp -= time
 		if(time < def_hora_corte_e) {
 			timestamp += def_hora_corte_e
@@ -228,7 +228,7 @@ internal.getPreviousTimeStep = function(timestamp,def_hora_corte,timeSupport) {
 			timestamp += time + def_hora_corte_e
 		}
 	}
-	console.log({timestamp:timestamp})
+	// console.log({timestamp:timestamp})
 	return new Date(timestamp)
 }
 

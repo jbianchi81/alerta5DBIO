@@ -4,6 +4,7 @@ var fsPromises = require('promise-fs')
 var axios = require("axios")
 const https = require('https')
 const timeSteps = require('../timeSteps')
+const { serie } = require('../CRUD')
 
 
 const internal = {}
@@ -107,31 +108,34 @@ internal.client = class {
 	}
 	parseHistoricos(listaDatosHistoricos,options) {
 		// {"FechaHora":"/Date(473425200000)/","Medicion":1.38,"Calificador":" ","Validado":true}
-		return listaDatosHistoricos.map(d=>{
-			var timestart =  new Date(new Date().setTime(d.FechaHora.match(/\d+/)[0]))
-			var timeend = new Date(new Date().setTime(d.FechaHora.match(/\d+/)[0]))
-			//~ console.log({timestart_:timestart.toISOString(), timeend_: timeend.toISOString(),timeSupport: options.var.timeSupport, timeSupport_e: timeSteps.interval2epochSync(options.var.timeSupport)})
-			if(options && options.var && options.var.timeSupport && timeSteps.interval2epochSync(options.var.timeSupport) != 0) {
-				//~ console.log("timeSupport not 0/null")
-				if(options.var.def_hora_corte) {
-					timestart = timeSteps.getPreviousTimeStep(timestart,options.var.def_hora_corte,options.var.timeSupport)
-				} else {
-					timestart = timeSteps.getPreviousTimeStep(timestart,null,options.var.timeSupport)
+		const observaciones = new CRUD.observaciones(
+			listaDatosHistoricos.map(d=>{
+				var timestart =  new Date(new Date().setTime(d.FechaHora.match(/\-?\d+/)[0]))
+				var timeend = new Date(new Date().setTime(d.FechaHora.match(/\-?\d+/)[0]))
+				//~ console.log({timestart_:timestart.toISOString(), timeend_: timeend.toISOString(),timeSupport: options.var.timeSupport, timeSupport_e: timeSteps.interval2epochSync(options.var.timeSupport)})
+				if(options && options.var && options.var.timeSupport && timeSteps.interval2epochSync(options.var.timeSupport) != 0) {
+					//~ console.log("timeSupport not 0/null")
+					if(options.var.def_hora_corte) {
+						timestart = timeSteps.getPreviousTimeStep(timestart,options.var.def_hora_corte,options.var.timeSupport)
+					} else {
+						timestart = timeSteps.getPreviousTimeStep(timestart,null,options.var.timeSupport)
+					}
+					timeend = timeSteps.advanceTimeStep(timestart,options.var.timeSupport)
 				}
-				timeend = timeSteps.advanceTimeStep(timestart,options.var.timeSupport)
-			}
-			var observacion = {
-				timestart: timestart,
-				timeend: timeend,
-				valor: d.Medicion,
-				descripcion: "calificador:" + d.Calificador + ",validado:" + d.Validado
-			}
-			//~ console.log({timestart:timestart.toISOString(), timeend: timeend.toISOString()})
-			if(options && options.series_id) {
-				observacion.series_id = options.series_id
-			}
-			return observacion
-		})
+				var observacion = {
+					timestart: timestart,
+					timeend: timeend,
+					valor: d.Medicion,
+					descripcion: "calificador:" + d.Calificador + ",validado:" + d.Validado
+				}
+				//~ console.log({timestart:timestart.toISOString(), timeend: timeend.toISOString()})
+				if(options && options.series_id) {
+					observacion.series_id = options.series_id
+				}
+				return observacion
+			})
+		)
+		return observaciones.removeDuplicates()
 	}
 	
 	update(filter,options) {
