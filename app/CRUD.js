@@ -2005,12 +2005,14 @@ internal.serie = class extends baseModel {
 			if (res.rows.length>0) {
 				this.id = res.rows[0].id
 				return
-			} else {
+			} else if (default_to_next) {
 				res = await global.pool.query("\
 				SELECT max(id)+1 AS id\
 				FROM series\
 				")
 				this.id = res.rows[0].id
+			} else {
+				return
 			}
 		}
 	}

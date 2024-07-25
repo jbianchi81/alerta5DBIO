@@ -373,7 +373,8 @@ internal.Accessor = class {
 			} else {
 				if(!series[i].id) {
 					if(!series[i].fuente || !series[i].fuente.id) {
-						throw("Missing series id or fuente id in retrieved serie")
+						console.warn("Missing series id or fuente id in retrieved serie. Skipping")
+						continue
 					}
 					series[i].id = series[i].fuente.id
 				}

@@ -319,7 +319,7 @@ internal.client = class {
 				continue
 			}
 			if(!this.config.estacion_map[id_externo]) {
-				// console.error("no existe estacion_map." + id_externo)
+				console.warn("no existe estacion_map." + id_externo + ". skipping.")
 				continue
 			}
 			var estacion_id = this.config.estacion_map[id_externo].id
@@ -354,7 +354,7 @@ internal.client = class {
 				unit_id: unit_id,
 				estacion_id: estacion_id // estaciones[0].id
 			})
-			await serie.getId()
+			await serie.getId(false)
 			series.push(serie)
 			//~ })
 		}
@@ -420,6 +420,9 @@ internal.client = class {
 		.then(estaciones=>{
 			this.config.estacion_map = {}
 			estaciones.forEach(e=>{
+				if(e.id_externo == undefined) {
+					return
+				}
 				this.config.estacion_map[e.id_externo] = {
 					id: e.id,
 					nombre: e.nombre
