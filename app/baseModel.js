@@ -189,6 +189,12 @@ internal.baseModel = class {
 					} else {
 						throw("Invalid value, not iterable")
 					}
+				} else if (definition.type == "boolean") {
+					if(value != undefined) {
+						return (value.toString().toLowerCase() == 'true')
+					} else {
+						return value
+					}
 				} else {
 					return value
 				}
@@ -295,6 +301,22 @@ internal.baseModel = class {
 		}
 	}
 	/**
+	 * Fill up undefined properties with null
+	 * @returns Object
+	 */
+	toJSON() {
+		const this_with_nulls = Object.assign({},this)
+		const fields = (Object.keys(this.constructor._fields).length) ? this.constructor._fields : this
+		for(const field of Object.keys(fields)) {
+			// console.debug("field: " + field, "value: " + this_with_nulls[field])
+			if(this_with_nulls[field] == undefined) {
+				this_with_nulls[field] = null
+			}
+		}
+		// console.log(JSON.stringify(this_with_nulls))
+		return this_with_nulls 
+	}
+	/**
 	 * 
 	 * @param {object[]} data - list of instances of this class (or objects parseable into it) 
 	 * @param {*} options
@@ -332,9 +354,10 @@ internal.baseModel = class {
 		const rows = []
 		if(options.header) {
             rows.push(this.constructor.getCSVHeader(options.columns))
-        } 
-		rows.push(Object.keys(this.constructor._fields).filter(key=>(options.columns) ? options.columns.indexOf(key) >= 0 : true).map(key=>{
-			if(this.constructor._fields[key].type && (this.constructor._fields[key].type == "timestamp" || this.constructor._fields[key].type == "date")) {
+        }
+		const fields = (Object.keys(this.constructor._fields).length) ? this.constructor._fields : this
+		rows.push(Object.keys(fields).filter(key=>(options.columns) ? options.columns.indexOf(key) >= 0 : true).map(key=>{
+			if(fields[key] != undefined && fields[key].type && (fields[key].type == "timestamp" || fields[key].type == "date")) {
 				return this[key].toISOString()
 			} else {
 				return this[key]
@@ -362,8 +385,8 @@ internal.baseModel = class {
 	 * @returns {object} an instance of this class
 	 */
 	static fromCSV(row_csv_string,separator=",",columns) {
-		if(!this._fields) {
-			throw("Missing constructor._fields for class " + this.name)
+		if(!Object.keys(this._fields).length) {
+			throw(new Error("Missing constructor._fields for class " + this.name))
 		}
 		columns = (columns) ? columns : Object.keys(this._fields)
 		const row = CSV.parse(row_csv_string, separator)[0].map(c=> (!c.length) ? undefined : c)

@@ -425,7 +425,7 @@ internal.pasteIntoSQLQuery = function (query,params) {
 					value = "'{" + params[i].join(",") + "}'" // .map(v=> (typeof v == "number") ? v : "'" + v.toString() + "'")
 				} else if(params[i] === null) {
 					value = "NULL"
-				} else if (params[i].constructor && params[i].constructor.name == 'PostgresInterval') {
+				} else if (params[i] instanceof timeSteps.Interval || (params[i].constructor && params[i].constructor.name == 'PostgresInterval')) {
 						value = "'" + params[i].toPostgres() + "'::interval"
 				} else {
 					value = params[i].toString()

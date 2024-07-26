@@ -1154,23 +1154,30 @@ internal["var"] = class extends baseModel  {
 	toCSVless() {
 		return this.id + "," + this["var"]+ "," + this.nombre
 	}
-	toJSON() {
-		return {
-			"id": this.id,
-			"var": this["var"],
-			"nombre": this.nombre,
-			"abrev": this.abrev,
-			"type": this.type,
-			"datatype": this.datatype,
-			"valuetype": this.valuetype,
-			"GeneralCategory": this.GeneralCategory,
-			"VariableName": this.VariableName,
-			"SampleMedium": this.SampleMedium,
-			"def_unit_id": this.def_unit_id,
-			"timeSupport": this.timeSupport,
-			"def_hora_corte": this.def_hora_corte
-		}
-	}
+	// toJSON() {
+	// 	const this_with_nulls = Object.assign({},this)
+	// 	for(const field of Object.keys(this.constructor._fields)) {
+	// 		if(this_with_nulls[field] == undefined) {
+	// 			this_with_nulls[field] = null
+	// 		}
+	// 	}
+	// 	return this_with_nulls 
+		// {
+		// 	"id": this.id,
+		// 	"var": this["var"],
+		// 	"nombre": this.nombre,
+		// 	"abrev": this.abrev,
+		// 	"type": this.type,
+		// 	"datatype": this.datatype,
+		// 	"valuetype": this.valuetype,
+		// 	"GeneralCategory": this.GeneralCategory,
+		// 	"VariableName": this.VariableName,
+		// 	"SampleMedium": this.SampleMedium,
+		// 	"def_unit_id": this.def_unit_id,
+		// 	"timeSupport": this.timeSupport,
+		// 	"def_hora_corte": this.def_hora_corte
+		// }
+	// }
 	// static settable_parameters = ["var","nombre","abrev","type","datatype","valuetype","GeneralCategory","VariableName","SampleMedium","def_unit_id","timeSupport","def_hora_corte"]
 	// set(changes={}) {
 	// 	for(var key of Object.keys(changes)) {
@@ -6716,22 +6723,52 @@ internal.tableConstraint = class {
 }
 
 internal.asociacion = class extends baseModel {
+	static _fields = {
+		id: {type: "integer"},
+		source_tipo: {type: "string"},
+		source_series_id: {type: "integer"},
+		dest_tipo: {type: "string"},
+		dest_series_id: {type: "integer"},
+		agg_func: {type: "string"},
+		dt: {type: "interval"},
+		t_offset: {type: "interval"},
+		precision: {type: "integer"},
+		source_time_support: {type: "interval"},
+		source_is_inst: {type: "boolean"},
+		habilitar: {type: "boolean"},
+		expresion: {type: "string"},
+		cal_id: {type: "integer"},
+		source_estacion_id: {type: "integer"},
+		source_fuentes_id: {type: "string"},
+		source_var_id: {type: "integer"},
+		source_proc_id: {type: "integer"},
+		source_unit_id: {type: "integer"},
+		dest_estacion_id: {type: "integer"},
+		dest_fuentes_id: {type: "string"},
+		dest_var_id: {type: "integer"},
+		dest_proc_id: {type: "integer"},
+		dest_unit_id: {type: "integer"},
+		habilitar: {type: "boolean"},
+		expresion: {type: "string"},
+		cal_id: {type: "integer"},
+		cal_nombre: {type: "string"}
+	}
 	constructor() {
-		super()
-		this.id = arguments[0].id
-		this.source_tipo = arguments[0].source_tipo
-		this.source_series_id = arguments[0].source_series_id
-		this.dest_tipo = arguments[0].dest_tipo
-		this.dest_series_id = arguments[0].dest_series_id
-		this.agg_func = arguments[0].agg_func
-		this.dt = new Interval(arguments[0].dt)
-		this.t_offset = new Interval(arguments[0].t_offset)
-		this.precision = arguments[0].precision
-		this.source_time_support = new Interval(arguments[0].source_time_support)
-		this.source_is_inst = arguments[0].source_is_inst
-		this.habilitar = arguments[0].habilitar
-		this.expresion = arguments[0].expresion
-		this.cal_id = arguments[0].cal_id
+		super(arguments[0])
+		// this.id = arguments[0].id
+		// this.source_tipo = arguments[0].source_tipo
+		// this.source_series_id = arguments[0].source_series_id
+		// this.dest_tipo = arguments[0].dest_tipo
+		// this.dest_series_id = arguments[0].dest_series_id
+		// this.agg_func = arguments[0].agg_func
+		// this.dt = new Interval(arguments[0].dt)
+		// this.t_offset = new Interval(arguments[0].t_offset)
+		// this.precision = arguments[0].precision
+		// this.source_time_support = new Interval(arguments[0].source_time_support)
+		// this.source_is_inst = arguments[0].source_is_inst
+		// this.habilitar = arguments[0].habilitar
+		// this.expresion = arguments[0].expresion
+		// this.cal_id = arguments[0].cal_id
 	}
 	async create() {
 		const created = new internal.asociacion(await internal.CRUD.upsertAsociacion(this))
@@ -6742,7 +6779,7 @@ internal.asociacion = class extends baseModel {
 		var asociaciones = await internal.CRUD.upsertAsociaciones(data)
 		return asociaciones.map(a=>new internal.asociacion(a))
 	}
-	static async read(filter={},options) {
+	static async read(filter={},options,client) {
 		if(filter.id) {
 			var asociacion = await internal.CRUD.getAsociacion(filter.id)
 			if(asociacion) {
@@ -6751,8 +6788,7 @@ internal.asociacion = class extends baseModel {
 				return []
 			}
 		}
-		var asociaciones = await internal.CRUD.getAsociaciones(filter,options)
-		return asociaciones.map(a=>new internal.asociacion(a))
+		return internal.CRUD.getAsociaciones(filter,options,client)
 	}
 	async delete() {
 		if(!this.id) {
@@ -13855,7 +13891,11 @@ internal.CRUD = class {
 				}
 			}
 			// console.debug(pasteIntoSQLQuery(stmt,args))
-			const result = await client.query(stmt,args)
+			try {
+				var result = await client.query(stmt,args)
+			} catch(e) {
+				throw(new Error(e))
+			}
 			if(release_client) {
 				client.release()
 			}
@@ -14409,67 +14449,57 @@ internal.CRUD = class {
 		//~ var params = [filter.source_tipo,filter.source_series_id,filter.estacion_id,filter.provider_id,filter.source_var_id,filter.source_proc_id,filter.dest_tipo,filter.dest_series_id,filter.dest_var_id,filter.dest_proc_id,options.agg_func,options.dt,options.t_offset,filter.habilitar]
 	
 		var filter_string = internal.utils.control_filter2(
-			{id:{type:"integer"},source_tipo: {type: "string"}, source_series_id: {type: "number"}, source_estacion_id: {type: "number"}, source_fuentes_id: {type: "string"}, source_var_id: {type: "number"},  source_proc_id: {type: "number"}, dest_tipo: {type: "string"}, dest_series_id: {type: "number"}, dest_var_id: {type: "number"}, dest_proc_id: {type: "number"}, agg_func: {type: "string"}, dt: {type: "interval"}, t_offset: {type: "interval"},habilitar: {type: "boolean"}}, 
-			{id: filter.id, source_tipo: filter.source_tipo, source_series_id: filter.source_series_id, source_estacion_id: filter.estacion_id, source_fuentes_id: filter.provider_id, source_var_id: filter.source_var_id,  source_proc_id: filter.source_proc_id, dest_tipo: filter.dest_tipo, dest_series_id: filter.dest_series_id, dest_var_id: filter.dest_var_id, dest_proc_id: filter.dest_proc_id, agg_func: options.agg_func, dt: options.dt, t_offset: options.t_offset},
+			{
+				id: {type:"integer"},
+				source_tipo: {type: "string"}, 
+				source_series_id: {type: "number"}, 
+				source_estacion_id: {type: "number"}, 
+				source_fuentes_id: {type: "string"}, 
+				source_var_id: {type: "number"},  
+				source_proc_id: {type: "number"}, 
+				dest_tipo: {type: "string"}, 
+				dest_series_id: {type: "number"}, 
+				dest_var_id: {type: "number"}, 
+				dest_proc_id: {type: "number"}, 
+				agg_func: {type: "string"}, 
+				dt: {type: "interval"}, 
+				t_offset: {type: "interval"},
+				habilitar: {type: "boolean"},
+				cal_id: {type: "integer"}
+			}, 
+			{
+				id: filter.id, 
+				source_tipo: filter.source_tipo, 
+				source_series_id: filter.source_series_id, 
+				source_estacion_id: filter.estacion_id, 
+				source_fuentes_id: filter.provider_id, 
+				source_var_id: filter.source_var_id,  
+				source_proc_id: filter.source_proc_id, 
+				dest_tipo: filter.dest_tipo, 
+				dest_series_id: filter.dest_series_id, 
+				dest_var_id: filter.dest_var_id, 
+				dest_proc_id: filter.dest_proc_id, 
+				agg_func: options.agg_func, 
+				dt: options.dt, 
+				t_offset: options.t_offset,
+				cal_id: filter.cal_id
+			},
 			"asociaciones_view")
 		var query = "SELECT * \
 		    FROM asociaciones_view\
 		    WHERE 1=1 " + filter_string + " ORDER BY id"
-		    //~ source_tipo=coalesce($1,source_tipo)\
-		    //~ AND source_series_id=coalesce($2,source_series_id)\
-		    //~ AND source_estacion_id=coalesce($3,source_estacion_id)\
-		    //~ AND source_fuentes_id=coalesce($4::text,source_fuentes_id::text)\
-		    //~ AND source_var_id=coalesce($5,source_var_id)\
-		    //~ AND source_proc_id=coalesce($6,source_proc_id)\
-		    //~ AND dest_tipo=coalesce($7,dest_tipo)\
-		    //~ AND dest_series_id=coalesce($8,dest_series_id)\
-		    //~ AND dest_var_id=coalesce($9,dest_var_id)\
-		    //~ AND dest_proc_id=coalesce($10,dest_proc_id)\
-		    //~ AND agg_func=coalesce($11,agg_func)\
-		    //~ AND dt=coalesce($12,dt)\
-		    //~ AND t_offset=coalesce($13,t_offset)\
-		    //~ AND habilitar=coalesce($14,habilitar)"
-		//~ console.log(internal.utils.pasteIntoSQLQuery(query,params))
-		//~ return global.pool.query(query,params)
-		//~ "SELECT a.id,\
-									   //~ a.source_tipo, \
-									   //~ a.source_series_id, \
-									   //~ a.dest_tipo, \
-									   //~ a.dest_series_id, \
-									   //~ a.agg_func, \
-									   //~ a.dt::text, \
-									   //~ a.t_offset::text, \
-									   //~ a.precision, \
-									   //~ a.source_time_support::text, \
-									   //~ a.source_is_inst, \
-									   //~ row_to_json(s) source_series, \
-									   //~ row_to_json(d) dest_series, \
-									   //~ row_to_json(e) site\
-		//~ FROM asociaciones a," + tabla_series + " s, "+ tabla_dest_series + " d," + tabla_sitios + " e\
-		//~ WHERE a.source_series_id=s.id\
-		//~ AND a.dest_series_id=d.id\
-		//~ AND s."+series_site_id_col + "=e."+site_id_col+" \
-		//~ AND a.source_tipo=coalesce($1,a.source_tipo) \
-		//~ and a.source_series_id=coalesce($2,a.source_series_id)\
-		//~ AND a.dest_tipo=coalesce($3,a.dest_tipo) \
-		//~ and a.dest_series_id=coalesce($4,a.dest_series_id)\
-		//~ AND a.agg_func=coalesce($5,a.agg_func)\
-		//~ AND a.dt=coalesce($6,a.dt)\
-		//~ AND a.t_offset=coalesce($7,a.t_offset)\
-		//~ AND s.var_id=coalesce($8,s.var_id)\
-		//~ AND d.var_id=coalesce($9,d.var_id)\
-		//~ AND s.proc_id=coalesce($10,s.proc_id)\
-		//~ AND d.proc_id=coalesce($11,d.proc_id)\
-		//~ AND e."+site_id_col+"=coalesce($12,e."+site_id_col+")\
-		//~ AND "+provider_col+"=coalesce($13,"+provider_col+")\
-		//~ ORDER BY a.id",[filter.source_tipo,filter.source_series_id,filter.dest_tipo,filter.dest_series_id,options.agg_func,options.dt,options.t_offset,filter.source_var_id,filter.dest_var_id,filter.source_proc_id,filter.dest_proc_id,filter.estacion_id,filter.provider_id])
-		console.log(query)
+		// console.debug(query)
 		return client.query(query)
 		.then(result=>{
+			const asociaciones = result.rows.map(a=>{
+				const asociacion = new internal.asociacion(a)
+				// console.debug(asociacion)
+				return asociacion
+			})
 			if(release_client) {
 				client.release()
 			}
-			return result.rows
+			return asociaciones
 		})
 		.catch(e=>{
 			if(release_client) {
@@ -14603,108 +14633,106 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 			release_client = true
 			client = await global.pool.connect()
 		}
-		return this.getAsociaciones(filter,options,client)
-		.then(async asociaciones=>{
-			if(asociaciones.length==0) {
-				console.log("No se encontraron asociaciones")
-				return []
+		var asociaciones = await internal.asociacion.read(filter,options,client)
+		if(asociaciones.length==0) {
+			console.warn("No se encontraron asociaciones")
+			return []
+		}
+		// filter out no habilitadas
+		asociaciones = asociaciones.filter(a=>a.habilitar)
+		var inserts = []
+		for(var a of asociaciones) {
+			var dt = a.dt.toPostgres()
+			var opt = {
+				aggFunction: a.agg_func, 
+				t_offset: a.t_offset.toPostgres(), 
+				insertSeriesId: a.dest_series_id, 
+				insertSeriesTipo: a.dest_tipo
 			}
-			// filter out no habilitadas
-			asociaciones = asociaciones.filter(a=>a.habilitar)
-			var results = []
-			for(var a of asociaciones) {
-				var opt = {aggFunction: a.agg_func, t_offset: a.t_offset, insertSeriesId: a.dest_series_id, insertSeriesTipo: a.dest_tipo}
-				if(a.source_time_support) {
-					opt.source_time_support = a.source_time_support
-				}
-				if(a.precision) {
-					opt.precision = a.precision
-				}
-				if(options.inst) {
-					opt.inst = options.inst
-				} else if (a.source_is_inst) {
-					opt.inst = a.source_is_inst
-				}
-				if(options.no_insert) {
-					opt.no_insert = true
-				}
-				if(options.no_send_data) {
-					opt.no_send_data = options.no_send_data
-				}
-				if(options.no_update) {
-					opt.no_update = true
-				}
-				//~ promises.push(a)
-				console.log("asociacion " + a.id)
-				var result
-				try {
-					if(a.agg_func) {
-						if(a.agg_func == "math") {
-							if(a.source_tipo != "puntual") {
-								throw("Tipo inválido para convertir por expresión (math)")
-							}
-							result = await this.getSerieAndConvert(a.source_series_id,filter.timestart,filter.timeend,a.expresion,a.dest_series_id)
-						} else if (a.agg_func == "pulse") {
-							if(a.source_tipo != "puntual" && a.source_tipo != "areal") {
-								throw("Tipo inválido para convertir a pulsos")
-							}
-							result = await this.getSerieAndExtractPulses(a.source_tipo,a.source_series_id,filter.timestart,filter.timeend,a.dest_series_id)
-						} else if ( (a.dt == "1 month" || a.dt == "1 mon" || a.dt == "1 months") && a.source_tipo !="raster" && a.source_tipo != "rast") {
-							console.log("running aggregateMonthly")
-							const serie = await internal.serie.read({tipo:a.source_tipo,id:a.source_series_id,timestart:filter.timestart,timeend:filter.timeend})
-							const observaciones = serie.aggregateMonthly(filter.timestart,filter.timeend,a.agg_func,a.precision,opt.source_time_support,a.expression,opt.inst)
-							result = await this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id,undefined) // remove client, non-transactional
-						} else {
-							result =  await this.getRegularSeries(a.source_tipo,a.source_series_id,a.dt,filter.timestart,filter.timeend,opt,client,a.cal_id, filter.cor_id, filter.forecast_date, filter.qualifier)
-						}
-					} else if(a.source_tipo=="raster" && a.dest_tipo=="areal") {
-						console.log("Running asociacion raster to areal")
-						result = await this.getSerie('areal',a.dest_series_id,undefined,undefined,{no_metadata:true},undefined,undefined,client)
-						.then(series=>{
-							return this.rast2areal(a.source_series_id,filter.timestart,filter.timeend,series.estacion.id,options,client)
-						})
-					} else {
-						console.error("asociacion " + a.id + "not run")
-					}
-					results.push(result)
-				} catch (e) {
-					console.error(e)
-				} 
+			if(a.source_time_support) {
+				opt.source_time_support = a.source_time_support.toPostgres()
 			}
-			return results
-		})
-		.then(inserts=>{
-			if(release_client) {
-				client.release()
+			if(a.precision) {
+				opt.precision = a.precision
 			}
-			if(!inserts) {
-				return []
+			if(options.inst) {
+				opt.inst = options.inst
+			} else if (a.source_is_inst) {
+				opt.inst = a.source_is_inst
 			}
-			if(inserts.length==0) {
-				return []
+			if(options.no_insert) {
+				opt.no_insert = true
 			}
 			if(options.no_send_data) {
-				return inserts.reduce((a,b)=>a+b)
+				opt.no_send_data = options.no_send_data
 			}
-			return flatten(inserts)
-			//~ var allinserts = []
-			//~ inserts.forEach(i=>{
-				//~ allinserts.push(...i)
-			//~ })
-			//~ return allinserts // .flat()
-		})
-		//~ .catch(e=>{
-			//~ console.error(e)
-			//~ return
-		//~ })
+			if(options.no_update) {
+				opt.no_update = true
+			}
+			//~ promises.push(a)
+			console.debug("asociacion " + a.id)
+			var result
+			try {
+				if(a.agg_func) {
+					if(a.agg_func == "math") {
+						if(a.source_tipo != "puntual") {
+							throw("Tipo inválido para convertir por expresión (math)")
+						}
+						result = await this.getSerieAndConvert(a.source_series_id,filter.timestart,filter.timeend,a.expresion,a.dest_series_id)
+					} else if (a.agg_func == "pulse") {
+						if(a.source_tipo != "puntual" && a.source_tipo != "areal") {
+							throw("Tipo inválido para convertir a pulsos")
+						}
+						result = await this.getSerieAndExtractPulses(a.source_tipo,a.source_series_id,filter.timestart,filter.timeend,a.dest_series_id)
+					} else if ( (dt == "1 month" || dt == "1 mon" || dt == "1 months") && a.source_tipo !="raster" && a.source_tipo != "rast") {
+						console.log("running aggregateMonthly")
+						const serie = await internal.serie.read({tipo:a.source_tipo,id:a.source_series_id,timestart:filter.timestart,timeend:filter.timeend})
+						const observaciones = serie.aggregateMonthly(filter.timestart,filter.timeend,a.agg_func,a.precision,opt.source_time_support,a.expression,opt.inst)
+						result = await this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id,undefined) // remove client, non-transactional
+					} else {
+						// console.debug(JSON.stringify([a.source_tipo,a.source_series_id,dt,filter.timestart,filter.timeend,opt,a.cal_id, filter.cor_id, filter.forecast_date, filter.qualifier]))
+						result =  await this.getRegularSeries(a.source_tipo,a.source_series_id,dt,filter.timestart,filter.timeend,opt,client,a.cal_id, filter.cor_id, filter.forecast_date, filter.qualifier)
+					}
+				} else if(a.source_tipo=="raster" && a.dest_tipo=="areal") {
+					console.log("Running asociacion raster to areal")
+					result = await this.getSerie('areal',a.dest_series_id,undefined,undefined,{no_metadata:true},undefined,undefined,client)
+					.then(series=>{
+						return this.rast2areal(a.source_series_id,filter.timestart,filter.timeend,series.estacion.id,options,client)
+					})
+				} else {
+					console.error("asociacion " + a.id + " not run")
+				}
+				inserts.push(result)
+			} catch (e) {
+				console.error(e)
+			} 
+		}
+		if(release_client) {
+			client.release()
+		}
+		if(!inserts) {
+			return []
+		}
+		if(inserts.length==0) {
+			return []
+		}
+		if(options.no_send_data) {
+			return inserts.reduce((a,b)=>a+b)
+		}
+		return flatten(inserts)
 	}
 	
 	static async runAsociacion(id,filter={},options={}) {
 		const a = await this.getAsociacion(id)
 		console.debug("Got asociacion " + a.id)
-		var opt = {aggFunction: a.agg_func, t_offset: a.t_offset, insertSeriesId: a.dest_series_id}
+		var dt = a.dt.toPostgres()
+		var opt = {
+			aggFunction: a.agg_func, 
+			t_offset: a.t_offset.toPostgres(), 
+			insertSeriesId: a.dest_series_id
+		}
 		if(a.source_time_support) {
-			opt.source_time_support = a.source_time_support
+			opt.source_time_support = a.source_time_support.toPostgres()
 		}
 		if(a.precision) {
 			opt.precision = a.precision
@@ -14744,13 +14772,13 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 				throw("Tipo inválido para convertir por expresión (pulse)")
 			}
 			return this.getSerieAndExtractPulses(a.source_tipo,a.source_series_id,timestart,timeend,a.dest_series_id)
-		} else if ( (a.dt == "1 month" || a.dt == "1 mon" || a.dt == "1 months") && a.source_tipo !="raster" && a.source_tipo != "rast") {
+		} else if ( (dt == "1 month" || dt == "1 mon" || dt == "1 months") && a.source_tipo !="raster" && a.source_tipo != "rast") {
 			console.debug("running aggregateMonthly")
 			const serie = await internal.serie.read({tipo:a.source_tipo,id:a.source_series_id,timestart:timestart,timeend:timeend})
 			const observaciones = serie.aggregateMonthly(timestart,timeend,a.agg_func,a.precision,a.timeSupport,a.expression)
 			return this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id)
 		} else {
-			return this.getRegularSeries(a.source_tipo,a.source_series_id,a.dt,timestart,timeend,opt,undefined,a.cal_id,filter.cor_id,filter.forecast_date,filter.qualifier)
+			return this.getRegularSeries(a.source_tipo,a.source_series_id,dt,timestart,timeend,opt,undefined,a.cal_id,filter.cor_id,filter.forecast_date,filter.qualifier)
 		}
 	}
 	
