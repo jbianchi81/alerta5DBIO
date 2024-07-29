@@ -333,16 +333,29 @@ internal.baseModel = class {
 			if(!row instanceof this) {
 				row = new this(row)
 			}
-			rows.push(Object.keys(this._fields).filter(key=>(options.columns) ? options.columns.indexOf(key) >= 0 : true).map(key=>{
-				if(this._fields[key].type && (this._fields[key].type == "timestamp" || this._fields[key].type == "date")) {
-					return (row[key]) ? row[key].toISOString() : ""
-				} else {
-					return row[key]
-				}
-			}))
+			rows.push(row.toTuple({columns: options.columns}))
+			// rows.push(Object.keys(this._fields).filter(key=>(options.columns) ? options.columns.indexOf(key) >= 0 : true).map(key=>{
+			// 	if(this._fields[key].type && (this._fields[key].type == "timestamp" || this._fields[key].type == "date")) {
+			// 		return (row[key]) ? row[key].toISOString() : ""
+			// 	} else {
+			// 		return row[key]
+			// 	}
+			// }))
 		}
 		return CSV.stringify(rows).replace(/\r\n$/,"")
 	}
+
+	toTuple(options={}) {
+		const fields = (Object.keys(this.constructor._fields).length) ? this.constructor._fields : this
+		return Object.keys(fields).filter(key=>(options.columns) ? options.columns.indexOf(key) >= 0 : true).map(key=>{
+			if(fields[key] != undefined && fields[key].type && (fields[key].type == "timestamp" || fields[key].type == "date")) {
+				return this[key].toISOString()
+			} else {
+				return this[key]
+			}
+		})
+	}
+
 	/**
 	 * 
 	 * @param {object} options - options
@@ -355,14 +368,15 @@ internal.baseModel = class {
 		if(options.header) {
             rows.push(this.constructor.getCSVHeader(options.columns))
         }
-		const fields = (Object.keys(this.constructor._fields).length) ? this.constructor._fields : this
-		rows.push(Object.keys(fields).filter(key=>(options.columns) ? options.columns.indexOf(key) >= 0 : true).map(key=>{
-			if(fields[key] != undefined && fields[key].type && (fields[key].type == "timestamp" || fields[key].type == "date")) {
-				return this[key].toISOString()
-			} else {
-				return this[key]
-			}
-		}))
+		rows.push(this.toTuple({columns: options.columns}))
+		// const fields = (Object.keys(this.constructor._fields).length) ? this.constructor._fields : this
+		// rows.push(Object.keys(fields).filter(key=>(options.columns) ? options.columns.indexOf(key) >= 0 : true).map(key=>{
+		// 	if(fields[key] != undefined && fields[key].type && (fields[key].type == "timestamp" || fields[key].type == "date")) {
+		// 		return this[key].toISOString()
+		// 	} else {
+		// 		return this[key]
+		// 	}
+		// }))
 		return CSV.stringify(rows).replace(/\r\n$/,"")
 	}
 	/**

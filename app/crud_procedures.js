@@ -297,7 +297,15 @@ if(1==1) {
             Object.assign(read_options,options.more_options)
         }
         try {
-            var procedure = new procedures.ReadProcedure({class_name: class_name, filter:filter, output: (options.output) ? path.resolve(options.output) : undefined, output_format: options.format, options: read_options})
+            var procedure = new procedures.ReadProcedure(
+                {
+                    class_name: class_name, 
+                    filter: filter, 
+                    output: (options.output) ? path.resolve(options.output) : undefined, 
+                    output_format: options.format, 
+                    options: read_options
+                }
+            )
         } catch(e) {
             logger.error(e)
             process.exit(1)

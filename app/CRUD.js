@@ -205,8 +205,16 @@ internal.red = class extends baseModel  {
 	toString() {
 		return "{tabla_id: " + this.tabla_id + ", nombre: " + this.nombre + ", public: " + this.public + ", public_his_plata: " + this.public_his_plata + ", id: " + this.id + "}"
 	}
+	toTuple() {
+		return [
+			this.tabla_id,
+			this.nombre,
+			this.public,
+			this.public_his_plata,this.id
+		]
+	}
 	toCSV() {
-		return this.tabla_id + "," + this.nombre + "," + this.public + "," + this.public_his_plata + "," + this.id
+		return this.toTuple().join(",")
 	}
 	toCSVless() {
 		return this.tabla_id + "," + this.nombre + "," + this.id
@@ -451,8 +459,34 @@ internal.estacion = class extends baseModel  {
 	toString() {
 		return "{id:" + this.id + ", nombre: " + this.nombre + ", id_externo: " + this.id_externo + ", geom: " + ((this.geom instanceof internal.geometry) ? this.geom.toString() : "" )+ ", tabla: " + this.tabla + ", provincia: " + this.provincia + ", pais: " + this.pais + ", rio: " + this.rio + ", has_obs: " + this.has_obs + ", tipo: " + this.tipo + ", automatica: " + this.automatica + ", habilitar: " + this.habilitar + ", propietario: " + this.propietario + ", abreviatura: " + this.abreviatura + ", URL:" + this.URL + ", localidad: " + this.localidad + ", real: " + this.real + ", nivel_alerta: " + this.nivel_alerta + ", nivel_evacuacion: " + this.nivel_evacuacion + ", nivel_aguas_bajas: " + this.nivel_aguas_bajas + ",altitud:" + this.altitud + "}"
 	}
+	toTuple() {
+		return [
+			this.id,
+			this.nombre,
+			this.id_externo,			
+			(this.geom != undefined) ? new internal.geometry(this.geom).toString() : "",
+			this.tabla,			
+			this.provincia,			
+			this.pais,			
+			this.rio,			
+			this.has_obs,			
+			this.tipo,			
+			this.automatica,			
+			this.habilitar,			
+			this.propietario,			
+			this.abreviatura,			
+			this.URL,			
+			this.localidad,			
+			this.real,			
+			this.nivel_alerta,			
+			this.nivel_evacuacion,			
+			this.nivel_aguas_bajas,			
+			this.altitud
+		]
+	}
 	toCSV() {
-		return this.id + "," + this.nombre + "," + this.id_externo + "," + ((this.geom instanceof internal.geometry) ? this.geom.toString() : "" ) + "," + this.tabla + "," + this.provincia + "," + this.pais + "," + this.rio + "," + this.has_obs + "," + this.tipo + "," + this.automatica + "," + this.habilitar + "," + this.propietario + "," + this.abreviatura + "," + this.URL + "," + this.localidad + "," + this.real + "," + this.nivel_alerta + "," + this.nivel_evacuacion + "," + this.nivel_aguas_bajas + "," + this.altitud
+		return this.toTuple().join(",")
+		// return this.id + "," + this.nombre + "," + this.id_externo + "," + ((this.geom instanceof internal.geometry) ? this.geom.toString() : "" ) + "," + this.tabla + "," + this.provincia + "," + this.pais + "," + this.rio + "," + this.has_obs + "," + this.tipo + "," + this.automatica + "," + this.habilitar + "," + this.propietario + "," + this.abreviatura + "," + this.URL + "," + this.localidad + "," + this.real + "," + this.nivel_alerta + "," + this.nivel_evacuacion + "," + this.nivel_aguas_bajas + "," + this.altitud
 	}
 	toCSVless() {
 		return this.id + "," + this.nombre + "," + this.tabla + "," + ((this.geom instanceof internal.geometry) ? this.geom.toString() : "")
@@ -752,8 +786,38 @@ internal.area = class extends baseModel  {
 			mostrar: this.mostrar 
 		})
 	}
-	toCSV() {
-		return [this.id, `"${this.nombre}"`, this.exutorio_id, this.area, this.ae, this.rho, this.wp, this.activar, this.mostrar].join(",")
+	static getCSVHeader() {
+		return [
+			"id",
+			"nombre", 
+			"exutorio_id", 
+			"area", 
+			"ae", 
+			"rho", 
+			"wp", 
+			"activar", 
+			"mostrar"
+		]
+	}
+
+	toTuple() {
+		return [
+			this.id, 
+			`"${this.nombre}"`, 
+			this.exutorio_id, 
+			this.area, 
+			this.ae, 
+			this.rho, 
+			this.wp, 
+			this.activar, 
+			this.mostrar
+		]
+	}
+	toCSV(options={}) {
+		if(options.header) {
+			return `${this.constructor.getCSVHeader().join(",")}\n${this.toTuple().join(",")}`
+		}
+		return this.toTuple().join(",")
 	}
 	toCSVless() {
 		return this.id + "," + `"${this.nombre}"`
@@ -1894,6 +1958,14 @@ internal.serie = class extends baseModel {
 		}
 		return ["id","estacion.id","estacion.nombre","estacion.geom.coordinates[0]","estacion.geom.coordinates[1]","var.id","procedimiento.id","unidades.id","tipo","beginTime","endTime","count","minValor","maxValor","fuente.id","estacion.tabla","estacion.id_externo"].join(sep)
 	}
+
+	toTuple(options={}) {
+		const lon = (this.getTipo == "puntual" && this.estacion.geom && this.estacion.geom.coordinates[0]) ? this.estacion.geom.coordinates[0] : undefined
+		const lat = (this.getTipo == "puntual" && this.estacion.geom && this.estacion.geom.coordinates[1]) ? this.estacion.geom.coordinates[1] : undefined
+		const tabla = (this.estacion && this.estacion.tabla) ? this.estacion.tabla : undefined
+		return [this.id,this.estacion.id,this.estacion.nombre,lon,lat,this.var.id,this.procedimiento.id,this.unidades.id,this.tipo,this.beginTime,this.endTime,this.count,this.minValor,this.maxValor,this.fuente.id,tabla,this.estacion.id_externo].map(c=>(c!= null) ? (c instanceof Date) ? c.toISOString() : c.toString() : "")
+	}
+
 	/**
 	 * Returns csv string for this object
 	 * @param {*} options
@@ -1904,8 +1976,11 @@ internal.serie = class extends baseModel {
 	toCSV(options={}) {
 		var sep = (options.delimiter) ? options.delimiter : ","
 		if(!options.print_observaciones) {
-			const row = [this.id,this.estacion.id,this.estacion.nombre,this.estacion.geom.coordinates[0],this.estacion.geom.coordinates[1],this.var.id,this.procedimiento.id,this.unidades.id,this.tipo,this.beginTime,this.endTime,this.count,this.minValor,this.maxValor,this.fuente.id,this.estacion.tabla,this.estacion.id_externo].map(c=>(c!= null) ? (c instanceof Date) ? c.toISOString() : c.toString() : "").join(sep)
-			return row
+			// const lon = (this.getTipo == "puntual" && this.estacion.geom && this.estacion.geom.coordinates[0]) ? this.estacion.geom.coordinates[0] : undefined
+			// const lat = (this.getTipo == "puntual" && this.estacion.geom && this.estacion.geom.coordinates[1]) ? this.estacion.geom.coordinates[1] : undefined
+			// const tabla = (this.estacion && this.estacion.tabla) ? this.estacion.tabla : undefined
+			// const row = [this.id,this.estacion.id,this.estacion.nombre,lon,lat,this.var.id,this.procedimiento.id,this.unidades.id,this.tipo,this.beginTime,this.endTime,this.count,this.minValor,this.maxValor,this.fuente.id,this.estacion.tabla,this.estacion.id_externo].map(c=>(c!= null) ? (c instanceof Date) ? c.toISOString() : c.toString() : "").join(sep)
+			return this.toTuple().join(sep) 
 		}
 		var csv_string = this.toKVP() + "\n"		
 		if (this.observaciones) {
@@ -6751,7 +6826,10 @@ internal.asociacion = class extends baseModel {
 		habilitar: {type: "boolean"},
 		expresion: {type: "string"},
 		cal_id: {type: "integer"},
-		cal_nombre: {type: "string"}
+		cal_nombre: {type: "string"},
+		source_series: {type: "object"},
+		dest_series: {type: "object"},
+		site: {type: "object"}
 	}
 	constructor() {
 		super(arguments[0])
@@ -8684,7 +8762,7 @@ internal.CRUD = class {
 					if(!serie_props["unidades"]) {
 						throw(new Error("unidades " + serie.unidades.id + " not found"))
 					}
-					if(["areal","rast","raster"].indexOf(serie.tipo) >= 0 && !serie.fuentes.id) {
+					if(["areal","rast","raster"].indexOf(serie.tipo) >= 0 && (!serie.fuente || !serie.fuente.id)) {
 						throw(new Error("fuentes.id missing"))
 					}
 					serie_props["fuente"] = (serie.fuente.id != null) ? await internal.fuente.read({id:serie.fuente.id}) : {}
@@ -14534,9 +14612,9 @@ internal.CRUD = class {
 					a.dest_series_id, 
 					a.agg_func, 
 					a.dt::text,
-					a.t_offset::text, 
+					a.t_offset, 
 					a.precision, 
-					a.source_time_support::text, 
+					a.source_time_support, 
 					a.source_is_inst, 
 					a.expresion,
 					a.cal_id,
@@ -14557,7 +14635,7 @@ internal.CRUD = class {
 					throw("Asociacion not found")
 				}
 				//~ console.log({result:result.rows})
-				return result.rows[0]
+				return new internal.asociacion(result.rows[0])
 			})
 		})
 	}
