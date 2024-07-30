@@ -85,7 +85,11 @@ New procedures may be written following the schema found here: [http://localhost
 
 2. Open a terminal, change to the base dir of the application, and run
 
-    node --test tests/*.js
+        node --test tests/*.js
+
+### More testing
+
+    NODE_ENV=test a5cli run procedures/tests/*.yml -t
 
 ## TODO list
 
