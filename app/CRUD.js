@@ -4504,7 +4504,7 @@ internal.observacion = class extends baseModel {
 
 	static async read() {
 		const observaciones = await internal.observaciones.read(...arguments)
-		delete observaciones.metadata
+		// delete observaciones.metadata
 		return observaciones
 	}
 
@@ -4539,6 +4539,64 @@ internal.observaciones_metadata = class extends baseModel {
 	}
 	toCSV() {
 		return Object.keys(this).map(key=>`${key},${this[key]}`).join("\n")
+	}
+}
+
+internal.observacionPivot = class extends baseModel {
+	constructor(observacion, options={}) {
+		super()
+		this.timestart = observacion.timestart
+		this.timeend = observacion.timeend
+		// all other keys must be series identifiers
+		if(options.string_keys) {
+			this._string_keys = true
+			for(const key of Object.keys(observacion).filter(k=> (k != "timestart" && k != "timeend")).map(k=>k.toString()).sort()) {
+				this[key] = observacion[key]
+			}
+		} else {
+			this._string_keys = false
+			for(const key of Object.keys(observacion).filter(k=> (k != "timestart" && k != "timeend")).map(k=>parseInt(k)).sort()) {
+				if (key.toString() == "NaN") {
+					throw(new Error("Invalid series identifier %s" % key.toString()))
+				}
+				this[key.toString()] = observacion[key]
+			}
+		}
+	}
+
+	toJSON() {
+		const o = {}
+		for (const key of Object.keys(this).filter(k =>
+			(!/^_/.test(k))
+		)) {
+			o[key] = this[key]
+		}
+		return o
+	}
+
+	getSeriesHeaders() {
+		return Object.keys(this).filter(k => 
+			(k != "timestart" && k != "timeend" && !/^_/.test(k))
+		).map(k => 
+			(this._string_keys) ? k.toString() : parseInt(k)
+		).sort()
+	}
+
+	toCSV(options={}) {
+		var sep = options.sep ?? ","
+		if(options.headers) {
+			var headers = options.headers
+		} else {
+			headers = this.getSeriesHeaders()
+		}
+		var values = headers.map(key=>{
+			if(this[key]) {
+				return this[key]
+			} else {
+				return "NULL"
+			}
+		}).join(sep)
+		return `${new Date(this.timestart).toISOString()}${sep}${new Date(this.timeend).toISOString()}${sep}${values}`
 	}
 }
 
@@ -4632,22 +4690,23 @@ internal.observaciones = class extends BaseArray {
 			headers.sort((a,b)=>a-b)
 			var header = `${h1}${sep}${h2}${sep}${headers.join(sep)}\n`
 			var body = this.map(o=>{
-				var values = headers.map(key=>{
-					if(o[key]) {
-						return o[key]
-					} else {
-						return "NULL"
-					}
-				}).join(sep)
-				return `${o.timestart.toISOString()}${sep}${o.timeend.toISOString()}${sep}${values}`
+				return o.toCSV(headers)
 			}).join("\n")
-			return `${header}${body}`
+			if(options.header) {
+				return `${header}${body}`
+			} else {
+				return body
+			}
 		} else {
 			var header = `id${sep}tipo${sep}series_id${sep}timestart${sep}timeend${sep}nombre${sep}descripcion${sep}unit_id${sep}timeupdate${sep}valor`
 			if(options.hasMonthlyStats) {
 				header = header + `${sep}stats.percentage_of_average${sep}stats.rank${sep}stats.count${sep}stats.month${sep}stats.historical_monthly_mean${sep}stats.weibull_percentile${sep}stats.percentile_category.name${sep}stats.percentile_category.range.0${sep}stats.percentile_category.range.1`
 			}
-			return `${header}\n${this.map(o=>o.toCSV(sep)).join("\n")}`
+			if(options.header) {
+				return `${header}\n${this.map(o=>o.toCSV(sep)).join("\n")}`
+			} else {
+				return this.map(o=>o.toCSV(sep)).join("\n")
+			}
 		}
 	}
 	toCSVcat(options = {}) {
@@ -4724,7 +4783,7 @@ internal.observaciones = class extends BaseArray {
 			headers.add(o.series_id)
 		})
 		var result = Object.keys(pivoted).sort().map(key=>{
-			return pivoted[key]
+			return new internal.observacionPivot(pivoted[key])
 		})
 		if(inline) {
 			this.length = 0
@@ -5022,6 +5081,24 @@ internal.dailyStats = class extends baseModel {
 }
 
 internal.monthlyStats = class extends baseModel {
+
+	static _fields = {
+		tipo: {type: "string"},
+		series_id: {type: "integer"},
+		mon: {type: "integer"},
+		count: {type: "integer"},
+		min: {type: "float"},
+		max: {type: "float"},
+		mean: {type: "float"},
+		p01: {type: "float"},
+		p10: {type: "float"},
+		p50: {type: "float"},
+		p90: {type: "float"},
+		p99: {type: "float"},
+		timestart: {type: "date"},
+		timeend: {type: "date"}
+	}
+
 	constructor() {
         super()
 		switch(arguments.length) {
@@ -5052,9 +5129,6 @@ internal.monthlyStats = class extends baseModel {
 	}
 	toString() {
 		return JSON.stringify({tipo:this.tipo,series_id:this.series_id,mon:this.mon,count:this.count, min:this.min, max:this.max, mean:this.mean, p01:this.p01, p10:this.p10, p50:this.p50, p90:this.p90, p99:this.p99, timestart:this.timestart, timeend:this.timeend})
-	}
-	toCSV() {
-		return this.tipo + "," + this.series_id + "," + this.mon + "," + this.count+ "," + this.min+ "," + this.max+ "," + this.mean+ "," + this.p01 + "," + this.p10+ "," + this.p50+ "," + this.p90+ "," + this.p99 + "," + this.timestart.toISOString() + "," + this.timeend.toISOString()
 	}
 	toCSVless() {
 		return this.tipo + "," + this.series_id + "," + this.doy+ "," + this.count+ "," + this.min+ "," + this.max+ "," + this.mean+ "," + this.p01 + "," + this.p10+ "," + this.p50+ "," + this.p90+ "," + this.p99 + "," + this.timestart.toISOString() + "," + this.timeend.toISOString()
@@ -5460,6 +5534,19 @@ internal.observacionDia = class extends baseModel {
 // sim
 
 internal.modelo = class extends baseModel {
+
+	static _fields = {
+		id: {type: "integer"},
+		nombre: {type: "string"},
+		tipo: {type: "string"},
+		def_var_id: {type: "integer"},
+		def_unit_id: {type: "integer"},
+		parametros: {type: "object"},
+		forzantes: {type: "object"},
+		estados: {type: "object"},
+		outputs: {type: "object"}
+	}
+
 	constructor() {
         super()
 		var m = arguments[0]
@@ -5707,7 +5794,43 @@ internal.genericModel = class extends baseModel {
 	
 }
 
+internal.calibrado_out = class extends baseModel {
+	
+	static _fields = {
+		estacion_id: {type: "integer"},
+		var_id: {type: "integer"},
+		proc_id: {type: "integer"},
+		unit_id: {type: "integer"}
+	}
+
+	toString() {
+		return JSON.stringify(this)
+	}
+
+}
+
 internal.calibrado = class extends internal.genericModel {
+
+	static _fields = {
+		id: {type: "integer"},
+		nombre: {type: "string"},
+		model_id: {type: "integer"},
+		activar: {type: "boolean"},
+		selected: {type: "boolean"},
+		out_id: {type: "object"},
+		area_id: {type: "integer"},
+		tramo_id: {type: "integer"},
+		dt: {type: "interval"},
+		t_offset: {type: "interval"},
+		modelo: {type: "string"},
+		parametros: {type: "object"},
+		forzantes: {type: "object"},
+		estados: {type: "object"},
+		outputs: {type: "object"},
+		stats: {type: "object"},
+		corrida: {type: "object"}
+	}
+
 	constructor() {
 		super("Calibrado")
 		var m = arguments[0]
@@ -5724,7 +5847,7 @@ internal.calibrado = class extends internal.genericModel {
 		this.estados = this.getParametros(m.estados)
 		this.outputs = this.getOutputs(m.outputs)
 		this.selected = (m.hasOwnProperty("selected")) ? m.selected : false
-		this.out_id = m.out_id
+		this.out_id = (Array.isArray(m.out_id)) ? m.out_id.map(o=>(typeof o == "number") ? o : new internal.calibrado_out(o)) : m.out_id
 		this.area_id = m.area_id
 		this.tramo_id = m.tramo_id
 		this.dt = (m.dt) ? timeSteps.createInterval(m.dt) : undefined
@@ -5737,9 +5860,9 @@ internal.calibrado = class extends internal.genericModel {
 	toString() {
 		return JSON.stringify(this)
 	} 
-	toCSV() {
-		return this.id + "," + this.nombre + "," + this.model_id + "," + this.activar + "," + this.selected + "," + this.out_id + "," + this.area_id + "," + this.tramo_id + "," + this.dt + "," + this.t_offset
-	} 
+	// toCSV() {
+	// 	return this.id + "," + this.nombre + "," + this.model_id + "," + this.activar + "," + this.selected + "," + this.out_id + "," + this.area_id + "," + this.tramo_id + "," + this.dt + "," + this.t_offset
+	// } 
 	toCSVless() {
 		return this.orden + "," + this.nombre
 	}
@@ -5832,7 +5955,7 @@ internal.calibrado = class extends internal.genericModel {
 		return
 	}
 	static async read(filter={},options={}) {
-		return internal.CRUD.getCalibrados(filter.estacion_id,filter.var_id,filter.includeCorr,filter.timestart,filter.timeend,filter.cal_id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,options.no_metadata,options.group_by_cal,filter.forecast_date,options.includeInactive,filter.series_id,filter.nombre)
+		return internal.CRUD.getCalibrados(filter.estacion_id,filter.var_id,filter.includeCorr,filter.timestart,filter.timeend,filter.id ?? filter.cal_id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,options.no_metadata,options.group_by_cal,filter.forecast_date,options.includeInactive,filter.series_id,filter.nombre)
 	}
 	static async delete(filter={}) {
 		return internal.CRUD.deleteCalibrados(filter)
@@ -6018,6 +6141,7 @@ internal.estadoDeModelo = class extends baseModel {
 
 
 internal.output = class extends baseModel {
+	
 	constructor() {
         super()
 		var m = arguments[0]
@@ -6048,23 +6172,66 @@ internal.output = class extends baseModel {
 }
 
 internal.corrida = class extends baseModel {
+
+	static _fields = {
+		id: {type: "integer"},
+		forecast_date: {type: "date"},
+		series: {type: "object"},
+		cal_id: {type: "integer"}
+	}
+
 	constructor() {
-        super()
+		super()
 		var m = arguments[0]
 		this.id = m.id
 		this.forecast_date = new Date(m.forecast_date)
-		this.series = (m.series) ? m.series.map(s=>new internal.SerieTemporalSim(s)) : []
+		this.series = (m.series) ? m.series.map(s => new internal.SerieTemporalSim(s)) : []
 		this.cal_id = m.cal_id
 	}
 	toString() {
 		return JSON.stringify(this)
-	} 
-	toCSV() {
-		return "# cor_id=" + this.id + "\n# forecast_date=" + this.forecast_date + "\n\n\t" + this.series.map(s=>s.toCSV()).join("\n").replace(/\n/g,"\n\t")
-	} 
+	}
+
+	static toCSV(data,options={}) { 
+		return data.map(c=>c.toCSV(options)).join("\n\n\n")
+	}
+
+	toCSV(options={}) {
+		return "# cor_id=" + this.id + "\n# forecast_date=" + this.forecast_date.toISOString() + "\n\n\t" + this.series.map(s => s.toCSV(options)).join("\n\n").replace(/\n/g, "\n\t")
+	}
 	toCSVless() {
 		return this.id + "," + this.forecast_date
 	}
+
+	pivot() {
+		var pivoted = {}
+		var headers = new Set(["timestart","timeend"])
+		this.series.forEach(s=>{
+			if(!s.series_id) {
+				throw(new Error("can't pivot: missing series_id"))
+			}
+			if(s.qualifier) {
+				var series_key = `${s.series_id}_${s.qualifier}`
+			} else {
+				var series_key = `${s.series_id}`
+			}
+			s.pronosticos.forEach(p=>{
+				const key = new Date(p.timestart).toISOString()
+				if(!pivoted[key]) {
+					pivoted[key] = {
+						timestart: p.timestart, 
+						timeend: p.timeend
+					}
+				}
+				pivoted[key][series_key] = p.valor
+				headers.add(series_key)
+			})
+		})
+		return Object.keys(pivoted).sort().map(key => {
+			return new internal.observacionPivot(pivoted[key],{string_keys: true})
+		})
+	}
+
 	async create() {
 		const created = await internal.CRUD.upsertCorrida(this)
 		if(created) {
@@ -6354,8 +6521,16 @@ internal.SerieTemporalSim = class extends baseModel {
 	toString() {
 		return JSON.stringify(this)
 	} 
-	toCSV() {
-		return "# series_table=" + this.series_table + "\n# series_id=" + this.series_id + "\n\n" + this.pronosticos.map(p=>p.toCSV()).join("\n")
+	toCSV(options={}) {
+		const metadata = "# series_table=" + this.series_table + "\n# series_id=" + this.series_id
+		if(this.pronosticos.length) {
+			if(options.header) {
+				var h = internal.pronostico.getCSVHeader().join(",") + "\n"
+			} else {
+				var h = ""
+			}
+			return metadata  + "\n\n" + h + this.pronosticos.map(p=>p.toCSV()).join("\n")
+		}
 	} 
 	toCSVless() {
 		return this.id + "," + this.forecast_date
@@ -6469,6 +6644,18 @@ internal.SerieTemporalSim = class extends baseModel {
 }
 
 internal.pronostico = class extends baseModel {
+
+	static _fields = {
+		id: {type: "integer"},
+		timestart: {type: "date"},
+		timeend: {type: "date"},
+		valor: {type: "object"},
+		qualifier: {type: "string"},
+		cor_id: {type: "integer"},
+		series_id: {type: "integer"},
+		series_table: {type: "string"}
+	}
+
 	constructor() {
         super()
 		var m = arguments[0]
@@ -6493,10 +6680,27 @@ internal.pronostico = class extends baseModel {
 	}
 	toString() {
 		return JSON.stringify(this)
-	} 
-	toCSV() {
-		return this.id + "," + this.timestart.toISOString() + "," + this.timeend.toISOString() + "," + this.valor + "," + this.qualifier
-	} 
+	}
+	toTuple() {
+		return [
+			this.id,
+			this.timestart.toISOString(),
+			this.timeend.toISOString(),
+			this.valor,
+			this.qualifier
+		]
+	}
+
+	static getCSVHeader() {
+		return [
+			"id",
+			"timestart",
+			"timeend",
+			"valor",
+			"qualifier"	
+		]
+	}
+	 
 	toCSVless() {
 		return this.id + "," + this.timestart.toISOString() + "," + this.timeend.toISOString() + "," + this.valor + "," + this.qualifier
 	}
@@ -15703,7 +15907,7 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 	}
 
 	static async getModelos(model_id,tipo,name_contains) {
-		return global.pool.query("WITH mod as (\
+		const result = await global.pool.query("WITH mod as (\
 SELECT modelos.id, \
        modelos.nombre, \
        modelos.tipo, \
@@ -15749,13 +15953,11 @@ SELECT mod.id, \
 		LEFT JOIN forz ON forz.model_id = mod.id\
 		LEFT JOIN out ON out.model_id = mod.id\
 		ORDER BY mod.id;",[model_id, tipo, name_contains])
-		.then(result=>{
-			if(result.rows) {
-				return result.rows
-			} else {
-				return []
-			}
-		})
+		if(result.rows && result.rows.length) {
+			return result.rows.map(r=> new internal.modelo(r))
+		} else {
+			return []
+		}
 	}
 
 	static async upsertModelos(modelos) {
@@ -15834,7 +16036,7 @@ SELECT mod.id, \
 	}
 	
 	static async getCalibrados_(estacion_id,var_id,includeCorr=false,timestart,timeend,cal_id,model_id,qualifier,isPublic,grupo_id,no_metadata,group_by_cal,forecast_date,includeInactive,series_id) {
-		console.log({includeCorr:includeCorr, isPublic: isPublic})
+		console.debug({includeCorr:includeCorr, isPublic: isPublic})
 		var public_filter = (isPublic) ? "AND calibrados.public=true" : ""
 		var activar_filter = (includeInactive) ? "" : "AND calibrados.activar = TRUE"
 		var grupo_filter = (grupo_id) ? "AND series_prono_last.cal_grupo_id=" + parseInt(grupo_id) : ""
@@ -16064,9 +16266,9 @@ ORDER BY cal.cal_id`
 						true
 					)
 					if(corridas.length > 0) {
-						calibrados[i].corrida = corridas[0]
+						c.corrida = corridas[0] // calibrados[i].corrida = corridas[0]
 					} else {
-						calibrados[i].corrida = null
+						c.corrida = null // calibrados[i].corrida = null
 					}
 				} else {
 					const estacion_id = (Array.isArray(c.out_id)) ? c.out_id.map(s=>(typeof s == "number") ? s : s.estacion_id) : c.out_id
@@ -16285,7 +16487,7 @@ ORDER BY cal.cal_id`
 				}
 			}
 		}
-		return calibrados
+		return calibrados.map(c=> new internal.calibrado(c))
 	}
 
 	static async getLastCorrida(estacion_id,var_id,cal_id,timestart,timeend,qualifier,includeProno=false,isPublic,series_id,series_metadata,group_by_qualifier,tipo,tabla) {

@@ -233,10 +233,10 @@ internal.CrudProcedure = class  {
                         csv_string = csv_string + data.map(i=>i.toCSV({columns:this.options.columns})).join("\n") 
                         await writeFile(output,csv_string)
                     } else {
-                        throw("toCSV() not defined for this class")
+                        throw(new Error("toCSV() not defined for this class"))
                     }
                 } else {
-                    throw("toCSV() not defined for this class")
+                    throw(new Error("toCSV() not defined for this class"))
                 }
             } else {
                 const toCSV_options = (this.class_name == "serie" && data.observaciones && data.observaciones.length) ? {print_observaciones:true} : {}

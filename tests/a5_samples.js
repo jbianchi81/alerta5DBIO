@@ -151,4 +151,82 @@ internal.asociaciones = [
     }
 ]
 
+internal.corridas = [
+    {
+        "id": 772021,
+        "forecast_date": "2024-07-31T14:36:27.000Z",
+        "series": [
+            {
+                "series_table": "series",
+                "series_id": 1505,
+                "cor_id": 772021,
+                "qualifier": null,
+                "pronosticos": [
+                    {
+                        "id": null,
+                        "timestart": "2024-07-31T12:00:00.000Z",
+                        "timeend": "2024-07-31T12:00:00.000Z",
+                        "valor": 9.2441,
+                        "qualifier": "main",
+                        "cor_id": null,
+                        "series_id": null,
+                        "series_table": null
+                    },
+                    {
+                        "id": null,
+                        "timestart": "2024-08-01T12:00:00.000Z",
+                        "timeend": "2024-08-01T12:00:00.000Z",
+                        "valor": 8.6327,
+                        "qualifier": "main",
+                        "cor_id": null,
+                        "series_id": null,
+                        "series_table": null
+                    }
+                ],
+                "var_id": null,
+                "begin_date": null,
+                "end_date": null,
+                "qualifiers": null,
+                "count": null,
+                "estacion_id": null
+            },
+            {
+                "series_table": "series",
+                "series_id": 1520,
+                "cor_id": 772021,
+                "qualifier": null,
+                "pronosticos": [
+                    {
+                        "id": null,
+                        "timestart": "2024-07-31T12:00:00.000Z",
+                        "timeend": "2024-07-31T12:00:00.000Z",
+                        "valor": 0.8,
+                        "qualifier": "main",
+                        "cor_id": null,
+                        "series_id": null,
+                        "series_table": null
+                    },
+                    {
+                        "id": null,
+                        "timestart": "2024-08-01T12:00:00.000Z",
+                        "timeend": "2024-08-01T12:00:00.000Z",
+                        "valor": 0.77,
+                        "qualifier": "main",
+                        "cor_id": null,
+                        "series_id": null,
+                        "series_table": null
+                    }
+                ],
+                "var_id": null,
+                "begin_date": null,
+                "end_date": null,
+                "qualifiers": null,
+                "count": null,
+                "estacion_id": null
+            }
+        ],
+        "cal_id": 32
+    }
+]
+
 module.exports = internal
