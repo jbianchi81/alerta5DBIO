@@ -6,6 +6,7 @@ const logger = require('./logger');
 const CRUD = require('./CRUD')
 const path = require('path');
 const { DateFromDateOrInterval } = require('./timeSteps');
+const CSV = require('csv-string')
 
 const parseKVPArray = function(filter) {
     if(!filter) {

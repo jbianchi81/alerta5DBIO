@@ -6,6 +6,7 @@ const CSV = require('csv-string')
 const utils = require('./utils')
 const internal = {}
 const {Interval} = require('./timeSteps')
+var turfHelpers = require("@turf/helpers")
 
 internal.writeModelToFile = async (model,output_file,output_format) => {
 	if(!model) {
@@ -316,6 +317,43 @@ internal.baseModel = class {
 		// console.log(JSON.stringify(this_with_nulls))
 		return this_with_nulls 
 	}
+	
+	toGeoJSON(includeProperties=true) {
+		if(!this.constructor._geom_field) {
+			throw(new Error("Geometry field not defined for this class"))
+		}
+		var properties = (includeProperties) ? this.getProperties() : {}
+		return turfHelpers.feature(this[this.constructor._geom_field],properties)
+	}
+
+	getProperties() {
+		const properties = {}
+		Object.keys(this).forEach(key=>{
+			if(key == this.constructor._geom_field) {
+				return
+			}
+			properties[key] = this[key]
+		})
+		return properties
+	}
+
+	static toGeoJSON(items=[], includeProperties=true) {
+		if(!this._geom_field) {
+			throw(new Error("geometry field not set for this class"))
+		}
+		if(!items.length) {
+			throw(new Error("Missing items"))
+		}
+		const result = {
+			"type": "FeatureCollection",
+			"features": []
+		}
+		for(const item of items) {
+			result.features.push(item.toGeoJSON(includeProperties))
+		}
+		return result
+	}
+
 	/**
 	 * 
 	 * @param {object[]} data - list of instances of this class (or objects parseable into it) 

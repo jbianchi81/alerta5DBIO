@@ -180,6 +180,15 @@ internal.geometry = class extends baseModel  {
 }
 
 internal.red = class extends baseModel  {
+
+	static _fields = {
+		tabla_id: {type: "string"},
+		nombre: {type: "string"},
+		public: {type: "boolean"},
+		public_his_plata: {type: "boolean"},
+		id: {type: "integer"}
+	}
+
 	constructor() {
         super()
 		this.id = undefined
@@ -204,17 +213,6 @@ internal.red = class extends baseModel  {
 	}
 	toString() {
 		return "{tabla_id: " + this.tabla_id + ", nombre: " + this.nombre + ", public: " + this.public + ", public_his_plata: " + this.public_his_plata + ", id: " + this.id + "}"
-	}
-	toTuple() {
-		return [
-			this.tabla_id,
-			this.nombre,
-			this.public,
-			this.public_his_plata,this.id
-		]
-	}
-	toCSV() {
-		return this.toTuple().join(",")
 	}
 	toCSVless() {
 		return this.tabla_id + "," + this.nombre + "," + this.id
@@ -484,10 +482,10 @@ internal.estacion = class extends baseModel  {
 			this.altitud
 		]
 	}
-	toCSV() {
-		return this.toTuple().join(",")
-		// return this.id + "," + this.nombre + "," + this.id_externo + "," + ((this.geom instanceof internal.geometry) ? this.geom.toString() : "" ) + "," + this.tabla + "," + this.provincia + "," + this.pais + "," + this.rio + "," + this.has_obs + "," + this.tipo + "," + this.automatica + "," + this.habilitar + "," + this.propietario + "," + this.abreviatura + "," + this.URL + "," + this.localidad + "," + this.real + "," + this.nivel_alerta + "," + this.nivel_evacuacion + "," + this.nivel_aguas_bajas + "," + this.altitud
-	}
+	// toCSV(options={}) {
+	// 	return this.toTuple().join(",")
+	// 	// return this.id + "," + this.nombre + "," + this.id_externo + "," + ((this.geom instanceof internal.geometry) ? this.geom.toString() : "" ) + "," + this.tabla + "," + this.provincia + "," + this.pais + "," + this.rio + "," + this.has_obs + "," + this.tipo + "," + this.automatica + "," + this.habilitar + "," + this.propietario + "," + this.abreviatura + "," + this.URL + "," + this.localidad + "," + this.real + "," + this.nivel_alerta + "," + this.nivel_evacuacion + "," + this.nivel_aguas_bajas + "," + this.altitud
+	// }
 	toCSVless() {
 		return this.id + "," + this.nombre + "," + this.tabla + "," + ((this.geom instanceof internal.geometry) ? this.geom.toString() : "")
 	}
@@ -803,7 +801,7 @@ internal.area = class extends baseModel  {
 	toTuple() {
 		return [
 			this.id, 
-			`"${this.nombre}"`, 
+			this.nombre, 
 			this.exutorio_id, 
 			this.area, 
 			this.ae, 
@@ -813,12 +811,12 @@ internal.area = class extends baseModel  {
 			this.mostrar
 		]
 	}
-	toCSV(options={}) {
-		if(options.header) {
-			return `${this.constructor.getCSVHeader().join(",")}\n${this.toTuple().join(",")}`
-		}
-		return this.toTuple().join(",")
-	}
+	// toCSV(options={}) {
+	// 	if(options.header) {
+	// 		return `${this.constructor.getCSVHeader().join(",")}\n${this.toTuple().join(",")}`
+	// 	}
+	// 	return this.toTuple().join(",")
+	// }
 	toCSVless() {
 		return this.id + "," + `"${this.nombre}"`
 	}
@@ -974,6 +972,15 @@ internal.area = class extends baseModel  {
 }
 
 internal.escena = class extends baseModel  {
+
+	static _fields = {
+		id: {type: "integer"},	
+		nombre: {type: "string"},
+		geom: {type: "geometry"}
+	}
+
+	static _geom_field = "geom"
+
 	constructor() {
         super()
 		switch(arguments.length) {
@@ -1023,14 +1030,17 @@ internal.escena = class extends baseModel  {
 	toString() {
 		return "{id:" + this.id + ",nombre: " + this.nombre + "}"
 	}
-	toCSV() {
-		return this.id + "," + this.nombre
-	}
+	// toCSV(options={}) {
+	// 	if(options.header) {
+	// 		return `id,nombre\n${this.id},${this.nombre}`
+	// 	}
+	// 	return this.id + "," + this.nombre
+	// }
 	toCSVless() {
 		return this.id + "," + this.nombre
 	}
 	static async read(filter={},options) {
-		if(filter.id) {
+		if(filter.id && !Array.isArray(filter.id)) {
 			return internal.CRUD.getEscena(filter.id,options)
 		}
 		return internal.CRUD.getEscenas(filter,options)
@@ -1074,6 +1084,11 @@ internal.escena = class extends baseModel  {
 }
 
 internal.VariableName = class extends baseModel {
+
+	static _fields = {
+		VariableName: {type: "string"},
+		href: {type: "string"}
+	}
 	constructor() {
 		super()
 		this.VariableName = arguments[0].VariableName
@@ -1196,9 +1211,9 @@ internal["var"] = class extends baseModel  {
 	toString() {
 		return "{id:" + this.id + ",var:" + this["var"]+ ", nombre:" + this.nombre + ",abrev:" + this.abrev + ",type:" + this.type + ",datatype: " + this.datatype + ",valuetype:" + this.valuetype + ",GeneralCategory:" + this.GeneralCategory + ",VariableName:" + this.VariableName + ",SampleMedium:" + this.SampleMedium + ",def_unit_id:" + this.def_unit_id + ",timeSupport:" + JSON.stringify(this.timeSupport) + "}"
 	}
-	toCSV() {
-		return this.id + "," + this["var"]+ "," + this.nombre + "," + this.abrev + "," + this.type + "," + this.datatype + "," + this.valuetype + "," + this.GeneralCategory + "," + this.VariableName + "," + this.SampleMedium + "," + this.def_unit_id + "," + JSON.stringify(this.timeSupport)
-	}
+	// toCSV() {
+	// 	return this.id + "," + this["var"]+ "," + this.nombre + "," + this.abrev + "," + this.type + "," + this.datatype + "," + this.valuetype + "," + this.GeneralCategory + "," + this.VariableName + "," + this.SampleMedium + "," + this.def_unit_id + "," + JSON.stringify(this.timeSupport)
+	// }
 	static _fields = {
 		id: {type: "integer", primary_key: true},
 		var: {type: "string"},
@@ -1368,14 +1383,11 @@ internal.procedimiento = class extends baseModel  {
 	toString() {
 		return "{id:" + this.id + ",nombre:" + this.nombre + ", abrev:" + this.abrev + ",descripcion:"  + this.descripcion + "}"
 	}
-	toCSV() {
-		return this.id + "," + this.nombre + "," + this.abrev + "," + this.descripcion
-	}
 	toCSVless() {
 		return this.id + "," + this.nombre
 	}
 	static async read(filter={}) {
-		if(filter.id) {
+		if(filter.id && !Array.isArray(filter.id)) {
 			return internal.CRUD.getProcedimiento(filter.id)
 		}
 		return internal.CRUD.getProcedimientos(filter)
@@ -1449,9 +1461,6 @@ internal.unidades = class extends baseModel  {
 	toString() {
 		return "{id:" + this.id + ",nombre:" + this.nombre + ", abrev:" + this.abrev + ",UnitsID:" + this.UnitsID + ", UnitsType:" + this.UnitsType + "}"
 	}
-	toCSV() {
-		return this.id + "," + this.nombre + "," + this.abrev + "," + this.UnitsID + "," + this.UnitsType
-	}
 	toCSVless() {
 		return this.id + "," + this.nombre
 	}
@@ -1465,7 +1474,7 @@ internal.unidades = class extends baseModel  {
 		}
 	}
 	static async read(filter={}) {
-		if(filter.id) {
+		if(filter.id && !Array.isArray(filter.id)) {
 			return internal.CRUD.getUnidad(filter.id)
 		}
 		return internal.CRUD.getUnidades(filter)
@@ -1474,6 +1483,32 @@ internal.unidades = class extends baseModel  {
 }
 
 internal.fuente = class extends baseModel {
+
+	static _fields = {
+		id: {type: "integer"},
+		nombre: {type: "string"},
+		data_table: {type: "string"},
+		data_column: {type: "string"},
+		tipo: {type: "string"},
+		def_proc_id: {type: "integer"},
+		def_dt: {type: "interval"},
+		hora_corte: {type: "interval"},
+		def_unit_id: {type: "integer"},
+		def_var_id: {type: "integer"},
+		fd_column: {type: "string"},
+		mad_table: {type: "string"},
+		scale_factor: {type: "float"},
+		data_offset: {type: "float"},
+		def_pixel_height: {type: "float"},
+		def_pixel_width: {type: "float"},
+		def_srid: {type: "integer"},
+		def_extent: {type: "geometry"},
+		date_column: {type: "string"},
+		def_pixeltype: {type: "string"},
+		abstract: {type: "string"},
+		source: {type: "string"},
+		public: {type: "boolean"}
+	}
 	constructor() {
         super()  // nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, def_extent, date_column, def_pixeltype, abstract, source
 		// if(config.verbose) {
@@ -1647,7 +1682,7 @@ internal.fuente = class extends baseModel {
 		}
 	}
 	static async read(filter={},options) {
-		if(filter.id) {
+		if(filter.id && !Array.isArray(filter.id)) {
 			return internal.CRUD.getFuente(filter.id)
 		}
 		return internal.CRUD.getFuentes(filter,options)
@@ -1775,7 +1810,9 @@ internal.fuente.build_read_query = function(filter) {
 
 
 internal.serie = class extends baseModel {
+	
 	constructor() {
+
 		// console.log("New serie:")
 		// console.log(JSON.stringify(arguments[0]))
 		super(...arguments)
@@ -1905,6 +1942,29 @@ internal.serie = class extends baseModel {
 			pronosticos: this.pronosticos
 		}
 	}
+
+	toGeoJSON(includeProperties=true) {
+		const properties = (includeProperties) ? this.getProperties() : {}
+		properties.estacion = Object.assign({},properties.estacion)
+		delete properties.estacion.geom
+		return turfHelpers.feature(this.estacion.geom,properties)
+	}
+
+	static toGeoJSON(series=[], includeProperties=true) {
+		if(!series.length) {
+			throw(new Error("Series items missing"))
+		}
+		const result = {
+			"type": "FeatureCollection",
+			"features": []
+		}
+		for(const serie of series) {
+			result.features.push(serie.toGeoJSON(includeProperties))
+		}
+		return result
+	}
+
+
 	toString() {
 		if (this.tipo == "areal") {
 			return "{id:" + this.id + ", area:" + this.estacion.toString() + ", var:" + this["var"].toString() + ", procedimiento:" + this.procedimiento.toString() + ", unidades:" + this.unidades.toString() + ", tipo:" + this.tipo + ", fuente:" + this.fuente.toString() + "}" 
@@ -1925,7 +1985,9 @@ internal.serie = class extends baseModel {
 		var sep= (options.delimiter) ? options.delimiter : "=" 
 		var line_start = (options.no_comment) ? "" : "# "
 		var kvp_sep = (options.single_line) ? " " : "\n"
-		var kvp_string = `${line_start}id${sep}${this.id}${kvp_sep}${line_start}estacion_id${sep}${this.estacion.id}${kvp_sep}${line_start}name${sep}${this.estacion.nombre}${kvp_sep}${line_start}longitude${sep}${this.estacion.geom.coordinates[0]}${kvp_sep}${line_start}latitude${sep}${this.estacion.geom.coordinates[1]}${kvp_sep}${line_start}var_id${sep}${this["var"].id}${kvp_sep}${line_start}proc_id${sep}${this.procedimiento.id}${kvp_sep}${line_start}unit_id${sep}${this.unidades.id}${kvp_sep}${line_start}tipo${sep}${this.tipo}`
+		var longitude = (this.tipo == "puntual") ? this.estacion.geom.coordinates[0] : ""
+		var latitude = (this.tipo == "puntual") ? this.estacion.geom.coordinates[1] : ""
+		var kvp_string = `${line_start}id${sep}${this.id}${kvp_sep}${line_start}estacion_id${sep}${this.estacion.id}${kvp_sep}${line_start}name${sep}${this.estacion.nombre}${kvp_sep}${line_start}longitude${sep}${longitude}${kvp_sep}${line_start}latitude${sep}${latitude}${kvp_sep}${line_start}var_id${sep}${this["var"].id}${kvp_sep}${line_start}proc_id${sep}${this.procedimiento.id}${kvp_sep}${line_start}unit_id${sep}${this.unidades.id}${kvp_sep}${line_start}tipo${sep}${this.tipo}`
 			for(var key in ["beginTime","endTime"]) {
 				if(this[key]) {
 					kvp_string = `${kvp_string}${kvp_sep}${line_start}${key}${sep}${this[key].toISOString()}`
@@ -1951,19 +2013,55 @@ internal.serie = class extends baseModel {
 	 * @param {Boolean} [options.print_observaciones=false] 
 	 * @returns {string}
 	 */
-	getCSVHeader(options={}) {
+	static getCSVHeader(options={}) {
 		var sep = (options.delimiter) ? options.delimiter : ","
 		if(options.print_observaciones) {
 			return ""
 		}
-		return ["id","estacion.id","estacion.nombre","estacion.geom.coordinates[0]","estacion.geom.coordinates[1]","var.id","procedimiento.id","unidades.id","tipo","beginTime","endTime","count","minValor","maxValor","fuente.id","estacion.tabla","estacion.id_externo"].join(sep)
+		return [
+			"id",
+			"estacion.id",
+			"estacion.nombre",
+			"estacion.geom.coordinates[0]",
+			"estacion.geom.coordinates[1]",
+			"var.id",
+			"procedimiento.id",
+			"unidades.id",
+			"tipo",
+			"beginTime",
+			"endTime",
+			"count",
+			"minValor",
+			"maxValor",
+			"fuente.id",
+			"estacion.tabla",
+			"estacion.id_externo"
+		]
 	}
 
 	toTuple(options={}) {
 		const lon = (this.getTipo == "puntual" && this.estacion.geom && this.estacion.geom.coordinates[0]) ? this.estacion.geom.coordinates[0] : undefined
 		const lat = (this.getTipo == "puntual" && this.estacion.geom && this.estacion.geom.coordinates[1]) ? this.estacion.geom.coordinates[1] : undefined
 		const tabla = (this.estacion && this.estacion.tabla) ? this.estacion.tabla : undefined
-		return [this.id,this.estacion.id,this.estacion.nombre,lon,lat,this.var.id,this.procedimiento.id,this.unidades.id,this.tipo,this.beginTime,this.endTime,this.count,this.minValor,this.maxValor,this.fuente.id,tabla,this.estacion.id_externo].map(c=>(c!= null) ? (c instanceof Date) ? c.toISOString() : c.toString() : "")
+		return [
+			this.id,
+			this.estacion.id,
+			this.estacion.nombre,
+			lon,
+			lat,
+			this.var.id,
+			this.procedimiento.id,
+			this.unidades.id,
+			this.tipo,
+			this.beginTime,
+			this.endTime,
+			this.count,
+			this.minValor,
+			this.maxValor,
+			this.fuente.id,
+			tabla,
+			this.estacion.id_externo
+		].map(c=>(c!= null) ? (c instanceof Date) ? c.toISOString() : c.toString() : "")
 	}
 
 	/**
@@ -1980,6 +2078,9 @@ internal.serie = class extends baseModel {
 			// const lat = (this.getTipo == "puntual" && this.estacion.geom && this.estacion.geom.coordinates[1]) ? this.estacion.geom.coordinates[1] : undefined
 			// const tabla = (this.estacion && this.estacion.tabla) ? this.estacion.tabla : undefined
 			// const row = [this.id,this.estacion.id,this.estacion.nombre,lon,lat,this.var.id,this.procedimiento.id,this.unidades.id,this.tipo,this.beginTime,this.endTime,this.count,this.minValor,this.maxValor,this.fuente.id,this.estacion.tabla,this.estacion.id_externo].map(c=>(c!= null) ? (c instanceof Date) ? c.toISOString() : c.toString() : "").join(sep)
+			if(options.header) {
+				return `${this.constructor.getCSVHeader().join(sep)}\n${this.toTuple().join(sep)}`
+			}
 			return this.toTuple().join(sep) 
 		}
 		var csv_string = this.toKVP() + "\n"		
@@ -6946,7 +7047,7 @@ internal.CRUD = class {
 				console.log("Red no encontrada")
 				return
 			}
-			return result.rows[0]
+			return new internal.red(result.rows[0])
 			//~ const red = new internal.red(result.rows[0].tabla_id, result.rows[0].nombre, result.rows[0].public, result.rows[0].public_his_plata)
 			//~ red.getId(global.pool)
 			//~ .then(()=>{
