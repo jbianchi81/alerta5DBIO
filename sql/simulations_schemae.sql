@@ -933,10 +933,10 @@ CREATE TRIGGER par_ord BEFORE INSERT ON public.parametros FOR EACH ROW EXECUTE P
 
 
 --
--- Name: pars_get_mid; Type: TRIGGER; Schema: public; Owner: -
+-- Name: apars_get_mid; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER pars_get_mid BEFORE INSERT ON public.cal_pars FOR EACH ROW EXECUTE PROCEDURE public.get_model_id();
+CREATE TRIGGER apars_get_mid BEFORE INSERT ON public.cal_pars FOR EACH ROW EXECUTE PROCEDURE public.get_model_id();
 
 
 --
@@ -944,7 +944,7 @@ CREATE TRIGGER pars_get_mid BEFORE INSERT ON public.cal_pars FOR EACH ROW EXECUT
 --
 
 ALTER TABLE ONLY public.cal_estados
-    ADD CONSTRAINT cal_estados_cal_id_fkey FOREIGN KEY (cal_id) REFERENCES public.calibrados(id);
+    ADD CONSTRAINT cal_estados_cal_id_fkey FOREIGN KEY (cal_id) REFERENCES public.calibrados(id) on delete cascade;
 
 
 --
@@ -960,7 +960,7 @@ ALTER TABLE ONLY public.cal_estados
 --
 
 ALTER TABLE ONLY public.cal_pars
-    ADD CONSTRAINT cal_pars_cal_id_fkey FOREIGN KEY (cal_id) REFERENCES public.calibrados(id);
+    ADD CONSTRAINT cal_pars_cal_id_fkey FOREIGN KEY (cal_id) REFERENCES public.calibrados(id) on delete cascade;
 
 
 --
@@ -976,7 +976,7 @@ ALTER TABLE ONLY public.cal_pars
 --
 
 ALTER TABLE ONLY public.cal_stats
-    ADD CONSTRAINT cal_stats_cal_id_fkey FOREIGN KEY (cal_id) REFERENCES public.calibrados(id);
+    ADD CONSTRAINT cal_stats_cal_id_fkey FOREIGN KEY (cal_id) REFERENCES public.calibrados(id) on delete cascade;
 
 
 --
@@ -1008,7 +1008,7 @@ ALTER TABLE ONLY public.calibrados
 --
 
 ALTER TABLE ONLY public.calibrados_out
-    ADD CONSTRAINT calibrados_out_cal_id_fkey FOREIGN KEY (cal_id) REFERENCES public.calibrados(id);
+    ADD CONSTRAINT calibrados_out_cal_id_fkey FOREIGN KEY (cal_id) REFERENCES public.calibrados(id) on delete cascade;
 
 
 --
@@ -1064,7 +1064,7 @@ ALTER TABLE ONLY public.corridas
 --
 
 ALTER TABLE ONLY public.estados
-    ADD CONSTRAINT estados_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.modelos(id);
+    ADD CONSTRAINT estados_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.modelos(id) ON DELETE CASCADE;
 
 
 --
@@ -1072,7 +1072,7 @@ ALTER TABLE ONLY public.estados
 --
 
 ALTER TABLE ONLY public.forzantes
-    ADD CONSTRAINT forzantes_cal_id_fkey FOREIGN KEY (cal_id) REFERENCES public.calibrados(id);
+    ADD CONSTRAINT forzantes_cal_id_fkey FOREIGN KEY (cal_id) REFERENCES public.calibrados(id) on delete cascade;
 
 
 --
@@ -1104,7 +1104,7 @@ ALTER TABLE ONLY public.modelos
 --
 
 ALTER TABLE ONLY public.modelos_forzantes
-    ADD CONSTRAINT modelos_forzantes_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.modelos(id);
+    ADD CONSTRAINT modelos_forzantes_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.modelos(id) ON DELETE CASCADE;
 
 
 --
@@ -1128,7 +1128,7 @@ ALTER TABLE ONLY public.modelos_forzantes
 --
 
 ALTER TABLE ONLY public.parametros
-    ADD CONSTRAINT parametros_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.modelos(id);
+    ADD CONSTRAINT parametros_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.modelos(id) ON DELETE CASCADE;
 
 
 --
@@ -1234,7 +1234,7 @@ ALTER TABLE ONLY public.modelos_out
 --
 
 ALTER TABLE ONLY public.modelos_out
-    ADD CONSTRAINT modelos_out_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.modelos(id);
+    ADD CONSTRAINT modelos_out_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.modelos(id) ON DELETE CASCADE;
 
 
 --
@@ -1802,7 +1802,7 @@ ALTER TABLE ONLY public.extra_pars
 CREATE TRIGGER extrapars_get_model_id BEFORE INSERT ON public.extra_pars FOR EACH ROW EXECUTE PROCEDURE public.get_model_id();
 
 ALTER TABLE ONLY public.extra_pars
-    ADD CONSTRAINT extra_pars_cal_id_fkey FOREIGN KEY (cal_id) REFERENCES public.calibrados(id);
+    ADD CONSTRAINT extra_pars_cal_id_fkey FOREIGN KEY (cal_id) REFERENCES public.calibrados(id) on delete cascade;
 
 ALTER TABLE ONLY public.extra_pars
     ADD CONSTRAINT extra_pars_model_id_fkey FOREIGN KEY (model_id) REFERENCES public.modelos(id);

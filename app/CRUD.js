@@ -5576,14 +5576,15 @@ internal.modelo = class extends baseModel {
 	toCSVless() {
 		return this.id + "," + this.nombre + "," + this.tipo
 	} 
+
 	async create() {
 		const required_fields = ["nombre", "tipo", "def_var_id", "def_unit_id"]
 		required_fields.forEach(key=>{
 			if(typeof this[key] === undefined) {
-				throw("Invalid modelo. Missing " + key)
+				throw(new Error("Invalid modelo. Missing " + key))
 			}
 			if(this[key] == null) {
-				throw("Invalid modelo. " + key + " is null")
+				throw(new Error("Invalid modelo. " + key + " is null"))
 			}
 		})
 		const client = await global.pool.connect()
@@ -5610,7 +5611,12 @@ internal.modelo = class extends baseModel {
 					tipo=excluded.tipo, 
 					def_var_id=excluded.def_var_id, 
 					def_unit_id=excluded.def_unit_id 
-				RETURNING *
+				RETURNING
+				  id,
+				  nombre,
+				  tipo,
+				  def_var_id,
+				  def_unit_id
 			`, [this.id, this.nombre, this.tipo, this.def_var_id, this.def_unit_id])
 		} else {
 			var result = await client.query(`
@@ -5631,18 +5637,24 @@ internal.modelo = class extends baseModel {
 					tipo=excluded.tipo, 
 					def_var_id=excluded.def_var_id, 
 					def_unit_id=excluded.def_unit_id 
-				RETURNING *
+				RETURNING
+					id,
+					nombre,
+					tipo,
+					def_var_id,
+					def_unit_id
 			`, [this.nombre, this.tipo, this.def_var_id, this.def_unit_id])
 		}
 		if(!result.rows.length) {
+			await client.query("ROLLBACK")
 			throw("Nothing created")
 		}
 		Object.assign(this,result.rows[0])
 		if(this.parametros) {
 			for(var j=0;j<this.parametros.length;j++) {
-				// console.log(this.parametros[j])
+				// console.debug({parametro: this.parametros[j]})
 				this.parametros[j].model_id = this.id 
-				const parametro = await this.upsertParametroDeModelo(client,this.parametros[j])
+				const parametro = await internal.CRUD.upsertParametroDeModelo(client,this.parametros[j])
 				this.parametros[j].id = parametro.id
 			}
 		}
@@ -5650,25 +5662,26 @@ internal.modelo = class extends baseModel {
 			for(var j=0;j<this.estados.length;j++) {
 				// console.log(this.estados[j])
 				this.estados[j].model_id = this.id 
-				const estado = await this.upsertEstadoDeModelo(client,this.estados[j])
+				const estado = await internal.CRUD.upsertEstadoDeModelo(client,this.estados[j])
 				this.estados[j].id = estado.id
 			}
 		}
 		if(this.forzantes) {
 			for(var j=0;j<this.forzantes.length;j++) {
 				this.forzantes[j].model_id = this.id 
-				const forzante = await this.upsertForzanteDeModelo(client,this.forzantes[j])
+				const forzante = await internal.CRUD.upsertForzanteDeModelo(client,this.forzantes[j])
 				this.forzantes[j].id = forzante.id
 			}
 		}
 		if(this.outputs) {
 			for(var j=0;j<this.outputs.length;j++) {
 				this.outputs[j].model_id = this.id 
-				const output = await this.upsertOutputDeModelo(client,this.outputs[j])
+				const output = await internal.CRUD.upsertOutputDeModelo(client,this.outputs[j])
 				this.outputs[j].id = output.id
 			}
 		}
-		await client.query("COMMIT")		
+		await client.query("COMMIT")	
+		client.release()	
 		return this		
 	}
 	static async read(filter={}) {
@@ -5954,6 +5967,7 @@ internal.calibrado = class extends internal.genericModel {
 		}
 		return
 	}
+
 	static async read(filter={},options={}) {
 		return internal.CRUD.getCalibrados(filter.estacion_id,filter.var_id,filter.includeCorr,filter.timestart,filter.timeend,filter.id ?? filter.cal_id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,options.no_metadata,options.group_by_cal,filter.forecast_date,options.includeInactive,filter.series_id,filter.nombre)
 	}
@@ -6177,7 +6191,8 @@ internal.corrida = class extends baseModel {
 		id: {type: "integer"},
 		forecast_date: {type: "date"},
 		series: {type: "object"},
-		cal_id: {type: "integer"}
+		cal_id: {type: "integer"},
+		pronosticos: {type: "object"}
 	}
 
 	constructor() {
@@ -6197,7 +6212,17 @@ internal.corrida = class extends baseModel {
 	}
 
 	toCSV(options={}) {
-		return "# cor_id=" + this.id + "\n# forecast_date=" + this.forecast_date.toISOString() + "\n\n\t" + this.series.map(s => s.toCSV(options)).join("\n\n").replace(/\n/g, "\n\t")
+		var csv = "# cor_id=" + this.id + "\n# forecast_date=" + this.forecast_date.toISOString() + "\n\n\t" 
+		if(this._pivot) {
+			// pivot
+			if(options.header) {
+				csv += Array.from(this._headers).join(",") + "\n"
+			} 
+			csv += this.pronosticos.map(p=>p.toCSV()).join("\n")
+		} else {
+			csv += this.series.map(s => s.toCSV(options)).join("\n\n").replace(/\n/g, "\n\t")
+		}
+		return csv
 	}
 	toCSVless() {
 		return this.id + "," + this.forecast_date
@@ -6215,6 +6240,9 @@ internal.corrida = class extends baseModel {
 			} else {
 				var series_key = `${s.series_id}`
 			}
+			if(s.pronosticos == undefined) {
+				return
+			}
 			s.pronosticos.forEach(p=>{
 				const key = new Date(p.timestart).toISOString()
 				if(!pivoted[key]) {
@@ -6227,6 +6255,8 @@ internal.corrida = class extends baseModel {
 				headers.add(series_key)
 			})
 		})
+		this._pivot = true
+		this._headers = headers
 		return Object.keys(pivoted).sort().map(key => {
 			return new internal.observacionPivot(pivoted[key],{string_keys: true})
 		})
@@ -6242,7 +6272,39 @@ internal.corrida = class extends baseModel {
 		return
 	}
 	static async read(filter={},options={}) {
-		const corridas = await internal.CRUD.getPronosticos(filter.cor_id ?? filter.id,filter.cal_id,filter.forecast_timestart,filter.forecast_timeend,filter.forecast_date,filter.timestart,filter.timeend,filter.qualifier,filter.estacion_id,filter.var_id,options.includeProno,filter.isPublic,filter.series_id,options.series_metadata,filter.cal_grupo_id,options.group_by_qualifier,filter.model_id,filter.tipo)
+		if(options.pivot) {
+			options.includeProno = true
+		}
+		const corridas = await internal.CRUD.getPronosticos(
+			filter.cor_id ?? filter.id,
+			filter.cal_id,
+			filter.forecast_timestart,
+			filter.forecast_timeend,
+			filter.forecast_date,
+			filter.timestart,
+			filter.timeend,
+			filter.qualifier,
+			filter.estacion_id,
+			filter.var_id,
+			options.includeProno,
+			filter.isPublic,
+			filter.series_id,
+			options.series_metadata,
+			filter.cal_grupo_id,
+			options.group_by_qualifier,
+			filter.model_id,
+			filter.tipo,
+			filter.tabla ?? filter.tabla_id
+		)
+
+		if(options.pivot) {
+			for(const corrida of corridas) {
+				corrida.pronosticos = corrida.pivot()
+				for(const serie of corrida.series) {
+					delete serie.pronosticos
+				}
+			}
+		}
 		return corridas
 	}
 	static async delete(filter={}) {
@@ -6523,7 +6585,7 @@ internal.SerieTemporalSim = class extends baseModel {
 	} 
 	toCSV(options={}) {
 		const metadata = "# series_table=" + this.series_table + "\n# series_id=" + this.series_id
-		if(this.pronosticos.length) {
+		if(this.pronosticos && this.pronosticos.length) {
 			if(options.header) {
 				var h = internal.pronostico.getCSVHeader().join(",") + "\n"
 			} else {
@@ -16595,14 +16657,15 @@ ORDER BY cal.cal_id`
 		if(filter.cal_id) {
 			filter.id = filter.cal_id
 		}
-		var valid_filters = {"id":{table:"calibrados",type:"integer"},"model_id":{table:"calibrados",type:"integer"}}
+		var valid_filters = { "id": { table: "calibrados", type: "integer" }, "model_id": { table: "calibrados", type: "integer" } }
 		var filter_string = internal.utils.control_filter2(valid_filters,filter,"calibrados") 
 		if(filter_string == "") {
 			throw("deleteCalibrados error: at least one filter is required")
 		}
-		var stmt = `DELETE FROM calibrados WHERE id=id ${filter_string} RETURNING *`
+		var stmt = `DELETE FROM calibrados WHERE id=id ${filter_string} RETURNING id, nombre, modelo, model_id, activar, selected, out_id, area_id, in_id, tramo_id, dt, t_offset, public, grupo_id`
 		// console.log(stmt)
-		return global.pool.query(stmt)
+		const result = await global.pool.query(stmt)
+		return result.rows.map(r=> new internal.calibrado(r))
 	}
 	
 	static async upsertCalibrados(calibrados) {
@@ -16635,146 +16698,102 @@ ORDER BY cal.cal_id`
 			}
 		}
 		var calibrado
-		return global.pool.connect()
-		.then(async client=>{
-			try {
-				await client.query("BEGIN")
-				var upserted
-				if(input_cal.id) {
-					var stmt = internal.utils.pasteIntoSQLQuery("INSERT INTO calibrados (id,nombre, modelo, parametros, estados_iniciales, activar, selected, out_id, area_id, in_id, model_id, tramo_id, dt, t_offset) VALUES \
+		const client = await global.pool.connect()
+		try {
+			await client.query("BEGIN")
+			var upserted
+			if(input_cal.id) {
+				var stmt = internal.utils.pasteIntoSQLQuery("INSERT INTO calibrados (id,nombre, modelo, parametros, estados_iniciales, activar, selected, out_id, area_id, in_id, model_id, tramo_id, dt, t_offset) VALUES \
 					($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,coalesce($13,'1 days'::interval),coalesce($14,'9 hours'::interval))\
 					ON CONFLICT (id)\
 					DO UPDATE SET nombre=coalesce(excluded.nombre,calibrados.nombre), modelo=coalesce(excluded.modelo,calibrados.modelo), parametros=coalesce(excluded.parametros,calibrados.parametros), estados_iniciales=coalesce(excluded.estados_iniciales,calibrados.estados_iniciales), activar=coalesce(excluded.activar,calibrados.activar), selected=coalesce(excluded.selected,calibrados.selected), out_id=coalesce(excluded.out_id,calibrados.out_id), area_id=coalesce(excluded.area_id,calibrados.area_id), in_id=coalesce(excluded.in_id,calibrados.in_id), model_id=coalesce(excluded.model_id,calibrados.model_id), tramo_id=coalesce(excluded.tramo_id,calibrados.tramo_id), dt=coalesce(excluded.dt,calibrados.dt), t_offset=coalesce(excluded.t_offset,calibrados.t_offset)\
-					RETURNING *",[input_cal.id, input_cal.nombre, input_cal.modelo, input_cal.parametros, input_cal.estados, input_cal.activar, input_cal.selected, (typeof input_cal.out_id == "integer") ? input_cal.out_id : null, input_cal.area_id, input_cal.in_id, input_cal.model_id, input_cal.tramo_id, timeSteps.interval2string(input_cal.dt), timeSteps.interval2string(input_cal.t_offset)])
-					// console.log(stmt)
-					upserted = await client.query(stmt)
-				} else {
-					var stmt = internal.utils.pasteIntoSQLQuery("INSERT INTO calibrados (id,nombre, modelo, parametros, estados_iniciales, activar, selected, out_id, area_id, in_id, model_id, tramo_id, dt, t_offset) VALUES \
-					(nextval('calibrados_id_seq'),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,coalesce($12,'1 days'::interval),coalesce($13,'9 hours'::interval))\
-					RETURNING *",[input_cal.nombre, input_cal.modelo, input_cal.parametros, input_cal.estados, input_cal.activar, input_cal.selected, (typeof input_cal.out_id == "integer") ? input_cal.out_id : null, input_cal.area_id, input_cal.in_id, input_cal.model_id, input_cal.tramo_id, timeSteps.interval2string(input_cal.dt), timeSteps.interval2string(input_cal.t_offset)])
-					// console.log(stmt)
-					upserted = await client.query(stmt)
-				}
-			} catch(e) {
-				await client.query("ROLLBACK")
-				client.release()
-				throw(e)
+				RETURNING *",[input_cal.id, input_cal.nombre, input_cal.modelo, input_cal.parametros, input_cal.estados, input_cal.activar, input_cal.selected, (typeof input_cal.out_id == "integer") ? input_cal.out_id : null, input_cal.area_id, input_cal.in_id, input_cal.model_id, input_cal.tramo_id, timeSteps.interval2string(input_cal.dt), timeSteps.interval2string(input_cal.t_offset)])
+				// console.log(stmt)
+				upserted = await client.query(stmt)
+			} else {
+				var stmt = internal.utils.pasteIntoSQLQuery("INSERT INTO calibrados (id,nombre, modelo, parametros, estados_iniciales, activar, selected, out_id, area_id, in_id, model_id, tramo_id, dt, t_offset) VALUES \
+				(nextval('calibrados_id_seq'),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,coalesce($12,'1 days'::interval),coalesce($13,'9 hours'::interval))\
+				RETURNING *",[input_cal.nombre, input_cal.modelo, input_cal.parametros, input_cal.estados, input_cal.activar, input_cal.selected, (typeof input_cal.out_id == "integer") ? input_cal.out_id : null, input_cal.area_id, input_cal.in_id, input_cal.model_id, input_cal.tramo_id, timeSteps.interval2string(input_cal.dt), timeSteps.interval2string(input_cal.t_offset)])
+				// console.log(stmt)
+				upserted = await client.query(stmt)
 			}
-			calibrado = upserted.rows[0]
-			if(!calibrado) {
-				await client.query("ROLLBACK")
-				client.release()
-				throw("No se insertó calibrado")
-			}
-			if(input_cal.parametros) {
-				console.log({parametros:input_cal.parametros})
-				try {
-					var parametros = await this.upsertParametros(client,calibrado.id,input_cal.parametros)
-				} catch(e) {
-					await client.query("ROLLBACK")
-					client.release()
-					throw(e)
-				}
-				// var parametros = []
-				// for(var i=0;i<input_cal.parametros.length;i++) {
-				// 	try {
-				// 		var parametro = await this.upsertParametro(client,{cal_id:calibrado.id, orden:i+1, valor:input_cal.parametros[i]})
-				// 		if(!parametro) {
-				// 			throw("no se insertó parámetro")
-				// 		}
-				// 		parametros.push(parametro)
-				// 	} catch(e) {
-				// 		await client.query("ROLLBACK")
-				// 		client.end()
-				// 		throw(e)
-				// 	}
-				// }
-				calibrado.parametros = parametros
-			} 
-			if(input_cal.estados) {
-				try {
-					var estados = await this.upsertEstadosIniciales(client,calibrado.id,input_cal.estados)
-				} catch(e) {
-					await client.query("ROLLBACK")
-					client.release()
-					throw(e)
-				}
-				// var estados_iniciales = []
-				// for(var i=0;i>input_cal.estados_iniciales.length;i++) {
-				// 	try {
-				// 		var estado_inicial =  await this.upsertEstadoInicial(client,{cal_id:calibrado.id, orden:i+1, valor:input_cal.estados_iniciales[i]})
-				// 		if(!estado_inicial) {
-				// 			throw("no se insertó estado_inicial")
-				// 		}
-				// 		estados_iniciales.push(estado_inicial)
-				// 	} catch(e) {
-				// 		await client.query("ROLLBACK")
-				// 		client.end()
-				// 		throw(e)
-				// 	}
-				// }
-				calibrado.estados_iniciales = estados
-			} 
-			if(input_cal.forzantes) {
-				console.log(input_cal.forzantes)
-				try {
-					var forzantes = await this.upsertForzantes2(client,calibrado.id,input_cal.forzantes)
-				} catch(e) {
-					await client.query("ROLLBACK")
-					client.release()
-					throw(e)
-				}
-				// var forzantes = []
-				// for(var i=0;i>input_cal.forzantes.length;i++) {
-				// 	try {
-				// 		var forzante =  await this.upsertForzante(client,{cal_id:calibrado.id, orden:(input_cal.forzantes[i].orden)?input_cal.forzantes[i].orden:i+1, series_table:input_cal.forzantes[i].series_table, series_id:input_cal.forzantes[i].series_id})
-				// 		if(!forzantes) {
-				// 			throw("no se insertó forzante")
-				// 		}
-				// 		forzantes.push(forzante)
-				// 	} catch(e) {
-				// 		await client.query("ROLLBACK")
-				// 		client.end()
-				// 		throw(e)
-				// 	}
-				// }
-				calibrado.forzantes = forzantes
-			}
-			if(input_cal.outputs) {
-				var outputs = []
-				for(var i =0;i<input_cal.outputs.length;i++) {
-					try {
-						var output = await this.upsertOutput(client,{cal_id:calibrado.id, orden:(input_cal.outputs[i].orden)?input_cal.outputs[i].orden:i+1, series_table:input_cal.outputs[i].series_table, series_id:input_cal.outputs[i].series_id})
-						if(!output) {
-							throw("no se insertó output")
-						}
-						outputs.push(output)
-					} catch(e) {
-						endAndThrow(e)
-					}
-				}
-				calibrado.outputs = outputs
-			}
-			if(input_cal.stats) {
-				try {
-					var stats = await this.upsertCalStats(client,calibrado.id,input_cal.stats)
-				} catch(e) {
-					await client.query("ROLLBACK")
-					client.release()
-					throw(e)
-				}
-				calibrado.stats = stats
-			} 
-			try {
-				await client.query("COMMIT")
-			} catch(e) {
-				await client.query("ROLLBACK")
-				client.release()
-				throw(e)
-			}
+		} catch(e) {
+			await client.query("ROLLBACK")
 			client.release()
-			return calibrado
-		})
+			throw(e)
+		}
+		calibrado = upserted.rows[0]
+		if(!calibrado) {
+			await client.query("ROLLBACK")
+			client.release()
+			throw("No se insertó calibrado")
+		}
+		if(input_cal.parametros) {
+			// console.debug({parametros:input_cal.parametros})
+			try {
+				var parametros = await this.upsertParametros(client,calibrado.id,input_cal.parametros)
+			} catch(e) {
+				await client.query("ROLLBACK")
+				client.release()
+				throw(e)
+			}
+			calibrado.parametros = parametros
+		} 
+		if(input_cal.estados) {
+			try {
+				var estados = await this.upsertEstadosIniciales(client,calibrado.id,input_cal.estados)
+			} catch(e) {
+				await client.query("ROLLBACK")
+				client.release()
+				throw(e)
+			}
+			calibrado.estados_iniciales = estados
+		} 
+		if(input_cal.forzantes) {
+			// console.debug({forzantes:input_cal.forzantes})
+			try {
+				var forzantes = await this.upsertForzantes2(client,calibrado.id,input_cal.forzantes)
+			} catch(e) {
+				await client.query("ROLLBACK")
+				client.release()
+				throw(e)
+			}
+			calibrado.forzantes = forzantes
+		}
+		if(input_cal.outputs) {
+			var outputs = []
+			for(var i =0;i<input_cal.outputs.length;i++) {
+				try {
+					var output = await this.upsertOutput(client,{cal_id:calibrado.id, orden:(input_cal.outputs[i].orden)?input_cal.outputs[i].orden:i+1, series_table:input_cal.outputs[i].series_table, series_id:input_cal.outputs[i].series_id})
+					if(!output) {
+						throw("no se insertó output")
+					}
+					outputs.push(output)
+				} catch(e) {
+					endAndThrow(e)
+				}
+			}
+			calibrado.outputs = outputs
+		}
+		if(input_cal.stats) {
+			try {
+				var stats = await this.upsertCalStats(client,calibrado.id,input_cal.stats)
+			} catch(e) {
+				await client.query("ROLLBACK")
+				client.release()
+				throw(e)
+			}
+			calibrado.stats = stats
+		} 
+		try {
+			await client.query("COMMIT")
+		} catch(e) {
+			await client.query("ROLLBACK")
+			client.release()
+			throw(e)
+		}
+		client.release()
+		return calibrado
 	}
 
 	static async upsertCalStats(client,cal_id,stats) {
@@ -16801,15 +16820,11 @@ ORDER BY cal.cal_id`
 		ON CONFLICT (cal_id,orden)\
 		DO UPDATE SET valor=excluded.valor\
 		RETURNING *",[parametro.cal_id,parametro.orden,parametro.valor])
-		// console.log(stmt)
-		return client.query(stmt)
-		.then(result=>{
-			// console.log(result)
-			if(release_client) {
-				client.release()
-			}
-			return result.rows[0]
-		})
+		const result = await client.query(stmt)
+		if(release_client) {
+			client.release()
+		}
+		return result.rows[0]
 	}
 
 	static async upsertParametros(client,cal_id,parametros) { // parametros::int[]
@@ -16825,16 +16840,13 @@ ORDER BY cal.cal_id`
 		${tuples.join(",")}\
 		ON CONFLICT (cal_id,orden)\
 		DO UPDATE SET valor=excluded.valor\
-		RETURNING *`
-		// console.log(stmt)
-		return client.query(stmt)
-		.then(result=>{
-			// console.log(result)
-			if(release_client) {
-				client.release()
-			}
-			return result.rows[0]
-		})
+		RETURNING id, cal_id, valor, orden`
+		// console.debug(stmt)
+		const result = await client.query(stmt)
+		if(release_client) {
+			client.release()
+		}
+		return result.rows.map(r=>new internal.parametro(r))
 	}
 
 
@@ -16844,7 +16856,7 @@ ORDER BY cal.cal_id`
 			release_client = true
 			client = await global.pool.connect()
 		}
-		return client.query("INSERT INTO parametros (model_id , nombre , lim_inf , range_min , range_max , lim_sup , orden ) VALUES\
+		const result = await client.query("INSERT INTO parametros (model_id , nombre , lim_inf , range_min , range_max , lim_sup , orden ) VALUES\
 		  ($1,$2,$3,$4,$5,$6,$7)\
 		  ON CONFLICT (model_id,orden)\
 		  DO UPDATE SET nombre=excluded.nombre,\
@@ -16853,12 +16865,10 @@ ORDER BY cal.cal_id`
 						range_max=excluded.range_max,\
 							lim_sup=excluded.lim_sup\
 		  RETURNING *",[parametro.model_id,parametro.nombre,parametro.lim_inf,parametro.range_min,parametro.range_max,parametro.lim_sup,parametro.orden])
-		.then(result=>{
-			if(release_client) {
-				client.release()
-			}
-			return new internal.parametroDeModelo(result.rows[0])
-		})
+		if(release_client) {
+			client.release()
+		}
+		return new internal.parametroDeModelo(result.rows[0])
 	}
 	
 	static async upsertEstadoInicial(client,estado_inicial) {
@@ -16867,17 +16877,15 @@ ORDER BY cal.cal_id`
 			release_client = true
 			client = await global.pool.connect()
 		}
-		return client.query("INSERT INTO cal_estados (cal_id,orden,valor) VALUES\
+		const result = await client.query("INSERT INTO cal_estados (cal_id,orden,valor) VALUES\
 		  ($1,$2,$3)\
 		  ON CONFLICT (cal_id,orden)\
 		  DO UPDATE SET valor=excluded.valor\
 		  RETURNING *",[estado_inicial.cal_id,estado_inicial.orden,estado_inicial.valor])
-		.then(result=>{
-			if(release_client) {
-				client.release()
-			}
-			return result.rows[0]
-		})
+		if(release_client) {
+			client.release()
+		}
+		return result.rows[0]
 	}
 
 	static async upsertEstadosIniciales(client,cal_id,estados_iniciales) { //  estados_iniciales::int[]
@@ -16894,13 +16902,11 @@ ORDER BY cal.cal_id`
 		ON CONFLICT (cal_id,orden)\
 		DO UPDATE SET valor=excluded.valor\
 		RETURNING *`
-		return client.query(stmt)
-		.then(result=>{
-			if(release_client) {
-				client.release()
-			}
-			return result.rows
-		})
+		const result = await client.query(stmt)
+		if(release_client) {
+			client.release()
+		}
+		return result.rows
 	}
 
 	static async upsertEstadoDeModelo(client,estado) {
@@ -16909,7 +16915,7 @@ ORDER BY cal.cal_id`
 			release_client = true
 			client = await global.pool.connect()
 		}
-		return client.query("INSERT INTO estados (model_id, nombre, range_min, range_max, def_val, orden) VALUES\
+		const result = await client.query("INSERT INTO estados (model_id, nombre, range_min, range_max, def_val, orden) VALUES\
 		  ($1,$2,$3,$4,$5,$6)\
 		  ON CONFLICT (model_id,orden)\
 		  DO UPDATE SET nombre=excluded.nombre,\
@@ -16917,12 +16923,10 @@ ORDER BY cal.cal_id`
 						range_max=excluded.range_max,\
 						def_val=excluded.def_val\
 		  RETURNING *",[estado.model_id,estado.nombre,estado.range_min,estado.range_max,estado.def_val,estado.orden])
-		.then(result=>{
-			if(release_client) {
-				client.release()
-			}
-			return new internal.estadoDeModelo(result.rows[0])
-		})
+		if(release_client) {
+			client.release()
+		}
+		return new internal.estadoDeModelo(result.rows[0])
 	}
 
 	static async upsertOutputDeModelo(client,output) {
@@ -16931,7 +16935,7 @@ ORDER BY cal.cal_id`
 			release_client = true
 			client = await global.pool.connect()
 		}
-		return client.query("INSERT INTO modelos_out (model_id, orden, var_id, unit_id , nombre, inst, series_table) VALUES\
+		const result = await client.query("INSERT INTO modelos_out (model_id, orden, var_id, unit_id , nombre, inst, series_table) VALUES\
 		  ($1,$2,$3,$4,$5,$6,$7)\
 		  ON CONFLICT (model_id,orden)\
 		  DO UPDATE SET var_id=excluded.var_id,\
@@ -16940,29 +16944,23 @@ ORDER BY cal.cal_id`
 						inst=excluded.inst,\
 						series_table=excluded.series_table\
 		  RETURNING *",[output.model_id,output.orden,output.var_id,output.unit_id,output.nombre,output.inst,output.series_table])
-		.then(result=>{
-			if(release_client) {
-				client.release()
-			}
-			return new internal.modelo_output(result.rows[0])
-		})
+		if(release_client) {
+			client.release()
+		}
+		return new internal.modelo_output(result.rows[0])
 	}
 
 	static async getForzante(cal_id,orden) {
-		return global.pool.query("SELECT id, cal_id, series_table, series_id, cal, orden, model_id FROM forzantes WHERE cal_id=$1 AND orden=$2",[cal_id,orden])
-		.then(result=>{
-			if(!result) {
-				return Promise.reject("getForzante: Nothing found")
-			}
-			return new internal.forzante(result.rows[0])
-		})
+		const result = await global.pool.query("SELECT id, cal_id, series_table, series_id, cal, orden, model_id FROM forzantes WHERE cal_id=$1 AND orden=$2",[cal_id,orden])
+		if(!result) {
+			return Promise.reject("getForzante: Nothing found")
+		}
+		return new internal.forzante(result.rows[0])
 	}
 	
 	static async getForzantes(cal_id,filter={}) {
-		return global.pool.query("SELECT id, cal_id, series_table, series_id, cal, orden, model_id FROM forzantes WHERE cal_id=$1 AND orden=coalesce($2,orden) AND series_table=coalesce($3,series_table) and series_id=coalesce($4,series_id) AND cal=coalesce($5,cal) ORDER BY orden",[cal_id,filter.orden,filter.series_table,filter.series_id,filter.cal])
-		.then(result=>{
-			return result.rows.map(f=> new internal.forzante(f))
-		})
+		const result = await global.pool.query("SELECT id, cal_id, series_table, series_id, cal, orden, model_id FROM forzantes WHERE cal_id=$1 AND orden=coalesce($2,orden) AND series_table=coalesce($3,series_table) and series_id=coalesce($4,series_id) AND cal=coalesce($5,cal) ORDER BY orden",[cal_id,filter.orden,filter.series_table,filter.series_id,filter.cal])
+		return result.rows.map(f=> new internal.forzante(f))
 	} 
 		
 	static async upsertForzante(client,forzante) {
@@ -16971,17 +16969,15 @@ ORDER BY cal.cal_id`
 			release_client = true
 			client = await global.pool.connect()
 		}
-		return client.query("INSERT INTO forzantes (cal_id,orden,series_table,series_id) VALUES\
+		const result = await client.query("INSERT INTO forzantes (cal_id,orden,series_table,series_id) VALUES\
 		  ($1,$2,$3,$4)\
 		  ON CONFLICT (cal_id,orden)\
 		  DO UPDATE SET series_table=excluded.series_table, series_id=excluded.series_id\
 		  RETURNING *",[forzante.cal_id,forzante.orden,forzante.series_table,forzante.series_id])
-		.then(result=>{
-			if(release_client) {
-				client.release()
-			}
-			return new internal.forzante(result.rows[0])
-		})
+		if(release_client) {
+			client.release()
+		}
+		return new internal.forzante(result.rows[0])
 	}
 
 	static async upsertForzantes2(client,cal_id,forzantes) { // forzantes = [{series_table:"",series_id:0},...] o [0,1,2] (en el segundo caso asume series_table:"series")
@@ -17001,13 +16997,12 @@ ORDER BY cal.cal_id`
 		ON CONFLICT (cal_id,orden)\
 		DO UPDATE SET series_table=excluded.series_table, series_id=excluded.series_id\
 		RETURNING *`
-		return client.query(stmt)
-		.then(result=>{
-			if(release_client) {
-				client.release()
-			}
-			return result.rows.map(f=>new internal.forzante(f))
-		})
+		// console.debug(stmt)
+		const result = await client.query(stmt)
+		if(release_client) {
+			client.release()
+		}
+		return result.rows.map(f=>new internal.forzante(f))
 	}
 
 	static async upsertForzanteDeModelo(client,forzante) {
@@ -17016,7 +17011,7 @@ ORDER BY cal.cal_id`
 			release_client = true
 			client = await global.pool.connect()
 		}
-		return client.query("INSERT INTO modelos_forzantes (model_id , orden , var_id , unit_id , nombre , inst , tipo , required) VALUES\
+		const result = await client.query("INSERT INTO modelos_forzantes (model_id , orden , var_id , unit_id , nombre , inst , tipo , required) VALUES\
 		  ($1,$2,$3,$4,$5,$6,$7,$8)\
 		  ON CONFLICT (model_id,nombre)\
 		  DO UPDATE SET var_id=excluded.var_id,\
@@ -17026,16 +17021,10 @@ ORDER BY cal.cal_id`
 						tipo=excluded.tipo,\
 						required=excluded.required\
 		  RETURNING *",[forzante.model_id,forzante.orden,forzante.var_id,forzante.unit_id,forzante.nombre,forzante.inst,forzante.tipo,forzante.required])
-		.then(result=>{
-			if(release_client) {
-				client.release()
-			}
-			// if(!result || !result.rows || result.rows.length==0) {
-			// 	throw("error trying to create forzanteDeModelo")
-			// }
-			// console.log(result.rows[0])
-			return new internal.forzanteDeModelo(result.rows[0])
-		})
+		if(release_client) {
+			client.release()
+		}
+		return new internal.forzanteDeModelo(result.rows[0])
 	}
 
 	static async upsertForzantes(cal_id,forzantes) {
@@ -17046,18 +17035,16 @@ ORDER BY cal.cal_id`
 			var series_table = (f.series_table) ? (f.series_tabla == "series_areal") ? "series_areal" : "series" : "series"
 			return sprintf("(%d,%d,'%s',%d)", cal_id, f.orden, series_table, f.series_id)
 		}).join(",")
-		return global.pool.query(`INSERT INTO forzantes (cal_id, orden, series_table, series_id) VALUES\
+		const result = await global.pool.query(`INSERT INTO forzantes (cal_id, orden, series_table, series_id) VALUES\
 		  ${values}\
 		  ON CONFLICT (cal_id, orden)\
 		  DO UPDATE SET series_table=excluded.series_table, series_id=excluded.series_id\
 		  RETURNING *`)
-		.then(result=>{
-			return new internal.forzante(result.rows[0])
-		})
+		return new internal.forzante(result.rows[0])
 	}
 	
 	static async deleteForzantes(cal_id,filter) {
-		return global.pool.query("DELETE \
+		const result = await global.pool.query("DELETE \
 		FROM forzantes \
 		WHERE cal_id=$1 \
 		AND orden=coalesce($2,orden) \
@@ -17065,20 +17052,16 @@ ORDER BY cal.cal_id`
 		AND series_id=coalesce($4,series_id) \
 		AND cal=coalesce($5,cal) \
 		RETURNING *",[cal_id,filter.orden,filter.series_table,filter.series_id,filter.cal])
-		.then(result=>{
-			return result.rows.map(f=>new internal.forzante(f))
-		})
+		return result.rows.map(f=>new internal.forzante(f))
 	} 
 
 	static async deleteForzante(cal_id,orden) {
-		return global.pool.query("DELETE \
+		const result = await global.pool.query("DELETE \
 		FROM forzantes \
 		WHERE cal_id=$1 \
 		AND orden=$2 \
 		RETURNING *",[cal_id,orden])
-		.then(result=>{
-			return new internal.forzante(result.rows[0])
-		})
+		return new internal.forzante(result.rows[0])
 	} 
 
 	static async upsertOutput(client,output) {
@@ -17088,31 +17071,27 @@ ORDER BY cal.cal_id`
 			client = await global.pool.connect()
 		}
 		//~ console.log({output:output})
-		return client.query("INSERT INTO cal_out (cal_id,orden,series_table,series_id) VALUES\
+		const result = await client.query("INSERT INTO cal_out (cal_id,orden,series_table,series_id) VALUES\
 		  ($1,$2,$3,$4)\
 		  ON CONFLICT (cal_id,orden)\
 		  DO UPDATE SET series_table=excluded.series_table, series_id = excluded.series_id\
 		  RETURNING *",[output.cal_id,output.orden,output.series_table,output.series_id])
-		.then(result=>{
-			var series_table = (output.series_table) ? (output.series_table == "series_areal") ? "series_areal" : "series" : "series" 
-			if(!result.rows[0]) {
-				if(release_client) {
-					client.release()
-				}
-				throw new Error("error on output upsert")
+		var series_table = (output.series_table) ? (output.series_table == "series_areal") ? "series_areal" : "series" : "series" 
+		if(!result.rows[0]) {
+			if(release_client) {
+				client.release()
 			}
-			return client.query("INSERT INTO calibrados_out (cal_id,out_id)\
-				SELECT $1,estacion_id\
-				FROM " + series_table + "\
-				WHERE id=$2\
-				ON CONFLICT (cal_id,out_id) DO NOTHING",[output.cal_id,output.series_id])
-			.then(result2=>{
-				if(release_client) {
-					client.release()
-				}
-				return new internal.output(result.rows[0])
-			})
-		})
+			throw new Error("error on output upsert")
+		}
+		const result2 = await client.query("INSERT INTO calibrados_out (cal_id,out_id)\
+			SELECT $1,estacion_id\
+			FROM " + series_table + "\
+			WHERE id=$2\
+			ON CONFLICT (cal_id,out_id) DO NOTHING",[output.cal_id,output.series_id])
+		if(release_client) {
+			client.release()
+		}
+		return new internal.output(result.rows[0])
 	}
 
 	static async upsertOutputs(client,cal_id,outputs) { // outputs = = [{series_table:"",series_id:0},...] o [0,1,2] (en el segundo caso asume series_table:"series")
@@ -17132,26 +17111,22 @@ ORDER BY cal.cal_id`
 		ON CONFLICT (cal_id,orden)\
 		DO UPDATE SET series_table=excluded.series_table, series_id = excluded.series_id\
 		RETURNING *`
-		return client.query(stmt)
-		.then(result=>{
-			if(!result.rows.length) {
-				if(release_client) {
-					client.release()
-				}
-				throw new Error("error on output upsert: nothing upserted")
+		const result = await client.query(stmt)
+		if(!result.rows.length) {
+			if(release_client) {
+				client.release()
 			}
-			var calibrados_out = result.rows.map(output=>{
-				var series_table = (output.series_table) ? (output.series_table == "series_rast") ? "series_rast" :(output.series_table == "series_areal") ? "series_areal" : "series" : "series" 
-				return { cal_id:cal_id, series_table:series_table, series_id: output.series_id}
-			})
-			return this.upsertCalibradosOut(client,cal_id,calibrados_out)
-			.then(result2=>{
-				if(release_client) {
-					client.release()
-				}
-				return result.rows.map(r=>new internal.output(r))
-			})
-	})
+			throw new Error("error on output upsert: nothing upserted")
+		}
+		var calibrados_out = result.rows.map(output=>{
+			var series_table = (output.series_table) ? (output.series_table == "series_rast") ? "series_rast" :(output.series_table == "series_areal") ? "series_areal" : "series" : "series" 
+			return { cal_id:cal_id, series_table:series_table, series_id: output.series_id}
+		})
+		const result2 = await this.upsertCalibradosOut(client,cal_id,calibrados_out)
+		if(release_client) {
+			client.release()
+		}
+		return result.rows.map(r=>new internal.output(r))
 	}
 
 	static async upsertCalibradosOut(client,cal_id,calibrados_out) {
@@ -18079,9 +18054,19 @@ ORDER BY cal.cal_id`
 				client.release()
 				throw("prono not found")
 			}
-			corrida.cor_id = result.rows[0].cor_id
-			corrida.cal_id = result.rows[0].cal_id
-			corrida.forecast_date = result.rows[0].forecast_date
+			if(result.rows.length >= 2) {
+				corrida = result.rows.map(r =>
+					new internal.corrida({
+						id: r.id,
+						cal_id: r.cal_id,
+						forecast_date: r.date
+					}))
+			} else {
+				corrida.cor_id = result.rows[0].id
+				corrida.id = corrida.cor_id
+				corrida.cal_id = result.rows[0].cal_id
+				corrida.forecast_date = result.rows[0].date
+			}
 			await client.query("COMMIT")
 		} catch(e) {
 			throw(e)
@@ -18095,31 +18080,31 @@ ORDER BY cal.cal_id`
 		if(filter.skip_cal_id && !Array.isArray(filter.skip_cal_id)) {
 			filter.skip_cal_id = [filter.skip_cal_id]
 		}
-		var getPronoPromise
+		var corridas
 		if(filter.id) {
 			console.log("filter.id")
-			getPronoPromise = this.getPronosticos(filter.id)
+			corridas = await this.getPronosticos(filter.id)
 		} else if(filter.cor_id) {
 			console.log("filter.cor_id")
-			getPronoPromise = this.getPronosticos(filter.cor_id)
+			corridas = await this.getPronosticos(filter.cor_id)
 		} else if (filter.cal_id) {
 			console.log("filter.cal_id")	
 			if(filter.forecast_date || filter.date || (filter.forecast_timestart && filter.forecast_timeend)) {
 				if(filter.forecast_date) { // exact timestamp
 					console.log(" + filter.forecast_date")
-					getPronoPromise = this.getPronosticos(undefined,filter.cal_id,undefined,undefined,filter.forecast_date)
+					corridas = await this.getPronosticos(undefined,filter.cal_id,undefined,undefined,filter.forecast_date)
 				}
 				else if(filter.date) { // forecast date whole day (no time)  
 					console.log("+ filter.date")
 					var [ts, te] = timeSteps.date2tste(new Date(filter.date))
-					getPronoPromise = this.getPronosticos(undefined,filter.cal_id,ts,te,undefined)
+					corridas = this.getPronosticos(undefined,filter.cal_id,ts,te,undefined)
 				} else { 
 					console.log("filter.forecast_timestart & forecast.timeend")
-					getPronoPromise = this.getPronosticos(undefined,filter.cal_id,filter.forecast_timestart,filter.forecast_timeend)
+					corridas = await this.getPronosticos(undefined,filter.cal_id,filter.forecast_timestart,filter.forecast_timeend)
 				}
 			} else if(filter.forecast_timeend) {
 				console.log("   + filter.forecast_timeend")
-				getPronoPromise = this.getPronosticos(undefined,filter.cal_id,undefined,filter.forecast_timeend)
+				corridas = await this.getPronosticos(undefined,filter.cal_id,undefined,filter.forecast_timeend)
 			} else {
 				return Promise.reject("Invalid options, more filters are required")
 			}
@@ -18131,11 +18116,11 @@ ORDER BY cal.cal_id`
 					return Promise.reject("Falta parametro date o forecast_date")
 				} 
 				console.log("	+ filter.forecast_date")
-				getPronoPromise = this.getPronosticos(undefined,undefined,undefined,undefined,filter.forecast_date,undefined,undefined,undefined,filter.estacion_id)		
+				corridas = await this.getPronosticos(undefined,undefined,undefined,undefined,filter.forecast_date,undefined,undefined,undefined,filter.estacion_id)		
 			} else {
 				console.log("	+ filter.date")
 				var [ts, te] = timeSteps.date2tste(new Date(filter.date))
-				getPronoPromise = this.getPronosticos(undefined,undefined,ts,te,undefined,undefined,undefined,undefined,filter.estacion_id)
+				corridas = await this.getPronosticos(undefined,undefined,ts,te,undefined,undefined,undefined,undefined,filter.estacion_id)
 			}
 		} else if (filter.model_id) {
 			console.log("filter.model_id")
@@ -18143,63 +18128,56 @@ ORDER BY cal.cal_id`
 				return Promise.reject("crud.deleteCorridas: Falta parametro date")
 			}
 			var [ts, te] = timeSteps.date2tste(new Date(filter.date))
-			return this.getPronosticos(undefined,undefined,ts,te,undefined,undefined,undefined,undefined,undefined,undefined,false,undefined,undefined,undefined,undefined,undefined,filter.model_id)
+			corridas = await this.getPronosticos(undefined,undefined,ts,te,undefined,undefined,undefined,undefined,undefined,undefined,false,undefined,undefined,undefined,undefined,undefined,filter.model_id)
 		} else if (filter.date) {
 			if(!filter.skip_cal_id) { 
 				return Promise.reject("crud.deleteCorridas: missing skip_cal_id")
 			} 
 			console.log("filter.date + filter.skip_cal_id")
 			var [ts, te] = timeSteps.date2tste(new Date(filter.date))
-			getPronoPromise = this.getPronosticos(undefined,undefined,ts,te)
+			corridas = await this.getPronosticos(undefined,undefined,ts,te)
 		} else if (filter.forecast_date) {
 			if(!filter.skip_cal_id) { 
 				return Promise.reject("crud.deleteCorridas: missing skip_cal_id")
 			} 
 			console.log("filter.forecast_date + filter.skip_cal_id")
-			getPronoPromise = this.getPronosticos(undefined,undefined,undefined,undefined,filter.forecast_date)
+			corridas = await this.getPronosticos(undefined,undefined,undefined,undefined,filter.forecast_date)
 		} else if (filter.forecast_timeend) {
 			if(!filter.skip_cal_id) { 
 				return Promise.reject("crud.deleteCorridas: missing skip_cal_id")
 			} 
 			console.log("filter.forecast_timeend + filter.skip_cal_id")
-			getPronoPromise = this.getPronosticos(undefined,undefined,undefined,filter.forecast_timeend)
+			corridas = await this.getPronosticos(undefined,undefined,undefined,filter.forecast_timeend)
 		} else {
-			throw("Missing filter")
+			throw(new Error("Missing filter"))
 		}
-		return getPronoPromise
-		.then(corridas=>{
-			if(corridas.length == 0) {
-				console.warn("crud.deleteCorridas: pronosticos not found")
-				return
-			}
-			if(filter.skip_cal_id) {
-				corridas = corridas.filter(c=> filter.skip_cal_id.indexOf(c.cal_id) < 0)
-			}
-			var cor_id = corridas.map(c=>c.id)
-			console.log({corridas:corridas,cor_id:cor_id})
-			var savePromise
-			if(options.save) {
-				console.log("options.save, guardando en corridas_guardadas")
-				savePromise = this.guardarCorridas(cor_id)
-			} else if(options.save_prono) {
-				console.log("options.save_prono, guardando prono en corridas_guardadas")
-				savePromise = this.guardarCorridas(cor_id,undefined,{only_prono:true})
-			} else {
-				savePromise = Promise.resolve(corridas)
-			}
-			return savePromise
-			.then(corridas=>{
-				if(options.skip_delete) {
-					console.log("options.skip_delete")
-					return corridas
-				}
-				if(options.only_sim) {
-					console.log("   + options.only_sim")
-					return this.deletePronosticos(cor_id,undefined,undefined,undefined,undefined,true)
-				}
-				return this.deleteCorrida(cor_id)
-			})
-		})
+		if(corridas.length == 0) {
+			console.warn("crud.deleteCorridas: pronosticos not found")
+			return
+		}
+		if(filter.skip_cal_id) {
+			corridas = corridas.filter(c=> filter.skip_cal_id.indexOf(c.cal_id) < 0)
+		}
+		var cor_id = corridas.map(c=>c.id)
+		console.debug({corridas:corridas,cor_id:cor_id})
+		if(options.save) {
+			console.log("options.save, guardando en corridas_guardadas")
+			corridas = await this.guardarCorridas(cor_id)
+		} else if(options.save_prono) {
+			console.log("options.save_prono, guardando prono en corridas_guardadas")
+			corridas = await this.guardarCorridas(cor_id,undefined,{only_prono:true})
+		} else {
+			// savePromise = Promise.resolve(corridas)
+		}
+		if(options.skip_delete) {
+			console.log("options.skip_delete")
+			return corridas
+		}
+		if(options.only_sim) {
+			console.log("   + options.only_sim")
+			return this.deletePronosticos(cor_id,undefined,undefined,undefined,undefined,true)
+		}
+		return this.deleteCorrida(cor_id)
 	}
 
 	static async batchDeleteCorridas(options={n:10,skip_cal_id:[288,308,391,400,439,440,441,442,432,433,439,440,441,442,444,445,446,454,457,455,456,458,459,460,461]}) {

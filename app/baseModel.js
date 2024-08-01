@@ -306,12 +306,17 @@ internal.baseModel = class {
 	 * @returns Object
 	 */
 	toJSON() {
-		const this_with_nulls = Object.assign({},this)
+		const this_with_nulls = {}
 		const fields = (Object.keys(this.constructor._fields).length) ? this.constructor._fields : this
 		for(const field of Object.keys(fields)) {
+			if(/^_/.test(field)) {
+				continue
+			}
 			// console.debug("field: " + field, "value: " + this_with_nulls[field])
-			if(this_with_nulls[field] == undefined) {
+			if(this[field] == undefined) {
 				this_with_nulls[field] = null
+			} else {
+				this_with_nulls[field] = this[field]
 			}
 		}
 		// console.log(JSON.stringify(this_with_nulls))
@@ -521,6 +526,19 @@ internal.baseModel = class {
 			}
 		} 
 	}
+
+	static async create(items) {
+		const results = []
+		for(const item of items) {
+			const instance = new this(item)
+			if(typeof instance.create != "function") {
+				throw(new Error(".create not defined for this class"))
+			}
+			results.push(await instance.create())
+		}
+		return results
+	} 
+
 	async create() {
 		this.checkPK()
 		const statement = this.build_insert_statement()
