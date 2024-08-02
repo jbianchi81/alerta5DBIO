@@ -3679,8 +3679,8 @@ internal.mch_py = class {
 						proc_id: 1
 					}))
 				}
+				series = accessor_utils.filterSeries(series,params)
 			}
-			series = filterSeries(series,params)
 			if(result.data.payload.stations.next_page_url) {
 				return this.getSeriesPage(result.data.payload.stations.next_page_url,params,series,return_raw)
 			} else {

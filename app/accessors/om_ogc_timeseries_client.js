@@ -936,13 +936,14 @@ internal.client = class {
     async getSeriesFilters(filter={},ts_filter={},estaciones=[]) {
         if(filter.monitoringPoint) {
             ts_filter.monitoringPoint = filter.monitoringPoint
-        } else if(filter.estacion_id || filter.pais || filter.propietario || filter.feature_of_interest_id || filter.id_externo) {
+        } else if(filter.estacion_id || filter.pais || filter.propietario || filter.feature_of_interest_id || filter.id_externo || filter.tabla_id || filter.tabla) {
             // reads from accessor_feature_of_interest.estacion_id
             const features_of_interest = await internal.feature_of_interest.read({
                 estacion_id:filter.estacion_id,
                 pais:filter.pais,
                 propietario:filter.propietario,
-                feature_id: filter.id_externo
+                feature_id: filter.id_externo,
+                network_id: filter.tabla ?? filter.tabla_id
             })
             if(!features_of_interest.length) {
                 throw(new Error("No features of interest found in database matching the provided criteria. Run getSites to update database."))
@@ -1032,7 +1033,7 @@ internal.client = class {
             return series
         }
         if(!estaciones.length) {
-            console.log("Monitoring points not set. Getting sites from accessor")
+            console.info("Monitoring points not set. Getting sites from accessor")
             estaciones = await this.getSites(filter)
         }
         const series = []
