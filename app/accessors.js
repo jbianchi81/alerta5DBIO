@@ -3073,8 +3073,8 @@ internal.ana = class {
 				id_externo: (e.CodEstacao) ? e.CodEstacao[0] : null,
 				tabla: "red_ana_hidro",
 				nombre: (e.NomeEstacao) ? e.NomeEstacao[0] : null,
-				cuenca: (e.Bacia) ? parseInt(e.Bacia[0]) : null,
-				subcuenca: (e.SubBacia) ? parseInt(e.SubBacia[0]) : null,
+				// cuenca: (e.Bacia) ? parseInt(e.Bacia[0]) : null,
+				// subcuenca: (e.SubBacia) ? parseInt(e.SubBacia[0]) : null,
 				propietario: "ANA",
 				provincia: (e["Municipio-UF"]) ? e["Municipio-UF"][0].split("-")[1] : null,
 				localidad: (e["Municipio-UF"]) ? e["Municipio-UF"][0].split("-")[0] : null,
@@ -3091,7 +3091,7 @@ internal.ana = class {
 				automatica: true,
 				tipo: "A",
 				has_obs: (e.StatusEstacao) ? (e.StatusEstacao[0] == "Ativo") ? true : false : false,
-				url: "https://telemetriaws1.ana.gov.br/serviceANA.asmx/ListaEstacoesTelemetricas",
+				URL: "https://telemetriaws1.ana.gov.br/serviceANA.asmx/ListaEstacoesTelemetricas",
 				habilitar: true,
 				real: true
 			})
