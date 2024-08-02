@@ -13420,7 +13420,7 @@ internal.CRUD = class {
 			} else if (timeend_time < t_offset) {
 				timeend.setTime(timeend.getTime() - timeend_time + t_offset + dt)
 			}
-			console.debug({timestart:timestart,timeend:timeend,dt:dt})
+			// console.debug({timestart:timestart,timeend:timeend,dt:dt})
 			var obs = []
 			for(var i=timestart.getTime();i<timeend.getTime();i=i+dt) {
 				var stepstart = new Date(i)
@@ -13456,7 +13456,7 @@ internal.CRUD = class {
 				if(dt_epoch) {
 					observaciones = observaciones.filter(o=>{
 						var time_sum_epoch = timeSteps.interval2epochSync(o.time_sum) * 1000
-						console.debug("crud.getRegularSeries: dt:" + dt_epoch, "o.time_sum:"  + time_sum_epoch + ", min_time_fraction: " + min_time_fraction)
+						// console.debug("crud.getRegularSeries: dt:" + dt_epoch, "o.time_sum:"  + time_sum_epoch + ", min_time_fraction: " + min_time_fraction)
 						if(time_sum_epoch / dt_epoch < min_time_fraction) {
 							console.error("crud.getRegularSeries: la observación no alcanza la mínima fracción de tiempo")
 							return false
@@ -13621,6 +13621,15 @@ internal.CRUD = class {
 						break;
 					case "math": 
 						aggStmt = options.expression
+						break;
+					case "first":
+						aggStmt = "round(first(valor)::numeric," + precision + ")"
+						break;
+					case "nearest":
+						aggStmt = "round(first(valor)::numeric," + precision + ")"
+						break;
+					case "last":
+						aggStmt = "round(last(valor)::numeric," + precision + ")"
 						break;
 					default:
 						console.error("aggFunction incorrecta")
