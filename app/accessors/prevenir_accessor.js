@@ -13,7 +13,8 @@ internal.Client = class {
         tipo: "puntual",
         proc_id: 1,
         var_id: 2,
-        unit_id: 11
+        unit_id: 11,
+        proxy: undefined
     }
     /**
      * prevenir accessor - Requests from FdX web API '/rango' method which returns a json array of objects, from each object it reads timestart from 'time' property assuming UTC time and value from 'Nivel' property assuming meters units. 'topic' parameter of request is taken from 'id_externo' property of estaciones plus '/nivel'. 'fecha_inicio' and 'fecha_fin' query parameters are interpreted as UTC and accept the format YYYY-MM-DD hh:mm:ss or YYYY-MM-DD. Example request: http://69.28.90.79:5000/api/rango?topic=telemetria_10/nivel&fecha_inicio=2024-01-05&fecha_fin=2024-01-05%2012:00:00
@@ -29,7 +30,12 @@ internal.Client = class {
     }
     async test() {
         try {
-			const response = await axios.get(`${this.config.url}/rango`)
+			const response = await axios.get(
+                `${this.config.url}/rango`,
+                {
+                    proxy: this.config.proxy
+                }
+            )
             const {statusCode} = response
             if(statusCode != 200) {
                 console.error(`Accessor test failed. Status code ${statusCode}`)
@@ -39,7 +45,6 @@ internal.Client = class {
 		}
         catch(e) {
 			console.error(e)
-			this.ftp.end()
 			return false
 		}
 	}
@@ -91,7 +96,8 @@ internal.Client = class {
                     fecha_inicio: timestart,
                     fecha_fin: timeend
                 },
-                responseType: "json"
+                responseType: "json",
+                proxy: this.config.proxy
             })
             // console.debug(response)
             if(response.status != 200) {
