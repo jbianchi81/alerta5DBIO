@@ -1231,16 +1231,18 @@ internal.ResultIsInstanceOfTest  = class extends internal.CrudProcedureTest {
                 }
             } else {
                 // evaluate all elements in array
-                for(var i in result) {
-                    if(result[i] instanceof Object === false) {
+                var i = 0
+                for(var x of result) {
+                    if(x instanceof Object === false) {
                         value = false
                         reason = `Result element ${i} must be an Object`
                         break
-                    } else if(result[i] instanceof this.class === false) {
+                    } else if(x instanceof this.class === false) {
                         value = false
                         reason = `Result element ${i} must be an instance of class ${this.class_name}`
                         break
                     } 
+                    i = i + 1
                 }
             }
         } else if (result instanceof Object === false) {

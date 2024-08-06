@@ -391,7 +391,7 @@ internal.baseModel = class {
 	toTuple(options={}) {
 		const fields = (Object.keys(this.constructor._fields).length) ? this.constructor._fields : this
 		return Object.keys(fields).filter(key=>(options.columns) ? options.columns.indexOf(key) >= 0 : true).map(key=>{
-			if(fields[key] != undefined && fields[key].type && (fields[key].type == "timestamp" || fields[key].type == "date")) {
+			if(this[key] != undefined && fields[key] != undefined && fields[key].type && (fields[key].type == "timestamp" || fields[key].type == "date")) {
 				return this[key].toISOString()
 			} else {
 				return this[key]

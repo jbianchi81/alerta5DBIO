@@ -87,7 +87,7 @@ sequence:
       timestart:
         hours: -4
       timeend:
-        days: 2
+        days: 3
         roundTo:
           hours: 9
     output: ../../tmp/corrida_gfs_nomads.json
@@ -136,7 +136,7 @@ sequence:
         timestart: #"2024-06-10T12:00:00.000Z"
           hours: -6
         timeend: #"2024-06-27T06:00:00.000Z"
-          days: 1
+          days: 3
         area_id: 134
         cal_id: 676
         forecast_date: # "2024-06-18T12:00:00.000Z"
@@ -374,53 +374,56 @@ sequence:
 #     filter:
 #       id: 134
 
-# - procedureName: DeleteProcedure
-#   arguments:
-#     class_name: escena
-#     filter:
-#       id: 18
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: escena
+    filter:
+      id: 18
 
-# - procedureName: DeleteProcedure
-#   arguments:
-#     class_name: asociacion
-#     filter:
-#       id: 5
-#       asociacion_id: 5
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: asociacion
+    filter:
+      id: 5
+      asociacion_id: 5
 
-# - procedureName: DeleteProcedure
-#   arguments:
-#     class_name: asociacion
-#     filter:
-#       id: 6
-#       asociacion_id: 6
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: asociacion
+    filter:
+      id: 6
+      asociacion_id: 6
 
-# - procedureName: DeleteProcedure
-#   arguments:
-#     class_name: corrida
-#     filter:
-#       cal_id: 676
-#       forecast_date:
-#         hours: -4
-#         roundTo: 
-#           hours: 6
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: corrida
+    filter:
+      cal_id: 676
+      forecast_date:
+        hours: -4
+        roundTo: 
+          hours: 6
 
-# - procedureName: DeleteProcedure
-#   arguments:
-#     class_name: calibrado
-#     filter:
-#       id: 676
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: calibrado
+    filter:
+      id: 676
 
-# - procedureName: DeleteProcedure
-#   arguments:
-#     class_name: fuente
-#     filter:
-#       id: 44
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: area
+    filter:
+      id: 134
 
-# - procedureName: DeleteProcedure
-#   arguments:
-#     class_name: modelo
-#     filter:
-#       id: 305
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: fuente
+    filter:
+      id: 44
 
-
-
+- procedureName: DeleteProcedure
+  arguments:
+    class_name: modelo
+    filter:
+      id: 305

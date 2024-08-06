@@ -34,6 +34,7 @@ sequence:
       output_individual_files:
         pattern: qmm.{{estacion.id}}
         base_path: outputs
+      header: true
     output_format: csv
   tests:
   - testName: ArrayLengthTest
@@ -47,6 +48,8 @@ sequence:
       output: outputs/qmm.8.csv
       output_format: csv
       result_property_name: observaciones
+
+
 # read data and write down json
 - procedureName: ReadProcedure
   arguments:

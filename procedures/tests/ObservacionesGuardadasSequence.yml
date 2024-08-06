@@ -118,6 +118,8 @@ sequence:
       timeend: 2021-01-01 00:00:00
     output: outputs/read_observacionesGuardadas.csv
     output_format: csv
+    options:
+      header: true
   tests:
   - testName: ArrayLengthTest
     arguments:
@@ -133,6 +135,7 @@ sequence:
       output_format: csv
 # TO DO? update from archive
 # TO DO? delete from archive
+
 # restore from archive
 - procedureName: RestoreProcedure
   arguments:

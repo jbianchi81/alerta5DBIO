@@ -113,6 +113,7 @@ sequence:
       output: outputs/read_obs.tif
       output_format: buffer
       result_deep_property: 0.valor
+
 - procedureName: CreateProcedure
   arguments:
     class_name: observacion

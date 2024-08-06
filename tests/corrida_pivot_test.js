@@ -1,7 +1,7 @@
 const test = require('node:test')
 const assert = require('assert')
 process.env.NODE_ENV = "test"
-const {corrida: Corrida, observacionPivot: ObservacionPivot, modelo: Modelo, calibrado: Calibrado, serie: Serie} = require('../app/CRUD')
+const {corrida: Corrida, observacionPivot: ObservacionPivot, modelo: Modelo, calibrado: Calibrado, serie: Serie, estacion} = require('../app/CRUD')
 const a5_samples = require('./a5_samples')
 const {ReadProcedure} = require('../app/procedures')
 
@@ -98,7 +98,7 @@ test("read corrida pivot test", async(t)=>{
         })
         const corridas = await procedure.run()
 
-        console.debug({corridas:corridas})
+        // console.debug({corridas:corridas})
 
         assert.equal(corridas.length, 1, "expecting 1 item")
         assert(corridas[0].pronosticos != undefined, "Expected defined pronosticos property")
@@ -149,5 +149,11 @@ test("read corrida pivot test", async(t)=>{
         assert.equal(series.length, 2, "expected 2 item")
         assert(series.map(s => s.id).indexOf(1505) >= 0, "expected to find id = 1505")
         assert(series.map(s => s.id).indexOf(1520) >= 0, "expected to find id = 1520")
+    })
+
+    await t.test("delete estacion", async(t) => {
+        const estaciones = await estacion.delete({id: 2})
+        assert.equal(estaciones.length, 1, "expected 1 item")
+        assert.equal(estaciones[0].id, 2, "expected to find id = 2")
     })
 })

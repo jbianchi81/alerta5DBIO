@@ -1922,15 +1922,86 @@ internal.serie = class extends baseModel {
 		}
 		// console.log({serie:this})
 	}
+
+	getSite() {
+		if(!this.estacion) {
+			return
+		}
+		if(this.tipo == "areal") {
+			if(this.estacion instanceof internal["area"]) {
+				return this.estacion
+			} else {
+				return new internal.area(this.estacion)
+			}
+		} else if(this.tipo == "rast" || this.tipo == "raster") {
+			if(this.estacion instanceof internal.escena) {
+				return this.estacion
+			} else {
+				return new internal.escena(this.estacion)
+			}
+		} else {
+			if(this.estacion instanceof internal.estacion) {
+				return this.estacion
+			} else {
+				return new internal.estacion(this.estacion)
+			}
+		}
+	}
+
+	getVar() {
+		if(!this.var) {
+			return
+		}
+		if(this.var instanceof internal["var"]) {
+			return this.var
+		} else {
+			return new internal["var"](this.var)
+		}
+	}
+
+	getProcedimiento() {
+		if(!this.procedimiento) {
+			return
+		}
+		if(this.procedimiento instanceof internal.procedimiento) {
+			return this.procedimiento
+		} else {
+			return new internal.procedimiento(this.procedimiento)
+		}
+	}
+
+	getUnidades() {
+		if(!this.unidades) {
+			return
+		}
+		if(this.unidades instanceof internal.unidades) {
+			return this.unidades
+		} else {
+			return new internal.unidades(this.unidades)
+		}
+	}
+	
+	getFuente() {
+		if(!this.fuente) {
+			return
+		}
+		if(this.fuente instanceof internal.fuente) {
+			return this.fuente
+		} else {
+			return new internal.fuente(this.fuente)
+		}
+	}
+
+	
 	toJSON() {
 		return {
 			tipo: (this.tipo) ? this.tipo : "puntual",
 			id: (this.id) ? parseInt(this.id) : null, 
-			estacion: this.estacion,
-			var: this["var"],
-			procedimiento: this.procedimiento,
-			unidades: this.unidades,
-			fuente: this.fuente,
+			estacion: this.getSite(),
+			var: this.getVar(),
+			procedimiento: this.getProcedimiento(),
+			unidades: this.getUnidades(),
+			fuente: this.getFuente(),
 			date_range: this.date_range,
 			monthlyStats: this.monthlyStats,
 			beginTime: this.beginTime,
@@ -2083,12 +2154,12 @@ internal.serie = class extends baseModel {
 			}
 			return this.toTuple().join(sep) 
 		}
-		var csv_string = this.toKVP() + "\n"		
+		var csv_string = this.toKVP() + "\n"	
 		if (this.observaciones) {
 			if(this.monthlyStats) {
-				var obs = this.observaciones.toCSV({delimiter:sep,hasMonthlyStats:true})
+				var obs = this.observaciones.toCSV({delimiter:sep,hasMonthlyStats:true,header: options.header})
 			} else {
-				var obs = this.observaciones.toCSV({delimiter:sep,hasMonthlyStats:false})
+				var obs = this.observaciones.toCSV({delimiter:sep,hasMonthlyStats:false,header: options.header})
 			}
 			return csv_string + `${obs}`
 		} else {
@@ -11286,11 +11357,13 @@ internal.CRUD = class {
 						)
 					}
 				}
-				const invalid_filter_keys = Object.keys(filter).filter(key => (Object.keys(valid_filters).indexOf(key) < 0))
+				const delete_filter = Object.assign({},filter)
+				delete delete_filter.tipo
+				const invalid_filter_keys = Object.keys(delete_filter).filter(key => (Object.keys(valid_filters).indexOf(key) < 0))
 				if(invalid_filter_keys.length) {
 					throw(new Error("Invalid filter keys: " + invalid_filter_keys.toString()))
 				}
-				var filter_string = internal.utils.control_filter2(valid_filters,filter,undefined,true)
+				var filter_string = internal.utils.control_filter2(valid_filters,delete_filter,undefined,true)
 				if(!filter_string) {
 					return Promise.reject(new Error("invalid filter value"))
 				}
