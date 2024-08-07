@@ -15139,7 +15139,7 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 							throw("Tipo inválido para convertir a pulsos")
 						}
 						result = await this.getSerieAndExtractPulses(a.source_tipo,a.source_series_id,filter.timestart,filter.timeend,a.dest_series_id)
-					} else if ( (dt.toPostgres() == "1 month" || dt.toPostgres() == "1 mon" || dt.toPostgres() == "1 months") && a.source_tipo !="raster" && a.source_tipo != "rast") {
+					} else if ( (dt == "1 month" || dt == "1 mon" || dt == "1 months") && a.source_tipo !="raster" && a.source_tipo != "rast") {
 						console.log("running aggregateMonthly")
 						const serie = await internal.serie.read({tipo:a.source_tipo,id:a.source_series_id,timestart:filter.timestart,timeend:filter.timeend})
 						const observaciones = serie.aggregateMonthly(filter.timestart,filter.timeend,a.agg_func,a.precision,opt.source_time_support,a.expression,opt.inst)
@@ -15149,7 +15149,7 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 						result =  await this.getRegularSeries(
 								a.source_tipo,
 								a.source_series_id,
-								dt.toPostgres(),
+								dt,
 								filter.timestart,
 								filter.timeend,
 								opt,
