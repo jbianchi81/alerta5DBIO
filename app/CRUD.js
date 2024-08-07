@@ -180,6 +180,15 @@ internal.geometry = class extends baseModel  {
 }
 
 internal.red = class extends baseModel  {
+
+	static _fields = {
+		tabla_id: {type: "string"},
+		nombre: {type: "string"},
+		public: {type: "boolean"},
+		public_his_plata: {type: "boolean"},
+		id: {type: "integer"}
+	}
+
 	constructor() {
         super()
 		this.id = undefined
@@ -204,9 +213,6 @@ internal.red = class extends baseModel  {
 	}
 	toString() {
 		return "{tabla_id: " + this.tabla_id + ", nombre: " + this.nombre + ", public: " + this.public + ", public_his_plata: " + this.public_his_plata + ", id: " + this.id + "}"
-	}
-	toCSV() {
-		return this.tabla_id + "," + this.nombre + "," + this.public + "," + this.public_his_plata + "," + this.id
 	}
 	toCSVless() {
 		return this.tabla_id + "," + this.nombre + "," + this.id
@@ -451,9 +457,35 @@ internal.estacion = class extends baseModel  {
 	toString() {
 		return "{id:" + this.id + ", nombre: " + this.nombre + ", id_externo: " + this.id_externo + ", geom: " + ((this.geom instanceof internal.geometry) ? this.geom.toString() : "" )+ ", tabla: " + this.tabla + ", provincia: " + this.provincia + ", pais: " + this.pais + ", rio: " + this.rio + ", has_obs: " + this.has_obs + ", tipo: " + this.tipo + ", automatica: " + this.automatica + ", habilitar: " + this.habilitar + ", propietario: " + this.propietario + ", abreviatura: " + this.abreviatura + ", URL:" + this.URL + ", localidad: " + this.localidad + ", real: " + this.real + ", nivel_alerta: " + this.nivel_alerta + ", nivel_evacuacion: " + this.nivel_evacuacion + ", nivel_aguas_bajas: " + this.nivel_aguas_bajas + ",altitud:" + this.altitud + "}"
 	}
-	toCSV() {
-		return this.id + "," + this.nombre + "," + this.id_externo + "," + ((this.geom instanceof internal.geometry) ? this.geom.toString() : "" ) + "," + this.tabla + "," + this.provincia + "," + this.pais + "," + this.rio + "," + this.has_obs + "," + this.tipo + "," + this.automatica + "," + this.habilitar + "," + this.propietario + "," + this.abreviatura + "," + this.URL + "," + this.localidad + "," + this.real + "," + this.nivel_alerta + "," + this.nivel_evacuacion + "," + this.nivel_aguas_bajas + "," + this.altitud
+	toTuple() {
+		return [
+			this.id,
+			this.nombre,
+			this.id_externo,			
+			(this.geom != undefined) ? new internal.geometry(this.geom).toString() : "",
+			this.tabla,			
+			this.provincia,			
+			this.pais,			
+			this.rio,			
+			this.has_obs,			
+			this.tipo,			
+			this.automatica,			
+			this.habilitar,			
+			this.propietario,			
+			this.abreviatura,			
+			this.URL,			
+			this.localidad,			
+			this.real,			
+			this.nivel_alerta,			
+			this.nivel_evacuacion,			
+			this.nivel_aguas_bajas,			
+			this.altitud
+		]
 	}
+	// toCSV(options={}) {
+	// 	return this.toTuple().join(",")
+	// 	// return this.id + "," + this.nombre + "," + this.id_externo + "," + ((this.geom instanceof internal.geometry) ? this.geom.toString() : "" ) + "," + this.tabla + "," + this.provincia + "," + this.pais + "," + this.rio + "," + this.has_obs + "," + this.tipo + "," + this.automatica + "," + this.habilitar + "," + this.propietario + "," + this.abreviatura + "," + this.URL + "," + this.localidad + "," + this.real + "," + this.nivel_alerta + "," + this.nivel_evacuacion + "," + this.nivel_aguas_bajas + "," + this.altitud
+	// }
 	toCSVless() {
 		return this.id + "," + this.nombre + "," + this.tabla + "," + ((this.geom instanceof internal.geometry) ? this.geom.toString() : "")
 	}
@@ -752,9 +784,39 @@ internal.area = class extends baseModel  {
 			mostrar: this.mostrar 
 		})
 	}
-	toCSV() {
-		return [this.id, `"${this.nombre}"`, this.exutorio_id, this.area, this.ae, this.rho, this.wp, this.activar, this.mostrar].join(",")
+	static getCSVHeader() {
+		return [
+			"id",
+			"nombre", 
+			"exutorio_id", 
+			"area", 
+			"ae", 
+			"rho", 
+			"wp", 
+			"activar", 
+			"mostrar"
+		]
 	}
+
+	toTuple() {
+		return [
+			this.id, 
+			this.nombre, 
+			this.exutorio_id, 
+			this.area, 
+			this.ae, 
+			this.rho, 
+			this.wp, 
+			this.activar, 
+			this.mostrar
+		]
+	}
+	// toCSV(options={}) {
+	// 	if(options.header) {
+	// 		return `${this.constructor.getCSVHeader().join(",")}\n${this.toTuple().join(",")}`
+	// 	}
+	// 	return this.toTuple().join(",")
+	// }
 	toCSVless() {
 		return this.id + "," + `"${this.nombre}"`
 	}
@@ -910,6 +972,15 @@ internal.area = class extends baseModel  {
 }
 
 internal.escena = class extends baseModel  {
+
+	static _fields = {
+		id: {type: "integer"},	
+		nombre: {type: "string"},
+		geom: {type: "geometry"}
+	}
+
+	static _geom_field = "geom"
+
 	constructor() {
         super()
 		switch(arguments.length) {
@@ -959,14 +1030,17 @@ internal.escena = class extends baseModel  {
 	toString() {
 		return "{id:" + this.id + ",nombre: " + this.nombre + "}"
 	}
-	toCSV() {
-		return this.id + "," + this.nombre
-	}
+	// toCSV(options={}) {
+	// 	if(options.header) {
+	// 		return `id,nombre\n${this.id},${this.nombre}`
+	// 	}
+	// 	return this.id + "," + this.nombre
+	// }
 	toCSVless() {
 		return this.id + "," + this.nombre
 	}
 	static async read(filter={},options) {
-		if(filter.id) {
+		if(filter.id && !Array.isArray(filter.id)) {
 			return internal.CRUD.getEscena(filter.id,options)
 		}
 		return internal.CRUD.getEscenas(filter,options)
@@ -1010,6 +1084,11 @@ internal.escena = class extends baseModel  {
 }
 
 internal.VariableName = class extends baseModel {
+
+	static _fields = {
+		VariableName: {type: "string"},
+		href: {type: "string"}
+	}
 	constructor() {
 		super()
 		this.VariableName = arguments[0].VariableName
@@ -1132,9 +1211,9 @@ internal["var"] = class extends baseModel  {
 	toString() {
 		return "{id:" + this.id + ",var:" + this["var"]+ ", nombre:" + this.nombre + ",abrev:" + this.abrev + ",type:" + this.type + ",datatype: " + this.datatype + ",valuetype:" + this.valuetype + ",GeneralCategory:" + this.GeneralCategory + ",VariableName:" + this.VariableName + ",SampleMedium:" + this.SampleMedium + ",def_unit_id:" + this.def_unit_id + ",timeSupport:" + JSON.stringify(this.timeSupport) + "}"
 	}
-	toCSV() {
-		return this.id + "," + this["var"]+ "," + this.nombre + "," + this.abrev + "," + this.type + "," + this.datatype + "," + this.valuetype + "," + this.GeneralCategory + "," + this.VariableName + "," + this.SampleMedium + "," + this.def_unit_id + "," + JSON.stringify(this.timeSupport)
-	}
+	// toCSV() {
+	// 	return this.id + "," + this["var"]+ "," + this.nombre + "," + this.abrev + "," + this.type + "," + this.datatype + "," + this.valuetype + "," + this.GeneralCategory + "," + this.VariableName + "," + this.SampleMedium + "," + this.def_unit_id + "," + JSON.stringify(this.timeSupport)
+	// }
 	static _fields = {
 		id: {type: "integer", primary_key: true},
 		var: {type: "string"},
@@ -1154,23 +1233,30 @@ internal["var"] = class extends baseModel  {
 	toCSVless() {
 		return this.id + "," + this["var"]+ "," + this.nombre
 	}
-	toJSON() {
-		return {
-			"id": this.id,
-			"var": this["var"],
-			"nombre": this.nombre,
-			"abrev": this.abrev,
-			"type": this.type,
-			"datatype": this.datatype,
-			"valuetype": this.valuetype,
-			"GeneralCategory": this.GeneralCategory,
-			"VariableName": this.VariableName,
-			"SampleMedium": this.SampleMedium,
-			"def_unit_id": this.def_unit_id,
-			"timeSupport": this.timeSupport,
-			"def_hora_corte": this.def_hora_corte
-		}
-	}
+	// toJSON() {
+	// 	const this_with_nulls = Object.assign({},this)
+	// 	for(const field of Object.keys(this.constructor._fields)) {
+	// 		if(this_with_nulls[field] == undefined) {
+	// 			this_with_nulls[field] = null
+	// 		}
+	// 	}
+	// 	return this_with_nulls 
+		// {
+		// 	"id": this.id,
+		// 	"var": this["var"],
+		// 	"nombre": this.nombre,
+		// 	"abrev": this.abrev,
+		// 	"type": this.type,
+		// 	"datatype": this.datatype,
+		// 	"valuetype": this.valuetype,
+		// 	"GeneralCategory": this.GeneralCategory,
+		// 	"VariableName": this.VariableName,
+		// 	"SampleMedium": this.SampleMedium,
+		// 	"def_unit_id": this.def_unit_id,
+		// 	"timeSupport": this.timeSupport,
+		// 	"def_hora_corte": this.def_hora_corte
+		// }
+	// }
 	// static settable_parameters = ["var","nombre","abrev","type","datatype","valuetype","GeneralCategory","VariableName","SampleMedium","def_unit_id","timeSupport","def_hora_corte"]
 	// set(changes={}) {
 	// 	for(var key of Object.keys(changes)) {
@@ -1297,14 +1383,11 @@ internal.procedimiento = class extends baseModel  {
 	toString() {
 		return "{id:" + this.id + ",nombre:" + this.nombre + ", abrev:" + this.abrev + ",descripcion:"  + this.descripcion + "}"
 	}
-	toCSV() {
-		return this.id + "," + this.nombre + "," + this.abrev + "," + this.descripcion
-	}
 	toCSVless() {
 		return this.id + "," + this.nombre
 	}
 	static async read(filter={}) {
-		if(filter.id) {
+		if(filter.id && !Array.isArray(filter.id)) {
 			return internal.CRUD.getProcedimiento(filter.id)
 		}
 		return internal.CRUD.getProcedimientos(filter)
@@ -1378,9 +1461,6 @@ internal.unidades = class extends baseModel  {
 	toString() {
 		return "{id:" + this.id + ",nombre:" + this.nombre + ", abrev:" + this.abrev + ",UnitsID:" + this.UnitsID + ", UnitsType:" + this.UnitsType + "}"
 	}
-	toCSV() {
-		return this.id + "," + this.nombre + "," + this.abrev + "," + this.UnitsID + "," + this.UnitsType
-	}
 	toCSVless() {
 		return this.id + "," + this.nombre
 	}
@@ -1394,7 +1474,7 @@ internal.unidades = class extends baseModel  {
 		}
 	}
 	static async read(filter={}) {
-		if(filter.id) {
+		if(filter.id && !Array.isArray(filter.id)) {
 			return internal.CRUD.getUnidad(filter.id)
 		}
 		return internal.CRUD.getUnidades(filter)
@@ -1403,6 +1483,32 @@ internal.unidades = class extends baseModel  {
 }
 
 internal.fuente = class extends baseModel {
+
+	static _fields = {
+		id: {type: "integer"},
+		nombre: {type: "string"},
+		data_table: {type: "string"},
+		data_column: {type: "string"},
+		tipo: {type: "string"},
+		def_proc_id: {type: "integer"},
+		def_dt: {type: "interval"},
+		hora_corte: {type: "interval"},
+		def_unit_id: {type: "integer"},
+		def_var_id: {type: "integer"},
+		fd_column: {type: "string"},
+		mad_table: {type: "string"},
+		scale_factor: {type: "float"},
+		data_offset: {type: "float"},
+		def_pixel_height: {type: "float"},
+		def_pixel_width: {type: "float"},
+		def_srid: {type: "integer"},
+		def_extent: {type: "geometry"},
+		date_column: {type: "string"},
+		def_pixeltype: {type: "string"},
+		abstract: {type: "string"},
+		source: {type: "string"},
+		public: {type: "boolean"}
+	}
 	constructor() {
         super()  // nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, def_extent, date_column, def_pixeltype, abstract, source
 		// if(config.verbose) {
@@ -1576,7 +1682,7 @@ internal.fuente = class extends baseModel {
 		}
 	}
 	static async read(filter={},options) {
-		if(filter.id) {
+		if(filter.id && !Array.isArray(filter.id)) {
 			return internal.CRUD.getFuente(filter.id)
 		}
 		return internal.CRUD.getFuentes(filter,options)
@@ -1704,7 +1810,9 @@ internal.fuente.build_read_query = function(filter) {
 
 
 internal.serie = class extends baseModel {
+	
 	constructor() {
+
 		// console.log("New serie:")
 		// console.log(JSON.stringify(arguments[0]))
 		super(...arguments)
@@ -1834,6 +1942,29 @@ internal.serie = class extends baseModel {
 			pronosticos: this.pronosticos
 		}
 	}
+
+	toGeoJSON(includeProperties=true) {
+		const properties = (includeProperties) ? this.getProperties() : {}
+		properties.estacion = Object.assign({},properties.estacion)
+		delete properties.estacion.geom
+		return turfHelpers.feature(this.estacion.geom,properties)
+	}
+
+	static toGeoJSON(series=[], includeProperties=true) {
+		if(!series.length) {
+			throw(new Error("Series items missing"))
+		}
+		const result = {
+			"type": "FeatureCollection",
+			"features": []
+		}
+		for(const serie of series) {
+			result.features.push(serie.toGeoJSON(includeProperties))
+		}
+		return result
+	}
+
+
 	toString() {
 		if (this.tipo == "areal") {
 			return "{id:" + this.id + ", area:" + this.estacion.toString() + ", var:" + this["var"].toString() + ", procedimiento:" + this.procedimiento.toString() + ", unidades:" + this.unidades.toString() + ", tipo:" + this.tipo + ", fuente:" + this.fuente.toString() + "}" 
@@ -1854,7 +1985,9 @@ internal.serie = class extends baseModel {
 		var sep= (options.delimiter) ? options.delimiter : "=" 
 		var line_start = (options.no_comment) ? "" : "# "
 		var kvp_sep = (options.single_line) ? " " : "\n"
-		var kvp_string = `${line_start}id${sep}${this.id}${kvp_sep}${line_start}estacion_id${sep}${this.estacion.id}${kvp_sep}${line_start}name${sep}${this.estacion.nombre}${kvp_sep}${line_start}longitude${sep}${this.estacion.geom.coordinates[0]}${kvp_sep}${line_start}latitude${sep}${this.estacion.geom.coordinates[1]}${kvp_sep}${line_start}var_id${sep}${this["var"].id}${kvp_sep}${line_start}proc_id${sep}${this.procedimiento.id}${kvp_sep}${line_start}unit_id${sep}${this.unidades.id}${kvp_sep}${line_start}tipo${sep}${this.tipo}`
+		var longitude = (this.tipo == "puntual") ? this.estacion.geom.coordinates[0] : ""
+		var latitude = (this.tipo == "puntual") ? this.estacion.geom.coordinates[1] : ""
+		var kvp_string = `${line_start}id${sep}${this.id}${kvp_sep}${line_start}estacion_id${sep}${this.estacion.id}${kvp_sep}${line_start}name${sep}${this.estacion.nombre}${kvp_sep}${line_start}longitude${sep}${longitude}${kvp_sep}${line_start}latitude${sep}${latitude}${kvp_sep}${line_start}var_id${sep}${this["var"].id}${kvp_sep}${line_start}proc_id${sep}${this.procedimiento.id}${kvp_sep}${line_start}unit_id${sep}${this.unidades.id}${kvp_sep}${line_start}tipo${sep}${this.tipo}`
 			for(var key in ["beginTime","endTime"]) {
 				if(this[key]) {
 					kvp_string = `${kvp_string}${kvp_sep}${line_start}${key}${sep}${this[key].toISOString()}`
@@ -1880,13 +2013,57 @@ internal.serie = class extends baseModel {
 	 * @param {Boolean} [options.print_observaciones=false] 
 	 * @returns {string}
 	 */
-	getCSVHeader(options={}) {
+	static getCSVHeader(options={}) {
 		var sep = (options.delimiter) ? options.delimiter : ","
 		if(options.print_observaciones) {
 			return ""
 		}
-		return ["id","estacion.id","estacion.nombre","estacion.geom.coordinates[0]","estacion.geom.coordinates[1]","var.id","procedimiento.id","unidades.id","tipo","beginTime","endTime","count","minValor","maxValor","fuente.id","estacion.tabla","estacion.id_externo"].join(sep)
+		return [
+			"id",
+			"estacion.id",
+			"estacion.nombre",
+			"estacion.geom.coordinates[0]",
+			"estacion.geom.coordinates[1]",
+			"var.id",
+			"procedimiento.id",
+			"unidades.id",
+			"tipo",
+			"beginTime",
+			"endTime",
+			"count",
+			"minValor",
+			"maxValor",
+			"fuente.id",
+			"estacion.tabla",
+			"estacion.id_externo"
+		]
 	}
+
+	toTuple(options={}) {
+		const lon = (this.getTipo == "puntual" && this.estacion.geom && this.estacion.geom.coordinates[0]) ? this.estacion.geom.coordinates[0] : undefined
+		const lat = (this.getTipo == "puntual" && this.estacion.geom && this.estacion.geom.coordinates[1]) ? this.estacion.geom.coordinates[1] : undefined
+		const tabla = (this.estacion && this.estacion.tabla) ? this.estacion.tabla : undefined
+		return [
+			this.id,
+			this.estacion.id,
+			this.estacion.nombre,
+			lon,
+			lat,
+			this.var.id,
+			this.procedimiento.id,
+			this.unidades.id,
+			this.tipo,
+			this.beginTime,
+			this.endTime,
+			this.count,
+			this.minValor,
+			this.maxValor,
+			this.fuente.id,
+			tabla,
+			this.estacion.id_externo
+		].map(c=>(c!= null) ? (c instanceof Date) ? c.toISOString() : c.toString() : "")
+	}
+
 	/**
 	 * Returns csv string for this object
 	 * @param {*} options
@@ -1897,8 +2074,14 @@ internal.serie = class extends baseModel {
 	toCSV(options={}) {
 		var sep = (options.delimiter) ? options.delimiter : ","
 		if(!options.print_observaciones) {
-			const row = [this.id,this.estacion.id,this.estacion.nombre,this.estacion.geom.coordinates[0],this.estacion.geom.coordinates[1],this.var.id,this.procedimiento.id,this.unidades.id,this.tipo,this.beginTime,this.endTime,this.count,this.minValor,this.maxValor,this.fuente.id,this.estacion.tabla,this.estacion.id_externo].map(c=>(c!= null) ? (c instanceof Date) ? c.toISOString() : c.toString() : "").join(sep)
-			return row
+			// const lon = (this.getTipo == "puntual" && this.estacion.geom && this.estacion.geom.coordinates[0]) ? this.estacion.geom.coordinates[0] : undefined
+			// const lat = (this.getTipo == "puntual" && this.estacion.geom && this.estacion.geom.coordinates[1]) ? this.estacion.geom.coordinates[1] : undefined
+			// const tabla = (this.estacion && this.estacion.tabla) ? this.estacion.tabla : undefined
+			// const row = [this.id,this.estacion.id,this.estacion.nombre,lon,lat,this.var.id,this.procedimiento.id,this.unidades.id,this.tipo,this.beginTime,this.endTime,this.count,this.minValor,this.maxValor,this.fuente.id,this.estacion.tabla,this.estacion.id_externo].map(c=>(c!= null) ? (c instanceof Date) ? c.toISOString() : c.toString() : "").join(sep)
+			if(options.header) {
+				return `${this.constructor.getCSVHeader().join(sep)}\n${this.toTuple().join(sep)}`
+			}
+			return this.toTuple().join(sep) 
 		}
 		var csv_string = this.toKVP() + "\n"		
 		if (this.observaciones) {
@@ -4321,7 +4504,7 @@ internal.observacion = class extends baseModel {
 
 	static async read() {
 		const observaciones = await internal.observaciones.read(...arguments)
-		delete observaciones.metadata
+		// delete observaciones.metadata
 		return observaciones
 	}
 
@@ -4356,6 +4539,64 @@ internal.observaciones_metadata = class extends baseModel {
 	}
 	toCSV() {
 		return Object.keys(this).map(key=>`${key},${this[key]}`).join("\n")
+	}
+}
+
+internal.observacionPivot = class extends baseModel {
+	constructor(observacion, options={}) {
+		super()
+		this.timestart = observacion.timestart
+		this.timeend = observacion.timeend
+		// all other keys must be series identifiers
+		if(options.string_keys) {
+			this._string_keys = true
+			for(const key of Object.keys(observacion).filter(k=> (k != "timestart" && k != "timeend")).map(k=>k.toString()).sort()) {
+				this[key] = observacion[key]
+			}
+		} else {
+			this._string_keys = false
+			for(const key of Object.keys(observacion).filter(k=> (k != "timestart" && k != "timeend")).map(k=>parseInt(k)).sort()) {
+				if (key.toString() == "NaN") {
+					throw(new Error("Invalid series identifier %s" % key.toString()))
+				}
+				this[key.toString()] = observacion[key]
+			}
+		}
+	}
+
+	toJSON() {
+		const o = {}
+		for (const key of Object.keys(this).filter(k =>
+			(!/^_/.test(k))
+		)) {
+			o[key] = this[key]
+		}
+		return o
+	}
+
+	getSeriesHeaders() {
+		return Object.keys(this).filter(k => 
+			(k != "timestart" && k != "timeend" && !/^_/.test(k))
+		).map(k => 
+			(this._string_keys) ? k.toString() : parseInt(k)
+		).sort()
+	}
+
+	toCSV(options={}) {
+		var sep = options.sep ?? ","
+		if(options.headers) {
+			var headers = options.headers
+		} else {
+			headers = this.getSeriesHeaders()
+		}
+		var values = headers.map(key=>{
+			if(this[key]) {
+				return this[key]
+			} else {
+				return "NULL"
+			}
+		}).join(sep)
+		return `${new Date(this.timestart).toISOString()}${sep}${new Date(this.timeend).toISOString()}${sep}${values}`
 	}
 }
 
@@ -4449,22 +4690,23 @@ internal.observaciones = class extends BaseArray {
 			headers.sort((a,b)=>a-b)
 			var header = `${h1}${sep}${h2}${sep}${headers.join(sep)}\n`
 			var body = this.map(o=>{
-				var values = headers.map(key=>{
-					if(o[key]) {
-						return o[key]
-					} else {
-						return "NULL"
-					}
-				}).join(sep)
-				return `${o.timestart.toISOString()}${sep}${o.timeend.toISOString()}${sep}${values}`
+				return o.toCSV(headers)
 			}).join("\n")
-			return `${header}${body}`
+			if(options.header) {
+				return `${header}${body}`
+			} else {
+				return body
+			}
 		} else {
 			var header = `id${sep}tipo${sep}series_id${sep}timestart${sep}timeend${sep}nombre${sep}descripcion${sep}unit_id${sep}timeupdate${sep}valor`
 			if(options.hasMonthlyStats) {
 				header = header + `${sep}stats.percentage_of_average${sep}stats.rank${sep}stats.count${sep}stats.month${sep}stats.historical_monthly_mean${sep}stats.weibull_percentile${sep}stats.percentile_category.name${sep}stats.percentile_category.range.0${sep}stats.percentile_category.range.1`
 			}
-			return `${header}\n${this.map(o=>o.toCSV(sep)).join("\n")}`
+			if(options.header) {
+				return `${header}\n${this.map(o=>o.toCSV(sep)).join("\n")}`
+			} else {
+				return this.map(o=>o.toCSV(sep)).join("\n")
+			}
 		}
 	}
 	toCSVcat(options = {}) {
@@ -4541,7 +4783,7 @@ internal.observaciones = class extends BaseArray {
 			headers.add(o.series_id)
 		})
 		var result = Object.keys(pivoted).sort().map(key=>{
-			return pivoted[key]
+			return new internal.observacionPivot(pivoted[key])
 		})
 		if(inline) {
 			this.length = 0
@@ -4839,6 +5081,24 @@ internal.dailyStats = class extends baseModel {
 }
 
 internal.monthlyStats = class extends baseModel {
+
+	static _fields = {
+		tipo: {type: "string"},
+		series_id: {type: "integer"},
+		mon: {type: "integer"},
+		count: {type: "integer"},
+		min: {type: "float"},
+		max: {type: "float"},
+		mean: {type: "float"},
+		p01: {type: "float"},
+		p10: {type: "float"},
+		p50: {type: "float"},
+		p90: {type: "float"},
+		p99: {type: "float"},
+		timestart: {type: "date"},
+		timeend: {type: "date"}
+	}
+
 	constructor() {
         super()
 		switch(arguments.length) {
@@ -4869,9 +5129,6 @@ internal.monthlyStats = class extends baseModel {
 	}
 	toString() {
 		return JSON.stringify({tipo:this.tipo,series_id:this.series_id,mon:this.mon,count:this.count, min:this.min, max:this.max, mean:this.mean, p01:this.p01, p10:this.p10, p50:this.p50, p90:this.p90, p99:this.p99, timestart:this.timestart, timeend:this.timeend})
-	}
-	toCSV() {
-		return this.tipo + "," + this.series_id + "," + this.mon + "," + this.count+ "," + this.min+ "," + this.max+ "," + this.mean+ "," + this.p01 + "," + this.p10+ "," + this.p50+ "," + this.p90+ "," + this.p99 + "," + this.timestart.toISOString() + "," + this.timeend.toISOString()
 	}
 	toCSVless() {
 		return this.tipo + "," + this.series_id + "," + this.doy+ "," + this.count+ "," + this.min+ "," + this.max+ "," + this.mean+ "," + this.p01 + "," + this.p10+ "," + this.p50+ "," + this.p90+ "," + this.p99 + "," + this.timestart.toISOString() + "," + this.timeend.toISOString()
@@ -5277,6 +5534,19 @@ internal.observacionDia = class extends baseModel {
 // sim
 
 internal.modelo = class extends baseModel {
+
+	static _fields = {
+		id: {type: "integer"},
+		nombre: {type: "string"},
+		tipo: {type: "string"},
+		def_var_id: {type: "integer"},
+		def_unit_id: {type: "integer"},
+		parametros: {type: "object"},
+		forzantes: {type: "object"},
+		estados: {type: "object"},
+		outputs: {type: "object"}
+	}
+
 	constructor() {
         super()
 		var m = arguments[0]
@@ -5306,14 +5576,15 @@ internal.modelo = class extends baseModel {
 	toCSVless() {
 		return this.id + "," + this.nombre + "," + this.tipo
 	} 
+
 	async create() {
 		const required_fields = ["nombre", "tipo", "def_var_id", "def_unit_id"]
 		required_fields.forEach(key=>{
 			if(typeof this[key] === undefined) {
-				throw("Invalid modelo. Missing " + key)
+				throw(new Error("Invalid modelo. Missing " + key))
 			}
 			if(this[key] == null) {
-				throw("Invalid modelo. " + key + " is null")
+				throw(new Error("Invalid modelo. " + key + " is null"))
 			}
 		})
 		const client = await global.pool.connect()
@@ -5340,7 +5611,12 @@ internal.modelo = class extends baseModel {
 					tipo=excluded.tipo, 
 					def_var_id=excluded.def_var_id, 
 					def_unit_id=excluded.def_unit_id 
-				RETURNING *
+				RETURNING
+				  id,
+				  nombre,
+				  tipo,
+				  def_var_id,
+				  def_unit_id
 			`, [this.id, this.nombre, this.tipo, this.def_var_id, this.def_unit_id])
 		} else {
 			var result = await client.query(`
@@ -5361,18 +5637,24 @@ internal.modelo = class extends baseModel {
 					tipo=excluded.tipo, 
 					def_var_id=excluded.def_var_id, 
 					def_unit_id=excluded.def_unit_id 
-				RETURNING *
+				RETURNING
+					id,
+					nombre,
+					tipo,
+					def_var_id,
+					def_unit_id
 			`, [this.nombre, this.tipo, this.def_var_id, this.def_unit_id])
 		}
 		if(!result.rows.length) {
+			await client.query("ROLLBACK")
 			throw("Nothing created")
 		}
 		Object.assign(this,result.rows[0])
 		if(this.parametros) {
 			for(var j=0;j<this.parametros.length;j++) {
-				// console.log(this.parametros[j])
+				// console.debug({parametro: this.parametros[j]})
 				this.parametros[j].model_id = this.id 
-				const parametro = await this.upsertParametroDeModelo(client,this.parametros[j])
+				const parametro = await internal.CRUD.upsertParametroDeModelo(client,this.parametros[j])
 				this.parametros[j].id = parametro.id
 			}
 		}
@@ -5380,25 +5662,26 @@ internal.modelo = class extends baseModel {
 			for(var j=0;j<this.estados.length;j++) {
 				// console.log(this.estados[j])
 				this.estados[j].model_id = this.id 
-				const estado = await this.upsertEstadoDeModelo(client,this.estados[j])
+				const estado = await internal.CRUD.upsertEstadoDeModelo(client,this.estados[j])
 				this.estados[j].id = estado.id
 			}
 		}
 		if(this.forzantes) {
 			for(var j=0;j<this.forzantes.length;j++) {
 				this.forzantes[j].model_id = this.id 
-				const forzante = await this.upsertForzanteDeModelo(client,this.forzantes[j])
+				const forzante = await internal.CRUD.upsertForzanteDeModelo(client,this.forzantes[j])
 				this.forzantes[j].id = forzante.id
 			}
 		}
 		if(this.outputs) {
 			for(var j=0;j<this.outputs.length;j++) {
 				this.outputs[j].model_id = this.id 
-				const output = await this.upsertOutputDeModelo(client,this.outputs[j])
+				const output = await internal.CRUD.upsertOutputDeModelo(client,this.outputs[j])
 				this.outputs[j].id = output.id
 			}
 		}
-		await client.query("COMMIT")		
+		await client.query("COMMIT")	
+		client.release()	
 		return this		
 	}
 	static async read(filter={}) {
@@ -5524,7 +5807,43 @@ internal.genericModel = class extends baseModel {
 	
 }
 
+internal.calibrado_out = class extends baseModel {
+	
+	static _fields = {
+		estacion_id: {type: "integer"},
+		var_id: {type: "integer"},
+		proc_id: {type: "integer"},
+		unit_id: {type: "integer"}
+	}
+
+	toString() {
+		return JSON.stringify(this)
+	}
+
+}
+
 internal.calibrado = class extends internal.genericModel {
+
+	static _fields = {
+		id: {type: "integer"},
+		nombre: {type: "string"},
+		model_id: {type: "integer"},
+		activar: {type: "boolean"},
+		selected: {type: "boolean"},
+		out_id: {type: "object"},
+		area_id: {type: "integer"},
+		tramo_id: {type: "integer"},
+		dt: {type: "interval"},
+		t_offset: {type: "interval"},
+		modelo: {type: "string"},
+		parametros: {type: "object"},
+		forzantes: {type: "object"},
+		estados: {type: "object"},
+		outputs: {type: "object"},
+		stats: {type: "object"},
+		corrida: {type: "object"}
+	}
+
 	constructor() {
 		super("Calibrado")
 		var m = arguments[0]
@@ -5541,7 +5860,7 @@ internal.calibrado = class extends internal.genericModel {
 		this.estados = this.getParametros(m.estados)
 		this.outputs = this.getOutputs(m.outputs)
 		this.selected = (m.hasOwnProperty("selected")) ? m.selected : false
-		this.out_id = m.out_id
+		this.out_id = (Array.isArray(m.out_id)) ? m.out_id.map(o=>(typeof o == "number") ? o : new internal.calibrado_out(o)) : m.out_id
 		this.area_id = m.area_id
 		this.tramo_id = m.tramo_id
 		this.dt = (m.dt) ? timeSteps.createInterval(m.dt) : undefined
@@ -5554,9 +5873,9 @@ internal.calibrado = class extends internal.genericModel {
 	toString() {
 		return JSON.stringify(this)
 	} 
-	toCSV() {
-		return this.id + "," + this.nombre + "," + this.model_id + "," + this.activar + "," + this.selected + "," + this.out_id + "," + this.area_id + "," + this.tramo_id + "," + this.dt + "," + this.t_offset
-	} 
+	// toCSV() {
+	// 	return this.id + "," + this.nombre + "," + this.model_id + "," + this.activar + "," + this.selected + "," + this.out_id + "," + this.area_id + "," + this.tramo_id + "," + this.dt + "," + this.t_offset
+	// } 
 	toCSVless() {
 		return this.orden + "," + this.nombre
 	}
@@ -5648,8 +5967,9 @@ internal.calibrado = class extends internal.genericModel {
 		}
 		return
 	}
+
 	static async read(filter={},options={}) {
-		return internal.CRUD.getCalibrados(filter.estacion_id,filter.var_id,filter.includeCorr,filter.timestart,filter.timeend,filter.cal_id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,options.no_metadata,options.group_by_cal,filter.forecast_date,options.includeInactive,filter.series_id,filter.nombre)
+		return internal.CRUD.getCalibrados(filter.estacion_id,filter.var_id,filter.includeCorr,filter.timestart,filter.timeend,filter.id ?? filter.cal_id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,options.no_metadata,options.group_by_cal,filter.forecast_date,options.includeInactive,filter.series_id,filter.nombre)
 	}
 	static async delete(filter={}) {
 		return internal.CRUD.deleteCalibrados(filter)
@@ -5835,6 +6155,7 @@ internal.estadoDeModelo = class extends baseModel {
 
 
 internal.output = class extends baseModel {
+	
 	constructor() {
         super()
 		var m = arguments[0]
@@ -5865,23 +6186,82 @@ internal.output = class extends baseModel {
 }
 
 internal.corrida = class extends baseModel {
+
+	static _fields = {
+		id: {type: "integer"},
+		forecast_date: {type: "date"},
+		series: {type: "object"},
+		cal_id: {type: "integer"},
+		pronosticos: {type: "object"}
+	}
+
 	constructor() {
-        super()
+		super()
 		var m = arguments[0]
 		this.id = m.id
 		this.forecast_date = new Date(m.forecast_date)
-		this.series = (m.series) ? m.series.map(s=>new internal.SerieTemporalSim(s)) : []
+		this.series = (m.series) ? m.series.map(s => new internal.SerieTemporalSim(s)) : []
 		this.cal_id = m.cal_id
 	}
 	toString() {
 		return JSON.stringify(this)
-	} 
-	toCSV() {
-		return "# cor_id=" + this.id + "\n# forecast_date=" + this.forecast_date + "\n\n\t" + this.series.map(s=>s.toCSV()).join("\n").replace(/\n/g,"\n\t")
-	} 
+	}
+
+	static toCSV(data,options={}) { 
+		return data.map(c=>c.toCSV(options)).join("\n\n\n")
+	}
+
+	toCSV(options={}) {
+		var csv = "# cor_id=" + this.id + "\n# forecast_date=" + this.forecast_date.toISOString() + "\n\n\t" 
+		if(this._pivot) {
+			// pivot
+			if(options.header) {
+				csv += Array.from(this._headers).join(",") + "\n"
+			} 
+			csv += this.pronosticos.map(p=>p.toCSV()).join("\n")
+		} else {
+			csv += this.series.map(s => s.toCSV(options)).join("\n\n").replace(/\n/g, "\n\t")
+		}
+		return csv
+	}
 	toCSVless() {
 		return this.id + "," + this.forecast_date
 	}
+
+	pivot() {
+		var pivoted = {}
+		var headers = new Set(["timestart","timeend"])
+		this.series.forEach(s=>{
+			if(!s.series_id) {
+				throw(new Error("can't pivot: missing series_id"))
+			}
+			if(s.qualifier) {
+				var series_key = `${s.series_id}_${s.qualifier}`
+			} else {
+				var series_key = `${s.series_id}`
+			}
+			if(s.pronosticos == undefined) {
+				return
+			}
+			s.pronosticos.forEach(p=>{
+				const key = new Date(p.timestart).toISOString()
+				if(!pivoted[key]) {
+					pivoted[key] = {
+						timestart: p.timestart, 
+						timeend: p.timeend
+					}
+				}
+				pivoted[key][series_key] = p.valor
+				headers.add(series_key)
+			})
+		})
+		this._pivot = true
+		this._headers = headers
+		return Object.keys(pivoted).sort().map(key => {
+			return new internal.observacionPivot(pivoted[key],{string_keys: true})
+		})
+	}
+
 	async create() {
 		const created = await internal.CRUD.upsertCorrida(this)
 		if(created) {
@@ -5892,7 +6272,39 @@ internal.corrida = class extends baseModel {
 		return
 	}
 	static async read(filter={},options={}) {
-		const corridas = await internal.CRUD.getPronosticos(filter.cor_id ?? filter.id,filter.cal_id,filter.forecast_timestart,filter.forecast_timeend,filter.forecast_date,filter.timestart,filter.timeend,filter.qualifier,filter.estacion_id,filter.var_id,options.includeProno,filter.isPublic,filter.series_id,options.series_metadata,filter.cal_grupo_id,options.group_by_qualifier,filter.model_id,filter.tipo)
+		if(options.pivot) {
+			options.includeProno = true
+		}
+		const corridas = await internal.CRUD.getPronosticos(
+			filter.cor_id ?? filter.id,
+			filter.cal_id,
+			filter.forecast_timestart,
+			filter.forecast_timeend,
+			filter.forecast_date,
+			filter.timestart,
+			filter.timeend,
+			filter.qualifier,
+			filter.estacion_id,
+			filter.var_id,
+			options.includeProno,
+			filter.isPublic,
+			filter.series_id,
+			options.series_metadata,
+			filter.cal_grupo_id,
+			options.group_by_qualifier,
+			filter.model_id,
+			filter.tipo,
+			filter.tabla ?? filter.tabla_id
+		)
+
+		if(options.pivot) {
+			for(const corrida of corridas) {
+				corrida.pronosticos = corrida.pivot()
+				for(const serie of corrida.series) {
+					delete serie.pronosticos
+				}
+			}
+		}
 		return corridas
 	}
 	static async delete(filter={}) {
@@ -6171,8 +6583,16 @@ internal.SerieTemporalSim = class extends baseModel {
 	toString() {
 		return JSON.stringify(this)
 	} 
-	toCSV() {
-		return "# series_table=" + this.series_table + "\n# series_id=" + this.series_id + "\n\n" + this.pronosticos.map(p=>p.toCSV()).join("\n")
+	toCSV(options={}) {
+		const metadata = "# series_table=" + this.series_table + "\n# series_id=" + this.series_id
+		if(this.pronosticos && this.pronosticos.length) {
+			if(options.header) {
+				var h = internal.pronostico.getCSVHeader().join(",") + "\n"
+			} else {
+				var h = ""
+			}
+			return metadata  + "\n\n" + h + this.pronosticos.map(p=>p.toCSV()).join("\n")
+		}
 	} 
 	toCSVless() {
 		return this.id + "," + this.forecast_date
@@ -6286,6 +6706,18 @@ internal.SerieTemporalSim = class extends baseModel {
 }
 
 internal.pronostico = class extends baseModel {
+
+	static _fields = {
+		id: {type: "integer"},
+		timestart: {type: "date"},
+		timeend: {type: "date"},
+		valor: {type: "object"},
+		qualifier: {type: "string"},
+		cor_id: {type: "integer"},
+		series_id: {type: "integer"},
+		series_table: {type: "string"}
+	}
+
 	constructor() {
         super()
 		var m = arguments[0]
@@ -6310,10 +6742,27 @@ internal.pronostico = class extends baseModel {
 	}
 	toString() {
 		return JSON.stringify(this)
-	} 
-	toCSV() {
-		return this.id + "," + this.timestart.toISOString() + "," + this.timeend.toISOString() + "," + this.valor + "," + this.qualifier
-	} 
+	}
+	toTuple() {
+		return [
+			this.id,
+			this.timestart.toISOString(),
+			this.timeend.toISOString(),
+			this.valor,
+			this.qualifier
+		]
+	}
+
+	static getCSVHeader() {
+		return [
+			"id",
+			"timestart",
+			"timeend",
+			"valor",
+			"qualifier"	
+		]
+	}
+	 
 	toCSVless() {
 		return this.id + "," + this.timestart.toISOString() + "," + this.timeend.toISOString() + "," + this.valor + "," + this.qualifier
 	}
@@ -6716,22 +7165,55 @@ internal.tableConstraint = class {
 }
 
 internal.asociacion = class extends baseModel {
+	static _fields = {
+		id: {type: "integer"},
+		source_tipo: {type: "string"},
+		source_series_id: {type: "integer"},
+		dest_tipo: {type: "string"},
+		dest_series_id: {type: "integer"},
+		agg_func: {type: "string"},
+		dt: {type: "interval"},
+		t_offset: {type: "interval"},
+		precision: {type: "integer"},
+		source_time_support: {type: "interval"},
+		source_is_inst: {type: "boolean"},
+		habilitar: {type: "boolean"},
+		expresion: {type: "string"},
+		cal_id: {type: "integer"},
+		source_estacion_id: {type: "integer"},
+		source_fuentes_id: {type: "string"},
+		source_var_id: {type: "integer"},
+		source_proc_id: {type: "integer"},
+		source_unit_id: {type: "integer"},
+		dest_estacion_id: {type: "integer"},
+		dest_fuentes_id: {type: "string"},
+		dest_var_id: {type: "integer"},
+		dest_proc_id: {type: "integer"},
+		dest_unit_id: {type: "integer"},
+		habilitar: {type: "boolean"},
+		expresion: {type: "string"},
+		cal_id: {type: "integer"},
+		cal_nombre: {type: "string"},
+		source_series: {type: "object"},
+		dest_series: {type: "object"},
+		site: {type: "object"}
+	}
 	constructor() {
-		super()
-		this.id = arguments[0].id
-		this.source_tipo = arguments[0].source_tipo
-		this.source_series_id = arguments[0].source_series_id
-		this.dest_tipo = arguments[0].dest_tipo
-		this.dest_series_id = arguments[0].dest_series_id
-		this.agg_func = arguments[0].agg_func
-		this.dt = new Interval(arguments[0].dt)
-		this.t_offset = new Interval(arguments[0].t_offset)
-		this.precision = arguments[0].precision
-		this.source_time_support = new Interval(arguments[0].source_time_support)
-		this.source_is_inst = arguments[0].source_is_inst
-		this.habilitar = arguments[0].habilitar
-		this.expresion = arguments[0].expresion
-		this.cal_id = arguments[0].cal_id
+		super(arguments[0])
+		// this.id = arguments[0].id
+		// this.source_tipo = arguments[0].source_tipo
+		// this.source_series_id = arguments[0].source_series_id
+		// this.dest_tipo = arguments[0].dest_tipo
+		// this.dest_series_id = arguments[0].dest_series_id
+		// this.agg_func = arguments[0].agg_func
+		// this.dt = new Interval(arguments[0].dt)
+		// this.t_offset = new Interval(arguments[0].t_offset)
+		// this.precision = arguments[0].precision
+		// this.source_time_support = new Interval(arguments[0].source_time_support)
+		// this.source_is_inst = arguments[0].source_is_inst
+		// this.habilitar = arguments[0].habilitar
+		// this.expresion = arguments[0].expresion
+		// this.cal_id = arguments[0].cal_id
 	}
 	async create() {
 		const created = new internal.asociacion(await internal.CRUD.upsertAsociacion(this))
@@ -6742,7 +7224,7 @@ internal.asociacion = class extends baseModel {
 		var asociaciones = await internal.CRUD.upsertAsociaciones(data)
 		return asociaciones.map(a=>new internal.asociacion(a))
 	}
-	static async read(filter={},options) {
+	static async read(filter={},options,client) {
 		if(filter.id) {
 			var asociacion = await internal.CRUD.getAsociacion(filter.id)
 			if(asociacion) {
@@ -6751,8 +7233,7 @@ internal.asociacion = class extends baseModel {
 				return []
 			}
 		}
-		var asociaciones = await internal.CRUD.getAsociaciones(filter,options)
-		return asociaciones.map(a=>new internal.asociacion(a))
+		return internal.CRUD.getAsociaciones(filter,options,client)
 	}
 	async delete() {
 		if(!this.id) {
@@ -6832,7 +7313,7 @@ internal.CRUD = class {
 				console.log("Red no encontrada")
 				return
 			}
-			return result.rows[0]
+			return new internal.red(result.rows[0])
 			//~ const red = new internal.red(result.rows[0].tabla_id, result.rows[0].nombre, result.rows[0].public, result.rows[0].public_his_plata)
 			//~ red.getId(global.pool)
 			//~ .then(()=>{
@@ -8648,7 +9129,7 @@ internal.CRUD = class {
 					if(!serie_props["unidades"]) {
 						throw(new Error("unidades " + serie.unidades.id + " not found"))
 					}
-					if(["areal","rast","raster"].indexOf(serie.tipo) >= 0 && !serie.fuentes.id) {
+					if(["areal","rast","raster"].indexOf(serie.tipo) >= 0 && (!serie.fuente || !serie.fuente.id)) {
 						throw(new Error("fuentes.id missing"))
 					}
 					serie_props["fuente"] = (serie.fuente.id != null) ? await internal.fuente.read({id:serie.fuente.id}) : {}
@@ -13864,7 +14345,11 @@ internal.CRUD = class {
 				}
 			}
 			// console.debug(pasteIntoSQLQuery(stmt,args))
-			const result = await client.query(stmt,args)
+			try {
+				var result = await client.query(stmt,args)
+			} catch(e) {
+				throw(new Error(e))
+			}
 			if(release_client) {
 				client.release()
 			}
@@ -14418,67 +14903,57 @@ internal.CRUD = class {
 		//~ var params = [filter.source_tipo,filter.source_series_id,filter.estacion_id,filter.provider_id,filter.source_var_id,filter.source_proc_id,filter.dest_tipo,filter.dest_series_id,filter.dest_var_id,filter.dest_proc_id,options.agg_func,options.dt,options.t_offset,filter.habilitar]
 	
 		var filter_string = internal.utils.control_filter2(
-			{id:{type:"integer"},source_tipo: {type: "string"}, source_series_id: {type: "number"}, source_estacion_id: {type: "number"}, source_fuentes_id: {type: "string"}, source_var_id: {type: "number"},  source_proc_id: {type: "number"}, dest_tipo: {type: "string"}, dest_series_id: {type: "number"}, dest_var_id: {type: "number"}, dest_proc_id: {type: "number"}, agg_func: {type: "string"}, dt: {type: "interval"}, t_offset: {type: "interval"},habilitar: {type: "boolean"}, cal_id:{type: "integer"}}, 
-			{id: filter.id, source_tipo: filter.source_tipo, source_series_id: filter.source_series_id, source_estacion_id: filter.estacion_id, source_fuentes_id: filter.provider_id, source_var_id: filter.source_var_id,  source_proc_id: filter.source_proc_id, dest_tipo: filter.dest_tipo, dest_series_id: filter.dest_series_id, dest_var_id: filter.dest_var_id, dest_proc_id: filter.dest_proc_id, agg_func: options.agg_func, dt: options.dt, t_offset: options.t_offset, cal_id: filter.cal_id},
+			{
+				id: {type:"integer"},
+				source_tipo: {type: "string"}, 
+				source_series_id: {type: "number"}, 
+				source_estacion_id: {type: "number"}, 
+				source_fuentes_id: {type: "string"}, 
+				source_var_id: {type: "number"},  
+				source_proc_id: {type: "number"}, 
+				dest_tipo: {type: "string"}, 
+				dest_series_id: {type: "number"}, 
+				dest_var_id: {type: "number"}, 
+				dest_proc_id: {type: "number"}, 
+				agg_func: {type: "string"}, 
+				dt: {type: "interval"}, 
+				t_offset: {type: "interval"},
+				habilitar: {type: "boolean"},
+				cal_id: {type: "integer"}
+			}, 
+			{
+				id: filter.id, 
+				source_tipo: filter.source_tipo, 
+				source_series_id: filter.source_series_id, 
+				source_estacion_id: filter.estacion_id, 
+				source_fuentes_id: filter.provider_id, 
+				source_var_id: filter.source_var_id,  
+				source_proc_id: filter.source_proc_id, 
+				dest_tipo: filter.dest_tipo, 
+				dest_series_id: filter.dest_series_id, 
+				dest_var_id: filter.dest_var_id, 
+				dest_proc_id: filter.dest_proc_id, 
+				agg_func: options.agg_func, 
+				dt: options.dt, 
+				t_offset: options.t_offset,
+				cal_id: filter.cal_id
+			},
 			"asociaciones_view")
 		var query = "SELECT * \
 		    FROM asociaciones_view\
 		    WHERE 1=1 " + filter_string + " ORDER BY id"
-		    //~ source_tipo=coalesce($1,source_tipo)\
-		    //~ AND source_series_id=coalesce($2,source_series_id)\
-		    //~ AND source_estacion_id=coalesce($3,source_estacion_id)\
-		    //~ AND source_fuentes_id=coalesce($4::text,source_fuentes_id::text)\
-		    //~ AND source_var_id=coalesce($5,source_var_id)\
-		    //~ AND source_proc_id=coalesce($6,source_proc_id)\
-		    //~ AND dest_tipo=coalesce($7,dest_tipo)\
-		    //~ AND dest_series_id=coalesce($8,dest_series_id)\
-		    //~ AND dest_var_id=coalesce($9,dest_var_id)\
-		    //~ AND dest_proc_id=coalesce($10,dest_proc_id)\
-		    //~ AND agg_func=coalesce($11,agg_func)\
-		    //~ AND dt=coalesce($12,dt)\
-		    //~ AND t_offset=coalesce($13,t_offset)\
-		    //~ AND habilitar=coalesce($14,habilitar)"
-		//~ console.log(internal.utils.pasteIntoSQLQuery(query,params))
-		//~ return global.pool.query(query,params)
-		//~ "SELECT a.id,\
-									   //~ a.source_tipo, \
-									   //~ a.source_series_id, \
-									   //~ a.dest_tipo, \
-									   //~ a.dest_series_id, \
-									   //~ a.agg_func, \
-									   //~ a.dt::text, \
-									   //~ a.t_offset::text, \
-									   //~ a.precision, \
-									   //~ a.source_time_support::text, \
-									   //~ a.source_is_inst, \
-									   //~ row_to_json(s) source_series, \
-									   //~ row_to_json(d) dest_series, \
-									   //~ row_to_json(e) site\
-		//~ FROM asociaciones a," + tabla_series + " s, "+ tabla_dest_series + " d," + tabla_sitios + " e\
-		//~ WHERE a.source_series_id=s.id\
-		//~ AND a.dest_series_id=d.id\
-		//~ AND s."+series_site_id_col + "=e."+site_id_col+" \
-		//~ AND a.source_tipo=coalesce($1,a.source_tipo) \
-		//~ and a.source_series_id=coalesce($2,a.source_series_id)\
-		//~ AND a.dest_tipo=coalesce($3,a.dest_tipo) \
-		//~ and a.dest_series_id=coalesce($4,a.dest_series_id)\
-		//~ AND a.agg_func=coalesce($5,a.agg_func)\
-		//~ AND a.dt=coalesce($6,a.dt)\
-		//~ AND a.t_offset=coalesce($7,a.t_offset)\
-		//~ AND s.var_id=coalesce($8,s.var_id)\
-		//~ AND d.var_id=coalesce($9,d.var_id)\
-		//~ AND s.proc_id=coalesce($10,s.proc_id)\
-		//~ AND d.proc_id=coalesce($11,d.proc_id)\
-		//~ AND e."+site_id_col+"=coalesce($12,e."+site_id_col+")\
-		//~ AND "+provider_col+"=coalesce($13,"+provider_col+")\
-		//~ ORDER BY a.id",[filter.source_tipo,filter.source_series_id,filter.dest_tipo,filter.dest_series_id,options.agg_func,options.dt,options.t_offset,filter.source_var_id,filter.dest_var_id,filter.source_proc_id,filter.dest_proc_id,filter.estacion_id,filter.provider_id])
-		console.log(query)
+		// console.debug(query)
 		return client.query(query)
 		.then(result=>{
+			const asociaciones = result.rows.map(a=>{
+				const asociacion = new internal.asociacion(a)
+				// console.debug(asociacion)
+				return asociacion
+			})
 			if(release_client) {
 				client.release()
 			}
-			return result.rows
+			return asociaciones
 		})
 		.catch(e=>{
 			if(release_client) {
@@ -14513,9 +14988,9 @@ internal.CRUD = class {
 					a.dest_series_id, 
 					a.agg_func, 
 					a.dt::text,
-					a.t_offset::text, 
+					a.t_offset, 
 					a.precision, 
-					a.source_time_support::text, 
+					a.source_time_support, 
 					a.source_is_inst, 
 					a.expresion,
 					a.cal_id,
@@ -14536,7 +15011,7 @@ internal.CRUD = class {
 					throw("Asociacion not found")
 				}
 				//~ console.log({result:result.rows})
-				return result.rows[0]
+				return new internal.asociacion(result.rows[0])
 			})
 		})
 	}
@@ -14613,62 +15088,68 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 			release_client = true
 			client = await global.pool.connect()
 		}
-		return this.getAsociaciones(filter,options,client)
-		.then(async asociaciones=>{
-			if(asociaciones.length==0) {
-				console.log("No se encontraron asociaciones")
-				return []
+		var asociaciones = await internal.asociacion.read(filter,options,client)
+		if(asociaciones.length==0) {
+			console.warn("No se encontraron asociaciones")
+			return []
+		}
+		// filter out no habilitadas
+		asociaciones = asociaciones.filter(a=>a.habilitar)
+		var inserts = []
+		for(var a of asociaciones) {
+			var dt = a.dt.toPostgres()
+			var opt = {
+				aggFunction: a.agg_func, 
+				t_offset: a.t_offset.toPostgres(), 
+				insertSeriesId: a.dest_series_id, 
+				insertSeriesTipo: a.dest_tipo
 			}
-			// filter out no habilitadas
-			asociaciones = asociaciones.filter(a=>a.habilitar)
-			var results = []
-			for(var a of asociaciones) {
-				var opt = {aggFunction: a.agg_func, t_offset: a.t_offset, insertSeriesId: a.dest_series_id, insertSeriesTipo: a.dest_tipo}
-				if(a.source_time_support) {
-					opt.source_time_support = a.source_time_support
-				}
-				if(a.precision) {
-					opt.precision = a.precision
-				}
-				if(options.inst) {
-					opt.inst = options.inst
-				} else if (a.source_is_inst) {
-					opt.inst = a.source_is_inst
-				}
-				if(options.no_insert) {
-					opt.no_insert = true
-				}
-				if(options.no_send_data) {
-					opt.no_send_data = options.no_send_data
-				}
-				if(options.no_update) {
-					opt.no_update = true
-				}
-				//~ promises.push(a)
-				console.log("asociacion " + a.id)
-				var result
-				try {
-					if(a.agg_func) {
-						if(a.agg_func == "math") {
-							if(a.source_tipo != "puntual") {
-								throw("Tipo inválido para convertir por expresión (math)")
-							}
-							result = await this.getSerieAndConvert(a.source_series_id,filter.timestart,filter.timeend,a.expresion,a.dest_series_id)
-						} else if (a.agg_func == "pulse") {
-							if(a.source_tipo != "puntual" && a.source_tipo != "areal") {
-								throw("Tipo inválido para convertir a pulsos")
-							}
-							result = await this.getSerieAndExtractPulses(a.source_tipo,a.source_series_id,filter.timestart,filter.timeend,a.dest_series_id)
-						} else if ( (a.dt.toPostgres() == "1 month" || a.dt.toPostgres() == "1 mon" || a.dt.toPostgres() == "1 months") && a.source_tipo !="raster" && a.source_tipo != "rast") {
-							console.log("running aggregateMonthly")
-							const serie = await internal.serie.read({tipo:a.source_tipo,id:a.source_series_id,timestart:filter.timestart,timeend:filter.timeend})
-							const observaciones = serie.aggregateMonthly(filter.timestart,filter.timeend,a.agg_func,a.precision,opt.source_time_support,a.expression,opt.inst)
-							result = await this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id,undefined) // remove client, non-transactional
-						} else {
-							result =  await this.getRegularSeries(
+			if(a.source_time_support) {
+				opt.source_time_support = a.source_time_support.toPostgres()
+			}
+			if(a.precision) {
+				opt.precision = a.precision
+			}
+			if(options.inst) {
+				opt.inst = options.inst
+			} else if (a.source_is_inst) {
+				opt.inst = a.source_is_inst
+			}
+			if(options.no_insert) {
+				opt.no_insert = true
+			}
+			if(options.no_send_data) {
+				opt.no_send_data = options.no_send_data
+			}
+			if(options.no_update) {
+				opt.no_update = true
+			}
+			//~ promises.push(a)
+			console.debug("asociacion " + a.id)
+			var result
+			try {
+				if(a.agg_func) {
+					if(a.agg_func == "math") {
+						if(a.source_tipo != "puntual") {
+							throw("Tipo inválido para convertir por expresión (math)")
+						}
+						result = await this.getSerieAndConvert(a.source_series_id,filter.timestart,filter.timeend,a.expresion,a.dest_series_id)
+					} else if (a.agg_func == "pulse") {
+						if(a.source_tipo != "puntual" && a.source_tipo != "areal") {
+							throw("Tipo inválido para convertir a pulsos")
+						}
+						result = await this.getSerieAndExtractPulses(a.source_tipo,a.source_series_id,filter.timestart,filter.timeend,a.dest_series_id)
+					} else if ( (dt.toPostgres() == "1 month" || dt.toPostgres() == "1 mon" || dt.toPostgres() == "1 months") && a.source_tipo !="raster" && a.source_tipo != "rast") {
+						console.log("running aggregateMonthly")
+						const serie = await internal.serie.read({tipo:a.source_tipo,id:a.source_series_id,timestart:filter.timestart,timeend:filter.timeend})
+						const observaciones = serie.aggregateMonthly(filter.timestart,filter.timeend,a.agg_func,a.precision,opt.source_time_support,a.expression,opt.inst)
+						result = await this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id,undefined) // remove client, non-transactional
+					} else {
+						// console.debug(JSON.stringify([a.source_tipo,a.source_series_id,dt,filter.timestart,filter.timeend,opt,a.cal_id, filter.cor_id, filter.forecast_date, filter.qualifier]))
+						result =  await this.getRegularSeries(
 								a.source_tipo,
 								a.source_series_id,
-								a.dt.toPostgres(),
+								dt.toPostgres(),
 								filter.timestart,
 								filter.timeend,
 								opt,
@@ -14678,55 +15159,47 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 								filter.forecast_date, 
 								filter.qualifier
 							)
-						}
-					} else if(a.source_tipo=="raster" && a.dest_tipo=="areal") {
-						console.log("Running asociacion raster to areal")
-						result = await this.getSerie('areal',a.dest_series_id,undefined,undefined,{no_metadata:true},undefined,undefined,client)
-						.then(series=>{
-							return this.rast2areal(a.source_series_id,filter.timestart,filter.timeend,series.estacion.id,options,client)
-						})
-					} else {
-						console.error("asociacion " + a.id + "not run")
 					}
-					results.push(result)
-				} catch (e) {
-					console.error(e)
-				} 
-			}
-			return results
-		})
-		.then(inserts=>{
-			if(release_client) {
-				client.release()
-			}
-			if(!inserts) {
-				return []
-			}
-			if(inserts.length==0) {
-				return []
-			}
-			if(options.no_send_data) {
-				return inserts.reduce((a,b)=>a+b)
-			}
-			return flatten(inserts)
-			//~ var allinserts = []
-			//~ inserts.forEach(i=>{
-				//~ allinserts.push(...i)
-			//~ })
-			//~ return allinserts // .flat()
-		})
-		//~ .catch(e=>{
-			//~ console.error(e)
-			//~ return
-		//~ })
+				} else if(a.source_tipo=="raster" && a.dest_tipo=="areal") {
+					console.log("Running asociacion raster to areal")
+					result = await this.getSerie('areal',a.dest_series_id,undefined,undefined,{no_metadata:true},undefined,undefined,client)
+					.then(series=>{
+						return this.rast2areal(a.source_series_id,filter.timestart,filter.timeend,series.estacion.id,options,client)
+					})
+				} else {
+					console.error("asociacion " + a.id + " not run")
+				}
+				inserts.push(result)
+			} catch (e) {
+				console.error(e)
+			} 
+		}
+		if(release_client) {
+			client.release()
+		}
+		if(!inserts) {
+			return []
+		}
+		if(inserts.length==0) {
+			return []
+		}
+		if(options.no_send_data) {
+			return inserts.reduce((a,b)=>a+b)
+		}
+		return flatten(inserts)
 	}
 	
 	static async runAsociacion(id,filter={},options={}) {
 		const a = await this.getAsociacion(id)
 		console.debug("Got asociacion " + a.id)
-		var opt = {aggFunction: a.agg_func, t_offset: a.t_offset, insertSeriesId: a.dest_series_id}
+		var dt = a.dt.toPostgres()
+		var opt = {
+			aggFunction: a.agg_func, 
+			t_offset: a.t_offset.toPostgres(), 
+			insertSeriesId: a.dest_series_id
+		}
 		if(a.source_time_support) {
-			opt.source_time_support = a.source_time_support
+			opt.source_time_support = a.source_time_support.toPostgres()
 		}
 		if(a.precision) {
 			opt.precision = a.precision
@@ -14766,13 +15239,13 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 				throw("Tipo inválido para convertir por expresión (pulse)")
 			}
 			return this.getSerieAndExtractPulses(a.source_tipo,a.source_series_id,timestart,timeend,a.dest_series_id)
-		} else if ( (a.dt == "1 month" || a.dt == "1 mon" || a.dt == "1 months") && a.source_tipo !="raster" && a.source_tipo != "rast") {
+		} else if ( (dt == "1 month" || dt == "1 mon" || dt == "1 months") && a.source_tipo !="raster" && a.source_tipo != "rast") {
 			console.debug("running aggregateMonthly")
 			const serie = await internal.serie.read({tipo:a.source_tipo,id:a.source_series_id,timestart:timestart,timeend:timeend})
 			const observaciones = serie.aggregateMonthly(timestart,timeend,a.agg_func,a.precision,a.timeSupport,a.expression)
 			return this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id)
 		} else {
-			return this.getRegularSeries(a.source_tipo,a.source_series_id,a.dt,timestart,timeend,opt,undefined,a.cal_id,filter.cor_id,filter.forecast_date,filter.qualifier)
+			return this.getRegularSeries(a.source_tipo,a.source_series_id,dt,timestart,timeend,opt,undefined,a.cal_id,filter.cor_id,filter.forecast_date,filter.qualifier)
 		}
 	}
 	
@@ -15514,7 +15987,7 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 	}
 
 	static async getModelos(model_id,tipo,name_contains) {
-		return global.pool.query("WITH mod as (\
+		const result = await global.pool.query("WITH mod as (\
 SELECT modelos.id, \
        modelos.nombre, \
        modelos.tipo, \
@@ -15560,13 +16033,11 @@ SELECT mod.id, \
 		LEFT JOIN forz ON forz.model_id = mod.id\
 		LEFT JOIN out ON out.model_id = mod.id\
 		ORDER BY mod.id;",[model_id, tipo, name_contains])
-		.then(result=>{
-			if(result.rows) {
-				return result.rows
-			} else {
-				return []
-			}
-		})
+		if(result.rows && result.rows.length) {
+			return result.rows.map(r=> new internal.modelo(r))
+		} else {
+			return []
+		}
 	}
 
 	static async upsertModelos(modelos) {
@@ -15645,7 +16116,7 @@ SELECT mod.id, \
 	}
 	
 	static async getCalibrados_(estacion_id,var_id,includeCorr=false,timestart,timeend,cal_id,model_id,qualifier,isPublic,grupo_id,no_metadata,group_by_cal,forecast_date,includeInactive,series_id) {
-		console.log({includeCorr:includeCorr, isPublic: isPublic})
+		console.debug({includeCorr:includeCorr, isPublic: isPublic})
 		var public_filter = (isPublic) ? "AND calibrados.public=true" : ""
 		var activar_filter = (includeInactive) ? "" : "AND calibrados.activar = TRUE"
 		var grupo_filter = (grupo_id) ? "AND series_prono_last.cal_grupo_id=" + parseInt(grupo_id) : ""
@@ -15875,9 +16346,9 @@ ORDER BY cal.cal_id`
 						true
 					)
 					if(corridas.length > 0) {
-						calibrados[i].corrida = corridas[0]
+						c.corrida = corridas[0] // calibrados[i].corrida = corridas[0]
 					} else {
-						calibrados[i].corrida = null
+						c.corrida = null // calibrados[i].corrida = null
 					}
 				} else {
 					const estacion_id = (Array.isArray(c.out_id)) ? c.out_id.map(s=>(typeof s == "number") ? s : s.estacion_id) : c.out_id
@@ -16096,7 +16567,7 @@ ORDER BY cal.cal_id`
 				}
 			}
 		}
-		return calibrados
+		return calibrados.map(c=> new internal.calibrado(c))
 	}
 
 	static async getLastCorrida(estacion_id,var_id,cal_id,timestart,timeend,qualifier,includeProno=false,isPublic,series_id,series_metadata,group_by_qualifier,tipo,tabla) {
@@ -16204,14 +16675,15 @@ ORDER BY cal.cal_id`
 		if(filter.cal_id) {
 			filter.id = filter.cal_id
 		}
-		var valid_filters = {"id":{table:"calibrados",type:"integer"},"model_id":{table:"calibrados",type:"integer"}}
+		var valid_filters = { "id": { table: "calibrados", type: "integer" }, "model_id": { table: "calibrados", type: "integer" } }
 		var filter_string = internal.utils.control_filter2(valid_filters,filter,"calibrados") 
 		if(filter_string == "") {
 			throw("deleteCalibrados error: at least one filter is required")
 		}
-		var stmt = `DELETE FROM calibrados WHERE id=id ${filter_string} RETURNING *`
+		var stmt = `DELETE FROM calibrados WHERE id=id ${filter_string} RETURNING id, nombre, modelo, model_id, activar, selected, out_id, area_id, in_id, tramo_id, dt, t_offset, public, grupo_id`
 		// console.log(stmt)
-		return global.pool.query(stmt)
+		const result = await global.pool.query(stmt)
+		return result.rows.map(r=> new internal.calibrado(r))
 	}
 	
 	static async upsertCalibrados(calibrados) {
@@ -16244,146 +16716,102 @@ ORDER BY cal.cal_id`
 			}
 		}
 		var calibrado
-		return global.pool.connect()
-		.then(async client=>{
-			try {
-				await client.query("BEGIN")
-				var upserted
-				if(input_cal.id) {
-					var stmt = internal.utils.pasteIntoSQLQuery("INSERT INTO calibrados (id,nombre, modelo, parametros, estados_iniciales, activar, selected, out_id, area_id, in_id, model_id, tramo_id, dt, t_offset) VALUES \
+		const client = await global.pool.connect()
+		try {
+			await client.query("BEGIN")
+			var upserted
+			if(input_cal.id) {
+				var stmt = internal.utils.pasteIntoSQLQuery("INSERT INTO calibrados (id,nombre, modelo, parametros, estados_iniciales, activar, selected, out_id, area_id, in_id, model_id, tramo_id, dt, t_offset) VALUES \
 					($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,coalesce($13,'1 days'::interval),coalesce($14,'9 hours'::interval))\
 					ON CONFLICT (id)\
 					DO UPDATE SET nombre=coalesce(excluded.nombre,calibrados.nombre), modelo=coalesce(excluded.modelo,calibrados.modelo), parametros=coalesce(excluded.parametros,calibrados.parametros), estados_iniciales=coalesce(excluded.estados_iniciales,calibrados.estados_iniciales), activar=coalesce(excluded.activar,calibrados.activar), selected=coalesce(excluded.selected,calibrados.selected), out_id=coalesce(excluded.out_id,calibrados.out_id), area_id=coalesce(excluded.area_id,calibrados.area_id), in_id=coalesce(excluded.in_id,calibrados.in_id), model_id=coalesce(excluded.model_id,calibrados.model_id), tramo_id=coalesce(excluded.tramo_id,calibrados.tramo_id), dt=coalesce(excluded.dt,calibrados.dt), t_offset=coalesce(excluded.t_offset,calibrados.t_offset)\
-					RETURNING *",[input_cal.id, input_cal.nombre, input_cal.modelo, input_cal.parametros, input_cal.estados, input_cal.activar, input_cal.selected, (typeof input_cal.out_id == "integer") ? input_cal.out_id : null, input_cal.area_id, input_cal.in_id, input_cal.model_id, input_cal.tramo_id, timeSteps.interval2string(input_cal.dt), timeSteps.interval2string(input_cal.t_offset)])
-					// console.log(stmt)
-					upserted = await client.query(stmt)
-				} else {
-					var stmt = internal.utils.pasteIntoSQLQuery("INSERT INTO calibrados (id,nombre, modelo, parametros, estados_iniciales, activar, selected, out_id, area_id, in_id, model_id, tramo_id, dt, t_offset) VALUES \
-					(nextval('calibrados_id_seq'),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,coalesce($12,'1 days'::interval),coalesce($13,'9 hours'::interval))\
-					RETURNING *",[input_cal.nombre, input_cal.modelo, input_cal.parametros, input_cal.estados, input_cal.activar, input_cal.selected, (typeof input_cal.out_id == "integer") ? input_cal.out_id : null, input_cal.area_id, input_cal.in_id, input_cal.model_id, input_cal.tramo_id, timeSteps.interval2string(input_cal.dt), timeSteps.interval2string(input_cal.t_offset)])
-					// console.log(stmt)
-					upserted = await client.query(stmt)
-				}
-			} catch(e) {
-				await client.query("ROLLBACK")
-				client.release()
-				throw(e)
+				RETURNING *",[input_cal.id, input_cal.nombre, input_cal.modelo, input_cal.parametros, input_cal.estados, input_cal.activar, input_cal.selected, (typeof input_cal.out_id == "integer") ? input_cal.out_id : null, input_cal.area_id, input_cal.in_id, input_cal.model_id, input_cal.tramo_id, timeSteps.interval2string(input_cal.dt), timeSteps.interval2string(input_cal.t_offset)])
+				// console.log(stmt)
+				upserted = await client.query(stmt)
+			} else {
+				var stmt = internal.utils.pasteIntoSQLQuery("INSERT INTO calibrados (id,nombre, modelo, parametros, estados_iniciales, activar, selected, out_id, area_id, in_id, model_id, tramo_id, dt, t_offset) VALUES \
+				(nextval('calibrados_id_seq'),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,coalesce($12,'1 days'::interval),coalesce($13,'9 hours'::interval))\
+				RETURNING *",[input_cal.nombre, input_cal.modelo, input_cal.parametros, input_cal.estados, input_cal.activar, input_cal.selected, (typeof input_cal.out_id == "integer") ? input_cal.out_id : null, input_cal.area_id, input_cal.in_id, input_cal.model_id, input_cal.tramo_id, timeSteps.interval2string(input_cal.dt), timeSteps.interval2string(input_cal.t_offset)])
+				// console.log(stmt)
+				upserted = await client.query(stmt)
 			}
-			calibrado = upserted.rows[0]
-			if(!calibrado) {
-				await client.query("ROLLBACK")
-				client.release()
-				throw("No se insertó calibrado")
-			}
-			if(input_cal.parametros) {
-				console.log({parametros:input_cal.parametros})
-				try {
-					var parametros = await this.upsertParametros(client,calibrado.id,input_cal.parametros)
-				} catch(e) {
-					await client.query("ROLLBACK")
-					client.release()
-					throw(e)
-				}
-				// var parametros = []
-				// for(var i=0;i<input_cal.parametros.length;i++) {
-				// 	try {
-				// 		var parametro = await this.upsertParametro(client,{cal_id:calibrado.id, orden:i+1, valor:input_cal.parametros[i]})
-				// 		if(!parametro) {
-				// 			throw("no se insertó parámetro")
-				// 		}
-				// 		parametros.push(parametro)
-				// 	} catch(e) {
-				// 		await client.query("ROLLBACK")
-				// 		client.end()
-				// 		throw(e)
-				// 	}
-				// }
-				calibrado.parametros = parametros
-			} 
-			if(input_cal.estados) {
-				try {
-					var estados = await this.upsertEstadosIniciales(client,calibrado.id,input_cal.estados)
-				} catch(e) {
-					await client.query("ROLLBACK")
-					client.release()
-					throw(e)
-				}
-				// var estados_iniciales = []
-				// for(var i=0;i>input_cal.estados_iniciales.length;i++) {
-				// 	try {
-				// 		var estado_inicial =  await this.upsertEstadoInicial(client,{cal_id:calibrado.id, orden:i+1, valor:input_cal.estados_iniciales[i]})
-				// 		if(!estado_inicial) {
-				// 			throw("no se insertó estado_inicial")
-				// 		}
-				// 		estados_iniciales.push(estado_inicial)
-				// 	} catch(e) {
-				// 		await client.query("ROLLBACK")
-				// 		client.end()
-				// 		throw(e)
-				// 	}
-				// }
-				calibrado.estados_iniciales = estados
-			} 
-			if(input_cal.forzantes) {
-				console.log(input_cal.forzantes)
-				try {
-					var forzantes = await this.upsertForzantes2(client,calibrado.id,input_cal.forzantes)
-				} catch(e) {
-					await client.query("ROLLBACK")
-					client.release()
-					throw(e)
-				}
-				// var forzantes = []
-				// for(var i=0;i>input_cal.forzantes.length;i++) {
-				// 	try {
-				// 		var forzante =  await this.upsertForzante(client,{cal_id:calibrado.id, orden:(input_cal.forzantes[i].orden)?input_cal.forzantes[i].orden:i+1, series_table:input_cal.forzantes[i].series_table, series_id:input_cal.forzantes[i].series_id})
-				// 		if(!forzantes) {
-				// 			throw("no se insertó forzante")
-				// 		}
-				// 		forzantes.push(forzante)
-				// 	} catch(e) {
-				// 		await client.query("ROLLBACK")
-				// 		client.end()
-				// 		throw(e)
-				// 	}
-				// }
-				calibrado.forzantes = forzantes
-			}
-			if(input_cal.outputs) {
-				var outputs = []
-				for(var i =0;i<input_cal.outputs.length;i++) {
-					try {
-						var output = await this.upsertOutput(client,{cal_id:calibrado.id, orden:(input_cal.outputs[i].orden)?input_cal.outputs[i].orden:i+1, series_table:input_cal.outputs[i].series_table, series_id:input_cal.outputs[i].series_id})
-						if(!output) {
-							throw("no se insertó output")
-						}
-						outputs.push(output)
-					} catch(e) {
-						endAndThrow(e)
-					}
-				}
-				calibrado.outputs = outputs
-			}
-			if(input_cal.stats) {
-				try {
-					var stats = await this.upsertCalStats(client,calibrado.id,input_cal.stats)
-				} catch(e) {
-					await client.query("ROLLBACK")
-					client.release()
-					throw(e)
-				}
-				calibrado.stats = stats
-			} 
-			try {
-				await client.query("COMMIT")
-			} catch(e) {
-				await client.query("ROLLBACK")
-				client.release()
-				throw(e)
-			}
+		} catch(e) {
+			await client.query("ROLLBACK")
 			client.release()
-			return calibrado
-		})
+			throw(e)
+		}
+		calibrado = upserted.rows[0]
+		if(!calibrado) {
+			await client.query("ROLLBACK")
+			client.release()
+			throw("No se insertó calibrado")
+		}
+		if(input_cal.parametros) {
+			// console.debug({parametros:input_cal.parametros})
+			try {
+				var parametros = await this.upsertParametros(client,calibrado.id,input_cal.parametros)
+			} catch(e) {
+				await client.query("ROLLBACK")
+				client.release()
+				throw(e)
+			}
+			calibrado.parametros = parametros
+		} 
+		if(input_cal.estados) {
+			try {
+				var estados = await this.upsertEstadosIniciales(client,calibrado.id,input_cal.estados)
+			} catch(e) {
+				await client.query("ROLLBACK")
+				client.release()
+				throw(e)
+			}
+			calibrado.estados_iniciales = estados
+		} 
+		if(input_cal.forzantes) {
+			// console.debug({forzantes:input_cal.forzantes})
+			try {
+				var forzantes = await this.upsertForzantes2(client,calibrado.id,input_cal.forzantes)
+			} catch(e) {
+				await client.query("ROLLBACK")
+				client.release()
+				throw(e)
+			}
+			calibrado.forzantes = forzantes
+		}
+		if(input_cal.outputs) {
+			var outputs = []
+			for(var i =0;i<input_cal.outputs.length;i++) {
+				try {
+					var output = await this.upsertOutput(client,{cal_id:calibrado.id, orden:(input_cal.outputs[i].orden)?input_cal.outputs[i].orden:i+1, series_table:input_cal.outputs[i].series_table, series_id:input_cal.outputs[i].series_id})
+					if(!output) {
+						throw("no se insertó output")
+					}
+					outputs.push(output)
+				} catch(e) {
+					endAndThrow(e)
+				}
+			}
+			calibrado.outputs = outputs
+		}
+		if(input_cal.stats) {
+			try {
+				var stats = await this.upsertCalStats(client,calibrado.id,input_cal.stats)
+			} catch(e) {
+				await client.query("ROLLBACK")
+				client.release()
+				throw(e)
+			}
+			calibrado.stats = stats
+		} 
+		try {
+			await client.query("COMMIT")
+		} catch(e) {
+			await client.query("ROLLBACK")
+			client.release()
+			throw(e)
+		}
+		client.release()
+		return calibrado
 	}
 
 	static async upsertCalStats(client,cal_id,stats) {
@@ -16410,15 +16838,11 @@ ORDER BY cal.cal_id`
 		ON CONFLICT (cal_id,orden)\
 		DO UPDATE SET valor=excluded.valor\
 		RETURNING *",[parametro.cal_id,parametro.orden,parametro.valor])
-		// console.log(stmt)
-		return client.query(stmt)
-		.then(result=>{
-			// console.log(result)
-			if(release_client) {
-				client.release()
-			}
-			return result.rows[0]
-		})
+		const result = await client.query(stmt)
+		if(release_client) {
+			client.release()
+		}
+		return result.rows[0]
 	}
 
 	static async upsertParametros(client,cal_id,parametros) { // parametros::int[]
@@ -16434,16 +16858,13 @@ ORDER BY cal.cal_id`
 		${tuples.join(",")}\
 		ON CONFLICT (cal_id,orden)\
 		DO UPDATE SET valor=excluded.valor\
-		RETURNING *`
-		// console.log(stmt)
-		return client.query(stmt)
-		.then(result=>{
-			// console.log(result)
-			if(release_client) {
-				client.release()
-			}
-			return result.rows[0]
-		})
+		RETURNING id, cal_id, valor, orden`
+		// console.debug(stmt)
+		const result = await client.query(stmt)
+		if(release_client) {
+			client.release()
+		}
+		return result.rows.map(r=>new internal.parametro(r))
 	}
 
 
@@ -16453,7 +16874,7 @@ ORDER BY cal.cal_id`
 			release_client = true
 			client = await global.pool.connect()
 		}
-		return client.query("INSERT INTO parametros (model_id , nombre , lim_inf , range_min , range_max , lim_sup , orden ) VALUES\
+		const result = await client.query("INSERT INTO parametros (model_id , nombre , lim_inf , range_min , range_max , lim_sup , orden ) VALUES\
 		  ($1,$2,$3,$4,$5,$6,$7)\
 		  ON CONFLICT (model_id,orden)\
 		  DO UPDATE SET nombre=excluded.nombre,\
@@ -16462,12 +16883,10 @@ ORDER BY cal.cal_id`
 						range_max=excluded.range_max,\
 							lim_sup=excluded.lim_sup\
 		  RETURNING *",[parametro.model_id,parametro.nombre,parametro.lim_inf,parametro.range_min,parametro.range_max,parametro.lim_sup,parametro.orden])
-		.then(result=>{
-			if(release_client) {
-				client.release()
-			}
-			return new internal.parametroDeModelo(result.rows[0])
-		})
+		if(release_client) {
+			client.release()
+		}
+		return new internal.parametroDeModelo(result.rows[0])
 	}
 	
 	static async upsertEstadoInicial(client,estado_inicial) {
@@ -16476,17 +16895,15 @@ ORDER BY cal.cal_id`
 			release_client = true
 			client = await global.pool.connect()
 		}
-		return client.query("INSERT INTO cal_estados (cal_id,orden,valor) VALUES\
+		const result = await client.query("INSERT INTO cal_estados (cal_id,orden,valor) VALUES\
 		  ($1,$2,$3)\
 		  ON CONFLICT (cal_id,orden)\
 		  DO UPDATE SET valor=excluded.valor\
 		  RETURNING *",[estado_inicial.cal_id,estado_inicial.orden,estado_inicial.valor])
-		.then(result=>{
-			if(release_client) {
-				client.release()
-			}
-			return result.rows[0]
-		})
+		if(release_client) {
+			client.release()
+		}
+		return result.rows[0]
 	}
 
 	static async upsertEstadosIniciales(client,cal_id,estados_iniciales) { //  estados_iniciales::int[]
@@ -16503,13 +16920,11 @@ ORDER BY cal.cal_id`
 		ON CONFLICT (cal_id,orden)\
 		DO UPDATE SET valor=excluded.valor\
 		RETURNING *`
-		return client.query(stmt)
-		.then(result=>{
-			if(release_client) {
-				client.release()
-			}
-			return result.rows
-		})
+		const result = await client.query(stmt)
+		if(release_client) {
+			client.release()
+		}
+		return result.rows
 	}
 
 	static async upsertEstadoDeModelo(client,estado) {
@@ -16518,7 +16933,7 @@ ORDER BY cal.cal_id`
 			release_client = true
 			client = await global.pool.connect()
 		}
-		return client.query("INSERT INTO estados (model_id, nombre, range_min, range_max, def_val, orden) VALUES\
+		const result = await client.query("INSERT INTO estados (model_id, nombre, range_min, range_max, def_val, orden) VALUES\
 		  ($1,$2,$3,$4,$5,$6)\
 		  ON CONFLICT (model_id,orden)\
 		  DO UPDATE SET nombre=excluded.nombre,\
@@ -16526,12 +16941,10 @@ ORDER BY cal.cal_id`
 						range_max=excluded.range_max,\
 						def_val=excluded.def_val\
 		  RETURNING *",[estado.model_id,estado.nombre,estado.range_min,estado.range_max,estado.def_val,estado.orden])
-		.then(result=>{
-			if(release_client) {
-				client.release()
-			}
-			return new internal.estadoDeModelo(result.rows[0])
-		})
+		if(release_client) {
+			client.release()
+		}
+		return new internal.estadoDeModelo(result.rows[0])
 	}
 
 	static async upsertOutputDeModelo(client,output) {
@@ -16540,7 +16953,7 @@ ORDER BY cal.cal_id`
 			release_client = true
 			client = await global.pool.connect()
 		}
-		return client.query("INSERT INTO modelos_out (model_id, orden, var_id, unit_id , nombre, inst, series_table) VALUES\
+		const result = await client.query("INSERT INTO modelos_out (model_id, orden, var_id, unit_id , nombre, inst, series_table) VALUES\
 		  ($1,$2,$3,$4,$5,$6,$7)\
 		  ON CONFLICT (model_id,orden)\
 		  DO UPDATE SET var_id=excluded.var_id,\
@@ -16549,29 +16962,23 @@ ORDER BY cal.cal_id`
 						inst=excluded.inst,\
 						series_table=excluded.series_table\
 		  RETURNING *",[output.model_id,output.orden,output.var_id,output.unit_id,output.nombre,output.inst,output.series_table])
-		.then(result=>{
-			if(release_client) {
-				client.release()
-			}
-			return new internal.modelo_output(result.rows[0])
-		})
+		if(release_client) {
+			client.release()
+		}
+		return new internal.modelo_output(result.rows[0])
 	}
 
 	static async getForzante(cal_id,orden) {
-		return global.pool.query("SELECT id, cal_id, series_table, series_id, cal, orden, model_id FROM forzantes WHERE cal_id=$1 AND orden=$2",[cal_id,orden])
-		.then(result=>{
-			if(!result) {
-				return Promise.reject("getForzante: Nothing found")
-			}
-			return new internal.forzante(result.rows[0])
-		})
+		const result = await global.pool.query("SELECT id, cal_id, series_table, series_id, cal, orden, model_id FROM forzantes WHERE cal_id=$1 AND orden=$2",[cal_id,orden])
+		if(!result) {
+			return Promise.reject("getForzante: Nothing found")
+		}
+		return new internal.forzante(result.rows[0])
 	}
 	
 	static async getForzantes(cal_id,filter={}) {
-		return global.pool.query("SELECT id, cal_id, series_table, series_id, cal, orden, model_id FROM forzantes WHERE cal_id=$1 AND orden=coalesce($2,orden) AND series_table=coalesce($3,series_table) and series_id=coalesce($4,series_id) AND cal=coalesce($5,cal) ORDER BY orden",[cal_id,filter.orden,filter.series_table,filter.series_id,filter.cal])
-		.then(result=>{
-			return result.rows.map(f=> new internal.forzante(f))
-		})
+		const result = await global.pool.query("SELECT id, cal_id, series_table, series_id, cal, orden, model_id FROM forzantes WHERE cal_id=$1 AND orden=coalesce($2,orden) AND series_table=coalesce($3,series_table) and series_id=coalesce($4,series_id) AND cal=coalesce($5,cal) ORDER BY orden",[cal_id,filter.orden,filter.series_table,filter.series_id,filter.cal])
+		return result.rows.map(f=> new internal.forzante(f))
 	} 
 		
 	static async upsertForzante(client,forzante) {
@@ -16580,17 +16987,15 @@ ORDER BY cal.cal_id`
 			release_client = true
 			client = await global.pool.connect()
 		}
-		return client.query("INSERT INTO forzantes (cal_id,orden,series_table,series_id) VALUES\
+		const result = await client.query("INSERT INTO forzantes (cal_id,orden,series_table,series_id) VALUES\
 		  ($1,$2,$3,$4)\
 		  ON CONFLICT (cal_id,orden)\
 		  DO UPDATE SET series_table=excluded.series_table, series_id=excluded.series_id\
 		  RETURNING *",[forzante.cal_id,forzante.orden,forzante.series_table,forzante.series_id])
-		.then(result=>{
-			if(release_client) {
-				client.release()
-			}
-			return new internal.forzante(result.rows[0])
-		})
+		if(release_client) {
+			client.release()
+		}
+		return new internal.forzante(result.rows[0])
 	}
 
 	static async upsertForzantes2(client,cal_id,forzantes) { // forzantes = [{series_table:"",series_id:0},...] o [0,1,2] (en el segundo caso asume series_table:"series")
@@ -16610,13 +17015,12 @@ ORDER BY cal.cal_id`
 		ON CONFLICT (cal_id,orden)\
 		DO UPDATE SET series_table=excluded.series_table, series_id=excluded.series_id\
 		RETURNING *`
-		return client.query(stmt)
-		.then(result=>{
-			if(release_client) {
-				client.release()
-			}
-			return result.rows.map(f=>new internal.forzante(f))
-		})
+		// console.debug(stmt)
+		const result = await client.query(stmt)
+		if(release_client) {
+			client.release()
+		}
+		return result.rows.map(f=>new internal.forzante(f))
 	}
 
 	static async upsertForzanteDeModelo(client,forzante) {
@@ -16625,7 +17029,7 @@ ORDER BY cal.cal_id`
 			release_client = true
 			client = await global.pool.connect()
 		}
-		return client.query("INSERT INTO modelos_forzantes (model_id , orden , var_id , unit_id , nombre , inst , tipo , required) VALUES\
+		const result = await client.query("INSERT INTO modelos_forzantes (model_id , orden , var_id , unit_id , nombre , inst , tipo , required) VALUES\
 		  ($1,$2,$3,$4,$5,$6,$7,$8)\
 		  ON CONFLICT (model_id,nombre)\
 		  DO UPDATE SET var_id=excluded.var_id,\
@@ -16635,16 +17039,10 @@ ORDER BY cal.cal_id`
 						tipo=excluded.tipo,\
 						required=excluded.required\
 		  RETURNING *",[forzante.model_id,forzante.orden,forzante.var_id,forzante.unit_id,forzante.nombre,forzante.inst,forzante.tipo,forzante.required])
-		.then(result=>{
-			if(release_client) {
-				client.release()
-			}
-			// if(!result || !result.rows || result.rows.length==0) {
-			// 	throw("error trying to create forzanteDeModelo")
-			// }
-			// console.log(result.rows[0])
-			return new internal.forzanteDeModelo(result.rows[0])
-		})
+		if(release_client) {
+			client.release()
+		}
+		return new internal.forzanteDeModelo(result.rows[0])
 	}
 
 	static async upsertForzantes(cal_id,forzantes) {
@@ -16655,18 +17053,16 @@ ORDER BY cal.cal_id`
 			var series_table = (f.series_table) ? (f.series_tabla == "series_areal") ? "series_areal" : "series" : "series"
 			return sprintf("(%d,%d,'%s',%d)", cal_id, f.orden, series_table, f.series_id)
 		}).join(",")
-		return global.pool.query(`INSERT INTO forzantes (cal_id, orden, series_table, series_id) VALUES\
+		const result = await global.pool.query(`INSERT INTO forzantes (cal_id, orden, series_table, series_id) VALUES\
 		  ${values}\
 		  ON CONFLICT (cal_id, orden)\
 		  DO UPDATE SET series_table=excluded.series_table, series_id=excluded.series_id\
 		  RETURNING *`)
-		.then(result=>{
-			return new internal.forzante(result.rows[0])
-		})
+		return new internal.forzante(result.rows[0])
 	}
 	
 	static async deleteForzantes(cal_id,filter) {
-		return global.pool.query("DELETE \
+		const result = await global.pool.query("DELETE \
 		FROM forzantes \
 		WHERE cal_id=$1 \
 		AND orden=coalesce($2,orden) \
@@ -16674,20 +17070,16 @@ ORDER BY cal.cal_id`
 		AND series_id=coalesce($4,series_id) \
 		AND cal=coalesce($5,cal) \
 		RETURNING *",[cal_id,filter.orden,filter.series_table,filter.series_id,filter.cal])
-		.then(result=>{
-			return result.rows.map(f=>new internal.forzante(f))
-		})
+		return result.rows.map(f=>new internal.forzante(f))
 	} 
 
 	static async deleteForzante(cal_id,orden) {
-		return global.pool.query("DELETE \
+		const result = await global.pool.query("DELETE \
 		FROM forzantes \
 		WHERE cal_id=$1 \
 		AND orden=$2 \
 		RETURNING *",[cal_id,orden])
-		.then(result=>{
-			return new internal.forzante(result.rows[0])
-		})
+		return new internal.forzante(result.rows[0])
 	} 
 
 	static async upsertOutput(client,output) {
@@ -16697,31 +17089,27 @@ ORDER BY cal.cal_id`
 			client = await global.pool.connect()
 		}
 		//~ console.log({output:output})
-		return client.query("INSERT INTO cal_out (cal_id,orden,series_table,series_id) VALUES\
+		const result = await client.query("INSERT INTO cal_out (cal_id,orden,series_table,series_id) VALUES\
 		  ($1,$2,$3,$4)\
 		  ON CONFLICT (cal_id,orden)\
 		  DO UPDATE SET series_table=excluded.series_table, series_id = excluded.series_id\
 		  RETURNING *",[output.cal_id,output.orden,output.series_table,output.series_id])
-		.then(result=>{
-			var series_table = (output.series_table) ? (output.series_table == "series_areal") ? "series_areal" : "series" : "series" 
-			if(!result.rows[0]) {
-				if(release_client) {
-					client.release()
-				}
-				throw new Error("error on output upsert")
+		var series_table = (output.series_table) ? (output.series_table == "series_areal") ? "series_areal" : "series" : "series" 
+		if(!result.rows[0]) {
+			if(release_client) {
+				client.release()
 			}
-			return client.query("INSERT INTO calibrados_out (cal_id,out_id)\
-				SELECT $1,estacion_id\
-				FROM " + series_table + "\
-				WHERE id=$2\
-				ON CONFLICT (cal_id,out_id) DO NOTHING",[output.cal_id,output.series_id])
-			.then(result2=>{
-				if(release_client) {
-					client.release()
-				}
-				return new internal.output(result.rows[0])
-			})
-		})
+			throw new Error("error on output upsert")
+		}
+		const result2 = await client.query("INSERT INTO calibrados_out (cal_id,out_id)\
+			SELECT $1,estacion_id\
+			FROM " + series_table + "\
+			WHERE id=$2\
+			ON CONFLICT (cal_id,out_id) DO NOTHING",[output.cal_id,output.series_id])
+		if(release_client) {
+			client.release()
+		}
+		return new internal.output(result.rows[0])
 	}
 
 	static async upsertOutputs(client,cal_id,outputs) { // outputs = = [{series_table:"",series_id:0},...] o [0,1,2] (en el segundo caso asume series_table:"series")
@@ -16741,26 +17129,22 @@ ORDER BY cal.cal_id`
 		ON CONFLICT (cal_id,orden)\
 		DO UPDATE SET series_table=excluded.series_table, series_id = excluded.series_id\
 		RETURNING *`
-		return client.query(stmt)
-		.then(result=>{
-			if(!result.rows.length) {
-				if(release_client) {
-					client.release()
-				}
-				throw new Error("error on output upsert: nothing upserted")
+		const result = await client.query(stmt)
+		if(!result.rows.length) {
+			if(release_client) {
+				client.release()
 			}
-			var calibrados_out = result.rows.map(output=>{
-				var series_table = (output.series_table) ? (output.series_table == "series_rast") ? "series_rast" :(output.series_table == "series_areal") ? "series_areal" : "series" : "series" 
-				return { cal_id:cal_id, series_table:series_table, series_id: output.series_id}
-			})
-			return this.upsertCalibradosOut(client,cal_id,calibrados_out)
-			.then(result2=>{
-				if(release_client) {
-					client.release()
-				}
-				return result.rows.map(r=>new internal.output(r))
-			})
-	})
+			throw new Error("error on output upsert: nothing upserted")
+		}
+		var calibrados_out = result.rows.map(output=>{
+			var series_table = (output.series_table) ? (output.series_table == "series_rast") ? "series_rast" :(output.series_table == "series_areal") ? "series_areal" : "series" : "series" 
+			return { cal_id:cal_id, series_table:series_table, series_id: output.series_id}
+		})
+		const result2 = await this.upsertCalibradosOut(client,cal_id,calibrados_out)
+		if(release_client) {
+			client.release()
+		}
+		return result.rows.map(r=>new internal.output(r))
 	}
 
 	static async upsertCalibradosOut(client,cal_id,calibrados_out) {
@@ -17688,9 +18072,19 @@ ORDER BY cal.cal_id`
 				client.release()
 				throw("prono not found")
 			}
-			corrida.cor_id = result.rows[0].cor_id
-			corrida.cal_id = result.rows[0].cal_id
-			corrida.forecast_date = result.rows[0].forecast_date
+			if(result.rows.length >= 2) {
+				corrida = result.rows.map(r =>
+					new internal.corrida({
+						id: r.id,
+						cal_id: r.cal_id,
+						forecast_date: r.date
+					}))
+			} else {
+				corrida.cor_id = result.rows[0].id
+				corrida.id = corrida.cor_id
+				corrida.cal_id = result.rows[0].cal_id
+				corrida.forecast_date = result.rows[0].date
+			}
 			await client.query("COMMIT")
 		} catch(e) {
 			throw(e)
@@ -17704,31 +18098,31 @@ ORDER BY cal.cal_id`
 		if(filter.skip_cal_id && !Array.isArray(filter.skip_cal_id)) {
 			filter.skip_cal_id = [filter.skip_cal_id]
 		}
-		var getPronoPromise
+		var corridas
 		if(filter.id) {
 			console.log("filter.id")
-			getPronoPromise = this.getPronosticos(filter.id)
+			corridas = await this.getPronosticos(filter.id)
 		} else if(filter.cor_id) {
 			console.log("filter.cor_id")
-			getPronoPromise = this.getPronosticos(filter.cor_id)
+			corridas = await this.getPronosticos(filter.cor_id)
 		} else if (filter.cal_id) {
 			console.log("filter.cal_id")	
 			if(filter.forecast_date || filter.date || (filter.forecast_timestart && filter.forecast_timeend)) {
 				if(filter.forecast_date) { // exact timestamp
 					console.log(" + filter.forecast_date")
-					getPronoPromise = this.getPronosticos(undefined,filter.cal_id,undefined,undefined,filter.forecast_date)
+					corridas = await this.getPronosticos(undefined,filter.cal_id,undefined,undefined,filter.forecast_date)
 				}
 				else if(filter.date) { // forecast date whole day (no time)  
 					console.log("+ filter.date")
 					var [ts, te] = timeSteps.date2tste(new Date(filter.date))
-					getPronoPromise = this.getPronosticos(undefined,filter.cal_id,ts,te,undefined)
+					corridas = this.getPronosticos(undefined,filter.cal_id,ts,te,undefined)
 				} else { 
 					console.log("filter.forecast_timestart & forecast.timeend")
-					getPronoPromise = this.getPronosticos(undefined,filter.cal_id,filter.forecast_timestart,filter.forecast_timeend)
+					corridas = await this.getPronosticos(undefined,filter.cal_id,filter.forecast_timestart,filter.forecast_timeend)
 				}
 			} else if(filter.forecast_timeend) {
 				console.log("   + filter.forecast_timeend")
-				getPronoPromise = this.getPronosticos(undefined,filter.cal_id,undefined,filter.forecast_timeend)
+				corridas = await this.getPronosticos(undefined,filter.cal_id,undefined,filter.forecast_timeend)
 			} else {
 				return Promise.reject("Invalid options, more filters are required")
 			}
@@ -17740,11 +18134,11 @@ ORDER BY cal.cal_id`
 					return Promise.reject("Falta parametro date o forecast_date")
 				} 
 				console.log("	+ filter.forecast_date")
-				getPronoPromise = this.getPronosticos(undefined,undefined,undefined,undefined,filter.forecast_date,undefined,undefined,undefined,filter.estacion_id)		
+				corridas = await this.getPronosticos(undefined,undefined,undefined,undefined,filter.forecast_date,undefined,undefined,undefined,filter.estacion_id)		
 			} else {
 				console.log("	+ filter.date")
 				var [ts, te] = timeSteps.date2tste(new Date(filter.date))
-				getPronoPromise = this.getPronosticos(undefined,undefined,ts,te,undefined,undefined,undefined,undefined,filter.estacion_id)
+				corridas = await this.getPronosticos(undefined,undefined,ts,te,undefined,undefined,undefined,undefined,filter.estacion_id)
 			}
 		} else if (filter.model_id) {
 			console.log("filter.model_id")
@@ -17752,63 +18146,56 @@ ORDER BY cal.cal_id`
 				return Promise.reject("crud.deleteCorridas: Falta parametro date")
 			}
 			var [ts, te] = timeSteps.date2tste(new Date(filter.date))
-			return this.getPronosticos(undefined,undefined,ts,te,undefined,undefined,undefined,undefined,undefined,undefined,false,undefined,undefined,undefined,undefined,undefined,filter.model_id)
+			corridas = await this.getPronosticos(undefined,undefined,ts,te,undefined,undefined,undefined,undefined,undefined,undefined,false,undefined,undefined,undefined,undefined,undefined,filter.model_id)
 		} else if (filter.date) {
 			if(!filter.skip_cal_id) { 
 				return Promise.reject("crud.deleteCorridas: missing skip_cal_id")
 			} 
 			console.log("filter.date + filter.skip_cal_id")
 			var [ts, te] = timeSteps.date2tste(new Date(filter.date))
-			getPronoPromise = this.getPronosticos(undefined,undefined,ts,te)
+			corridas = await this.getPronosticos(undefined,undefined,ts,te)
 		} else if (filter.forecast_date) {
 			if(!filter.skip_cal_id) { 
 				return Promise.reject("crud.deleteCorridas: missing skip_cal_id")
 			} 
 			console.log("filter.forecast_date + filter.skip_cal_id")
-			getPronoPromise = this.getPronosticos(undefined,undefined,undefined,undefined,filter.forecast_date)
+			corridas = await this.getPronosticos(undefined,undefined,undefined,undefined,filter.forecast_date)
 		} else if (filter.forecast_timeend) {
 			if(!filter.skip_cal_id) { 
 				return Promise.reject("crud.deleteCorridas: missing skip_cal_id")
 			} 
 			console.log("filter.forecast_timeend + filter.skip_cal_id")
-			getPronoPromise = this.getPronosticos(undefined,undefined,undefined,filter.forecast_timeend)
+			corridas = await this.getPronosticos(undefined,undefined,undefined,filter.forecast_timeend)
 		} else {
-			throw("Missing filter")
+			throw(new Error("Missing filter"))
 		}
-		return getPronoPromise
-		.then(corridas=>{
-			if(corridas.length == 0) {
-				console.warn("crud.deleteCorridas: pronosticos not found")
-				return
-			}
-			if(filter.skip_cal_id) {
-				corridas = corridas.filter(c=> filter.skip_cal_id.indexOf(c.cal_id) < 0)
-			}
-			var cor_id = corridas.map(c=>c.id)
-			console.log({corridas:corridas,cor_id:cor_id})
-			var savePromise
-			if(options.save) {
-				console.log("options.save, guardando en corridas_guardadas")
-				savePromise = this.guardarCorridas(cor_id)
-			} else if(options.save_prono) {
-				console.log("options.save_prono, guardando prono en corridas_guardadas")
-				savePromise = this.guardarCorridas(cor_id,undefined,{only_prono:true})
-			} else {
-				savePromise = Promise.resolve(corridas)
-			}
-			return savePromise
-			.then(corridas=>{
-				if(options.skip_delete) {
-					console.log("options.skip_delete")
-					return corridas
-				}
-				if(options.only_sim) {
-					console.log("   + options.only_sim")
-					return this.deletePronosticos(cor_id,undefined,undefined,undefined,undefined,true)
-				}
-				return this.deleteCorrida(cor_id)
-			})
-		})
+		if(corridas.length == 0) {
+			console.warn("crud.deleteCorridas: pronosticos not found")
+			return
+		}
+		if(filter.skip_cal_id) {
+			corridas = corridas.filter(c=> filter.skip_cal_id.indexOf(c.cal_id) < 0)
+		}
+		var cor_id = corridas.map(c=>c.id)
+		console.debug({corridas:corridas,cor_id:cor_id})
+		if(options.save) {
+			console.log("options.save, guardando en corridas_guardadas")
+			corridas = await this.guardarCorridas(cor_id)
+		} else if(options.save_prono) {
+			console.log("options.save_prono, guardando prono en corridas_guardadas")
+			corridas = await this.guardarCorridas(cor_id,undefined,{only_prono:true})
+		} else {
+			// savePromise = Promise.resolve(corridas)
+		}
+		if(options.skip_delete) {
+			console.log("options.skip_delete")
+			return corridas
+		}
+		if(options.only_sim) {
+			console.log("   + options.only_sim")
+			return this.deletePronosticos(cor_id,undefined,undefined,undefined,undefined,true)
+		}
+		return this.deleteCorrida(cor_id)
 	}
 
 	static async batchDeleteCorridas(options={n:10,skip_cal_id:[288,308,391,400,439,440,441,442,432,433,439,440,441,442,444,445,446,454,457,455,456,458,459,460,461]}) {

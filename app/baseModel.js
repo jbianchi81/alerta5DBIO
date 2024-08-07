@@ -6,6 +6,7 @@ const CSV = require('csv-string')
 const utils = require('./utils')
 const internal = {}
 const {Interval} = require('./timeSteps')
+var turfHelpers = require("@turf/helpers")
 
 internal.writeModelToFile = async (model,output_file,output_format) => {
 	if(!model) {
@@ -189,6 +190,12 @@ internal.baseModel = class {
 					} else {
 						throw("Invalid value, not iterable")
 					}
+				} else if (definition.type == "boolean") {
+					if(value != undefined) {
+						return (value.toString().toLowerCase() == 'true')
+					} else {
+						return value
+					}
 				} else {
 					return value
 				}
@@ -295,6 +302,64 @@ internal.baseModel = class {
 		}
 	}
 	/**
+	 * Fill up undefined properties with null
+	 * @returns Object
+	 */
+	toJSON() {
+		const this_with_nulls = {}
+		const fields = (Object.keys(this.constructor._fields).length) ? this.constructor._fields : this
+		for(const field of Object.keys(fields)) {
+			if(/^_/.test(field)) {
+				continue
+			}
+			// console.debug("field: " + field, "value: " + this_with_nulls[field])
+			if(this[field] == undefined) {
+				this_with_nulls[field] = null
+			} else {
+				this_with_nulls[field] = this[field]
+			}
+		}
+		// console.log(JSON.stringify(this_with_nulls))
+		return this_with_nulls 
+	}
+	
+	toGeoJSON(includeProperties=true) {
+		if(!this.constructor._geom_field) {
+			throw(new Error("Geometry field not defined for this class"))
+		}
+		var properties = (includeProperties) ? this.getProperties() : {}
+		return turfHelpers.feature(this[this.constructor._geom_field],properties)
+	}
+
+	getProperties() {
+		const properties = {}
+		Object.keys(this).forEach(key=>{
+			if(key == this.constructor._geom_field) {
+				return
+			}
+			properties[key] = this[key]
+		})
+		return properties
+	}
+
+	static toGeoJSON(items=[], includeProperties=true) {
+		if(!this._geom_field) {
+			throw(new Error("geometry field not set for this class"))
+		}
+		if(!items.length) {
+			throw(new Error("Missing items"))
+		}
+		const result = {
+			"type": "FeatureCollection",
+			"features": []
+		}
+		for(const item of items) {
+			result.features.push(item.toGeoJSON(includeProperties))
+		}
+		return result
+	}
+
+	/**
 	 * 
 	 * @param {object[]} data - list of instances of this class (or objects parseable into it) 
 	 * @param {*} options
@@ -311,16 +376,29 @@ internal.baseModel = class {
 			if(!row instanceof this) {
 				row = new this(row)
 			}
-			rows.push(Object.keys(this._fields).filter(key=>(options.columns) ? options.columns.indexOf(key) >= 0 : true).map(key=>{
-				if(this._fields[key].type && (this._fields[key].type == "timestamp" || this._fields[key].type == "date")) {
-					return (row[key]) ? row[key].toISOString() : ""
-				} else {
-					return row[key]
-				}
-			}))
+			rows.push(row.toTuple({columns: options.columns}))
+			// rows.push(Object.keys(this._fields).filter(key=>(options.columns) ? options.columns.indexOf(key) >= 0 : true).map(key=>{
+			// 	if(this._fields[key].type && (this._fields[key].type == "timestamp" || this._fields[key].type == "date")) {
+			// 		return (row[key]) ? row[key].toISOString() : ""
+			// 	} else {
+			// 		return row[key]
+			// 	}
+			// }))
 		}
 		return CSV.stringify(rows).replace(/\r\n$/,"")
 	}
+
+	toTuple(options={}) {
+		const fields = (Object.keys(this.constructor._fields).length) ? this.constructor._fields : this
+		return Object.keys(fields).filter(key=>(options.columns) ? options.columns.indexOf(key) >= 0 : true).map(key=>{
+			if(fields[key] != undefined && fields[key].type && (fields[key].type == "timestamp" || fields[key].type == "date")) {
+				return this[key].toISOString()
+			} else {
+				return this[key]
+			}
+		})
+	}
+
 	/**
 	 * 
 	 * @param {object} options - options
@@ -332,14 +410,16 @@ internal.baseModel = class {
 		const rows = []
 		if(options.header) {
             rows.push(this.constructor.getCSVHeader(options.columns))
-        } 
-		rows.push(Object.keys(this.constructor._fields).filter(key=>(options.columns) ? options.columns.indexOf(key) >= 0 : true).map(key=>{
-			if(this.constructor._fields[key].type && (this.constructor._fields[key].type == "timestamp" || this.constructor._fields[key].type == "date")) {
-				return this[key].toISOString()
-			} else {
-				return this[key]
-			}
-		}))
+        }
+		rows.push(this.toTuple({columns: options.columns}))
+		// const fields = (Object.keys(this.constructor._fields).length) ? this.constructor._fields : this
+		// rows.push(Object.keys(fields).filter(key=>(options.columns) ? options.columns.indexOf(key) >= 0 : true).map(key=>{
+		// 	if(fields[key] != undefined && fields[key].type && (fields[key].type == "timestamp" || fields[key].type == "date")) {
+		// 		return this[key].toISOString()
+		// 	} else {
+		// 		return this[key]
+		// 	}
+		// }))
 		return CSV.stringify(rows).replace(/\r\n$/,"")
 	}
 	/**
@@ -362,8 +442,8 @@ internal.baseModel = class {
 	 * @returns {object} an instance of this class
 	 */
 	static fromCSV(row_csv_string,separator=",",columns) {
-		if(!this._fields) {
-			throw("Missing constructor._fields for class " + this.name)
+		if(!Object.keys(this._fields).length) {
+			throw(new Error("Missing constructor._fields for class " + this.name))
 		}
 		columns = (columns) ? columns : Object.keys(this._fields)
 		const row = CSV.parse(row_csv_string, separator)[0].map(c=> (!c.length) ? undefined : c)
@@ -446,6 +526,19 @@ internal.baseModel = class {
 			}
 		} 
 	}
+
+	static async create(items) {
+		const results = []
+		for(const item of items) {
+			const instance = new this(item)
+			if(typeof instance.create != "function") {
+				throw(new Error(".create not defined for this class"))
+			}
+			results.push(await instance.create())
+		}
+		return results
+	} 
+
 	async create() {
 		this.checkPK()
 		const statement = this.build_insert_statement()

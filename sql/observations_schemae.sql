@@ -1499,13 +1499,14 @@ CREATE VIEW public.asociaciones_view AS
     s_dest.proc_id AS dest_proc_id,
     s_dest.unit_id AS dest_unit_id,
     a.habilitar,
-    a.expresion
-   FROM public.asociaciones a,
-    s_all s_source,
-    s_all s_dest
-  WHERE (((a.source_tipo)::text = s_source.tipo) AND (a.source_series_id = s_source.id) AND ((a.dest_tipo)::text = s_dest.tipo) AND (a.dest_series_id = s_dest.id))
+    a.expresion,
+    a.cal_id,
+    calibrados.nombre AS cal_nombre
+   FROM public.asociaciones a
+   JOIN s_all s_source ON ((a.source_tipo)::text = s_source.tipo AND a.source_series_id = s_source.id)
+   JOIN s_all s_dest ON ((a.dest_tipo)::text = s_dest.tipo AND a.dest_series_id = s_dest.id)
+   LEFT JOIN calibrados ON (calibrados.id = a.cal_id)
   ORDER BY a.id;
-
 
 --
 -- Name: asociaciones id; Type: DEFAULT; Schema: public; Owner: -
