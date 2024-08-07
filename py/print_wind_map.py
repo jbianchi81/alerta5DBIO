@@ -65,7 +65,7 @@ def printModelRunWindMaps(path,skip_print=False):
     # subprocess.run(["convert","-delay",20,"%s/*.png" % path,"-loop","0",animationfilename])
     subprocess.run("convert -delay 20 %s/*.png -loop 0 %s/%s" % (path,path,animationfilename),shell=True)
     # copy animation file to fixed location
-    subprocess.run("cp %s/%s %s/gefs.wave.last.gif" % (path,animationfilename,default_base_path),shell=True)
+    subprocess.run("cp %s/%s %s/../../gefs.wave.last.gif" % (path,animationfilename,path),shell=True)
     return filtered_files
 
 def getLastModelRunPath(base_path=default_base_path):
