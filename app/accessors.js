@@ -1583,8 +1583,8 @@ internal.paraguay09 = class {
 			return obs
 		}) // .filter(o=> parseFloat(o.valor).toString()!=='NaN')
 		const upserted_h = await crud.upsertObservaciones(observaciones)
-		const upserted_q_pilco = await crud.runAsociacion(10712) // h_q PPILCO
-		const upserted_q_form = await crud.runAsociacion(10716) // h_q PFORM
+		const upserted_q_pilco = await crud.runAsociacion(10712, {timestart: filter.timestart ?? new Date(2024,6,1), timeend: filter.timeend ?? new Date()}) // h_q PPILCO
+		const upserted_q_form = await crud.runAsociacion(10716, {timestart: filter.timestart ?? new Date(2024,6,1), timeend: filter.timeend ?? new Date()}) // h_q PFORM
 		return [...upserted_h, ...upserted_q_pilco, ...upserted_q_form]
 	}	
 
