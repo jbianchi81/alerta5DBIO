@@ -1575,16 +1575,17 @@ internal.paraguay09 = class {
 	get(filter,options) {
 		return this.getParaguay09(filter.timestart,filter.timeend,filter.file)
 	}
-	update(filter,options) {
-		return this.getParaguay09(filter.timestart,filter.timeend,filter.file)
-		.then(data=>{
-			var observaciones  = data.map(d=> {
-				var obs = new CRUD.observacion(d)
-				  //~ console.log(obs.toString())
-				return obs
-			}) // .filter(o=> parseFloat(o.valor).toString()!=='NaN')
-			return crud.upsertObservaciones(observaciones)
-		})
+	async update(filter,options) {
+		const data = await this.getParaguay09(filter.timestart,filter.timeend,filter.file)
+		var observaciones  = data.map(d=> {
+			var obs = new CRUD.observacion(d)
+				//~ console.log(obs.toString())
+			return obs
+		}) // .filter(o=> parseFloat(o.valor).toString()!=='NaN')
+		const upserted_h = await crud.upsertObservaciones(observaciones)
+		const upserted_q_pilco = await crud.runAsociacion(10712) // h_q PPILCO
+		const upserted_q_form = await crud.runAsociacion(10716) // h_q PFORM
+		return [...upserted_h, ...upserted_q_pilco, ...upserted_q_form]
 	}	
 
 	getParaguay09(startDate,endDate=new Date(), input= __dirname + "/" + this.config.file, page_number) {

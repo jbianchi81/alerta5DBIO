@@ -14548,6 +14548,7 @@ internal.CRUD = class {
 		if(!asociacion.dest_series_id) {
 			return Promise.reject("missing dest_series_id")
 		}
+		asociacion = new internal.asociacion(asociacion)
 		const client = await global.pool.connect()
 		const result = await client.query("INSERT INTO asociaciones (source_tipo, source_series_id, dest_tipo, dest_series_id, agg_func, dt, t_offset, precision, source_time_support, source_is_inst, habilitar, expresion, cal_id) \
 VALUES (coalesce($1,'puntual'),$2,coalesce($3,'puntual'),$4,$5,$6,$7,$8,$9,$10,coalesce($11,true),$12,$13)\
@@ -14797,33 +14798,29 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 	}
 
 	static async getSerieAndConvert(series_id,timestart,timeend,expresion,dest_series_id) {
-		return this.getSerie('puntual',series_id,timestart,timeend)
-		.then(serie=>{
-			if(!serie.observaciones) {
-				throw("No se encontraron observaciones")
+		const serie = await this.getSerie('puntual',series_id,timestart,timeend)
+		if(!serie.observaciones) {
+			throw("No se encontraron observaciones")
+		}
+		if(serie.observaciones.length == 0) {
+			throw("No se encontraron observaciones")
+		}
+		const observaciones = serie.observaciones.map(o=>{
+			o.series_id = (dest_series_id) ? dest_series_id : null
+			var valor = parseFloat(o.valor)
+			if(valor === undefined || valor == null || valor.toString() == 'NaN') {
+				return
 			}
-			if(serie.observaciones.length == 0) {
-				throw("No se encontraron observaciones")
-			}
-			return serie.observaciones.map(o=>{
-				o.series_id = (dest_series_id) ? dest_series_id : null
-				var valor = parseFloat(o.valor)
-				if(valor === undefined || valor == null || valor.toString() == 'NaN') {
-					return
-				}
-				o.valor = eval(expresion)
-				// console.log(`convert: ${valor} -> ${o.valor}`)
-				return o
-			})
-			.filter(o=>o)
+			o.valor = eval(expresion)
+			// console.log(`convert: ${valor} -> ${o.valor}`)
+			return o
 		})
-		.then(observaciones=>{
-			if(dest_series_id) {
-				return this.upsertObservacionesPuntual(observaciones)
-			} else {
-				return observaciones
-			}
-		})
+		.filter(o=>o)
+		if(dest_series_id) {
+			return this.upsertObservacionesPuntual(observaciones)
+		} else {
+			return observaciones
+		}
 	}
 	
 	static async deleteAsociacion(id) {

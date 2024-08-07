@@ -3609,6 +3609,7 @@ function upsertAsociacion(req,res) {
 		res.send(result)
 	})
 	.catch(e=>{
+		console.error(e)
 		res.status(404).send(e.toString())
 	})
 }
