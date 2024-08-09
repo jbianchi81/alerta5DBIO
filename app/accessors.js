@@ -220,7 +220,7 @@ internal.Accessor = class {
 		} else if(this.engine.getSeries) {
 			return this.engine.getSeries(filter,options,client)
 			.then(async series=>{
-				const result = await crud.upsertSeries(series,false,true,undefined)
+				const result = await crud.upsertSeries(series,false,(options.upsert_estacion != undefined) ? options.upsert_estacion : true,undefined)
 				if(options.refresh_series_json) {
 					crud.refreshSeriesJson()
 					crud.refreshSeriesArealJson()

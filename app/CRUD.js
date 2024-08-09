@@ -13568,7 +13568,7 @@ internal.CRUD = class {
 				var prono_filter = ""
 			}
 			if(options.source_time_support) {
-				var timeend_expr = `${obs_t}.timestart + '${options.source_time_support.toPostgres()}'::interval`
+				var timeend_expr = `${obs_t}.timestart + '${(typeof options.source_time_support == "string") ? options.source_time_support : options.source_time_support.toPostgres()}'::interval`
 			} else {
 				var timeend_expr = `${obs_t}.timeend`
 			}

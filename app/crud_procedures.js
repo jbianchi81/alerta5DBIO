@@ -4061,6 +4061,7 @@ if(1==1) {
     .option("-b, --base_path <value>",'to use together with -i. Prepends this base path to the constructed file paths')
     .option("-F, --iter_field <value>",'Field of elements to iterate over to generate separate output files (combined with -i)')
     .option("-u, --update","Update series in database from downloaded records")
+    .option("-p, --pretty",'pretty print output')
     .action(async (accessor_class,filter,options) => {
         try {
             filter = parseKVPArray(filter)
@@ -4106,7 +4107,118 @@ if(1==1) {
         await writeResult(procedure,result,options)
         process.exit(0)
     })
-    
+
+    program
+    .command('get-sites accessor_class [filter...]')
+    .alias('s')
+    .description('Run site metadata download procedure for given accessor class and output in selected format. Accepts zero to many filters as "key1=value1 key2=value2 ..."')
+    .option("-v, --validate",'validate only (don\'t run)')
+    .option("-o, --output <value>",'save output to file. If -o nor -i are set, output is printed to STDOUT')
+    .option("-f, --format <value>",'output format (json (default) or csv)')
+    .option("-i, --output_individual_files_pattern <value>",'output one file for each retrieved element using this printf pattern to use with element id and, additional fields (with -F option)')
+    .option("-b, --base_path <value>",'to use together with -i. Prepends this base path to the constructed file paths')
+    .option("-F, --iter_field <value>",'Field of elements to iterate over to generate separate output files (combined with -i)')
+    .option("-u, --update","Update sites in database from downloaded records")
+    .option("-p, --pretty",'pretty print output')
+    .action(async (accessor_class,filter,options) => {
+        try {
+            filter = parseKVPArray(filter)
+        } catch (e) {
+            logger.error(e)
+            process.exit(1)
+        }
+        console.debug({filter: filter, options: options})
+        const class_name = accessor_class
+        try {
+            accessor = await Accessors.new(class_name)
+        } catch(e) {
+            console.error(e)
+            process.exit(1)
+        }
+        const get_options = getOutputOptions(options)
+        const output = (options.output) ? path.resolve(options.output) : undefined
+        try {
+            // console.debug("Update from accessor")
+            var procedure = new internal.GetSitesFromAccessorProcedure({accessor_id: class_name, filter:filter, output: output, output_format: options.format, options: get_options})
+        } catch(e) {
+            logger.error(e)
+            process.exit(1)
+        }
+        if(options.validate) {
+            process.exit(0)
+        }
+        try {
+            var result = await procedure.run()
+            if(options.update) {
+                result = await CRUD.estacion.create(result)
+            }
+        } catch(e) {
+            logger.error(e)
+            process.exit(1)
+        }
+        await writeResult(procedure,result,options)
+        process.exit(0)
+    })
+
+    program
+    .command('get-series accessor_class [filter...]')
+    .alias('s')
+    .description('Run series metadata download procedure for given accessor class and output in selected format. Accepts zero to many filters as "key1=value1 key2=value2 ..."')
+    .option("-v, --validate",'validate only (don\'t run)')
+    .option("-o, --output <value>",'save output to file. If -o nor -i are set, output is printed to STDOUT')
+    .option("-f, --format <value>",'output format (json (default) or csv)')
+    .option("-i, --output_individual_files_pattern <value>",'output one file for each retrieved element using this printf pattern to use with element id and, additional fields (with -F option)')
+    .option("-b, --base_path <value>",'to use together with -i. Prepends this base path to the constructed file paths')
+    .option("-F, --iter_field <value>",'Field of elements to iterate over to generate separate output files (combined with -i)')
+    .option("-u, --update","Update series in database from downloaded records")
+    .option("-s, --update-stations","update stations (sites) in database from downloaded records")
+    .option("-p, --pretty",'pretty print output')
+    .action(async (accessor_class,filter,options) => {
+        try {
+            filter = parseKVPArray(filter)
+        } catch (e) {
+            logger.error(e)
+            process.exit(1)
+        }
+        console.debug({filter: filter, options: options})
+        const class_name = accessor_class
+        try {
+            accessor = await Accessors.new(class_name)
+        } catch(e) {
+            console.error(e)
+            process.exit(1)
+        }
+        const get_options = getOutputOptions(options)
+        if(options.update_stations) {
+            get_options.upsert_estacion = true
+        } else {
+            get_options.upsert_estacion = false
+        }
+        const output = (options.output) ? path.resolve(options.output) : undefined
+        try {
+            if(options.update) {
+                var procedure = new internal.UpdateMetadataFromAccessorProcedure({accessor_id: class_name, filter:filter, output: output, output_format: options.format, options: get_options})
+            } else {
+                var procedure = new internal.GetMetadataFromAccessorProcedure({accessor_id: class_name, filter:filter, output: output, output_format: options.format, options: get_options})
+            }
+        } catch(e) {
+            logger.error(e)
+            process.exit(1)
+        }
+        if(options.validate) {
+            process.exit(0)
+        }
+        try {
+            var result = await procedure.run()
+        } catch(e) {
+            logger.error(e)
+            process.exit(1)
+        }
+        await writeResult(procedure,result,options)
+        process.exit(0)
+    })
+
+
     program
     .command("run-asoc <timestart> <timeend> [filter...]")
     .alias('a')

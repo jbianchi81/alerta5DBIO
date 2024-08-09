@@ -1639,7 +1639,7 @@ var metadataElements = {
 				filter: true,
 				edit: true,
 				description: "Función de agregación",
-				options: ["acum","mean","sum","min","max","count","diff","increment","math","avg","average","pulse"],
+				options: ["acum","mean","sum","min","max","count","diff","increment","math","avg","average","pulse","nearest","first","last"],
 				default: "mean"
 			},
 			dt: {
@@ -1768,6 +1768,15 @@ var metadataElements = {
 				edit: true,
 				filter: false,
 				type: "text"
+			},
+			cal_id: {
+				description: "identificador de calibrado. Si no es nulo, lee y escribe pronósticos correspondientes al cal_id indicado.",
+				title: "cal_id",
+				required: false,
+				edit: true,
+				filter: true,
+				type: "number",
+				min: 0
 			}
 		},
 		objectName: "asociacion",
