@@ -2369,6 +2369,9 @@ internal.RunAsociacionesProcedure = class extends internal.CrudProcedure {
         }
         arguments[0].filter.timestart = timeSteps.DateFromDateOrInterval(arguments[0].filter.timestart,undefined,arguments[0].filter.round_to)
         arguments[0].filter.timeend = timeSteps.DateFromDateOrInterval(arguments[0].filter.timeend,undefined,arguments[0].filter.round_to)
+        if(arguments[0].filter.forecast_date) {
+            arguments[0].filter.forecast_date = timeSteps.DateFromDateOrInterval(arguments[0].filter.forecast_date,undefined,arguments[0].filter.round_to)
+        }
         this.filter = arguments[0].filter
         // this.options = arguments[0].options
     }

@@ -13390,13 +13390,13 @@ internal.CRUD = class {
 			// SERIE NO INSTANTANEA //
 			var timeSupport
 			if (!options.timeSupport) {
-				timeSupport = serie["var"].timeSupport
+				timeSupport = serie["var"].timeSupport.toPostgres()
 			} else {
 				if(/[';]/.test(options.timeSupport)) {
 					console.error("Invalid timeSupport")
 					return
 				} else {
-					timeSupport = options.timeSupport
+					timeSupport = options.timeSupport.toPostgres()
 				}
 			}
 			// const results = await Promise.all([this.date2obj(timestart),this.date2obj(timeend),this.interval2epoch(dt), this.interval2epoch(t_offset)])
@@ -13568,7 +13568,7 @@ internal.CRUD = class {
 				var prono_filter = ""
 			}
 			if(options.source_time_support) {
-				var timeend_expr = `${obs_t}.timestart + '${options.source_time_support}'::interval`
+				var timeend_expr = `${obs_t}.timestart + '${options.source_time_support.toPostgres()}'::interval`
 			} else {
 				var timeend_expr = `${obs_t}.timeend`
 			}
@@ -13579,7 +13579,7 @@ internal.CRUD = class {
 			// SERIE NO INSTANTANEA //
 				var timeSupport
 				if (!options.timeSupport) {
-					timeSupport = serie["var"].timeSupport
+					timeSupport = serie["var"].timeSupport.toPostgres()
 				} else {
 					if(/[';]/.test(options.timeSupport)) {
 						console.error("Invalid timeSupport")
@@ -13588,7 +13588,7 @@ internal.CRUD = class {
 						}
 						throw(new Error("Invalid timeSupport"))
 					} else {
-						timeSupport = options.timeSupport
+						timeSupport = options.timeSupport.toPostgres()
 					}
 				}
 				aggFunction = (options.aggFunction) ? options.aggFunction : "acum"
@@ -13864,7 +13864,11 @@ internal.CRUD = class {
 				}
 			}
 			// console.debug(pasteIntoSQLQuery(stmt,args))
-			const result = await client.query(stmt,args)
+			try {
+				var result = await client.query(stmt,args)
+			} catch(e) {
+				throw(new Error(e))
+			}
 			if(release_client) {
 				client.release()
 			}
@@ -14418,7 +14422,8 @@ internal.CRUD = class {
 		//~ var params = [filter.source_tipo,filter.source_series_id,filter.estacion_id,filter.provider_id,filter.source_var_id,filter.source_proc_id,filter.dest_tipo,filter.dest_series_id,filter.dest_var_id,filter.dest_proc_id,options.agg_func,options.dt,options.t_offset,filter.habilitar]
 	
 		var filter_string = internal.utils.control_filter2(
-			{id:{type:"integer"},source_tipo: {type: "string"}, source_series_id: {type: "number"}, source_estacion_id: {type: "number"}, source_fuentes_id: {type: "string"}, source_var_id: {type: "number"},  source_proc_id: {type: "number"}, dest_tipo: {type: "string"}, dest_series_id: {type: "number"}, dest_var_id: {type: "number"}, dest_proc_id: {type: "number"}, agg_func: {type: "string"}, dt: {type: "interval"}, t_offset: {type: "interval"},habilitar: {type: "boolean"}, cal_id:{type: "integer"}}, 
+			{
+				id: {type:"integer"},source_tipo: {type: "string"}, source_series_id: {type: "number"}, source_estacion_id: {type: "number"}, source_fuentes_id: {type: "string"}, source_var_id: {type: "number"},  source_proc_id: {type: "number"}, dest_tipo: {type: "string"}, dest_series_id: {type: "number"}, dest_var_id: {type: "number"}, dest_proc_id: {type: "number"}, agg_func: {type: "string"}, dt: {type: "interval"}, t_offset: {type: "interval"},habilitar: {type: "boolean"}, cal_id:{type: "integer"}}, 
 			{id: filter.id, source_tipo: filter.source_tipo, source_series_id: filter.source_series_id, source_estacion_id: filter.estacion_id, source_fuentes_id: filter.provider_id, source_var_id: filter.source_var_id,  source_proc_id: filter.source_proc_id, dest_tipo: filter.dest_tipo, dest_series_id: filter.dest_series_id, dest_var_id: filter.dest_var_id, dest_proc_id: filter.dest_proc_id, agg_func: options.agg_func, dt: options.dt, t_offset: options.t_offset, cal_id: filter.cal_id},
 			"asociaciones_view")
 		var query = "SELECT * \
