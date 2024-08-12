@@ -13897,7 +13897,10 @@ internal.CRUD = class {
 					if(!options.no_insert_as_obs) {
 						// first, upsert forecast as observations
 						await this.upsertObservaciones(observaciones.filter(o=>o.valor),tipo,options.insertSeriesId,options) 
+					} else {
+						console.debug("Skipped insert as obs")
 					}
+					console.debug("Upsert forecast as forecast length: " + observaciones.length)
 					// then, upsert forecast as forecast
 					return this.upsertSerieSim(
 						observaciones.filter(o=>o.valor),
@@ -14423,7 +14426,10 @@ internal.CRUD = class {
 	
 		var filter_string = internal.utils.control_filter2(
 			{
-				id: {type:"integer"},source_tipo: {type: "string"}, source_series_id: {type: "number"}, source_estacion_id: {type: "number"}, source_fuentes_id: {type: "string"}, source_var_id: {type: "number"},  source_proc_id: {type: "number"}, dest_tipo: {type: "string"}, dest_series_id: {type: "number"}, dest_var_id: {type: "number"}, dest_proc_id: {type: "number"}, agg_func: {type: "string"}, dt: {type: "interval"}, t_offset: {type: "interval"},habilitar: {type: "boolean"}, cal_id:{type: "integer"}}, 
+				id: {type:"integer"},
+				source_tipo: {type: "string"}, 
+				source_series_id: {type: "number"}, 
+				source_estacion_id: {type: "number"}, source_fuentes_id: {type: "string"}, source_var_id: {type: "number"},  source_proc_id: {type: "number"}, dest_tipo: {type: "string"}, dest_series_id: {type: "number"}, dest_var_id: {type: "number"}, dest_proc_id: {type: "number"}, agg_func: {type: "string"}, dt: {type: "interval"}, t_offset: {type: "interval"},habilitar: {type: "boolean"}, cal_id:{type: "integer"}}, 
 			{id: filter.id, source_tipo: filter.source_tipo, source_series_id: filter.source_series_id, source_estacion_id: filter.estacion_id, source_fuentes_id: filter.provider_id, source_var_id: filter.source_var_id,  source_proc_id: filter.source_proc_id, dest_tipo: filter.dest_tipo, dest_series_id: filter.dest_series_id, dest_var_id: filter.dest_var_id, dest_proc_id: filter.dest_proc_id, agg_func: options.agg_func, dt: options.dt, t_offset: options.t_offset, cal_id: filter.cal_id},
 			"asociaciones_view")
 		var query = "SELECT * \
@@ -14649,6 +14655,9 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 				if(options.no_update) {
 					opt.no_update = true
 				}
+				if(options.no_insert_as_obs) {
+					opt.no_insert_as_obs = true
+				}
 				//~ promises.push(a)
 				console.log("asociacion " + a.id)
 				var result
@@ -14777,7 +14786,18 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 			const observaciones = serie.aggregateMonthly(timestart,timeend,a.agg_func,a.precision,a.timeSupport,a.expression)
 			return this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id)
 		} else {
-			return this.getRegularSeries(a.source_tipo,a.source_series_id,a.dt,timestart,timeend,opt,undefined,a.cal_id,filter.cor_id,filter.forecast_date,filter.qualifier)
+			return this.getRegularSeries(
+				a.source_tipo,
+				a.source_series_id,
+				a.dt,
+				timestart,
+				timeend,
+				opt,
+				undefined,
+				a.cal_id,
+				filter.cor_id,
+				filter.forecast_date,
+				filter.qualifier)
 		}
 	}
 	

@@ -1176,7 +1176,7 @@ ALTER TABLE ONLY public.tramos
 --
 
 ALTER TABLE ONLY public.valores_prono_num
-    ADD CONSTRAINT valores_prono_num_prono_id_fkey FOREIGN KEY (prono_id) REFERENCES public.pronosticos(id);
+    ADD CONSTRAINT valores_prono_num_prono_id_fkey FOREIGN KEY (prono_id) REFERENCES public.pronosticos(id) ON DELETE CASCADE;
 
 --
 -- Name: modelos_out; Type: TABLE; Schema: public; Owner: -

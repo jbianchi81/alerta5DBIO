@@ -205,8 +205,12 @@ internal.Client = class extends AbstractAccessorEngine {
                     "nombre": ts["header"]["stationName"],
                     "geom": {
                     "type": "Point",
-                    "coordinates": [Number.parseFloat(ts["header"]["lon"]), Number.parseFloat(ts["header"]["lat"])]
-                    }
+                    "coordinates": [
+                        Number.parseFloat(ts["header"]["lon"]), 
+                        Number.parseFloat(ts["header"]["lat"])
+                      ]
+                    },
+                    habilitar: true
                 },
                 procedimiento: {
                     id: this.config.proc_id
@@ -306,7 +310,8 @@ internal.Client = class extends AbstractAccessorEngine {
                 Number.parseFloat(location["lon"]), 
                 Number.parseFloat(location["lat"])
               ]
-            }
+            },
+            "habilitar": true
         })
     }
 
