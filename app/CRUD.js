@@ -14695,7 +14695,16 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 							if(a.source_tipo != "puntual") {
 								throw("Tipo inválido para convertir por expresión (math)")
 							}
-							result = await this.getSerieAndConvert(a.source_series_id,filter.timestart,filter.timeend,a.expresion,a.dest_series_id)
+							result = await this.getSerieAndConvert(
+								a.source_series_id,
+								filter.timestart,
+								filter.timeend,
+								a.expresion,
+								a.dest_series_id,
+								a.cal_id,
+								filter.cor_id,
+								filter.forecast_date,
+								a.source_tipo)
 						} else if (a.agg_func == "pulse") {
 							if(a.source_tipo != "puntual" && a.source_tipo != "areal") {
 								throw("Tipo inválido para convertir a pulsos")
@@ -14802,7 +14811,16 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 			if(a.source_tipo != "puntual") {
 				throw("Tipo inválido para convertir por expresión (math)")
 			}
-			return this.getSerieAndConvert(a.source_series_id,timestart,timeend,a.expresion,a.dest_series_id)
+			return this.getSerieAndConvert(
+				a.source_series_id,
+				timestart,
+				timeend,
+				a.expresion,
+				a.dest_series_id, 
+				a.cal_id, 
+				filter.cor_id, 
+				filter.forecast_date, 
+				a.source_tipo)
 		} else if (a.agg_func && a.agg_func == "pulse"){
 			if(a.source_tipo != "puntual" && a.source_tipo != "areal") {
 				throw("Tipo inválido para convertir por expresión (pulse)")
@@ -14850,15 +14868,59 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 		})
 	}
 
-	static async getSerieAndConvert(series_id,timestart,timeend,expresion,dest_series_id) {
-		const serie = await this.getSerie('puntual',series_id,timestart,timeend)
-		if(!serie.observaciones) {
-			throw("No se encontraron observaciones")
+	/**
+	 * Read serie and convert values using expression
+	 *
+	**/  
+	static async getSerieAndConvert(
+		series_id,
+		timestart,
+		timeend,
+		expresion,
+		dest_series_id,
+		cal_id,
+		cor_id,
+		forecast_date,
+		tipo="puntual"
+	) {
+		if(!cor_id && cal_id) {
+			if(!forecast_date) {
+				return Promise.reject("If cal_id is set, forecast_date must be defined")
+			}
 		}
-		if(serie.observaciones.length == 0) {
-			throw("No se encontraron observaciones")
+		if(cor_id || cal_id) {
+			var corridas = await internal.pronostico.read(
+				{
+					series_id: series_id,
+					cal_id: cal_id,
+					cor_id: cor_id,
+					forecast_date: forecast_date,
+					tipo: tipo
+				},{
+					includeProno: true
+				})
+			if(!corridas.length) {
+				throw(new Error("Forecast not found"))
+			}
+			if(!corridas[0].series.length) {
+				throw(new Error("Forecast series not found"))
+			}
+			if(!corridas[0].series[0].pronosticos.length) {
+				throw(new Error("Forecast series time-value tuples not found"))
+			}
+			var observaciones = corridas[0].series[0].pronosticos
+			
+		} else {
+			var serie = await this.getSerie('puntual',series_id,timestart,timeend)
+			if(!serie.observaciones) {
+				throw("No se encontraron observaciones")
+			}
+			if(serie.observaciones.length == 0) {
+				throw("No se encontraron observaciones")
+			}
+			var observaciones = serie.observaciones
 		}
-		const observaciones = serie.observaciones.map(o=>{
+		const observaciones_converted = observaciones.map(o=>{
 			o.series_id = (dest_series_id) ? dest_series_id : null
 			var valor = parseFloat(o.valor)
 			if(valor === undefined || valor == null || valor.toString() == 'NaN') {
@@ -14870,9 +14932,15 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 		})
 		.filter(o=>o)
 		if(dest_series_id) {
-			return this.upsertObservacionesPuntual(observaciones)
+			if(cal_id || cor_id) {
+				corridas[0].series[0].series_id = dest_series_id
+				corridas[0].series[0].pronosticos = observaciones_converted
+				await corridas[0].create() // series[0].create()
+				return corridas[0].series[0].pronosticos
+			}
+			return this.upsertObservacionesPuntual(observaciones_converted)
 		} else {
-			return observaciones
+			return observaciones_converted
 		}
 	}
 	
