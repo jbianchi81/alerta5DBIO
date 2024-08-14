@@ -6919,6 +6919,8 @@ async function send_output(options,data,res,property_name) {
 		if(Array.isArray(data)) {
 			if(options.no_send_data) {
 				output = "records="+data.length
+			} else if(options.csv && typeof data.toCSV === 'function') {
+				output = data.toCSV(options)
 			} else {
 				for(var i=0; i < data.length; i++) {
 					if(i==0 && (options.csvless || options.csv) && data[i].getCSVHeader) {

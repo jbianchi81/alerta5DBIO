@@ -4513,7 +4513,7 @@ internal.observaciones = class extends BaseArray {
 			var header = `${h1}${sep}${h2}${sep}${headers.join(sep)}\n`
 			var body = this.map(o=>{
 				var values = headers.map(key=>{
-					if(o[key]) {
+					if(o[key] != undefined) {
 						return o[key]
 					} else {
 						return "NULL"
