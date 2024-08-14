@@ -4189,7 +4189,7 @@ if(1==1) {
             process.exit(1)
         }
         const get_options = getOutputOptions(options)
-        if(options.update_stations) {
+        if(options.updateStations) {
             get_options.upsert_estacion = true
         } else {
             get_options.upsert_estacion = false
