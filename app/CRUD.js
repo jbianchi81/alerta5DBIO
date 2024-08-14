@@ -4359,6 +4359,65 @@ internal.observaciones_metadata = class extends baseModel {
 	}
 }
 
+internal.observacionPivot = class extends baseModel {
+	constructor(observacion, options={}) {
+		super()
+		this.timestart = observacion.timestart
+		this.timeend = observacion.timeend
+		// all other keys must be series identifiers
+		if(options.string_keys) {
+			this._string_keys = true
+			for(const key of Object.keys(observacion).filter(k=> (k != "timestart" && k != "timeend")).map(k=>k.toString()).sort()) {
+				this[key] = observacion[key]
+			}
+		} else {
+			this._string_keys = false
+			for(const key of Object.keys(observacion).filter(k=> (k != "timestart" && k != "timeend")).map(k=>parseInt(k)).sort()) {
+				if (key.toString() == "NaN") {
+					throw(new Error("Invalid series identifier %s" % key.toString()))
+				}
+				this[key.toString()] = observacion[key]
+			}
+		}
+	}
+
+	toJSON() {
+		const o = {}
+		for (const key of Object.keys(this).filter(k =>
+			(!/^_/.test(k))
+		)) {
+			o[key] = this[key]
+		}
+		return o
+	}
+
+	getSeriesHeaders() {
+		return Object.keys(this).filter(k => 
+			(k != "timestart" && k != "timeend" && !/^_/.test(k))
+		).map(k => 
+			(this._string_keys) ? k.toString() : parseInt(k)
+		).sort()
+	}
+
+	toCSV(options={}) {
+		var sep = options.sep ?? ","
+		if(options.headers) {
+			var headers = options.headers
+		} else {
+			headers = this.getSeriesHeaders()
+		}
+		var values = headers.map(key=>{
+			if(this[key]) {
+				return this[key]
+			} else {
+				return "NULL"
+			}
+		}).join(sep)
+		return `${new Date(this.timestart).toISOString()}${sep}${new Date(this.timeend).toISOString()}${sep}${values}`
+	}
+}
+
+
 internal.observaciones = class extends BaseArray {
 	constructor(arr,options) {
 		if(arr) {
@@ -4541,7 +4600,7 @@ internal.observaciones = class extends BaseArray {
 			headers.add(o.series_id)
 		})
 		var result = Object.keys(pivoted).sort().map(key=>{
-			return pivoted[key]
+			return new internal.observacionPivot(pivoted[key])
 		})
 		if(inline) {
 			this.length = 0
