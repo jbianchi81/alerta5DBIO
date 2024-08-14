@@ -32,12 +32,13 @@ var pointsWithinPolygon = require("@turf/points-within-polygon")
 
 // const series2waterml2 = require('./series2waterml2');
 // const { relativeTimeThreshold } = require('moment-timezone');
-const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2, control_filter3, control_query_args } = require('./utils');
+const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2, control_filter3, control_query_args, getCalStats } = require('./utils');
 const { DateFromDateOrInterval, Interval } = require('./timeSteps');
 // const { isContext } = require('vm');
 const logger = require('./logger');
 
 const { escapeIdentifier, escapeLiteral } = require('pg');
+const { options } = require('marked');
 
 const apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
 var schemas = apidoc.components.schemas
@@ -18528,7 +18529,22 @@ ORDER BY cal.cal_id`
 		return Promise.resolve(pronosticos_result)
 	}
 	
-	static async getSeriesBySiteAndVar(estacion_id,var_id,startdate,enddate,includeProno=true,regular=false,dt="1 days",proc_id,isPublic,forecast_date,series_id,tipo="puntual",from_view=true) {
+	static async getSeriesBySiteAndVar(
+		estacion_id,
+		var_id,
+		startdate,
+		enddate,
+		includeProno=true,
+		regular=false,
+		dt="1 days",
+		proc_id,
+		isPublic,
+		forecast_date,
+		series_id,
+		tipo="puntual",
+		from_view=true,
+		get_cal_stats
+	) {
 		var stmt
 		var params
 		if(series_id) {
@@ -18600,6 +18616,14 @@ ORDER BY cal.cal_id`
 					return this.getCalibrados(estacion_id,var_id,true,startdate,enddate,undefined,undefined,undefined,isPublic,undefined,undefined,undefined,forecast_date,undefined,series_sim.map(s=>s.id),undefined,serie.tipo)
 					.then(calibrados=>{
 						serie.pronosticos = calibrados
+						if(get_cal_stats) {
+							for(const calibrado of serie.pronosticos) {
+								calibrado.cal_stats = getCalStats(
+									serie.observaciones, 
+									calibrado.corrida.series[0].pronosticos
+								)
+							}
+						}
 						if(serie.pronosticos) {
 							console.log("getSeriesBySiteAndVar with prono of length "  + serie.pronosticos.
 						length)

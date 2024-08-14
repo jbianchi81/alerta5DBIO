@@ -3721,7 +3721,22 @@ function getSeriesBySiteAndVar(req,res) {  //	estacion_id,var_id,timestart,timee
 	var includeProno = (typeof options.includeProno == "undefined") ? true : options.includeProno
 	// var stats = (options.stats) ? options.stats : "monthly"
 	//~ console.log({estacion_id: filter.estacion_id, var_id: filter.var_id, timestart: timestart, timeend: timeend, includeProno: includeProno})
-	crud.getSeriesBySiteAndVar(filter.estacion_id, filter.var_id, timestart, timeend, includeProno, undefined, undefined, filter.proc_id,filter.public,filter.forecast_date,filter.series_id,filter.tipo)
+	crud.getSeriesBySiteAndVar(
+		filter.estacion_id,
+		filter.var_id, 
+		timestart, 
+		timeend, 
+		includeProno, 
+		undefined, 
+		undefined, 
+		filter.proc_id,
+		filter.public,
+		filter.forecast_date,
+		filter.series_id,
+		filter.tipo,
+		options.from_view,
+		options.get_cal_stats
+	)
 	.then(result=>{
 		if(!result) {
 			res.status(400).send({error:"serie no encontrada",message:"serie no encontrada"})
@@ -7818,7 +7833,7 @@ function getOptions(req) {
 		if(req.body.get_drainage_basin) {
 			options.get_drainage_basin = (req.body.get_drainage_basin.toString().toLowerCase() == 'true')
 		}
-		["agg_func","dt","t_offset","id_grupo","get_raster","min_count","group_by_cal","interval","stats","pivot","group_by_qualifier","sort","order"].forEach(k=>{
+		["agg_func","dt","t_offset","id_grupo","get_raster","min_count","group_by_cal","interval","stats","pivot","group_by_qualifier","sort","order","from_view","get_cal_stats"].forEach(k=>{
 			if(req.body[k]) {
 				options[k] = req.body[k]
 			}
@@ -7955,7 +7970,7 @@ function getOptions(req) {
 		if(req.query.get_drainage_basin) {
 			options.get_drainage_basin = (req.query.get_drainage_basin.toString().toLowerCase() == 'true')
 		}
-		["agg_func","dt","t_offset","get_raster","min_count","group_by_cal","interval","stats","pivot","sort","order"].forEach(k=>{
+		["agg_func","dt","t_offset","get_raster","min_count","group_by_cal","interval","stats","pivot","sort","order","from_view","get_cal_stats"].forEach(k=>{
 			if(req.query[k]) {
 				options[k] = req.query[k]
 			}

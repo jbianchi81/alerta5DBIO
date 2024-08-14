@@ -3102,9 +3102,28 @@ internal.GetSeriesBySiteAndVarProcedure = class extends internal.CrudProcedure {
         this.proc_id = arguments[0].filter.proc_id
         this.isPublic = (arguments[0].options) ? arguments[0].options.isPublic : undefined
         this.forecast_date = (arguments[0].filter.forecast_date) ? DateFromDateOrInterval(arguments[0].filter.forecast_date) : undefined
+        this.series_id = (arguments[0].filter.series_id) ? arguments[0].filter.series_id : undefined
+        this.tipo = (arguments[0].filter.tipo) ? arguments[0].filter.tipo : undefined
+        this.from_view = (arguments.options) ? arguments[0].options.from_view : undefined
+        this.get_cal_stats  = (arguments.options) ? arguments[0].options.get_cal_stats : undefined
     }
     async run() {
-        this.result = await crud.getSeriesBySiteAndVar(this.estacion_id,this.var_id,this.startdate,this.enddate,this.includeProno,this.regular,this.dt,this.proc_id,this.isPublic,this.forecast_date)
+        this.result = await crud.getSeriesBySiteAndVar(
+            this.estacion_id,
+            this.var_id,
+            this.startdate,
+            this.enddate,
+            this.includeProno,
+            this.regular,
+            this.dt,
+            this.proc_id,
+            this.isPublic,
+            this.forecast_date,
+            this.series_id,
+            this.tipo,
+            this.from_view,
+            this.get_cal_stats
+        )
         return this.result
     }
 }

@@ -863,6 +863,101 @@ internal.arrayOfObjectsToCSV = function(items,output_file,header=true) {
 	return csv_string
 }
 
+internal. observacionArrayToObject = function(observacion) {
+	return {
+		timestart: observacion[0],
+		timeend: observacion[1],
+		valor: observacion[2],
+		id: (observacion.length >= 4) ? observacion[3] : undefined
+	}
+}
+
+
+/**
+ * Efficiency indicators
+ * @typedef {Object} CalStats
+ * @property {number} Rnash
+ * @property {number} Rpearson
+ * @property {number} phase
+ */
+
+/**
+ * Get efficiency indicators of pronosticos vs. observaciones (Rnash, Rpearson, phase)
+ * @param {CRUD.observaciones} observaciones
+ * 	  Observations (truth)
+ * @param {array<CRUD.pronostico>} pronosticos
+ *    Simulations 
+ * @return {CalStats}
+ *    Efficiency indicators
+ * 
+ */
+internal.getCalStats = function(
+	observaciones,
+	pronosticos
+) {
+	const points = [] // this will accumulate obs-sim pairs with conciding timestart
+	for(const observacion of observaciones) {
+		const o = (Array.isArray(observacion)) ? internal.observacionArrayToObject(observacion) : observacion
+		if(o.valor == undefined) { continue }
+		for(const p of pronosticos) {
+			if(p.valor == undefined) { continue }
+			if(o.timestart.getTime() == p.timestart.getTime()) {
+				points.push({
+					date: o.timestart,
+					valor_obs: o.valor,
+					valor_sim: p.valor
+				})
+				break
+			}
+		}
+	}
+	if(!points.length) {
+		console.error("No obs-sim pairs found for CalStats")
+		return
+	}
+	points.sort((a,b) => a.date.getTime() - b.date.getTime())
+
+	const results = {}
+
+	results.obs_mean = points.reduce((sum,a) => sum + a.valor_obs, 0) / points.length
+	results.obs_var = points.reduce((sum,a) => sum + (a.valor_obs - results.obs_mean) ** 2, 0) / points.length
+	results.sim_mse = points.reduce((sum,a) => sum + (a.valor_obs - a.valor_sim) ** 2, 0) / points.length
+	results.nse = 1 - results.sim_mse / results.obs_var
+
+	results.sim_mean = points.reduce((sum,a) => sum + a.valor_sim, 0) / points.length
+	results.sim_var = points.reduce((sum,a) => sum + (a.valor_sim - results.sim_mean) ** 2, 0) / points.length
+	results.cov = points.reduce((sum,a) => sum + (a.valor_obs - results.obs_mean) * (a.valor_sim - results.sim_mean), 0) / points.length
+	results.pearson = results.cov / results.obs_var / results.sim_var
+	results.n = points.length
+	results.timestart = points[0].date.toISOString()
+	results.timeend = points[points.length - 1].date.toISOString()
+
+	if(points.length == 1) {
+		console.error("Not enough obs-sim pairs for speds in CalStats")
+		results.speds = undefined
+	} else {
+		results.speds = points.map((a,i) => {
+			if(i == 0) {
+				return 0
+			}
+			if(a.valor_obs >= points[i-1].valor_obs) {
+				if(a.valor_sim >= points[i-1].valor_sim) {
+					return 1
+				} else {
+					return 0
+				}
+			} else {
+				if(a.valor_sim < points[i-1].valor_sim) {
+					return 1
+				} else {
+					return 0
+				}
+			}
+		}).slice(1,).reduce((sum, a) => sum + a) / (points.length - 1)
+	}
+
+	return results
+}
 
 
 function changeRef(object,key) {
