@@ -4399,6 +4399,10 @@ internal.observacionPivot = class extends baseModel {
 		).sort()
 	}
 
+	getCSVHeader(options={}) {
+		return ["timestart", "timeend", ...this.getSeriesHeaders()].join(options.sep ?? ",")
+	}
+
 	toCSV(options={}) {
 		var sep = options.sep ?? ","
 		if(options.headers) {
