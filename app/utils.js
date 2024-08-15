@@ -12,7 +12,8 @@ var g = new Validator();
 for(var key in schemas) {
     g.addSchema(schemas[key],"/" + key)
 }
-const CSV = require('csv-string')
+const CSV = require('csv-string');
+const PostgresInterval = require('postgres-interval');
 
 // var geom =  new Geometry("POINT(-53 -32)")
 // console.log("util: geom instanceof Geometry: " + geom instanceof Geometry)
@@ -887,22 +888,40 @@ internal. observacionArrayToObject = function(observacion) {
  * 	  Observations (truth)
  * @param {array<CRUD.pronostico>} pronosticos
  *    Simulations 
+ * @param {PostgresInterval} dt
+ *    Intended time step of observed series. Simulated tuples distanced up to dt / 2 both ways will be coupled with observations.
  * @return {CalStats}
  *    Efficiency indicators
- * 
  */
 internal.getCalStats = function(
 	observaciones,
-	pronosticos
+	pronosticos,
+	dt = PostgresInterval("1 days")
 ) {
-	const points = [] // this will accumulate obs-sim pairs with conciding timestart
+	console.debug({dt0: dt})
+	dt = PostgresInterval(dt)
+	console.debug({dt1: dt})
+	if(dt.toPostgres() == "0") {
+		dt = PostgresInterval("1 days")
+	}
+	console.debug({dt2: dt})
+	const points = [] // this will accumulate obs-sim pairs with conciding timestart (+/- dt / 2)
 	for(const observacion of observaciones) {
 		const o = (Array.isArray(observacion)) ? internal.observacionArrayToObject(observacion) : observacion
 		if(o.valor == undefined) { continue }
+		const o_timestart_ms = o.timestart.getTime()
+		const dt_ms = timeSteps.advanceInterval(o.timestart,dt).getTime() - o_timestart_ms
 		for(const p of pronosticos) {
 			if(p.valor == undefined) { continue }
-			if(o.timestart.getTime() == p.timestart.getTime()) {
-				points.push({
+			// if(o.timestart.getTime() == p.timestart.getTime()) {
+			const p_timestart_ms = p.timestart.getTime()
+			// console.debug({
+			// 	p_timestart_ms: p_timestart_ms,
+			// 	o_timestart_ms : o_timestart_ms,
+			// 	dt_ms: dt_ms
+			// })
+			if(p_timestart_ms >= o_timestart_ms - dt_ms / 2 && p_timestart_ms < o_timestart_ms + dt_ms / 2 ) {
+					points.push({
 					date: o.timestart,
 					valor_obs: o.valor,
 					valor_sim: p.valor
@@ -927,7 +946,7 @@ internal.getCalStats = function(
 	results.sim_mean = points.reduce((sum,a) => sum + a.valor_sim, 0) / points.length
 	results.sim_var = points.reduce((sum,a) => sum + (a.valor_sim - results.sim_mean) ** 2, 0) / points.length
 	results.cov = points.reduce((sum,a) => sum + (a.valor_obs - results.obs_mean) * (a.valor_sim - results.sim_mean), 0) / points.length
-	results.pearson = results.cov / results.obs_var / results.sim_var
+	results.pearson = results.cov / (results.obs_var) ** 0.5 / (results.sim_var) ** 0.5 
 	results.n = points.length
 	results.timestart = points[0].date.toISOString()
 	results.timeend = points[points.length - 1].date.toISOString()

@@ -1059,7 +1059,8 @@
 			"layers": "public2:areas_pluvio",
 			"endpoint": "http://localhost:8080/geoserver/public2/wms"
 		},
-		"wms_areas_hide": true
+		"wms_areas_hide": true,
+		"get_cal_stats": false
 	},
 	"api": {
 		"base_url": "locahost:3005",

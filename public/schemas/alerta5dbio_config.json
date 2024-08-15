@@ -86,6 +86,10 @@
                         }
                     },
                     "required": ["layers","endpoint"]
+                },
+                "get_cal_stats": {
+                    "type": "boolean",
+                    "description": "Calculate on-the-fly simulation efficiency indicators of forecasts and display in Pronosticos section of metadata"
                 }
             },
             "additionalProperties": true

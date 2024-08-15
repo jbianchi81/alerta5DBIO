@@ -186,6 +186,9 @@ function getPronoResumen(series) {
 					prono_resumen[index].fecha_fin = new Date(Math.min(series.pronosticos[i].corrida.series.map(s=>new Date(s.pronosticos[s.pronosticos.length-1][0]).getTime())))
 				}
 			}
+			if(series.pronosticos[i].cal_stats) {
+				prono_resumen[index].cal_stats = series.pronosticos[i].cal_stats
+			}
 			index++
 		}
 	}

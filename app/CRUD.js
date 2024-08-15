@@ -18618,9 +18618,11 @@ ORDER BY cal.cal_id`
 						serie.pronosticos = calibrados
 						if(get_cal_stats) {
 							for(const calibrado of serie.pronosticos) {
+								if(calibrado.corrida == undefined || calibrado.corrida.series == undefined || !calibrado.corrida.series.length) { continue }
 								calibrado.cal_stats = getCalStats(
 									serie.observaciones, 
-									calibrado.corrida.series[0].pronosticos
+									calibrado.corrida.series[0].pronosticos,
+									dt
 								)
 							}
 						}

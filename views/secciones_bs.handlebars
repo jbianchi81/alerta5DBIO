@@ -1515,7 +1515,9 @@
 			timestart:timestart, 
 			timeend:timeend, 
 			includeProno:true, 
-			stats:"monthly"} // {estacion_id:matched_point.properties.estacion_id, var_id:matched_point.properties.var_id, timestart:timestart, timeend:timeend, includeProno:true,proc_id:matched_point.properties.proc_id,stats:"monthly"}
+			stats:"monthly",
+			get_cal_stats: global.default_config.get_cal_stats
+		} // {estacion_id:matched_point.properties.estacion_id, var_id:matched_point.properties.var_id, timestart:timestart, timeend:timeend, includeProno:true,proc_id:matched_point.properties.proc_id,stats:"monthly"}
 		if(search_filters.forecast_date) {
 			getSeriesParams.forecast_date = search_filters.forecast_date
 		}
@@ -1681,10 +1683,28 @@
 			}
 			if (prono_resumen) {
 				$("div#general ul#general").append(
-					$("<li></li>").append(
+					$("<li id=prono></li>").append(
 						$('<h3 id="p_prono">Pronósticos (resumen)</h3>'),
 						$("<ul></ul>").append(
 							prono_resumen.map(p=>{
+								const cal_stats_li = (p.cal_stats) ? $(
+									"<li>Estadísticos: </li>").append(
+										$("<ul></ul>").append(
+											Object.keys(p.cal_stats).map(key=> {
+												if((p.cal_stats[key] == undefined)) {
+													var value = "null"
+												} else if(["timestart","timeend"].indexOf(key) >= 0) {
+													var value = p.cal_stats[key]
+												} else {
+													var value = Math.round(p.cal_stats[key] * 10000) / 10000
+												}
+												return $(`<li>
+													${key}: ${value}
+													</li>`
+												)
+											})
+										)
+									) : ""							
 								return $("<li></li>").append(
 									$("<h4>" + p.nombre + "</h4>"),
 									$("<ul></ul>").append(
@@ -1696,9 +1716,10 @@
 										$("<li>id de corrida: <b>" + p.cor_id + "</b></li>"),
 										$("<li>fecha de emisión: <b>" + p.forecast_date + "</b></li>"),
 										$("<li>cantidad de registros: <b>" + p.count + "</b></li>"),
-										$("<li>fecha final: <b>" + p.fecha_fin + "</b></li>")
+										$("<li>fecha final: <b>" + p.fecha_fin + "</b></li>"),
+										cal_stats_li
 								))
-							})
+							})							
 				)))
 			} else {
 				$("div#general ul#general").append(
