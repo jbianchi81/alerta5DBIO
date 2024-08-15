@@ -6124,12 +6124,17 @@ internal.a5 = class {
 			return response.data
 		})
 	}
+
 	async updatePronostico(filter={},options={}) {
-		return this.getPronostico(filter,options)
-		.then(result=>{
-			return crud.upsertCorrida(result,options.replace_last)
-		})
+		const result = await this.getPronostico(filter,options)
+		const ups_corrida = await crud.upsertCorrida(result,options.replace_last)
+		if(!options.no_update_date_range) {
+			await crud.updateSeriesPronoDateRange({cor_id: ups_corrida.id})
+			await crud.updateSeriesPronoDateRangeByQualifier({cor_id: ups_corrida.id})
+		}
+		return ups_corrida
 	}
+
 	async getSites(filter={},options={}) {
 		if(!filter.tipo || filter.tipo  == "puntual") {
 			var obs_tipo = "puntual"
