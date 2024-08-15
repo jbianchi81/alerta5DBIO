@@ -1632,7 +1632,7 @@ internal.paraguay09 = class {
 				if(date > endDate) { continue }
 				var sids = [153,155,55,57] // series_id de altura hidrométrica de bneg, pcon, pilc y form
 				for(var j=0;j<sids.length;j++) {
-					if(! /^\d+\.?\d*$/.test(r[j+1])) { continue }
+					if(! /^-?\d+\.?\d*$/.test(r[j+1])) { continue }
 					observaciones.push({tipo: "puntual", series_id:sids[j], timestart: date, timeend: date, valor: Math.round(r[j+1])/100})
 				}
 				if (r[5] != "") { 
