@@ -4081,6 +4081,7 @@ if(1==1) {
     .option("-F, --iter_field <value>",'Field of elements to iterate over to generate separate output files (combined with -i)')
     .option("-u, --update","Update series in database from downloaded records")
     .option("-p, --pretty",'pretty print output')
+    .option("-P, --forecast", "Get (and update if -u is set) forecasts instead of observations (using GetPronosticoFromAccessorProcedure/UpdatePronosticoFromAccessorProcedure)")
     .action(async (accessor_class,filter,options) => {
         try {
             filter = parseKVPArray(filter)
@@ -4106,10 +4107,27 @@ if(1==1) {
         try {
             if(options.update) {
                 // console.debug("Update from accessor")
-                var procedure = new internal.UpdateFromAccessorProcedure({accessor_id: class_name, filter:filter, output: output, output_format: options.format, options: get_options})
+                if(options.forecast) {
+                    var procedure_class = internal.UpdatePronosticoFromAccessorProcedure
+                } else {
+                    var procedure_class = internal.UpdateFromAccessorProcedure
+                }
             } else {
-                var procedure = new internal.DownloadFromAccessorProcedure({accessor_id: class_name, filter:filter, output: output, output_format: options.format, options: get_options})
-            }
+                if(options.forecast) {
+                    var procedure_class = internal.GetPronosticoFromAccessorProcedure
+                } else {
+                    var procedure_class = internal.DownloadFromAccessorProcedure
+                }
+            }       
+            var procedure = new procedure_class(
+                {
+                    accessor_id: class_name,
+                    filter: filter,
+                    output: output,
+                    output_format: options.output_format,
+                    options: get_options
+                }
+            )
         } catch(e) {
             logger.error(e)
             process.exit(1)
