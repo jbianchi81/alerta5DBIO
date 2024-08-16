@@ -32,7 +32,7 @@ var pointsWithinPolygon = require("@turf/points-within-polygon")
 
 // const series2waterml2 = require('./series2waterml2');
 // const { relativeTimeThreshold } = require('moment-timezone');
-const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2, control_filter3, control_query_args, getCalStats } = require('./utils');
+const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2, control_filter3, control_query_args, getCalStats, assertValidDateTruncField } = require('./utils');
 const { DateFromDateOrInterval, Interval } = require('./timeSteps');
 // const { isContext } = require('vm');
 const logger = require('./logger');
@@ -16989,7 +16989,7 @@ ORDER BY cal.cal_id`
 				"cal_grupo_id": { type: "integer", table: "calibrados", column: "grupo_id"},
 				"forecast_timestart": { type: "timestart", table: "corridas", column: "date"},
 				"forecast_timeend": { type: "timeend", table: "corridas", column: "date"},
-				"forecast_date": { type: "date", table: "corridas", column: "date"}
+				"forecast_date": { type: "date", table: "corridas", column: "date", trunc: "milliseconds"}
 			},
 			{
 				cal_id: cal_id,
@@ -17016,7 +17016,7 @@ ORDER BY cal.cal_id`
 		WHERE 1=1 \
 		" + filter_string + "\
 		ORDER BY corridas.cal_id, corridas.date"
-		console.debug(query)
+		// console.debug(query)
 		const result = await global.pool.query(query)
 		if(!result.rows) {
 			return
@@ -17404,7 +17404,7 @@ ORDER BY cal.cal_id`
 			timeend:{type:"timeend","table":"pronosticos","column":"timestart"}, 
 			cal_id:{type:"integer", table:"corridas"}, 
 			cor_id:{type:"integer","table":"pronosticos"}, 
-			forecast_date:{type:"date", table: "corridas", column: "date"},
+			forecast_date:{type:"date", table: "corridas", column: "date", trunc: "milliseconds"},
 			estacion_id:{type:"integer","table":"series"}, 
 			var_id:{type:"integer","table":"series"}, 
 			qualifier:{type:"string","table":"pronosticos"}, 
@@ -17434,7 +17434,7 @@ ORDER BY cal.cal_id`
 		ORDER BY pronosticos.series_id,pronosticos.timestart"
 		// to_char(pronosticos.timestart::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timestart,\
 		//	to_char(pronosticos.timeend::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timeend,\
-		// console.debug(stmt)
+		console.debug(stmt)
 		const result = await client.query(stmt)
 		if(release_client) {
 			client.release()
@@ -17482,7 +17482,7 @@ ORDER BY cal.cal_id`
 			timeend:{type:"timeend","table":"pronosticos_areal","column":"timestart"}, 
 			cal_id:{type:"integer", table:"corridas"}, 
 			cor_id:{type:"integer","table":"pronosticos_areal"}, 
-			forecast_date:{type:"date", table: "corridas", column: "date"},
+			forecast_date:{type:"date", table: "corridas", column: "date", trunc: "milliseconds"},
 			estacion_id:{type:"integer","table":"series_areal","column":"area_id"}, 
 			var_id:{type:"integer","table":"series_areal"}, 
 			qualifier:{type:"string","table":"pronosticos_areal"},
@@ -17537,7 +17537,7 @@ ORDER BY cal.cal_id`
 			timeend:{type:"timeend","table":"pronosticos_rast","column":"timestart"}, 
 			cal_id:{type:"integer", table:"corridas"}, 
 			cor_id:{type:"integer","table":"pronosticos_rast"},
-			forecast_date:{type:"date", table: "corridas", column: "date"},
+			forecast_date:{type:"date", table: "corridas", column: "date", trunc: "milliseconds"},
 			estacion_id:{type:"integer","table":"series_rast","column":"escena_id"}, 
 			var_id:{type:"integer","table":"series_rast"}, 
 			qualifier:{type:"string","table":"pronosticos_rast"},
@@ -19759,7 +19759,12 @@ internal.utils = {
 				} else {
 					d = new Date(filter[key])
 				}
-				filter_string += " AND " + fullkey + "::timestamptz='" + d.toISOString() + "'::timestamptz"
+				if(filter_def.trunc != undefined) {
+					assertValidDateTruncField(filter_def.trunc)
+					filter_string += ` AND date_trunc('${filter_def.trunc}',${fullkey})::timestamptz = date_trunc('${filter_def.trunc}', '${d.toISOString()}'::timestamptz)`	
+				} else {
+					filter_string += " AND " + fullkey + "::timestamptz='" + d.toISOString() + "'::timestamptz"
+				}
 			} else if (filter_def.type == "timestart") {
 				var ldate = (filter[key] instanceof Date) ? filter[key].toISOString() : timeSteps.parseDateString(filter[key]).toISOString()		
 				filter_string += " AND " + fullkey + "::timestamptz>='" + ldate + "'"

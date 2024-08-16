@@ -254,7 +254,12 @@ internal.control_filter2 = function (valid_filters, filter, default_table, crud,
                 } else {
                     d = new Date(filter[key])
                 }
-				filter_string += " AND " + fullkey + "='" + d.toISOString() + "'::timestamptz"
+				if(valid_filters[key].trunc != undefined) {
+					internal.assertValidDateTruncField(valid_filters[key].trunc)
+					filter_string += ` AND date_trunc('${valid_filters[key].trunc}',${fullkey}) = date_trunc('${valid_filters[key].trunc}', '${d.toISOString()}'::timestamptz)`	
+				} else {
+					filter_string += " AND " + fullkey + "='" + d.toISOString() + "'::timestamptz"
+				}
             } else if (valid_filters[key].type == "timestart") {
 				var offset = (new Date().getTimezoneOffset() * 60 * 1000) * -1
 				if(filter[key] instanceof Date) {
@@ -987,6 +992,24 @@ function traverse(o,func) {
     }
 }
 
-
+internal.assertValidDateTruncField = function(field) {
+	if ([
+		"microseconds",
+		"milliseconds",
+		"second",
+		"minute",
+		"hour",
+		"day",
+		"week",
+		"month",
+		"quarter",
+		"year",
+		"decade",
+		"century",
+		"millennium"
+	].indexOf(field) < 0) {
+		throw(new Error("Invalid date_trunc field: " + field))
+	}
+}
 
 module.exports = internal
