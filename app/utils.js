@@ -888,7 +888,7 @@ internal. observacionArrayToObject = function(observacion) {
  */
 
 /**
- * Get efficiency indicators of pronosticos vs. observaciones (Rnash, Rpearson, phase)
+ * Get efficiency indicators of pronosticos vs. observaciones (Rnash, Rpearson, Kling-Gupta efficiency (KGE), SPEDS)
  * @param {CRUD.observaciones} observaciones
  * 	  Observations (truth)
  * @param {array<CRUD.pronostico>} pronosticos
@@ -944,6 +944,9 @@ internal.getCalStats = function(
 	results.sim_var = points.reduce((sum,a) => sum + (a.valor_sim - results.sim_mean) ** 2, 0) / points.length
 	results.cov = points.reduce((sum,a) => sum + (a.valor_obs - results.obs_mean) * (a.valor_sim - results.sim_mean), 0) / points.length
 	results.pearson = results.cov / (results.obs_var) ** 0.5 / (results.sim_var) ** 0.5 
+	const alpha = (results.sim_var) ** 0.5 / (results.obs_var) ** 0.5
+	const beta = results.sim_mean / results.obs_mean
+	results.kge = 1 - ((results.pearson - 1) ** 2 + (alpha - 1) ** 2 + (beta -1) ** 2) ** 0.5
 	results.n = points.length
 	results.timestart = points[0].date.toISOString()
 	results.timeend = points[points.length - 1].date.toISOString()
