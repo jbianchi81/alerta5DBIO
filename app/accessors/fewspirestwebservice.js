@@ -423,7 +423,7 @@ internal.Client = class extends AbstractAccessorEngine {
         Object.assign(get_series_options,options)
         get_series_options.includeObservations = false
         const series = await this.getSeries(filter, get_series_options)
-        return Serie.create(
+        const created_sim_series = await Serie.create(
             series,
             {
                 upsert_estacion: options.upsert_estacion,
@@ -431,7 +431,22 @@ internal.Client = class extends AbstractAccessorEngine {
                 generate_id: options.generate_id,
                 refresh_date_range: options.refresh_date_range
             }
-        )       
+        )    
+        if(options.dont_create_obs_series) {   
+            return created_sim_series
+        } else {
+            const obs_series = created_sim_series.map(serie => 
+                new Serie({
+                    tipo: "puntual",
+                    estacion_id: serie.estacion.id,
+                    var_id: serie.var.id,
+                    proc_id: 1,
+                    unit_id: serie.unidades.id
+                })
+            )
+            const created_obs_series = await Serie.create(obs_series)
+            return [...created_sim_series, created_obs_series]
+        } 
     }
 
     /**
@@ -626,7 +641,7 @@ internal.Client = class extends AbstractAccessorEngine {
         options={}
     ) {
         const corrida = await this.getPronostico(filter, options)
-        await corrida.create()
+        await corrida.create()        
         return corrida
     }
 }

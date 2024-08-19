@@ -882,9 +882,14 @@ internal. observacionArrayToObject = function(observacion) {
 /**
  * Efficiency indicators
  * @typedef {Object} CalStats
- * @property {number} Rnash
- * @property {number} Rpearson
- * @property {number} phase
+ * @property {number} nse - Nash-Sutcliffe model efficiency coefficient
+ * @property {number} r - Pearson correlation coefficient
+ * @property {number} r2 - determination coefficient
+ * @property {number} kge - Kling-Gupta model efficiency coefficient
+ * @property {number} speds - SPEDS phase coefficient
+ * @property {number} n - number of data pairs
+ * @property {string} timestart - Start time
+ * @property {string} timeend - End time
  */
 
 /**
@@ -894,7 +899,7 @@ internal. observacionArrayToObject = function(observacion) {
  * @param {array<CRUD.pronostico>} pronosticos
  *    Simulations 
  * @param {PostgresInterval} dt
- *    Intended time step of observed series. Simulated tuples distanced up to dt / 2 both ways will be coupled with observations.
+ *    Intended time step of simulated series. Observations distanced up to dt / 2 both ways will be coupled with simulated values.
  * @return {CalStats}
  *    Efficiency indicators
  */
@@ -903,23 +908,24 @@ internal.getCalStats = function(
 	pronosticos,
 	dt = PostgresInterval("1 days")
 ) {
-	dt = PostgresInterval(dt)
+	dt = (typeof dt.toPostgres === 'function') ? dt : PostgresInterval(dt)
 	if(dt.toPostgres() == "0") {
 		dt = PostgresInterval("1 days")
 	}
 	const points = [] // this will accumulate obs-sim pairs with conciding timestart (+/- dt / 2)
-	for(const observacion of observaciones) {
-		const o = (Array.isArray(observacion)) ? internal.observacionArrayToObject(observacion) : observacion
-		if(o.valor == undefined) { continue }
-		const o_timestart_ms = o.timestart.getTime()
-		const dt_ms = timeSteps.advanceInterval(o.timestart,dt).getTime() - o_timestart_ms
-		for(const p of pronosticos) {
-			if(p.valor == undefined) { continue }
+	for(const pronostico of pronosticos) {
+		const p = (Array.isArray(pronostico)) ? internal.observacionArrayToObject(pronostico) : pronostico
+		if(p.valor == undefined) { continue }
+		const p_timestart_ms = p.timestart.getTime()
+		const dt_ms = timeSteps.advanceInterval(p.timestart,dt).getTime() - p_timestart_ms
+		for(const observacion of observaciones) {
+			const o = (Array.isArray(observacion)) ? internal.observacionArrayToObject(observacion) : observacion
+			if(o.valor == undefined) { continue }
 			// if(o.timestart.getTime() == p.timestart.getTime()) {
-			const p_timestart_ms = p.timestart.getTime()
-			if(p_timestart_ms >= o_timestart_ms - dt_ms / 2 && p_timestart_ms < o_timestart_ms + dt_ms / 2 ) {
+			const o_timestart_ms = o.timestart.getTime()
+			if(o_timestart_ms >= p_timestart_ms - dt_ms / 2 && o_timestart_ms < p_timestart_ms + dt_ms / 2 ) {
 					points.push({
-					date: o.timestart,
+					date: p.timestart,
 					valor_obs: o.valor,
 					valor_sim: p.valor
 				})
@@ -935,21 +941,66 @@ internal.getCalStats = function(
 
 	const results = {}
 
-	results.obs_mean = points.reduce((sum,a) => sum + a.valor_obs, 0) / points.length
-	results.obs_var = points.reduce((sum,a) => sum + (a.valor_obs - results.obs_mean) ** 2, 0) / points.length
-	results.sim_mse = points.reduce((sum,a) => sum + (a.valor_obs - a.valor_sim) ** 2, 0) / points.length
-	results.nse = 1 - results.sim_mse / results.obs_var
+	var sum_xy = 0
+	var sum_xx = 0
+	var sum_yy = 0
+	var sum_x = 0
+	var sum_y = 0
+	var sum_se = 0
+	for(const a of points) {
+		sum_x += a.valor_obs
+		sum_y += a.valor_sim
+		sum_xy += a.valor_obs * a.valor_sim
+		sum_xx += a.valor_obs * a.valor_obs
+		sum_yy += a.valor_sim * a.valor_sim
+		sum_se += (a.valor_obs - a.valor_sim) ** 2
+	}
 
-	results.sim_mean = points.reduce((sum,a) => sum + a.valor_sim, 0) / points.length
-	results.sim_var = points.reduce((sum,a) => sum + (a.valor_sim - results.sim_mean) ** 2, 0) / points.length
-	results.cov = points.reduce((sum,a) => sum + (a.valor_obs - results.obs_mean) * (a.valor_sim - results.sim_mean), 0) / points.length
+	const mean_x = sum_x / points.length
+	const mean_y = sum_y / points.length
+
+	var sum_dev_x_2 = 0
+	var sum_dev_y_2 = 0
+	var sum_devx_devy = 0 
+	for(const a of points) {
+		sum_dev_x_2 += (a.valor_obs - mean_x) ** 2
+		sum_dev_y_2 += (a.valor_sim - mean_y) ** 2
+		sum_devx_devy += (a.valor_obs - mean_x) * (a.valor_sim - mean_y)
+	}
+	
+	results.obs_mean = mean_x
+	results.obs_var = sum_dev_x_2 / points.length
+	results.sim_mse = sum_se / points.length
+	results.nse = 1 - sum_se / sum_dev_x_2 //  results.sim_mse / results.obs_var
+
+	results.sim_mean = mean_y
+	results.sim_var = sum_dev_y_2 / points.length
+	
+	results.cov = sum_devx_devy / points.length
 	results.pearson = results.cov / (results.obs_var) ** 0.5 / (results.sim_var) ** 0.5 
+	results.r2 = results.pearson ** 2
+
 	const alpha = (results.sim_var) ** 0.5 / (results.obs_var) ** 0.5
 	const beta = results.sim_mean / results.obs_mean
 	results.kge = 1 - ((results.pearson - 1) ** 2 + (alpha - 1) ** 2 + (beta -1) ** 2) ** 0.5
-	results.n = points.length
+	const n = points.length
+	results.n = n
 	results.timestart = points[0].date.toISOString()
 	results.timeend = points[points.length - 1].date.toISOString()
+	// least squares linear regression
+	const mean_xx = sum_xx / n
+	const mean_yy = sum_yy / n
+	const mean_xy = sum_xy / n
+	const slope = sum_devx_devy / sum_dev_x_2
+	const intercept = results.sim_mean - slope * results.obs_mean
+	const r2 = Math.pow((mean_xy - mean_x * mean_y) / Math.sqrt(( mean_xx - mean_x ** 2 ) * ( mean_yy - mean_y**2 )),2)
+	// const slope = (results.n * sum_xy - sum_obs * sum_sim) / (results.n * sum_xx + sum_obs * sum_obs)
+	// results.points = points
+	results.linear_regression = {
+		slope: slope,
+		intercept: intercept,
+		r2: r2
+	}
 
 	if(points.length == 1) {
 		console.error("Not enough obs-sim pairs for speds in CalStats")

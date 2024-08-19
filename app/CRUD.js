@@ -15829,8 +15829,23 @@ SELECT mod.id, \
 		return modelos
 	}
 	
-	static async getCalibrados_(estacion_id,var_id,includeCorr=false,timestart,timeend,cal_id,model_id,qualifier,isPublic,grupo_id,no_metadata,group_by_cal,forecast_date,includeInactive,series_id) {
-		console.log({includeCorr:includeCorr, isPublic: isPublic})
+	static async getCalibrados_(
+		estacion_id,
+		var_id,
+		includeCorr=false,
+		timestart,
+		timeend,
+		cal_id,
+		model_id,
+		qualifier,
+		isPublic,
+		grupo_id,
+		no_metadata,
+		group_by_cal,
+		forecast_date,
+		includeInactive,
+		series_id) {
+		console.debug({includeCorr:includeCorr, isPublic: isPublic})
 		var public_filter = (isPublic) ? "AND calibrados.public=true" : ""
 		var activar_filter = (includeInactive) ? "" : "AND calibrados.activar = TRUE"
 		var grupo_filter = (grupo_id) ? "AND series_prono_last.cal_grupo_id=" + parseInt(grupo_id) : ""
@@ -16213,7 +16228,25 @@ ORDER BY cal.cal_id`
 		return calibrados[0]
 	}
 
-	static async getCalibrados(estacion_id,var_id,includeCorr=false,timestart,timeend,cal_id,model_id,qualifier,isPublic,grupo_id,no_metadata,group_by_cal=true,forecast_date,includeInactive,series_id,nombre,tipo="puntual") {
+	static async getCalibrados(
+		estacion_id,
+		var_id,
+		includeCorr=false,
+		timestart,
+		timeend,
+		cal_id,
+		model_id,
+		qualifier,
+		isPublic,
+		grupo_id,
+		no_metadata,
+		group_by_cal=true,
+		forecast_date,
+		includeInactive,
+		series_id,
+		nombre,
+		tipo="puntual"
+	) {
 		const engine = new internal.engine(global.pool)
 		var filter = {id:cal_id,model_id:model_id,grupo_id:grupo_id,nombre:nombre}
 		if(!includeInactive) {
@@ -18584,68 +18617,59 @@ ORDER BY cal.cal_id`
 			params = [ estacion_id, var_id, proc_id ]
 		}
 		// console.log("getSeriesBySiteAndVar at "  + Date()) 
-		return global.pool.query(stmt, params)
-		.then(result=>{
-			// console.log("got series at " + Date())
-			if(!result.rows) {
-				// console.log("No series rows returned")
-				return 
+		const result = await global.pool.query(stmt, params)
+		// console.log("got series at " + Date())
+		if(!result.rows) {
+			// console.log("No series rows returned")
+			return 
+		}
+		if(result.rows.length == 0) {
+			// console.log("0 series rows returned")
+			return 
+		}
+		if(isPublic) {
+			if (result.rows[0].public == false) {
+				// console.log("series not public")
+				throw("El usuario no está autorizado para acceder a esta serie")
 			}
-			if(result.rows.length == 0) {
-				// console.log("0 series rows returned")
-				return 
+		}
+		// console.log("get serie tipo" + tipo + " id " + result.rows[0].id)
+		const serie = await this.getSerie(tipo,result.rows[0].id,startdate,enddate,{asArray:true,regular: regular, dt: dt})  // (tipo,id,timestart,timeend,options)
+		// console.log("got serie at " + Date())
+		if(includeProno) {
+			const series_sim = await this.getSeries(tipo,{estacion_id: serie.estacion.id, var_id: serie.var.id, unit_id: serie.unidades.id, fuentes_id: (serie.fuente) ? serie.fuente.id : undefined},{fromView:from_view})
+			if(!series_sim.length) {
+				console.log("No series sim found with id " + series_id + ", tipo " + tipo)
+				serie.pronosticos = []
+				return serie
 			}
-			if(isPublic) {
-				if (result.rows[0].public == false) {
-					// console.log("series not public")
-					throw("El usuario no está autorizado para acceder a esta serie")
-				}
-			}
-			// console.log("get serie tipo" + tipo + " id " + result.rows[0].id)
-			return this.getSerie(tipo,result.rows[0].id,startdate,enddate,{asArray:true,regular: regular, dt: dt})  // (tipo,id,timestart,timeend,options)
-			.then(async serie=>{
-				// console.log("got serie at " + Date())
-				if(includeProno) {
-					const series_sim = await this.getSeries(tipo,{estacion_id: serie.estacion.id, var_id: serie.var.id, unit_id: serie.unidades.id, fuentes_id: (serie.fuente) ? serie.fuente.id : undefined},{fromView:from_view})
-					if(!series_sim.length) {
-						console.log("No series sim found with id " + series_id + ", tipo " + tipo)
-						serie.pronosticos = []
-						return serie
+			// console.log(JSON.stringify({series_sim:series_sim.map(s=>s.id)}))
+			const calibrados = await this.getCalibrados(estacion_id,var_id,true,startdate,enddate,undefined,undefined,undefined,isPublic,undefined,undefined,undefined,forecast_date,undefined,series_sim.map(s=>s.id),undefined,serie.tipo)
+			serie.pronosticos = calibrados
+			if(get_cal_stats) {
+				for(const calibrado of serie.pronosticos) {
+					if(calibrado.corrida == undefined || calibrado.corrida.series == undefined || !calibrado.corrida.series.length) { continue }
+					calibrado.cal_stats = {}
+					for(const serie_prono of calibrado.corrida.series) {
+						calibrado.cal_stats[serie_prono.qualifier ?? "main"] = getCalStats(
+							serie.observaciones, 
+							serie_prono.pronosticos,
+							calibrado.dt
+						)
 					}
-					// console.log(JSON.stringify({series_sim:series_sim.map(s=>s.id)}))
-					return this.getCalibrados(estacion_id,var_id,true,startdate,enddate,undefined,undefined,undefined,isPublic,undefined,undefined,undefined,forecast_date,undefined,series_sim.map(s=>s.id),undefined,serie.tipo)
-					.then(calibrados=>{
-						serie.pronosticos = calibrados
-						if(get_cal_stats) {
-							for(const calibrado of serie.pronosticos) {
-								if(calibrado.corrida == undefined || calibrado.corrida.series == undefined || !calibrado.corrida.series.length) { continue }
-								calibrado.cal_stats = getCalStats(
-									serie.observaciones, 
-									calibrado.corrida.series[0].pronosticos,
-									dt
-								)
-							}
-						}
-						if(serie.pronosticos) {
-							console.log("getSeriesBySiteAndVar with prono of length "  + serie.pronosticos.
-						length)
-						} else {
-							console.log("getSeriesBySiteAndVar with no pronosticos")
-						}
-						return serie
-					})
-				} else {
-					//~ console.log("getSeriesBySiteAndVar done at "  + Date())
-					return serie
 				}
-			})
-			//~ .catch(e=>{
-				//~ console.error({error:e})
-			//~ })
-		})
-		//~ .catch(e=>{
-			//~ console.error({error:e})
-		//~ })
+			}
+			if(serie.pronosticos) {
+				console.log("getSeriesBySiteAndVar with prono of length "  + serie.pronosticos.
+			length)
+			} else {
+				console.log("getSeriesBySiteAndVar with no pronosticos")
+			}
+			return serie
+		} else {
+			//~ console.log("getSeriesBySiteAndVar done at "  + Date())
+			return serie
+		}
 	}
 
 	static async getMonitoredVars(tipo="puntual",GeneralCategory) {

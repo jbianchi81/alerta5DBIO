@@ -1686,25 +1686,47 @@
 					$("<li id=prono></li>").append(
 						$('<h3 id="p_prono">Pronósticos (resumen)</h3>'),
 						$("<ul></ul>").append(
-							prono_resumen.map(p=>{
-								const cal_stats_li = (p.cal_stats) ? $(
-									"<li>Estadísticos: </li>").append(
-										$("<ul></ul>").append(
-											Object.keys(p.cal_stats).map(key=> {
-												if((p.cal_stats[key] == undefined)) {
-													var value = "null"
-												} else if(["timestart","timeend"].indexOf(key) >= 0) {
-													var value = p.cal_stats[key]
-												} else {
-													var value = Math.round(p.cal_stats[key] * 10000) / 10000
-												}
-												return $(`<li>
-													${key}: ${value}
-													</li>`
+							prono_resumen.map(p => {
+								const cal_stats_li = (p.cal_stats) ? $("<li>Estadísticos: </li>").append(
+									$("<ul></ul>").append(
+										Object.keys(p.cal_stats).map(qualifier => 
+											$(`<li>Qualifier: ${qualifier}</li>`).append(
+												$("<ul></ul>").append(
+													Object.keys(p.cal_stats[qualifier]).map(key=> {
+														if((p.cal_stats[qualifier][key] == undefined)) {
+															return $(`<li>
+																${key}: null
+																</li>`
+															)
+														} else if(["timestart","timeend"].indexOf(key) >= 0) {
+															// string value
+															return $(`<li>
+																${key}: ${p.cal_stats[qualifier][key]}
+																</li>`
+															)
+														} else if(["linear_regression"].indexOf(key) >= 0) {
+															// object value
+															return $(`<li>${key}</li>`).append(
+																$("<ul></ul>").append(
+																	Object.keys(p.cal_stats[qualifier][key]).map(k => 
+																		$(`<li>
+																			${k}: ${Math.round(p.cal_stats[qualifier][key][k] * 10000) / 10000}
+																		</li>`)
+																	)
+																)
+															)
+														} else {
+															// decimal value
+															return $(`<li>
+																${key}: ${Math.round(p.cal_stats[qualifier][key] * 10000) / 10000}
+															</li>`)
+														}													
+													})
 												)
-											})
+											)
 										)
-									) : ""							
+									)
+								) : ""							
 								return $("<li></li>").append(
 									$("<h4>" + p.nombre + "</h4>"),
 									$("<ul></ul>").append(
