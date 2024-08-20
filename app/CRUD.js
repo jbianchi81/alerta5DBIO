@@ -17376,6 +17376,35 @@ ORDER BY cal.cal_id`
 			count=EXCLUDED.count`
 			await client.query(stmt)
 		}
+		if(!filter.tipo || filter.tipo == "raster" || filter.tipo == "rast") {
+			const filter_string = internal.utils.control_filter2({
+				cor_id: {type:"integer"},
+				series_id: {type: "integer"},
+				estacion_id: {type: "integer", table: "series_rast"},
+				var_id: {type: "integer", table: "series_rast"},
+				qualifier: {type: "string"}
+			},
+			filter,
+			"pronosticos_rast")
+			const stmt = `INSERT INTO series_rast_prono_date_range_by_qualifier (series_id,cor_id,qualifier,begin_date,end_date,count)
+				SELECT series_rast.id AS series_id,
+					pronosticos_rast.cor_id,
+					pronosticos_rast.qualifier,
+					min(pronosticos_rast.timestart) AS begin_date,
+					max(pronosticos_rast.timestart) AS end_date,
+					count(pronosticos_rast.timestart) AS count
+				FROM series_rast
+				JOIN pronosticos_rast ON series_rast.id = pronosticos_rast.series_id
+				WHERE 1=1 
+				${filter_string}
+				GROUP BY series_rast.id, pronosticos_rast.cor_id, pronosticos_rast.qualifier
+				ON CONFLICT (series_id,cor_id,qualifier) 
+				DO UPDATE SET
+					begin_date = EXCLUDED.begin_date,
+					end_date = EXCLUDED.end_date,
+					count = EXCLUDED.count`
+			await client.query(stmt)
+		}
 		if(release_client) {
 			client.release()
 		}		

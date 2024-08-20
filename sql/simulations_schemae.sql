@@ -1627,6 +1627,17 @@ CREATE TABLE series_rast_prono_date_range_by_qualifier (
     unique (series_id,cor_id,qualifier)
 );
 
+CREATE VIEW series_rast_prono_date_range AS
+    SELECT
+        series_id,
+        cor_id,
+        min(begin_date) begin_date,
+        max(end_date) end_date,
+        sum(count) count
+    FROM series_rast_prono_date_range_by_qualifier
+    GROUP BY series_id, cor_id
+    ORDER BY series_id, cor_id;
+
 INSERT INTO series_rast_prono_date_range_by_qualifier (series_id,cor_id,qualifier,begin_date,end_date,count)
 SELECT series_rast.id AS series_id,
     pronosticos_rast.cor_id,
