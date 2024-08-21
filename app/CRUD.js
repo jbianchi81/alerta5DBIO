@@ -9665,14 +9665,14 @@ internal.CRUD = class {
 		}
 		try {
 			var query = internal.serie.build_read_query(filter,options)
-		} 
+		}
 		catch(e) {
 			if(release_client) {
 				client.release()
 			}
 			throw(e)
 		}
-		// console.debug(query)
+		console.debug(query)
 		try {
 			var res = await client.query(query)
 		} catch(e) {
@@ -15901,7 +15901,8 @@ SELECT mod.id, \
 				select series_prono_last.cal_id,\
 				series_prono_last.cor_id,\
 				series_prono_last.fecha_emision,\
-				json_agg(json_build_object('estacion_id',series.estacion_id,'var_id',series.var_id,'proc_id',series.proc_id,'unit_id',series.unit_id)) series\
+				json_agg(json_build_object('estacion_id',series.estacion_id,'var_id',series.var_id,'proc_id',series.proc_id,'unit_id',series.unit_id)) series,\
+				json_agg(series.estacion_id) out_id\
 				from series_prono_last,series\
 				WHERE series_prono_last.series_id=series.id\
 				" + series_filter + "\
@@ -15910,7 +15911,8 @@ SELECT mod.id, \
 			  ),\
 			  cal as (\
 		        SELECT calibrados.id cal_id, \
-				 pronos.series out_id, \
+				 pronos.series, \
+				 pronos.out_id, \
 				 calibrados.area_id, \
 				 calibrados.in_id, \
 				 calibrados.nombre, \
@@ -16023,7 +16025,7 @@ LEFT OUTER JOIN states ON (states.cal_id=cal.cal_id) \
 LEFT OUTER JOIN forcings ON (forcings.cal_id=cal.cal_id) \
 ORDER BY cal.cal_id`
 		}
-		// console.log(internal.utils.pasteIntoSQLQuery(query,[estacion_id,var_id,cal_id,model_id]))
+		// console.debug(internal.utils.pasteIntoSQLQuery(query,[estacion_id,var_id,cal_id,model_id]))
 		const result = await global.pool.query(query) //,[estacion_id,var_id,cal_id,model_id])
 		if(!result.rows) {
 			return Promise.reject()
@@ -16296,7 +16298,26 @@ ORDER BY cal.cal_id`
 			}
 			if(forecast_date) {
 				for(var i in calibrados) {
-					const corridas = await this.getPronosticos(undefined,calibrados[i].id,undefined,undefined,forecast_date,timestart,timeend,qualifier,calibrados[i].out_id,var_id,true,isPublic,series_id,false,undefined,true, undefined, tipo)
+					const corridas = await this.getPronosticos(
+						undefined,
+						calibrados[i].id,
+						undefined,
+						undefined,
+						forecast_date,
+						timestart,
+						timeend,
+						qualifier,
+						calibrados[i].out_id,
+						var_id,
+						true,
+						isPublic,
+						series_id,
+						false,
+						undefined,
+						true, 
+						undefined, 
+						tipo
+					)
 					if(corridas.length > 0) {
 						calibrados[i].corrida = corridas[0]
 					} else {
@@ -17461,20 +17482,21 @@ ORDER BY cal.cal_id`
 			series_id:filter.series_id,
 			tabla:filter.tabla
 		}
-		var filter_string = internal.utils.control_filter2({
-			timestart:{type:"timestart","table":"pronosticos"}, 
-			timeend:{type:"timeend","table":"pronosticos","column":"timestart"}, 
-			cal_id:{type:"integer", table:"corridas"}, 
-			cor_id:{type:"integer","table":"pronosticos"}, 
-			forecast_date:{type:"date", table: "corridas", column: "date", trunc: "milliseconds"},
-			estacion_id:{type:"integer","table":"series"}, 
-			var_id:{type:"integer","table":"series"}, 
-			qualifier:{type:"string","table":"pronosticos"}, 
-			series_id:{type:"integer","table":"pronosticos"},
-			tabla:{type:"string","table":"estaciones"}
-		},filter_values)
-		if(!filter_string) {
-			throw("getPronosticosPuntual: Invalid filter values: " + JSON.stringify(filter_values))
+		try {
+			var filter_string = internal.utils.control_filter2({
+				timestart:{type:"timestart","table":"pronosticos"}, 
+				timeend:{type:"timeend","table":"pronosticos","column":"timestart"}, 
+				cal_id:{type:"integer", table:"corridas"}, 
+				cor_id:{type:"integer","table":"pronosticos"}, 
+				forecast_date:{type:"date", table: "corridas", column: "date", trunc: "milliseconds"},
+				estacion_id:{type: "integer", "table": "series"}, 
+				var_id:{type:"integer","table":"series"}, 
+				qualifier:{type:"string","table":"pronosticos"}, 
+				series_id:{type:"integer","table":"pronosticos"},
+				tabla:{type:"string","table":"estaciones"}
+			},filter_values,undefined, true)
+		} catch (e) {
+			throw(new Error("getPronosticosPuntual: Invalid filter values: " + JSON.stringify(filter_values) + ". " + e.toString()))
 		}
 		const stmt = "SELECT \
 		    corridas.id AS cor_id,\

@@ -2267,7 +2267,7 @@ internal.tabprono = class {
 		}
 		return this.getTabprono(filter.forecast_date,dow,filter.file)
 	}
-	update(filter,options) {
+	async update(filter,options) {
 		if(!filter.forecast_date) {
 			return Promise.reject("Falta forecast_date")
 		}
@@ -2279,15 +2279,21 @@ internal.tabprono = class {
 		if(!filter.file) {
 			return Promise.reject("falta file")
 		}
-		return this.getTabprono(filter.forecast_date,dow,filter.file)
-		.then(result=>{		
-			if (filter.insert_obs) {
-				return Promise.all([this.insertTabprono(result.tabprono_geojson,true),crud.upsertCorrida(result.pronosticos_all)]) // crud.upsertCorrida(result.pronosticos_central),crud.upsertCorrida(result.pronosticos_min),crud.upsertCorrida(result.pronosticos_max)])
-			} else {
-				return Promise.all([this.insertTabprono(result.tabprono_geojson,false),crud.upsertCorrida(result.pronosticos_all)]) // crud.upsertCorrida(result.pronosticos_central),crud.upsertCorrida(result.pronosticos_min),crud.upsertCorrida(result.pronosticos_max)])
-			} 
-		})
-
+		const result = await this.getTabprono(filter.forecast_date,dow,filter.file)
+		if (filter.insert_obs) {
+			var upserted_tabprono = await this.insertTabprono(result.tabprono_geojson,true)
+			var upserted_prono = await crud.upsertCorrida(result.pronosticos_all) // crud.upsertCorrida(result.pronosticos_central),crud.upsertCorrida(result.pronosticos_min),crud.upsertCorrida(result.pronosticos_max)])
+		} else {
+			var upserted_tabprono = await this.insertTabprono(result.tabprono_geojson,false)
+			var upserted_prono = await crud.upsertCorrida(result.pronosticos_all)// crud.upsertCorrida(result.pronosticos_central),crud.upsertCorrida(result.pronosticos_min),crud.upsertCorrida(result.pronosticos_max)])
+		} 
+		await crud.updateSeriesPronoDateRange(
+			{
+				cal_id: 289,
+				cor_id: upserted_prono.id
+			}
+		)
+		return [upserted_tabprono, upserted_prono]
 	}
 	getTabprono(forecast_date,dow,file) {
 		if(!file) {
