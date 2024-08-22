@@ -5946,6 +5946,36 @@ internal.corrida = class extends baseModel {
 	toCSVless() {
 		return this.id + "," + this.forecast_date
 	}
+
+	/**
+	 * 
+	 * @param {internal.corrida[]|internal.corrida} corridas 
+	 * @returns {Promise<internal.corrida[]|internal.corrida>}
+	 */
+	static async create(corridas) {
+		if(Array.isArray(corridas)) {
+			const created = []
+			for(const corrida of corridas) {
+				if(corrida instanceof internal.corrida) {
+					const c = new internal.corrida(corrida)
+					created.push(await c.create())
+				} else {
+					created.push(await corrida.create())
+				}
+			}
+			return created
+		} else {
+			// console.debug({is_corrida: (corridas instanceof internal.corrida)})
+			if(corridas instanceof internal.corrida) {
+				return corridas.create()
+			} else {
+				// console.debug("Instanciando corrida")
+				const corrida = new this(corridas)
+				return corrida.create()
+			}
+		}
+	}
+
 	async create() {
 		const created = await internal.CRUD.upsertCorrida(this)
 		if(created) {
@@ -18108,6 +18138,12 @@ ORDER BY cal.cal_id`
 		return Promise.resolve(deletedCorridas)
 	}
 	
+	/**
+	 * 
+	 * @param {internal.corrida} corrida 
+	 * @param {boolean} replace_last 
+	 * @returns {Promise<internal.corrida>}
+	 */
 	static async upsertCorrida(corrida,replace_last=false) {
 		if(!corrida) {
 			return Promise.reject("Faltan parámetros: corrida")

@@ -4915,7 +4915,7 @@ function deletePronostico(req,res) {
 	})
 }
 
-function upsertPronostico(req,res) {
+async function upsertPronostico(req,res) {
 	var pronostico
 	if(req.body.constructor === Object) {
 		if(Object.keys(req.body).length === 0) {
@@ -4940,20 +4940,19 @@ function upsertPronostico(req,res) {
 		res.status(400).send("falta forecast_date")
 		return
 	}
-	crud.upsertCorrida(pronostico)  // {cal_id:,forecast_date:,series:[]}
-	.then(result=>{
-		if(result.series) {
-			result.updateSeriesDateRange()
-			// console.log("upserted " + result.series.reduce((a,s)=>a+s.pronosticos.length,0) + " pronosticos")
-		} else {
-			console.log("no se insertaron pronosticos")
-		}
-		res.send(result)
-	})
-	.catch(e=>{
+	try {
+		var result = await CRUD.corrida.create(pronostico) // crud.upsertCorrida(pronostico)  // {cal_id:,forecast_date:,series:[]}
+	} catch(e) {
 		console.error(e)
 		res.status(400).send(e)
-	})
+	}	
+	if(!result.series) {
+		// await result.updateSeriesDateRange()
+		// console.log("upserted " + result.series.reduce((a,s)=>a+s.pronosticos.length,0) + " pronosticos")
+	// } else {
+			console.warn("No se insertaron pronosticos")
+	}
+	res.send(result)
 }	
 
 function getCorridasGuardadas(req,res) {
