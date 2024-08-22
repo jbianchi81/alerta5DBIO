@@ -5980,7 +5980,7 @@ internal.corrida = class extends baseModel {
 		const created = await internal.CRUD.upsertCorrida(this)
 		if(created) {
 			Object.assign(this,created)
-			await this.updateSeriesDateRange()
+			await this.updateSeriesDateRangeByCorId()
 			return created
 		}
 		return
@@ -6219,6 +6219,11 @@ internal.corrida = class extends baseModel {
 			return series_mensuales
 		}
 	}
+
+	async updateSeriesDateRangeByCorId() {
+		await internal.CRUD.updateSeriesPronoDateRangeByCorId(this.id)
+	}
+
 	async updateSeriesDateRange(filter={}) {
 		await internal.CRUD.updateSeriesPronoDateRange(
 			{
@@ -17275,6 +17280,28 @@ ORDER BY cal.cal_id`
 		corrida.series = series
 		return
 	}
+
+	static async updateSeriesPronoDateRangeByCorId(cor_id,client) {
+		if(!cor_id) {
+			throw(new Error("Missing cor_id"))
+		}
+		var release_client = false
+		if(!client) {
+			release_client = true
+			client = await global.pool.connect()
+		}
+		const puntual_date_range = await client.query(`SELECT update_series_puntual_prono_date_range(${cor_id})`)
+		const areal_date_range = await client.query(`SELECT update_series_areal_prono_date_range(${cor_id})`)
+		// series_rast_prono_date_range es una vista
+		if(release_client) {
+			client.release()
+		}
+		return [
+			...puntual_date_range.rows,
+			...areal_date_range.rows
+		]		
+	}
+
 
 	static async updateSeriesPronoDateRange(filter={},options={},client) {
 		var release_client = false
