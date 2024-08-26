@@ -14546,7 +14546,7 @@ internal.CRUD = class {
 				source_tipo: filter.source_tipo, 
 				source_series_id: filter.source_series_id, 
 				source_estacion_id: filter.estacion_id, 
-				source_fuentes_id: filter.provider_id, 
+				source_fuentes_id: filter.provider_id ?? filter.tabla_id ?? filter.tabla, 
 				source_var_id: filter.source_var_id, 
 				source_proc_id: filter.source_proc_id, 
 				dest_tipo: filter.dest_tipo, 
