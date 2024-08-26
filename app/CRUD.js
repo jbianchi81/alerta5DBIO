@@ -17318,8 +17318,9 @@ ORDER BY cal.cal_id`
 				tabla: {type: "string", table: "estaciones"},
 				var_id: {type: "integer", table: "series"},
 				cal_id: {type: "integer", table: "corridas"},
-				forecast_date: {type: "date", table: "corridas", column: "date"}  //,
+				forecast_date: {type: "date", table: "corridas", column: "date"},  //,
 				// qualifier: {type: "string"}
+				cal_grupo_id: {type: "integer", table: "calibrados", column: "grupo_id"}
 			},
 			filter,
 			"pronosticos")
@@ -17334,6 +17335,7 @@ ORDER BY cal.cal_id`
 				JOIN series ON estaciones.unid = series.estacion_id
 				JOIN pronosticos ON series.id = pronosticos.series_id
 				JOIN corridas ON corridas.id = pronosticos.cor_id
+				JOIN calibrados ON calibrados.id = corridas.cal_id
 				WHERE 1=1 ${filter_string}
 				GROUP BY series.id,pronosticos.cor_id
 			ON CONFLICT (series_id,cor_id) DO UPDATE SET
@@ -17352,7 +17354,8 @@ ORDER BY cal.cal_id`
 				tabla: {type: "string", table: "estaciones"},
 				var_id: {type: "integer", table: "series_areal"},
 				cal_id: {type: "integer", table: "corridas"},
-				forecast_date: {type: "date", table: "corridas", column: "date"} 
+				forecast_date: {type: "date", table: "corridas", column: "date"},
+				cal_grupo_id: {type: "integer", table: "calibrados", column: "grupo_id"}
 				//,
 				// qualifier: {type: "string"}
 			},
@@ -17368,6 +17371,7 @@ ORDER BY cal.cal_id`
 				FROM series_areal
 				JOIN pronosticos_areal ON series_areal.id = pronosticos_areal.series_id
 				JOIN corridas ON corridas.id = pronosticos_areal.cor_id
+				JOIN calibrados ON calibrados.id = corridas.cal_id
 				JOIN areas_pluvio ON series_areal.area_id = areas_pluvio.unid
 				LEFT JOIN estaciones ON areas_pluvio.exutorio_id = estaciones.unid
 				WHERE 1=1 ${filter_string}

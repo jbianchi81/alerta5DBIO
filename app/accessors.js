@@ -1898,18 +1898,25 @@ internal.eby = class {
 	get(filter,options) {
 		return this.convertAndReadObs(filter.file)	
 	}
-	update(filter,options) {
-		return this.convertAndReadObs(filter.file)	
-		.then(results=>{
-			//~ console.log({obs:results[0],corrida1:results[1][0],corrida2:results[1][1]})
-			var observaciones  = results[0].map(d=> {
-				var obs = new CRUD.observacion(d)
-				  //~ console.log(obs.toString())
-				return obs
-			}) // .filter(o=> parseFloat(o.valor).toString()!=='NaN')
-			
-			return Promise.all([crud.upsertObservaciones(observaciones),crud.upsertCorrida(results[1][0]),crud.upsertCorrida(results[1][1])])
-		})
+	async update(filter,options) {
+		const results = await this.convertAndReadObs(filter.file)	
+		//~ console.log({obs:results[0],corrida1:results[1][0],corrida2:results[1][1]})
+		var observaciones  = results[0].map(d=> {
+			var obs = new CRUD.observacion(d)
+				//~ console.log(obs.toString())
+			return obs
+		}) // .filter(o=> parseFloat(o.valor).toString()!=='NaN')
+		
+		const upserted_obs = await crud.upsertObservaciones(observaciones) // Promise.all([crud.upsertObservaciones(observaciones),crud.upsertCorrida(results[1][0]),crud.upsertCorrida(results[1][1])])
+		const upserted_corr = await crud.upsertCorrida(results[1][0])
+		const upserted_corr2 = await crud.upsertCorrida(results[1][1])
+		await crud.updateSeriesPronoDateRangeByCorId(upserted_corr.id)
+		await crud.updateSeriesPronoDateRangeByCorId(upserted_corr2.id)
+		return [
+			upserted_obs,
+			upserted_corr,
+			upserted_corr2
+		]
 	}
 	convertAndReadObs(file) {
 		if(!this.config) {
