@@ -6083,6 +6083,7 @@ internal.a5 = class {
 		const url = this.config.url + "/obs/" + filter.tipo + "/series"
 		// console.debug(url)
 		// console.debug(params)
+		console.debug({uri: axios.getUri({url, params})});
 		const response = await axios.get(url,{
 			headers: {"Authorization": "Bearer " + this.config.token},
 			params: params

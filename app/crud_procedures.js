@@ -1839,15 +1839,15 @@ internal.GetMetadataFromAccessorProcedure = class extends internal.CrudProcedure
         }
         this.accessor_id = arguments[0].accessor_id
         this.filter = arguments[0].filter
-        // if(this.filter && this.filter.timestart) {
-        //     this.filter.timestart = timeSteps.DateFromDateOrInterval(this.filter.timestart)
-        // }
-        // if(this.filter && this.filter.timeend) {
-        //     this.filter.timeend = timeSteps.DateFromDateOrInterval(this.filter.timeend)
-        // }
-        // if(this.filter && this.filter.forecast_date) {
-        //     this.filter.forecast_date = timeSteps.DateFromDateOrInterval(this.filter.forecast_date)
-        // }
+        if(this.filter && this.filter.timestart) {
+            this.filter.timestart = timeSteps.DateFromDateOrInterval(this.filter.timestart)
+        }
+        if(this.filter && this.filter.timeend) {
+            this.filter.timeend = timeSteps.DateFromDateOrInterval(this.filter.timeend)
+        }
+        if(this.filter && this.filter.forecast_date) {
+            this.filter.forecast_date = timeSteps.DateFromDateOrInterval(this.filter.forecast_date)
+        }
         // this.options = arguments[0].options
         // this.output = (arguments[0].output) ? arguments[0].output : undefined
     }
