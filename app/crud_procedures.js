@@ -4280,7 +4280,11 @@ if(1==1) {
         const asoc_options = {
             agg_func: options.agg_func,
             dt: options.dt,
-            t_offset: options.t_offset
+            t_offset: options.t_offset,
+            no_insert: options.no_insert,
+            no_update: options.no_update,
+            no_insert_as_obs: options.no_insert_as_obs,
+            inst: options.inst
         }
         if(filter.id) {
             try {
