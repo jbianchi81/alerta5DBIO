@@ -149,7 +149,7 @@ WITH s_all AS (
       series.proc_id,
       series.unit_id,
       NULL::integer AS fuentes_id,
-      estaciones.nombre AS nombre,
+      estaciones.nombre AS estacion_nombre,
       estaciones.tabla AS fuentes_nombre
       FROM series
       JOIN estaciones
@@ -162,7 +162,7 @@ WITH s_all AS (
       series_areal.proc_id AS proc_id,
       series_areal.unit_id AS unit_id,
       series_areal.fuentes_id,
-      areas_pluvio.nombre AS nombre,
+      areas_pluvio.nombre AS estacion_nombre,
       fuentes.nombre AS fuentes_nombre     
       FROM series_areal
       JOIN areas_pluvio
@@ -177,7 +177,7 @@ WITH s_all AS (
       series_rast.proc_id AS proc_id,
       series_rast.unit_id AS unid_id,
       series_rast.fuentes_id,
-      escenas.nombre AS nombre,
+      escenas.nombre AS estacion_nombre,
       fuentes.nombre AS fuentes_nombre
       FROM series_rast
       JOIN escenas
@@ -191,7 +191,8 @@ SELECT
    var.nombre AS var_nombre,
    var."timeSupport" AS "var_timeSupport",
    procedimiento.nombre AS proc_nombre,
-   unidades.nombre AS unit_nombre
+   unidades.nombre AS unit_nombre,
+   unidades.abrev AS unit_abrev
 FROM s_all
 JOIN var
    ON s_all.var_id = var.id
