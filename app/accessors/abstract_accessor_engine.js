@@ -1,19 +1,19 @@
-const internal = {}
+const internal = {
+    AbstractAccessorEngine: class {
 
-internal.AbstractAccessorEngine = class {
+        default_config = {}
 
-    default_config = {}
+        config = {}
 
-    config = {}
+        setConfig(config) {
+            this.config = {}
+            Object.assign(this.config,this.default_config)
+            Object.assign(this.config,config)
+        }
 
-    setConfig(config) {
-        this.config = {}
-        Object.assign(this.config,this.default_config)
-        Object.assign(this.config,config)
-    }
-
-    constructor(config={}) {
-        this.setConfig(config)
+        constructor(config={}) {
+            this.setConfig(config)
+        }
     }
 }
 
