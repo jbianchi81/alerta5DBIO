@@ -57,12 +57,15 @@ var duckdb_async_1 = require("duckdb-async");
 var accessor_utils_1 = require("../accessor_utils");
 var Client = /** @class */ (function (_super) {
     __extends(Client, _super);
-    function Client() {
-        var _this = _super !== null && _super.apply(this, arguments) || this;
+    function Client(config) {
+        if (config === void 0) { config = {}; }
+        var _this = _super.call(this, config) || this;
         _this.default_config = {
             url: "https://ons-aws-prod-opendata.s3.amazonaws.com/",
+            sites_file: "dataset/reservatorio/RESERVATORIOS.parquet",
             file_pattern: "dataset/dados_hidrologicos_di/DADOS_HIDROLOGICOS_RES_%YYYY%.parquet",
             output_file: "/tmp/dados_ons.parquet",
+            sites_output_file: "/tmp/reservatorios_ons.parquet",
             sites_map: [],
             var_map: [
                 { field_name: "val_volumeutilcon", var_id: 26 },
@@ -70,8 +73,12 @@ var Client = /** @class */ (function (_super) {
                 { field_name: "val_vazaovertida", var_id: 24 },
                 { field_name: "val_vazaodefluente", var_id: 23 }
             ],
-            series_map: []
+            series_map: [],
+            tabla: "dados_ons",
+            pais: "Brasil",
+            propietario: "ONS"
         };
+        _this.setConfig(config);
         return _this;
     }
     Client.readParquetFile = function (filename, limit, offset) {
@@ -86,11 +93,13 @@ var Client = /** @class */ (function (_super) {
                         db = _a.sent();
                         return [4 /*yield*/, db.all("SELECT * FROM READ_PARQUET('".concat(filename, "') LIMIT ").concat(limit, " OFFSET ").concat(offset))
                             // console.log(rows);
+                            // return rows.map(r => r as DadosHidrologicosRecord)
                         ];
                     case 2:
                         rows = _a.sent();
                         // console.log(rows);
-                        return [2 /*return*/, rows.map(function (r) { return r; })];
+                        // return rows.map(r => r as DadosHidrologicosRecord)
+                        return [2 /*return*/, rows];
                 }
             });
         });
@@ -125,12 +134,15 @@ var Client = /** @class */ (function (_super) {
     };
     Client.setFilterValuesToArray = function (filter) {
         var filter_ = Object.assign({}, filter);
-        for (var _i = 0, _a = ["series_id", "estacion_id", "var_id"]; _i < _a.length; _i++) {
+        for (var _i = 0, _a = ["series_id", "estacion_id", "var_id", "id_externo"]; _i < _a.length; _i++) {
             var key = _a[_i];
             if (filter_[key] != undefined) {
                 if (!Array.isArray(filter_[key])) {
                     filter_[key] = [filter_[key]];
                 }
+            }
+            else {
+                filter_[key] = [];
             }
         }
         return filter_;
@@ -157,9 +169,10 @@ var Client = /** @class */ (function (_super) {
                         _c.sent();
                         return [4 /*yield*/, Client.readParquetFile(this.config.output_file)];
                     case 3:
-                        records = _c.sent();
+                        records = (_c.sent()).map(function (r) { return r; });
                         for (_i = 0, records_1 = records; _i < records_1.length; _i++) {
                             record = records_1[_i];
+                            record = record;
                             if (record.din_instante < filter_.timestart || record.din_instante > filter_.timeend) {
                                 continue;
                             }
@@ -168,7 +181,7 @@ var Client = /** @class */ (function (_super) {
                                 console.warn("estacion_id not found for id_reservatorio '".concat(record.id_reservatorio));
                             }
                             else {
-                                if (filter_.estacion_id && filter_.estacion_id.indexOf(estacion_id) < 0) {
+                                if (filter_.estacion_id.length && filter_.estacion_id.indexOf(estacion_id) < 0) {
                                     continue;
                                 }
                                 for (_a = 0, _b = this.config.var_map; _a < _b.length; _a++) {
@@ -183,6 +196,68 @@ var Client = /** @class */ (function (_super) {
                         year++;
                         return [3 /*break*/, 1];
                     case 5: return [2 /*return*/, observaciones];
+                }
+            });
+        });
+    };
+    Client.prototype.parseReservatorioRecord = function (record, estacion_id, url) {
+        return {
+            id: estacion_id,
+            nombre: record.nom_reservatorio,
+            id_externo: record.id_reservatorio,
+            tabla: this.config.tabla,
+            geom: {
+                type: "Point",
+                coordinates: [
+                    record.val_longitude,
+                    record.val_latitude
+                ]
+            },
+            pais: this.config.pais,
+            rio: record.nom_rio,
+            has_obs: true,
+            tipo: "E",
+            automatica: false,
+            habilitar: true,
+            propietario: this.config.propietario,
+            abreviatura: record.id_reservatorio,
+            URL: url,
+            real: true,
+            public: true
+        };
+    };
+    Client.prototype.getSites = function (filter) {
+        return __awaiter(this, void 0, void 0, function () {
+            var filter_, estaciones, url, records, _i, records_2, record, estacion_id;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        filter_ = Client.setFilterValuesToArray(filter);
+                        estaciones = [];
+                        url = "".concat(this.config.url).concat(this.config.sites_file);
+                        return [4 /*yield*/, (0, accessor_utils_1.fetch)(url, undefined, this.config.sites_output_file, function () { return null; })];
+                    case 1:
+                        _a.sent();
+                        return [4 /*yield*/, Client.readParquetFile(this.config.sites_output_file)];
+                    case 2:
+                        records = (_a.sent()).map(function (r) { return r; });
+                        if (filter_.id_externo.length) {
+                            records = records.filter(function (r) { return filter_.id_externo.indexOf(r.id_reservatorio) >= 0; });
+                        }
+                        for (_i = 0, records_2 = records; _i < records_2.length; _i++) {
+                            record = records_2[_i];
+                            estacion_id = this.getEstacionId(record.id_reservatorio);
+                            if (filter_.estacion_id.length) {
+                                if (!estacion_id) {
+                                    continue;
+                                }
+                                if (filter_.estacion_id.indexOf(estacion_id) < 0) {
+                                    continue;
+                                }
+                            }
+                            estaciones.push(this.parseReservatorioRecord(record, estacion_id, url));
+                        }
+                        return [2 /*return*/, estaciones];
                 }
             });
         });

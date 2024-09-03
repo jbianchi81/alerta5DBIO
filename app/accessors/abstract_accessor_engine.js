@@ -1,20 +1,18 @@
-const internal = {
-    AbstractAccessorEngine: class {
-
-        default_config = {}
-
-        config = {}
-
-        setConfig(config) {
-            this.config = {}
-            Object.assign(this.config,this.default_config)
-            Object.assign(this.config,config)
-        }
-
-        constructor(config={}) {
-            this.setConfig(config)
-        }
+"use strict";
+exports.__esModule = true;
+exports.AbstractAccessorEngine = void 0;
+var AbstractAccessorEngine = /** @class */ (function () {
+    function AbstractAccessorEngine(config) {
+        if (config === void 0) { config = {}; }
+        this.default_config = {};
+        this.config = {};
+        this.setConfig(config);
     }
-}
-
-module.exports = internal
+    AbstractAccessorEngine.prototype.setConfig = function (config) {
+        this.config = {};
+        Object.assign(this.config, this.default_config);
+        Object.assign(this.config, config);
+    };
+    return AbstractAccessorEngine;
+}());
+exports.AbstractAccessorEngine = AbstractAccessorEngine;

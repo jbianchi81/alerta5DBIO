@@ -1,6 +1,7 @@
 import { AbstractAccessorEngine } from './abstract_accessor_engine'
 import { Database, RowData } from "duckdb-async"
 import { fetch } from '../accessor_utils'
+import { Estacion, Observacion } from '../a5_types'
 
 type DadosHidrologicosRecord = {
     id_subsistema : string,
@@ -29,11 +30,31 @@ type DadosHidrologicosRecord = {
     val_vazaousoconsuntivo: number
 }
 
-type Observacion = {
-    timestart : Date,
-    timeend ? : Date,
-    valor : number,
-    series_id ? : number
+type ReservatorioRecord = {
+    nom_reservatorio: string,
+    tip_reservatorio: string,
+    cod_resplanejamento: number,
+    cod_posto: number,
+    nom_usina: string,
+    ceg: string,
+    id_subsistema: string,
+    nom_subsistema: string,
+    nom_bacia: string,
+    nom_rio: string,
+    nom_ree: string,
+    dat_entrada: string,
+    val_cotamaxima: string,
+    val_cotaminima: string,
+    val_volmax: string,
+    val_volmin: string,
+    val_volutiltot: string,
+    val_produtibilidadeespecifica: number,
+    val_produtividade65volutil: number,
+    val_tipoperda: string,
+    val_perda: number,
+    val_latitude: number,
+    val_longitude: number,
+    id_reservatorio: string
 }
 
 type AccessorFilter = {
@@ -41,24 +62,31 @@ type AccessorFilter = {
     timeend : Date,
     series_id ? : number|Array<number>,
     estacion_id ? : number|Array<number>,
-    var_id ? : number|Array<number>
+    var_id ? : number|Array<number>,
+    id_externo ? : string|Array<string>,
 }
 
 type AccessorFilterWithArrays = {
     timestart : Date,
     timeend : Date,
-    series_id ? : Array<number>,
-    estacion_id ? : Array<number>,
-    var_id ? : Array<number>
+    series_id : Array<number>,
+    estacion_id : Array<number>,
+    var_id : Array<number>,
+    id_externo : Array<string>
 }
 
 type Config = {
     url : string,
+    sites_file : string,
     file_pattern : string,
     output_file : string,
+    sites_output_file : string,
     sites_map : Array<SiteMap>,
     var_map : Array<VariableMap>,
-    series_map : Array<SerieMap>
+    series_map : Array<SerieMap>,
+    tabla : string,
+    pais : string,
+    propietario : string
 }
 
 type SiteMap = {
@@ -83,10 +111,17 @@ export class Client extends AbstractAccessorEngine {
 
     config : Config
 
+    constructor(config : Object = {}) {
+        super(config)
+        this.setConfig(config)
+    }
+
     default_config : Config = {
         url : "https://ons-aws-prod-opendata.s3.amazonaws.com/",
+        sites_file: "dataset/reservatorio/RESERVATORIOS.parquet",
         file_pattern: "dataset/dados_hidrologicos_di/DADOS_HIDROLOGICOS_RES_%YYYY%.parquet",
         output_file: "/tmp/dados_ons.parquet",
+        sites_output_file: "/tmp/reservatorios_ons.parquet",
         sites_map: [],
         var_map: [
             { field_name: "val_volumeutilcon", var_id: 26},
@@ -94,14 +129,18 @@ export class Client extends AbstractAccessorEngine {
             { field_name: "val_vazaovertida", var_id: 24},
             { field_name: "val_vazaodefluente", var_id: 23}
         ],
-        series_map: []
+        series_map: [],
+        tabla: "dados_ons",
+        pais: "Brasil",
+        propietario: "ONS"
     }
 
-    static async readParquetFile(filename : string, limit : number = 1000000, offset : number = 0) : Promise<Array<DadosHidrologicosRecord>> {
+    static async readParquetFile(filename : string, limit : number = 1000000, offset : number = 0) : Promise<Array<Object>> {
         const db : Database = await Database.create(":memory:");
         const rows : Array<RowData> = await db.all(`SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}`)
         // console.log(rows);
-        return rows.map(r => r as DadosHidrologicosRecord)
+        // return rows.map(r => r as DadosHidrologicosRecord)
+        return rows
     }
 
     static parseDadosHidrologicosRecord(record : DadosHidrologicosRecord, field : string, series_id ? : number) : Observacion {
@@ -135,11 +174,13 @@ export class Client extends AbstractAccessorEngine {
 
     static setFilterValuesToArray(filter : AccessorFilter) : AccessorFilterWithArrays {
         const filter_ = Object.assign({},filter)
-        for(const key of ["series_id", "estacion_id", "var_id"]) {
+        for(const key of ["series_id", "estacion_id", "var_id", "id_externo"]) {
             if(filter_[key] != undefined) {
                 if(!Array.isArray(filter_[key])) {
                     filter_[key] = [filter_[key]]
                 }
+            } else {
+                filter_[key] = []
             }
         }
         return filter_ as AccessorFilterWithArrays
@@ -156,8 +197,9 @@ export class Client extends AbstractAccessorEngine {
             const filepath = this.config.file_pattern.replace("%YYYY%", year.toString())
             const url = `${this.config.url}${filepath}`
             await fetch(url, undefined, this.config.output_file, () => null)
-            const records = await Client.readParquetFile(this.config.output_file)
-            for(const record of records) {
+            const records = (await Client.readParquetFile(this.config.output_file)).map(r => r as DadosHidrologicosRecord)
+            for(var record of records) {
+                record = record as DadosHidrologicosRecord
                 if(record.din_instante < filter_.timestart || record.din_instante > filter_.timeend) {
                     continue
                 }
@@ -166,7 +208,7 @@ export class Client extends AbstractAccessorEngine {
                 if(!estacion_id) {
                     console.warn(`estacion_id not found for id_reservatorio '${record.id_reservatorio}`)
                 } else {
-                    if(filter_.estacion_id && filter_.estacion_id.indexOf(estacion_id) < 0 ) {
+                    if(filter_.estacion_id.length && filter_.estacion_id.indexOf(estacion_id) < 0 ) {
                         continue
                     }
                     for(const variable of this.config.var_map) {
@@ -178,5 +220,58 @@ export class Client extends AbstractAccessorEngine {
         }
 
         return observaciones
-    } 
+    }
+    
+    parseReservatorioRecord(record : ReservatorioRecord, estacion_id ? : number, url ? : string) : Estacion {
+        return {
+            id: estacion_id,
+            nombre: record.nom_reservatorio,
+            id_externo: record.id_reservatorio,
+            tabla: this.config.tabla,
+            geom: {
+                type: "Point",
+                coordinates: [
+                    record.val_longitude,
+                    record.val_latitude
+                ]
+            },
+            pais: this.config.pais,
+            rio: record.nom_rio,
+            has_obs: true,
+            tipo: "E",
+            automatica: false,
+            habilitar: true,
+            propietario: this.config.propietario,
+            abreviatura: record.id_reservatorio,
+            URL: url,
+            real: true,
+            public: true
+        }
+
+    }
+
+    async getSites (filter : AccessorFilter) : Promise<Array<Estacion>> {
+        const filter_ = Client.setFilterValuesToArray(filter)
+        const estaciones : Array<Estacion> = [] 
+        const url = `${this.config.url}${this.config.sites_file}`
+        await fetch(url, undefined, this.config.sites_output_file, () => null)
+        var records = (await Client.readParquetFile(this.config.sites_output_file)).map(r => r as ReservatorioRecord)
+        if(filter_.id_externo.length) {
+            records = records.filter(r => filter_.id_externo.indexOf(r.id_reservatorio) >= 0)
+        }
+        for(const record of records) {
+            var estacion_id = this.getEstacionId(record.id_reservatorio)
+            if(filter_.estacion_id.length) {
+                if(!estacion_id) {
+                    continue
+                }
+                if(filter_.estacion_id.indexOf(estacion_id) < 0 ) {
+                    continue
+                }
+            }
+            estaciones.push(this.parseReservatorioRecord(record, estacion_id, url))
+        }
+        return estaciones
+    }        
 }
+

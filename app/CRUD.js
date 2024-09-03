@@ -244,6 +244,19 @@ internal.red = class extends baseModel  {
 		Object.assign(this,created)
 		return this
 	}
+	static async create(redes) {
+		if(!Array.isArray(redes)) {
+			const red = new this(redes)
+			return [await red.create()]
+		} else {
+			const created = []
+			for(var red of redes) {
+				red = new this(red)
+				created.append(await red.create())
+			}
+			return created
+		}
+	} 
 	static async read(filter) {
 		if(filter.id) {
 			return internal.CRUD.getRed(filter.id)

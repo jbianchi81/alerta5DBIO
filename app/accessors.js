@@ -46,6 +46,7 @@ internal.gfs_nomads = require('./accessors/gfs_nomads').Client
 internal.hidrowebservice = require('./accessors/hidrowebservice').Client
 internal.hidrowebservice_historico = require('./accessors/hidrowebservice_historico').Client
 internal.fewspirestwebservice = require('./accessors/fewspirestwebservice').Client
+internal.dados_ons = require('./accessors/dados_ons').Client
 
 // Promise.allSettled polyfill
 
@@ -238,6 +239,19 @@ internal.Accessor = class {
 			throw("getSites not implemented for accessor " + this.clase)
 		}
 		return this.engine.getSites(filter,options)
+	}
+
+	async updateSites(filter={},options={}) {
+		if(this.engine.updateSites) {
+			return this.engine.updateSites(filter, options)
+		} else {
+			if(!this.engine.getSites) {
+				throw("getSites not implemented for accessor " + this.clase)
+			} else {
+				const sites = await this.engine.getSites(filter,options)
+				return CRUD.estacion.create(sites)
+			}
+		}
 	}
 
 	async getSavedSites(filter={},options) {
