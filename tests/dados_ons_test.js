@@ -62,7 +62,7 @@ test('dados_ons accessor get series', async(t) => {
     const accessor = new Accessor({
        class: "dados_ons" 
     })
-    const series = await accessor.getSeries()
+    const series = await accessor.getMetadata()
     fs.writeFileSync("/tmp/ons_series.json", JSON.stringify(series, undefined, 2))
     assert(series.length > 400)
 })
@@ -71,7 +71,7 @@ test('dados_ons accessor get series with filter.id_externo of string type', asyn
     const accessor = new Accessor({
        class: "dados_ons" 
     })
-    const series = await accessor.getSeries({
+    const series = await accessor.getMetadata({
         id_externo: "AMUHBB"
     })
     fs.writeFileSync("/tmp/ons_series.json", JSON.stringify(series, undefined, 2))
@@ -82,7 +82,7 @@ test('dados_ons accessor get series with filter.id_externo of array type and fil
     const accessor = new Accessor({
        class: "dados_ons" 
     })
-    const series = await accessor.getSeries({
+    const series = await accessor.getMetadata({
         id_externo: [
             "AMUHBB",
             "AAUCCA"
@@ -91,5 +91,71 @@ test('dados_ons accessor get series with filter.id_externo of array type and fil
     })
     fs.writeFileSync("/tmp/ons_series.json", JSON.stringify(series, undefined, 2))
     assert(series.length == 2)
-    assert(series.filter(s=>s.var_id == 23).length == 2)
+    assert(series.filter(s=>s.var.id == 23).length == 2)
+})
+
+
+// update series
+
+test('dados_ons accessor get series with filter.id_externo of array type and filter.var_id of number type', async(t) => {
+    const accessor = new Accessor({
+       class: "dados_ons" 
+    })
+    const series = await accessor.updateMetadata({
+        id_externo: [
+            "AMUHBB",
+            "AAUCCA"
+        ],
+        var_id: 23
+    })
+    fs.writeFileSync("/tmp/ons_series.json", JSON.stringify(series, undefined, 2))
+    assert(series.length == 2)
+    assert(series.filter(s=>s.var.id == 23).length == 2)
+})
+
+
+// observaciones
+
+test('dados_ons accessor get observations last week, one station, one variable', async(t) => {
+    const accessor = new Accessor({
+       class: "dados_ons" 
+    })
+    var timestart = new Date()
+    timestart.setUTCDate(timestart.getUTCDate() - 7)
+    var timeend = new Date()
+    const series = await accessor.getSeries({
+        timestart: timestart,
+        timeend: timeend,
+        id_externo: "AMUHBB",
+        var_id: 23
+    })
+    fs.writeFileSync("/tmp/ons_series.json", JSON.stringify(series, undefined, 2))
+    assert(series.length == 1)
+    assert(series[0].observaciones.length > 5)
+})
+
+test('dados_ons accessor get observations last week, two stations, two variables', async(t) => {
+    const accessor = new Accessor({
+       class: "dados_ons" 
+    })
+    var timestart = new Date()
+    timestart.setUTCDate(timestart.getUTCDate() - 7)
+    var timeend = new Date()
+    const series = await accessor.getSeries({
+        timestart: timestart,
+        timeend: timeend,
+        id_externo: [
+            "AMUHBB",
+            "AAUCCA"
+        ],
+        var_id: [
+            23,
+            26
+        ]
+    })
+    fs.writeFileSync("/tmp/ons_series.json", JSON.stringify(series, undefined, 2))
+    assert(series.length == 4)
+    for(const serie of series){
+        assert(serie.observaciones.length > 5)
+    }
 })

@@ -14,6 +14,17 @@ var __extends = (this && this.__extends) || (function () {
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
 })();
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -55,6 +66,7 @@ exports.Client = void 0;
 var abstract_accessor_engine_1 = require("./abstract_accessor_engine");
 var duckdb_async_1 = require("duckdb-async");
 var accessor_utils_1 = require("../accessor_utils");
+var CRUD_1 = require("../CRUD");
 var Client = /** @class */ (function (_super) {
     __extends(Client, _super);
     function Client(config) {
@@ -74,10 +86,31 @@ var Client = /** @class */ (function (_super) {
                 { field_name: "val_vazaodefluente", var_id: 23 }
             ],
             series_map: [],
+            unit_map: [
+                {
+                    var_id: 26,
+                    unit_id: 10
+                },
+                {
+                    var_id: 22,
+                    unit_id: 10
+                },
+                {
+                    var_id: 24,
+                    unit_id: 10
+                },
+                {
+                    var_id: 23,
+                    unit_id: 10
+                }
+            ],
             tabla: "dados_ons",
             pais: "Brasil",
-            propietario: "ONS"
+            propietario: "ONS",
+            proc_id: 1
         };
+        _this.var_map = [];
+        _this.unit_map = [];
         _this.setConfig(config);
         return _this;
     }
@@ -231,15 +264,17 @@ var Client = /** @class */ (function (_super) {
             var filter_, estaciones, url, records, _i, records_2, record, estacion_id;
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0:
+                    case 0: return [4 /*yield*/, this.loadSitesMap()];
+                    case 1:
+                        _a.sent();
                         filter_ = Client.setFilterValuesToArray(filter);
                         estaciones = [];
                         url = "".concat(this.config.url).concat(this.config.sites_file);
                         return [4 /*yield*/, (0, accessor_utils_1.fetch)(url, undefined, this.config.sites_output_file, function () { return null; })];
-                    case 1:
+                    case 2:
                         _a.sent();
                         return [4 /*yield*/, Client.readParquetFile(this.config.sites_output_file)];
-                    case 2:
+                    case 3:
                         records = (_a.sent()).map(function (r) { return r; });
                         if (filter_.id_externo.length) {
                             records = records.filter(function (r) { return filter_.id_externo.indexOf(r.id_reservatorio) >= 0; });
@@ -258,6 +293,151 @@ var Client = /** @class */ (function (_super) {
                             estaciones.push(this.parseReservatorioRecord(record, estacion_id, url));
                         }
                         return [2 /*return*/, estaciones];
+                }
+            });
+        });
+    };
+    Client.prototype.getUnidades = function (var_id) {
+        for (var _i = 0, _a = this.unit_map; _i < _a.length; _i++) {
+            var unit = _a[_i];
+            if (unit.var_id == var_id) {
+                return unit.unidades;
+            }
+        }
+        throw (new Error("Unidades for var_id=" + var_id + " not found"));
+    };
+    Client.prototype.loadSitesMap = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            var estaciones;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, CRUD_1.estacion.read({
+                            tabla: this.config.tabla
+                        })];
+                    case 1:
+                        estaciones = _a.sent();
+                        this.config.sites_map = estaciones.map(function (estacion) {
+                            return {
+                                estacion_id: estacion.id,
+                                id_reservatorio: estacion.id_externo,
+                                estacion: estacion
+                            };
+                        });
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /** Loads variables defined in config.var_map from database and sets this.var_map */
+    Client.prototype.loadVarMap = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            var variables, _i, _a, mapped_var, i;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0: return [4 /*yield*/, CRUD_1["var"].read({
+                            id: this.config.var_map.map(function (v) { return v.var_id; })
+                        })];
+                    case 1:
+                        variables = _b.sent();
+                        for (_i = 0, _a = this.config.var_map; _i < _a.length; _i++) {
+                            mapped_var = _a[_i];
+                            i = variables.map(function (v) { return v.id; }).indexOf(mapped_var.var_id);
+                            if (i < 0) {
+                                throw (new Error("Variable with id=" + mapped_var.var_id + " not found in database"));
+                            }
+                            this.var_map.push(__assign({ variable: variables[i] }, mapped_var));
+                        }
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
+    Client.prototype.loadProc = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            var proc;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, CRUD_1.procedimiento.read({
+                            id: this.config.proc_id
+                        })];
+                    case 1:
+                        proc = _a.sent();
+                        if (!proc) {
+                            throw (new Error("Procedimiento with id=" + this.config.proc_id + " not found in database"));
+                        }
+                        this.procedimiento = proc;
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
+    /** Loads units defined in config.unit_map from database and sets this.unit_map */
+    Client.prototype.loadUnitMap = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            var units, _i, _a, mapped_unit, i;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
+                    case 0: return [4 /*yield*/, CRUD_1.unidades.read({
+                            id: this.config.unit_map.map(function (u) { return u.unit_id; })
+                        })];
+                    case 1:
+                        units = _b.sent();
+                        for (_i = 0, _a = this.config.unit_map; _i < _a.length; _i++) {
+                            mapped_unit = _a[_i];
+                            i = units.map(function (u) { return u.id; }).indexOf(mapped_unit.unit_id);
+                            if (i < 0) {
+                                throw (new Error("Unidades with id=" + mapped_unit.unit_id + " not found in database"));
+                            }
+                            this.unit_map.push(__assign({ unidades: units[i] }, mapped_unit));
+                        }
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
+    Client.prototype.getSeries = function (filter) {
+        if (filter === void 0) { filter = {}; }
+        return __awaiter(this, void 0, void 0, function () {
+            var filter_, estaciones, series, _i, estaciones_1, estacion, _a, _b, variable;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
+                    case 0: return [4 /*yield*/, this.loadSitesMap()];
+                    case 1:
+                        _c.sent();
+                        return [4 /*yield*/, this.loadVarMap()];
+                    case 2:
+                        _c.sent();
+                        return [4 /*yield*/, this.loadProc()];
+                    case 3:
+                        _c.sent();
+                        return [4 /*yield*/, this.loadUnitMap()];
+                    case 4:
+                        _c.sent();
+                        filter_ = Client.setFilterValuesToArray(filter);
+                        return [4 /*yield*/, this.getSites({
+                                estacion_id: filter_.estacion_id,
+                                id_externo: filter_.id_externo
+                            })];
+                    case 5:
+                        estaciones = _c.sent();
+                        series = [];
+                        for (_i = 0, estaciones_1 = estaciones; _i < estaciones_1.length; _i++) {
+                            estacion = estaciones_1[_i];
+                            for (_a = 0, _b = this.var_map; _a < _b.length; _a++) {
+                                variable = _b[_a];
+                                if (filter_.var_id.length && filter_.var_id.indexOf(variable.var_id) < 0) {
+                                    continue;
+                                }
+                                series.push({
+                                    tipo: "puntual",
+                                    estacion: estacion,
+                                    "var": variable.variable,
+                                    procedimiento: this.procedimiento,
+                                    unidades: this.getUnidades(variable.var_id)
+                                });
+                            }
+                        }
+                        return [2 /*return*/, series];
                 }
             });
         });

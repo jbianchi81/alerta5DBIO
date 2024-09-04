@@ -1408,7 +1408,7 @@ internal.unidades = class extends baseModel  {
 		}
 	}
 	static async read(filter={}) {
-		if(filter.id) {
+		if(filter.id && !Array.isArray(filter.id)) {
 			return internal.CRUD.getUnidad(filter.id)
 		}
 		return internal.CRUD.getUnidades(filter)
@@ -8112,6 +8112,10 @@ internal.CRUD = class {
 	}
 
 	static async getVar(id) {
+		id = parseInt(id)
+		if(id.toString() == "NaN") {
+			throw(new Error("Invalid variable id. Must be integer"))
+		}
 		return executeQueryReturnRows("\
 		SELECT id, \
 		       var,\
@@ -8136,6 +8140,8 @@ internal.CRUD = class {
 			const variable = new internal["var"](rows[0]) // rows[0]["var"],rows[0].nombre,rows[0].abrev,rows[0].type,rows[0].datatype,rows[0].valuetype,rows[0].GeneralCategory,rows[0].VariableName,rows[0].SampleMedium,rows[0].def_unit_id,rows[0].timeSupport,rows[0].def_hora_corte)
 			variable.id = rows[0].id
 			return variable
+		}).catch(e => {
+			throw(new Error(e))
 		})
 	}
 	
@@ -8156,7 +8162,7 @@ internal.CRUD = class {
 			def_hora_corte: {type: "interval"}
 		}
 		// console.log(filter)
-		var filter_string = internal.utils.control_filter2(valid_filters,filter)
+		var filter_string = internal.utils.control_filter2(valid_filters,filter, undefined, true)
 		// console.log(filter_string)
 		if(!filter_string) {
 			return Promise.reject(new Error("invalid filter value"))
@@ -8164,7 +8170,7 @@ internal.CRUD = class {
 		const stmt = "SELECT id, var,nombre,abrev,type,datatype,valuetype,\"GeneralCategory\",\"VariableName\",\"SampleMedium\",def_unit_id,\"timeSupport\"\
 		FROM var \
 		WHERE 1=1 " + filter_string + " ORDER BY id"
-		// ~ console.log("stmt: " + stmt)
+		// console.debug("stmt: " + stmt)
 		return global.pool.query(stmt)
 		.then(res=>{
 			//~ console.log(res)
@@ -8176,7 +8182,7 @@ internal.CRUD = class {
 			return variables
 		})
 		.catch(e=>{
-			console.error(e)
+			console.error(new Error(e))
 			return null
 		})
 	}
@@ -8363,8 +8369,24 @@ internal.CRUD = class {
 	}
 	
 	static async getUnidades(filter) {
-		const valid_filters = {id: "numeric", nombre: "regex_string",abrev: "regex_string",UnitsID: "numeric", UnitsType: "string"}
-		var filter_string = internal.utils.control_filter(valid_filters,filter)
+		const valid_filters = {
+			id: {
+				type: "numeric"
+			}, 
+			nombre: {
+				type: "regex_string"
+			},
+			abrev: {
+				type: "regex_string"
+			},
+			UnitsID: {
+				type: "numeric"
+			},
+			UnitsType: {
+				type:  "string"
+			}
+		}
+		var filter_string = internal.utils.control_filter2(valid_filters,filter, "unidades", true)
 		if(!filter_string) {
 			return Promise.reject(new Error("invalid filter value"))
 		}

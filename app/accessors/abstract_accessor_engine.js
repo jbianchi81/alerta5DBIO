@@ -2,6 +2,10 @@
 exports.__esModule = true;
 exports.AbstractAccessorEngine = void 0;
 var AbstractAccessorEngine = /** @class */ (function () {
+    // async get(filter : ObservacionesFilter) {
+    //     console.warn("get method not implemented in this class")
+    //     return [] as Array<Observacion>
+    // }
     function AbstractAccessorEngine(config) {
         if (config === void 0) { config = {}; }
         this.default_config = {};
