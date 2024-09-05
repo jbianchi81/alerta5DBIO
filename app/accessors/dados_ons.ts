@@ -134,7 +134,11 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
             { field_name: "val_volumeutilcon", var_id: 26},
             { field_name: "val_vazaoafluente", var_id: 22},
             { field_name: "val_vazaovertida", var_id: 24},
-            { field_name: "val_vazaodefluente", var_id: 23}
+            { field_name: "val_vazaodefluente", var_id: 23},
+            { field_name: "val_vazaotransferida", var_id: 25},
+            { field_name: "val_vazaoturbinada", var_id: 92},
+            { field_name: "val_nivelmontante", var_id: 93},
+            { field_name: "val_niveljusante", var_id: 94}
         ],
         series_map: [],
         unit_map: [
@@ -153,6 +157,22 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
             {
                 var_id: 23,
                 unit_id: 10
+            },
+            {
+                var_id: 25,
+                unit_id: 10
+            },
+            {
+                var_id: 92,
+                unit_id: 10
+            },
+            {
+                var_id: 93,
+                unit_id: 11
+            },
+            {
+                var_id: 94,
+                unit_id: 11
             }
         ],
         tabla: "dados_ons",
