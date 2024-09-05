@@ -39,8 +39,8 @@ export interface AccessorEngine {
     get config() : Object
     set config(value : Map<string,any> | Object)
     setConfig(config : Object) : void
-    get(filter : ObservacionesFilter) : Promise<Array<Observacion>>
-    update? (filter : ObservacionesFilter): Promise<Array<Observacion>>
+    get(filter : ObservacionesFilter, options : { return_series ? : boolean}) : Promise<Array<Observacion>|Array<Serie>>
+    update? (filter : ObservacionesFilter, options : { return_series ? : boolean}) : Promise<Array<Observacion>|Array<Serie>>
     getSeries(filter : SeriesFilter) : Promise<Array<Serie>>
     updateSeries? (filter : SeriesFilter) : Promise<Array<Serie>>
     getSites(filter : SitesFilter) : Promise<Array<Estacion>>

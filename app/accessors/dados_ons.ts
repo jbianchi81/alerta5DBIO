@@ -2,7 +2,7 @@ import { AbstractAccessorEngine, AccessorEngine, ObservacionesFilter, Observacio
 import { Database, RowData } from "duckdb-async"
 import { fetch } from '../accessor_utils'
 import { Estacion, Observacion, Procedimiento, Serie, SerieOnlyIds, Unidades, Variable } from '../a5_types'
-import {estacion as crud_estacion, var as crud_var, procedimiento as crud_proc, unidades as crud_unidades, serie as crud_serie} from '../CRUD'
+import {estacion as crud_estacion, var as crud_var, procedimiento as crud_proc, unidades as crud_unidades, serie as crud_serie, serie} from '../CRUD'
 
 type DadosHidrologicosRecord = {
     id_subsistema : string,
@@ -112,7 +112,7 @@ interface LoadedUnitMap extends UnitMap {
 }
 
 
-export class Client extends AbstractAccessorEngine implements AccessorEngine{
+export class Client extends AbstractAccessorEngine implements AccessorEngine {
 
     static _get_is_multiseries : boolean = true
 
@@ -171,19 +171,23 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine{
 
     series_map : Array<LoadedSerieMap> = []
 
-    static async readParquetFile(filename : string, limit : number = 1000000, offset : number = 0 ) : Promise<Array<Object>> {
+    static async readParquetFile(filename : string, limit : number = 1000000, offset : number = 0 , output : string|undefined = undefined) : Promise<Array<Object>> {
         const db : Database = await Database.create(":memory:");
         const rows : Array<RowData> = await db.all(`SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}`)
         // console.log(rows);
         // return rows.map(r => r as DadosHidrologicosRecord)
+        if(output) {
+            await db.all(`COPY (SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}) TO '${output}' (HEADER, DELIMITER ',')`)
+        }
         return rows
     }
 
     static parseDadosHidrologicosRecord(record : DadosHidrologicosRecord, field : string, series_id ? : number) : Observacion {
-        var end_date = new Date(record.din_instante)
+        var start_date = new Date(record.din_instante.getUTCFullYear(),record.din_instante.getUTCMonth(),record.din_instante.getUTCDate())
+        var end_date = new Date(start_date)
         end_date.setUTCDate(end_date.getUTCDate() + 1)
         return {
-            timestart: record.din_instante,
+            timestart: start_date,
             timeend: end_date, 
             valor: record[field],
             series_id: series_id
@@ -205,6 +209,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine{
                 return serie.series_id
             }
         }
+        console.warn("Series id for estacion_id=" + estacion_id + ", var id=" + var_id + " not found in series_map. Please run updateSeries")
         return
     }
 
@@ -222,8 +227,21 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine{
         return filter_
     }
 
+    getSerieById(series_id : number) : Serie {
+        for(const serie_map of this.series_map) {
+            if(serie_map.series_id == series_id) {
+                return serie_map.serie
+            }
+        }
+        throw(new Error("Series id " + series_id + " not found in series_map"))
+    }
 
-    async get (filter : ObservacionesFilter) : Promise<Array<Observacion>> {
+
+    async get(
+        filter : ObservacionesFilter,
+        options : {
+            return_series ? : boolean
+        } = {}) : Promise<Array<Observacion>|Array<Serie>> {
         if(!filter || !filter.timestart || !filter.timeend) {
             throw("Missing timestart and/or timeend")
         }
@@ -245,26 +263,78 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine{
                 if(record.din_instante < filter_.timestart || record.din_instante > filter_.timeend) {
                     continue
                 }
+                // filter by id_externo
+                if(filter_.id_externo.length && filter_.id_externo.indexOf(record.id_reservatorio) < 0) {
+                    continue
+                }
                 const estacion_id = this.getEstacionId(record.id_reservatorio)
                 var series_id : number|undefined
                 if(!estacion_id) {
-                    console.warn(`estacion_id not found for id_reservatorio '${record.id_reservatorio}`)
+                    console.warn(`estacion_id not found for id_reservatorio ${record.id_reservatorio}`)
                 } else {
+                    // filter by estacion_id
                     if(filter_.estacion_id.length && filter_.estacion_id.indexOf(estacion_id) < 0 ) {
                         continue
                     }
                     for(const variable of this.config.var_map) {
+                        //filter by var_id
+                        if(filter_.var_id && filter_.var_id.indexOf(variable.var_id) < 0 ) {
+                            continue
+                        }
+                        // foreach var, find series_id and push obs into array
                         series_id = this.getSeriesId(estacion_id, variable.var_id)
                         observaciones.push(Client.parseDadosHidrologicosRecord(record, variable.field_name, series_id))
                     }
                 }
             }
         }
-
+        if(options.return_series) {
+            // classify observaciones into series. Warning: observaciones with missing series_id will be ignored
+            const series = {}
+            for(const observacion of observaciones) {
+                if(!observacion.series_id) {
+                    continue
+                }
+                if(series[observacion.series_id]) {
+                    series[observacion.series_id].observaciones.push(observacion)
+                } else {
+                    const serie = this.getSerieById(observacion.series_id)
+                    serie.observaciones = [observacion]
+                    series[observacion.series_id] = serie
+                }
+            }
+            return Object.keys(series).map(series_id=> {
+                return series[series_id]
+            })
+        }
         return observaciones
+    }
+
+    async update(
+        filter : ObservacionesFilter,
+        options : {
+            return_series ? : boolean
+        } = {}) : Promise<Array<Observacion>|Array<Serie>> {
+        const series = await this.get(filter, {...options, return_series: true})
+        const updated : Array<Serie> = []
+        for(var serie of series) {
+            const c_serie = new crud_serie(serie)
+            await c_serie.createObservaciones()
+            updated.push(c_serie as Serie)
+        } 
+        return updated
     }
     
     parseReservatorioRecord(record : ReservatorioRecord, estacion_id ? : number, url ? : string) : Estacion {
+        if(!record.nom_reservatorio) {
+            throw(new Error("Invalid site: missing name (nom_reservatorio"))
+        }
+        if(!record.id_reservatorio) {
+            throw(new Error("Invalid site: missing id (id_reservatorio"))
+        }
+        if(!record.val_latitude || !record.val_longitude) {
+            throw(new Error("Invalid site: missing latitude or longitude (val_latitude, val_longitude)"))
+        }
         return {
             id: estacion_id,
             nombre: record.nom_reservatorio,
@@ -312,7 +382,13 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine{
                     continue
                 }
             }
-            estaciones.push(this.parseReservatorioRecord(record, estacion_id, url))
+            try {
+                var estacion = this.parseReservatorioRecord(record, estacion_id, url)
+            } catch(e) {
+                console.error("parseReservatorioRecord error: " + e.toString())
+                continue
+            }
+            estaciones.push(estacion)
         }
         return estaciones
     }
@@ -347,7 +423,8 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine{
             return {
                 series_id: serie.id,
                 estacion_id: serie.estacion.id,
-                var_id: serie.var.id
+                var_id: serie.var.id,
+                serie: serie
             } as LoadedSerieMap
         })
     }

@@ -263,6 +263,29 @@ internal.red = class extends baseModel  {
 		}
 		return internal.CRUD.getRedes(filter)
 	}
+
+	async delete() {
+		if(!this.id) {
+			throw("Can't delete red. Missing id")
+		}
+		return internal.CRUD.deleteRed(this.id)
+	}
+
+	static async delete(filter={}) {
+		if(!filter.id && !filter.nombre && !filter.tabla_id) {
+			throw("Invalid filter. At least one of id, nombre must be defined")
+		}
+		const redes = await this.read(filter)
+		const deleted = []
+		for(const red of redes) {
+			try {
+				deleted.push(await red.delete())
+			} catch(e) {
+				throw(new Error(e))
+			}
+		}
+		return deleted
+	}
 }
 
 internal.red.build_read_query = function (filter) {
@@ -7320,7 +7343,7 @@ internal.CRUD = class {
 	}
 
 	static async getEstacion(id,isPublic,options={}) {
-		const result = await global.pool.query("\
+		const stmt = "\
 		SELECT estaciones.nombre, estaciones.id_externo, st_x(estaciones.geom) geom_x, st_y(estaciones.geom) geom_y, estaciones.tabla,  estaciones.distrito, estaciones.pais, estaciones.rio, estaciones.has_obs, estaciones.tipo, estaciones.automatica, estaciones.habilitar, estaciones.propietario, estaciones.abrev, estaciones.URL, estaciones.localidad, estaciones.real, estaciones.id, estaciones.unid, nivel_alerta.valor nivel_alerta, nivel_evacuacion.valor nivel_evacuacion, nivel_aguas_bajas.valor nivel_aguas_bajas, estaciones.cero_ign, estaciones.altitud, redes.public\
 		FROM estaciones\
 		LEFT OUTER JOIN redes ON (estaciones.tabla = redes.tabla_id) \
@@ -7328,7 +7351,9 @@ internal.CRUD = class {
 		LEFT OUTER JOIN alturas_alerta nivel_evacuacion ON (estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado='e') \
 		LEFT OUTER JOIN alturas_alerta nivel_aguas_bajas ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b') \
 		WHERE estaciones.unid=$1 \
-		AND estaciones.geom IS NOT NULL",[id])
+		AND estaciones.geom IS NOT NULL"
+		// console.debug(pasteIntoSQLQuery(stmt, [id]))
+		const result = await global.pool.query(stmt, [id])
 		if(result.rows.length<=0) {
 			console.log("estacion no encontrada")
 			return
@@ -9742,7 +9767,7 @@ internal.CRUD = class {
 			}
 			throw(e)
 		}
-		console.debug(query)
+		// console.debug(query)
 		try {
 			var res = await client.query(query)
 		} catch(e) {

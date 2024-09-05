@@ -89,7 +89,7 @@ var Client = /** @class */ (function (_super) {
             unit_map: [
                 {
                     var_id: 26,
-                    unit_id: 10
+                    unit_id: 15
                 },
                 {
                     var_id: 22,
@@ -111,12 +111,15 @@ var Client = /** @class */ (function (_super) {
         };
         _this.var_map = [];
         _this.unit_map = [];
+        _this.sites_map = [];
+        _this.series_map = [];
         _this.setConfig(config);
         return _this;
     }
-    Client.readParquetFile = function (filename, limit, offset) {
+    Client.readParquetFile = function (filename, limit, offset, output) {
         if (limit === void 0) { limit = 1000000; }
         if (offset === void 0) { offset = 0; }
+        if (output === void 0) { output = undefined; }
         return __awaiter(this, void 0, void 0, function () {
             var db, rows;
             return __generator(this, function (_a) {
@@ -130,25 +133,29 @@ var Client = /** @class */ (function (_super) {
                         ];
                     case 2:
                         rows = _a.sent();
-                        // console.log(rows);
-                        // return rows.map(r => r as DadosHidrologicosRecord)
-                        return [2 /*return*/, rows];
+                        if (!output) return [3 /*break*/, 4];
+                        return [4 /*yield*/, db.all("COPY (SELECT * FROM READ_PARQUET('".concat(filename, "') LIMIT ").concat(limit, " OFFSET ").concat(offset, ") TO '").concat(output, "' (HEADER, DELIMITER ',')"))];
+                    case 3:
+                        _a.sent();
+                        _a.label = 4;
+                    case 4: return [2 /*return*/, rows];
                 }
             });
         });
     };
     Client.parseDadosHidrologicosRecord = function (record, field, series_id) {
-        var end_date = new Date(record.din_instante);
+        var start_date = new Date(record.din_instante.getUTCFullYear(), record.din_instante.getUTCMonth(), record.din_instante.getUTCDate());
+        var end_date = new Date(start_date);
         end_date.setUTCDate(end_date.getUTCDate() + 1);
         return {
-            timestart: record.din_instante,
+            timestart: start_date,
             timeend: end_date,
             valor: record[field],
             series_id: series_id
         };
     };
     Client.prototype.getEstacionId = function (id_reservatorio) {
-        for (var _i = 0, _a = this.config.sites_map; _i < _a.length; _i++) {
+        for (var _i = 0, _a = this.sites_map; _i < _a.length; _i++) {
             var estacion = _a[_i];
             if (estacion.id_reservatorio == id_reservatorio) {
                 return estacion.estacion_id;
@@ -157,12 +164,13 @@ var Client = /** @class */ (function (_super) {
         return;
     };
     Client.prototype.getSeriesId = function (estacion_id, var_id) {
-        for (var _i = 0, _a = this.config.series_map; _i < _a.length; _i++) {
-            var serie = _a[_i];
-            if (serie.estacion_id == estacion_id && serie.var_id == var_id) {
-                return serie.series_id;
+        for (var _i = 0, _a = this.series_map; _i < _a.length; _i++) {
+            var serie_1 = _a[_i];
+            if (serie_1.estacion_id == estacion_id && serie_1.var_id == var_id) {
+                return serie_1.series_id;
             }
         }
+        console.warn("Series id for estacion_id=" + estacion_id + ", var id=" + var_id + " not found in series_map. Please run updateSeries");
         return;
     };
     Client.setFilterValuesToArray = function (filter) {
@@ -180,60 +188,151 @@ var Client = /** @class */ (function (_super) {
         }
         return filter_;
     };
-    Client.prototype.get = function (filter) {
+    Client.prototype.getSerieById = function (series_id) {
+        for (var _i = 0, _a = this.series_map; _i < _a.length; _i++) {
+            var serie_map = _a[_i];
+            if (serie_map.series_id == series_id) {
+                return serie_map.serie;
+            }
+        }
+        throw (new Error("Series id " + series_id + " not found in series_map"));
+    };
+    Client.prototype.get = function (filter, options) {
+        if (options === void 0) { options = {}; }
         return __awaiter(this, void 0, void 0, function () {
-            var filter_, observaciones, year, filepath, url, records, _i, records_1, record, estacion_id, series_id, _a, _b, variable;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
+            var filter_, observaciones, year, filepath, url, records, _i, records_1, record, estacion_id, series_id, _a, _b, variable, series_1, _c, observaciones_1, observacion, serie_2;
+            return __generator(this, function (_d) {
+                switch (_d.label) {
                     case 0:
                         if (!filter || !filter.timestart || !filter.timeend) {
                             throw ("Missing timestart and/or timeend");
                         }
+                        if (!!this.sites_map.length) return [3 /*break*/, 2];
+                        return [4 /*yield*/, this.loadSitesMap()];
+                    case 1:
+                        _d.sent();
+                        _d.label = 2;
+                    case 2:
+                        if (!!this.series_map.length) return [3 /*break*/, 4];
+                        return [4 /*yield*/, this.loadSeriesMap()];
+                    case 3:
+                        _d.sent();
+                        _d.label = 4;
+                    case 4:
                         filter_ = Client.setFilterValuesToArray(filter);
                         observaciones = [];
                         year = filter_.timestart.getUTCFullYear();
-                        _c.label = 1;
-                    case 1:
-                        if (!(year <= filter_.timeend.getUTCFullYear())) return [3 /*break*/, 5];
+                        _d.label = 5;
+                    case 5:
+                        if (!(year <= filter_.timeend.getUTCFullYear())) return [3 /*break*/, 9];
                         filepath = this.config.file_pattern.replace("%YYYY%", year.toString());
                         url = "".concat(this.config.url).concat(filepath);
                         return [4 /*yield*/, (0, accessor_utils_1.fetch)(url, undefined, this.config.output_file, function () { return null; })];
-                    case 2:
-                        _c.sent();
+                    case 6:
+                        _d.sent();
                         return [4 /*yield*/, Client.readParquetFile(this.config.output_file)];
-                    case 3:
-                        records = (_c.sent()).map(function (r) { return r; });
+                    case 7:
+                        records = (_d.sent()).map(function (r) { return r; });
                         for (_i = 0, records_1 = records; _i < records_1.length; _i++) {
                             record = records_1[_i];
                             record = record;
                             if (record.din_instante < filter_.timestart || record.din_instante > filter_.timeend) {
                                 continue;
                             }
+                            // filter by id_externo
+                            if (filter_.id_externo.length && filter_.id_externo.indexOf(record.id_reservatorio) < 0) {
+                                continue;
+                            }
                             estacion_id = this.getEstacionId(record.id_reservatorio);
                             if (!estacion_id) {
-                                console.warn("estacion_id not found for id_reservatorio '".concat(record.id_reservatorio));
+                                console.warn("estacion_id not found for id_reservatorio ".concat(record.id_reservatorio));
                             }
                             else {
+                                // filter by estacion_id
                                 if (filter_.estacion_id.length && filter_.estacion_id.indexOf(estacion_id) < 0) {
                                     continue;
                                 }
                                 for (_a = 0, _b = this.config.var_map; _a < _b.length; _a++) {
                                     variable = _b[_a];
+                                    //filter by var_id
+                                    if (filter_.var_id && filter_.var_id.indexOf(variable.var_id) < 0) {
+                                        continue;
+                                    }
+                                    // foreach var, find series_id and push obs into array
                                     series_id = this.getSeriesId(estacion_id, variable.var_id);
                                     observaciones.push(Client.parseDadosHidrologicosRecord(record, variable.field_name, series_id));
                                 }
                             }
                         }
-                        _c.label = 4;
-                    case 4:
+                        _d.label = 8;
+                    case 8:
                         year++;
-                        return [3 /*break*/, 1];
-                    case 5: return [2 /*return*/, observaciones];
+                        return [3 /*break*/, 5];
+                    case 9:
+                        if (options.return_series) {
+                            series_1 = {};
+                            for (_c = 0, observaciones_1 = observaciones; _c < observaciones_1.length; _c++) {
+                                observacion = observaciones_1[_c];
+                                if (!observacion.series_id) {
+                                    continue;
+                                }
+                                if (series_1[observacion.series_id]) {
+                                    series_1[observacion.series_id].observaciones.push(observacion);
+                                }
+                                else {
+                                    serie_2 = this.getSerieById(observacion.series_id);
+                                    serie_2.observaciones = [observacion];
+                                    series_1[observacion.series_id] = serie_2;
+                                }
+                            }
+                            return [2 /*return*/, Object.keys(series_1).map(function (series_id) {
+                                    return series_1[series_id];
+                                })];
+                        }
+                        return [2 /*return*/, observaciones];
+                }
+            });
+        });
+    };
+    Client.prototype.update = function (filter, options) {
+        if (options === void 0) { options = {}; }
+        return __awaiter(this, void 0, void 0, function () {
+            var series, updated, _i, series_2, serie, c_serie;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, this.get(filter, __assign(__assign({}, options), { return_series: true }))];
+                    case 1:
+                        series = _a.sent();
+                        updated = [];
+                        _i = 0, series_2 = series;
+                        _a.label = 2;
+                    case 2:
+                        if (!(_i < series_2.length)) return [3 /*break*/, 5];
+                        serie = series_2[_i];
+                        c_serie = new CRUD_1.serie(serie);
+                        return [4 /*yield*/, c_serie.createObservaciones()];
+                    case 3:
+                        _a.sent();
+                        updated.push(c_serie);
+                        _a.label = 4;
+                    case 4:
+                        _i++;
+                        return [3 /*break*/, 2];
+                    case 5: return [2 /*return*/, updated];
                 }
             });
         });
     };
     Client.prototype.parseReservatorioRecord = function (record, estacion_id, url) {
+        if (!record.nom_reservatorio) {
+            throw (new Error("Invalid site: missing name (nom_reservatorio"));
+        }
+        if (!record.id_reservatorio) {
+            throw (new Error("Invalid site: missing id (id_reservatorio"));
+        }
+        if (!record.val_latitude || !record.val_longitude) {
+            throw (new Error("Invalid site: missing latitude or longitude (val_latitude, val_longitude)"));
+        }
         return {
             id: estacion_id,
             nombre: record.nom_reservatorio,
@@ -261,7 +360,7 @@ var Client = /** @class */ (function (_super) {
     };
     Client.prototype.getSites = function (filter) {
         return __awaiter(this, void 0, void 0, function () {
-            var filter_, estaciones, url, records, _i, records_2, record, estacion_id;
+            var filter_, estaciones, url, records, _i, records_2, record, estacion_id, estacion;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0: return [4 /*yield*/, this.loadSitesMap()];
@@ -290,7 +389,14 @@ var Client = /** @class */ (function (_super) {
                                     continue;
                                 }
                             }
-                            estaciones.push(this.parseReservatorioRecord(record, estacion_id, url));
+                            try {
+                                estacion = this.parseReservatorioRecord(record, estacion_id, url);
+                            }
+                            catch (e) {
+                                console.error("parseReservatorioRecord error: " + e.toString());
+                                continue;
+                            }
+                            estaciones.push(estacion);
                         }
                         return [2 /*return*/, estaciones];
                 }
@@ -316,11 +422,34 @@ var Client = /** @class */ (function (_super) {
                         })];
                     case 1:
                         estaciones = _a.sent();
-                        this.config.sites_map = estaciones.map(function (estacion) {
+                        this.sites_map = estaciones.map(function (estacion) {
                             return {
                                 estacion_id: estacion.id,
                                 id_reservatorio: estacion.id_externo,
                                 estacion: estacion
+                            };
+                        });
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
+    Client.prototype.loadSeriesMap = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            var series;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, CRUD_1.serie.read({
+                            tabla_id: this.config.tabla
+                        })];
+                    case 1:
+                        series = _a.sent();
+                        this.series_map = series.map(function (serie) {
+                            return {
+                                series_id: serie.id,
+                                estacion_id: serie.estacion.id,
+                                var_id: serie["var"].id,
+                                serie: serie
                             };
                         });
                         return [2 /*return*/];
