@@ -203,6 +203,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
     }
 
     static parseDadosHidrologicosRecord(record : DadosHidrologicosRecord, field : string, series_id ? : number) : Observacion {
+        // assumes daily timestep
         var start_date = new Date(record.din_instante.getUTCFullYear(),record.din_instante.getUTCMonth(),record.din_instante.getUTCDate())
         var end_date = new Date(start_date)
         end_date.setUTCDate(end_date.getUTCDate() + 1)
@@ -280,7 +281,8 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
             const records = (await Client.readParquetFile(this.config.output_file)).map(r => r as DadosHidrologicosRecord)
             for(var record of records) {
                 record = record as DadosHidrologicosRecord
-                if(record.din_instante < filter_.timestart || record.din_instante > filter_.timeend) {
+                const record_timestamp = new Date(record.din_instante.getUTCFullYear(),record.din_instante.getUTCMonth(),record.din_instante.getUTCDate())
+                if(record_timestamp < filter_.timestart || record_timestamp > filter_.timeend) {
                     continue
                 }
                 // filter by id_externo
@@ -290,7 +292,8 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                 const estacion_id = this.getEstacionId(record.id_reservatorio)
                 var series_id : number|undefined
                 if(!estacion_id) {
-                    console.warn(`estacion_id not found for id_reservatorio ${record.id_reservatorio}`)
+                    // console.warn(`estacion_id not found for id_reservatorio ${record.id_reservatorio}`)
+                    continue
                 } else {
                     // filter by estacion_id
                     if(filter_.estacion_id.length && filter_.estacion_id.indexOf(estacion_id) < 0 ) {
@@ -298,7 +301,11 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                     }
                     for(const variable of this.config.var_map) {
                         //filter by var_id
-                        if(filter_.var_id && filter_.var_id.indexOf(variable.var_id) < 0 ) {
+                        if(filter_.var_id.length && filter_.var_id.indexOf(variable.var_id) < 0 ) {
+                            continue
+                        }
+                        // filter out nulls
+                        if(record[variable.field_name] == undefined || parseFloat(record[variable.field_name]).toString() == 'NaN') {
                             continue
                         }
                         // foreach var, find series_id and push obs into array
