@@ -2,6 +2,7 @@
   "dependencies": {
     "@lhncbc/ucum-lhc": "^4.2.0",
     "@turf/bbox-polygon": "^6.5.0",
+    "@turf/boolean-point-in-polygon": "^7.1.0",
     "@turf/helpers": "^6.5.0",
     "@turf/points-within-polygon": "^6.5.0",
     "@turf/turf": "^6.5.0",

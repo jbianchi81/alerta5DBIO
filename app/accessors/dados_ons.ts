@@ -1,6 +1,6 @@
 import { AbstractAccessorEngine, AccessorEngine, ObservacionesFilter, ObservacionesFilterWithArrays, SeriesFilter, SitesFilter, SitesFilterWithArrays, SeriesFilterWithArrays } from './abstract_accessor_engine'
 import { Database, RowData } from "duckdb-async"
-import { fetch } from '../accessor_utils'
+import { fetch, filterSites } from '../accessor_utils'
 import { Estacion, Observacion, Procedimiento, Serie, SerieOnlyIds, Unidades, Variable } from '../a5_types'
 import {estacion as crud_estacion, var as crud_var, procedimiento as crud_proc, unidades as crud_unidades, serie as crud_serie, serie} from '../CRUD'
 
@@ -385,7 +385,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
     async getSites (filter : SitesFilter) : Promise<Array<Estacion>> {
         await this.loadSitesMap()
         const filter_ = Client.setFilterValuesToArray(filter) as SitesFilterWithArrays
-        const estaciones : Array<Estacion> = [] 
+        var estaciones : Array<Estacion> = [] 
         const url = `${this.config.url}${this.config.sites_file}`
         await fetch(url, undefined, this.config.sites_output_file, () => null)
         var records = (await Client.readParquetFile(this.config.sites_output_file)).map(r => r as ReservatorioRecord)
@@ -410,7 +410,10 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
             }
             estaciones.push(estacion)
         }
-        return estaciones
+        if(filter_.geom) {
+            estaciones = filterSites(estaciones, {geom: filter_.geom} )
+        }
+        return estaciones.map(e => new crud_estacion(e) as Estacion)
     }
 
     getUnidades(var_id : number) : Unidades {

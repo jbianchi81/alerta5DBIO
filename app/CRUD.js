@@ -319,7 +319,7 @@ internal.red.build_read_query = function (filter) {
 	return "SELECT * from redes WHERE 1=1 " + filter_string
 }
 
-internal.estacion = class extends baseModel  {
+internal.estacion = class extends baseModel {
 	static _table_name = "estaciones"
 	static _foreign_key_fields = {
 		tabla: {type: "string", table: "redes", column: "tabla_id"}

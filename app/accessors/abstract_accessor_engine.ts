@@ -1,13 +1,16 @@
 import { Estacion, Observacion, Serie } from '../a5_types'
+import { Geometry } from '../geometry_types'
 
 export interface SitesFilter {
     estacion_id ? : number | Array<number>
     id_externo ? : string | Array<string>
+    geom ? : Geometry
 }
 
 export interface SitesFilterWithArrays {
     estacion_id : Array<number>
     id_externo : Array<string>
+    geom : Geometry
 }
 
 export interface SeriesFilter extends SitesFilter {

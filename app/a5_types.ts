@@ -15,27 +15,27 @@ export type Location = {
 }
 
 export interface Estacion extends Location {
-    id_externo : string,
-    provincia ? : string,
-    pais ? : string,
-    rio ? : string,
-    has_obs ? : boolean,
-    tipo ? : string,
-    automatica ? : boolean,
-    habilitar ? : boolean,
-    propietario ? : string,
-    abreviatura ? : string,
-    URL ? : string,
-    localidad ? : string,
-    real ? : boolean,
-    nivel_alerta ? : number,
-    nivel_evacuacion ? : number,
-    nivel_aguas_bajas ? : number,
-    altitud ? : number,
-    public ? : boolean,
-    cero_ign ? : number,
-    ubicacion ? : string,
-    drainage_basin ? : Geometry,
+    id_externo : string
+    provincia ? : string
+    pais ? : string
+    rio ? : string
+    has_obs ? : boolean
+    tipo ? : string
+    automatica ? : boolean
+    habilitar ? : boolean
+    propietario ? : string
+    abreviatura ? : string
+    URL ? : string
+    localidad ? : string
+    real ? : boolean
+    nivel_alerta ? : number
+    nivel_evacuacion ? : number
+    nivel_aguas_bajas ? : number
+    altitud ? : number
+    public ? : boolean
+    cero_ign ? : number
+    ubicacion ? : string
+    drainage_basin ? : Geometry
     tabla: string
 }
 

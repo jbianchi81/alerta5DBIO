@@ -6,6 +6,21 @@ const { red: Red, estacion: Estacion } = require('../app/CRUD')
 const { Accessor } = require('../app/accessors')
 const { readParquetFile } = require('../app/accessors/dados_ons').Client
 
+test('dados_ons accessor get sites filter by polygon', async(t) => {
+    const accessor = new Accessor({
+       class: "dados_ons" 
+    })
+    var limite_cdp = JSON.parse(fs.readFileSync(`${__dirname}/aux/limite_cdp.json`,{encoding:"utf-8"}))
+    const estaciones = await accessor.getSites({geom: limite_cdp.features[0].geometry})
+    fs.writeFileSync("/tmp/ons_sites.json", JSON.stringify(Estacion.toGeoJSON(estaciones), undefined, 2))
+    assert(estaciones.length > 50)
+    assert(estaciones.length < 100)
+
+    await readParquetFile(accessor.engine.config.sites_output_file, 1000, 0, "/tmp/ons_sites_raw.csv")
+})
+
+
+
 test('dados_ons accessor get sites', async(t) => {
     const accessor = new Accessor({
        class: "dados_ons" 

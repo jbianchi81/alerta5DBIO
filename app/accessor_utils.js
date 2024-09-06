@@ -3,6 +3,7 @@ var fsPromises = require('promise-fs')
 var fs = require('fs')
 const axios = require('axios')
 const Observacion = require('./CRUD').observacion
+const { booleanPointInPolygon } = require('@turf/boolean-point-in-polygon')
 
 // accessors aux functions 
 
@@ -122,30 +123,54 @@ internal.printAxiosGetError = function (error) {
 
 }
 
-internal.filterSites = function(sites=[],params=[]) {
+internal.filterSites = function(sites=[],params={}) {
 	return sites.filter(s=>{
         return (
             [
                 internal.filterByParam(params.name, s.name),
+                internal.filterByParam(params.nombre, s.nombre),
                 internal.filterByParam(params.id_externo, s.id_externo),
                 internal.filterByParam(params.estacion_id, s.id),
-                internal.filterByParam(params.geom,s.geom,internal.isWithinBBox)
+                internal.filterByParam(params.geom, s.geom, internal.pointInPolygon)
             ].indexOf(false) < 0
         )
 	})
 }
 
-internal.isWithinBBox = function(bbox,point) {
-	// TODO
-	return true
+/**
+ * 
+ * @param {Geometry} filter_geom - filter geometry (polygon)
+ * @param {Geometry} item_geom - item geometry (point)
+ * @returns {boolean}
+ */
+internal.pointInPolygon = function(filter_geom,item_geom) {
+	return booleanPointInPolygon(item_geom, filter_geom)
 }
 
+
+/**
+ * @param {any} filter_value
+ * @param {any} item_value
+ * @param {Function(any, any) : boolean} func
+ * 
+ * If filter_value is undefined or an empty array -> return true
+ * 
+ * else if func is defined -> return func(filter_value, item_value) : boolean
+ * 
+ * else if item_value is undefined -> return false
+ * 
+ * else if filter_value in an array -> return true if item_value exists in filter_value
+ * 
+ * Else                        -> return true if item_value equals filter_value
+ */
 internal.filterByParam = function(filter_value, item_value, func) {
-    if(!filter_value) {
+    if(filter_value == undefined || ( Array.isArray(filter_value) && filter_value.length == 0 )) {
         return true
     }
     if(func) {
         return func(filter_value, item_value)
+    } else if (item_value == undefined) {
+        return false
     }
     if(Array.isArray(filter_value)) {
         if(filter_value.indexOf(item_value) >= 0) {

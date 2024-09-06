@@ -83,7 +83,11 @@ var Client = /** @class */ (function (_super) {
                 { field_name: "val_volumeutilcon", var_id: 26 },
                 { field_name: "val_vazaoafluente", var_id: 22 },
                 { field_name: "val_vazaovertida", var_id: 24 },
-                { field_name: "val_vazaodefluente", var_id: 23 }
+                { field_name: "val_vazaodefluente", var_id: 23 },
+                { field_name: "val_vazaotransferida", var_id: 25 },
+                { field_name: "val_vazaoturbinada", var_id: 92 },
+                { field_name: "val_nivelmontante", var_id: 93 },
+                { field_name: "val_niveljusante", var_id: 94 }
             ],
             series_map: [],
             unit_map: [
@@ -102,6 +106,22 @@ var Client = /** @class */ (function (_super) {
                 {
                     var_id: 23,
                     unit_id: 10
+                },
+                {
+                    var_id: 25,
+                    unit_id: 10
+                },
+                {
+                    var_id: 92,
+                    unit_id: 10
+                },
+                {
+                    var_id: 93,
+                    unit_id: 11
+                },
+                {
+                    var_id: 94,
+                    unit_id: 11
                 }
             ],
             tabla: "dados_ons",
@@ -398,7 +418,10 @@ var Client = /** @class */ (function (_super) {
                             }
                             estaciones.push(estacion);
                         }
-                        return [2 /*return*/, estaciones];
+                        if (filter_.geom) {
+                            estaciones = (0, accessor_utils_1.filterSites)(estaciones, { geom: filter_.geom });
+                        }
+                        return [2 /*return*/, estaciones.map(function (e) { return new CRUD_1.estacion(e); })];
                 }
             });
         });
