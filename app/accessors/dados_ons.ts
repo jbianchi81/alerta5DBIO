@@ -1,5 +1,6 @@
 import { AbstractAccessorEngine, AccessorEngine, ObservacionesFilter, ObservacionesFilterWithArrays, SeriesFilter, SitesFilter, SitesFilterWithArrays, SeriesFilterWithArrays } from './abstract_accessor_engine'
-import { Database, RowData } from "duckdb-async"
+// import { Database, RowData } from "duckdb-lambda-x86" 
+import { queryAsync } from '../duckdb_async'
 import { fetch, filterSites } from '../accessor_utils'
 import { Estacion, Observacion, Procedimiento, Serie, SerieOnlyIds, Unidades, Variable } from '../a5_types'
 import {estacion as crud_estacion, var as crud_var, procedimiento as crud_proc, unidades as crud_unidades, serie as crud_serie, serie} from '../CRUD'
@@ -192,12 +193,12 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
     series_map : Array<LoadedSerieMap> = []
 
     static async readParquetFile(filename : string, limit : number = 1000000, offset : number = 0 , output : string|undefined = undefined) : Promise<Array<Object>> {
-        const db : Database = await Database.create(":memory:");
-        const rows : Array<RowData> = await db.all(`SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}`)
-        // console.log(rows);
-        // return rows.map(r => r as DadosHidrologicosRecord)
+        // const db : Database = await Database.create(":memory:");
+        // const rows : Array<RowData> = await db.all(`SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}`)
+        const rows = await queryAsync(`SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}`)
         if(output) {
-            await db.all(`COPY (SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}) TO '${output}' (HEADER, DELIMITER ',')`)
+            // await db.all(`COPY (SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}) TO '${output}' (HEADER, DELIMITER ',')`)
+            await queryAsync(`COPY (SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}) TO '${output}' (HEADER, DELIMITER ',')`)
         }
         return rows
     }

@@ -11,7 +11,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Client = void 0;
 const abstract_accessor_engine_1 = require("./abstract_accessor_engine");
-const duckdb_async_1 = require("duckdb-async");
+// import { Database, RowData } from "duckdb-lambda-x86" 
+const duckdb_async_1 = require("../duckdb_async");
 const accessor_utils_1 = require("../accessor_utils");
 const CRUD_1 = require("../CRUD");
 class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
@@ -82,12 +83,12 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     }
     static readParquetFile(filename, limit = 1000000, offset = 0, output = undefined) {
         return __awaiter(this, void 0, void 0, function* () {
-            const db = yield duckdb_async_1.Database.create(":memory:");
-            const rows = yield db.all(`SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}`);
-            // console.log(rows);
-            // return rows.map(r => r as DadosHidrologicosRecord)
+            // const db : Database = await Database.create(":memory:");
+            // const rows : Array<RowData> = await db.all(`SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}`)
+            const rows = yield (0, duckdb_async_1.queryAsync)(`SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}`);
             if (output) {
-                yield db.all(`COPY (SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}) TO '${output}' (HEADER, DELIMITER ',')`);
+                // await db.all(`COPY (SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}) TO '${output}' (HEADER, DELIMITER ',')`)
+                yield (0, duckdb_async_1.queryAsync)(`COPY (SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}) TO '${output}' (HEADER, DELIMITER ',')`);
             }
             return rows;
         });
