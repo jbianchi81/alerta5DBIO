@@ -6386,6 +6386,19 @@ internal.gpm_3h = class {
 			this.config = global.config.gpm_3h
 		}
 	}
+
+	async getFilesList(filter={}) {
+		const params = {...this.config.search_params}
+		// q: "precip_3hr",
+		// lat: "-25",
+		// lon: "-45",
+		// limit: "56",
+		params.startTime =  filter.timestart.toISOString().substring(0,10)
+		params.endTime = filter.timeend.toISOString().substring(0,10)
+		console.debug({url:this.config.url,params:params})
+		return axios.get(this.config.url,{params:params})
+	}
+
 	get (filter={}, options) {
 		if(!filter.timestart) {
 			filter.timestart = new Date(new Date().getTime() - 8*24*3600*1000)
@@ -6403,15 +6416,7 @@ internal.gpm_3h = class {
 				return promise.reject("Invalid timeend")
 			}
 		}
-		const params = {...this.config.search_params}
-			// q: "precip_3hr",
-			// lat: "-25",
-			// lon: "-45",
-			// limit: "56",
-		params.startTime =  filter.timestart.toISOString().substring(0,10)
-		params.endTime = filter.timeend.toISOString().substring(0,10)
-		// console.log({url:this.config.url,params:params})
-		return axios.get(this.config.url,{params:params})
+		this.getFilesList(filter)
 		.then(response=>{
 			// console.log(response.data)
 			if(!response.data || !response.data.items || response.data.items.length==0) {
