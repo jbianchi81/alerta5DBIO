@@ -270,3 +270,13 @@ export interface SerieOnlyIds {
     proc_id : number
     fuentes_id ? : number
 }
+
+export interface Interval {
+    milliseconds ? : number
+    seconds ? : number
+    minutes ? : number
+    hours ? : number
+    days ? : number
+    months ? : number
+    years ? : number
+}
