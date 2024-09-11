@@ -1,15 +1,27 @@
-import { AbstractAccessorEngine, AccessorEngine, ObservacionesFilter, SeriesFilter } from "./abstract_accessor_engine"
-import { Observacion, Serie, Interval } from '../a5_types'
+import { AbstractAccessorEngine, AccessorEngine, ObservacionesFilter, SeriesFilter, SitesFilter, Config } from "./abstract_accessor_engine"
+import { Observacion, Serie, Interval, Location, Escena } from '../a5_types'
 import get from 'axios'
 import path from 'path'
-import { unlinkSync, readFileSync } from 'fs'
+import { unlinkSync, readFileSync, writeFileSync } from 'fs'
 import { fetch, filterSeries } from '../accessor_utils'
 import { advanceInterval } from '../timeSteps'
-import exec from 'child-process-promise'
-import { getRegularSeries, rastExtract } from '../CRUD'
+import { exec } from 'child-process-promise'
+import { getRegularSeries, rastExtract, escena as crud_escena, observaciones as crud_observaciones, serie as crud_serie} from '../CRUD'
 import { print_rast_series } from '../print_rast'
 import { sprintf } from 'sprintf-js'
 import { print_rast } from '../print_rast'
+import { Geometry } from "../geometry_types"
+
+class Escena_ extends crud_escena implements Escena  {
+  id ? : number
+  nombre : string
+  geom : Geometry
+  [x : string] : unknown
+
+  constructor(fields : {}) {
+    super(fields)
+  }
+}
 
 interface SearchParams {
     q: "precip_1d" | "precip_3h",
@@ -21,29 +33,37 @@ interface SearchParams {
     endTime?: string, // YYYY-MM-DD 
 }
 
-interface Config {
+interface GPMConfig extends Config {
     url: string,
     local_path: string,
     dia_local_path: string,
     search_params: SearchParams,
     bbox: Array<number>,
     tmpfile: string,
+    tmpfile_json : string,
     series_id: number,
     scale: number
-    dia_series_id: number
+    dia_series_id: number,
+    escena_id: number
 }
 
-
+/**
+ * Docs: https://pmmpublisher.pps.eosdis.nasa.gov/docs
+ */
 export class Client extends AbstractAccessorEngine implements AccessorEngine {
 
-    config: Config
+    config: GPMConfig
 
-    constructor(config: Object = {}) {
+    downloaded_files : Array<string> 
+
+    subset_files : Array<string> 
+
+    constructor(config: GPMConfig) {
         super(config)
         this.setConfig(config)
     }
 
-    default_config: Config = {
+    default_config: GPMConfig = {
         url: "https://pmmpublisher.pps.eosdis.nasa.gov/opensearch",
         local_path: "data/gpm/3h/",
         dia_local_path: "data/gpm/dia",
@@ -57,16 +77,61 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         },
         bbox: [-70, -10, -40, -40],
         tmpfile: "/tmp/gpm_transformed.tif",
+        tmpfile_json: "/tmp/gpm_dia.json",
         series_id: 4,
         scale: 0.1,
-        dia_series_id: 13
+        dia_series_id: 13,
+        escena_id: 11
+    }
+
+    async getSites(filter : SitesFilter) : Promise<Array<Location>> {
+      const escenas = [
+        new Escena_({
+          "id": this.config.escena_id,
+          "nombre": "pp_gpm_3h",
+          "geom": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -90,
+                  10
+                ],
+                [
+                  -30,
+                  10
+                ],
+                [
+                  -30,
+                  -60
+                ],
+                [
+                  -90,
+                  -60
+                ],
+                [
+                  -90,
+                  10
+                ]
+              ]
+            ]
+          }
+        })
+      ]
+      return escenas
+    }
+
+    async updateSites(filter : SitesFilter) {
+        const sites = (await this.getSites(filter))
+        const upserted = await crud_escena.create(sites)
+        return upserted.map((site : Escena) => new Escena_(site))
     }
 
     async getSeries(filter: SeriesFilter) : Promise<Array<Serie>> {
         const series = [
             {
                 "id": this.config.series_id,
-                "tipo": "rast",
+                "tipo": "raster",
                 "estacion": {
                   "id": 11,
                   "nombre": "pp_gpm_3h",
@@ -189,7 +254,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
             },
             {
                 "id": this.config.dia_series_id,
-                "tipo": "rast",
+                "tipo": "raster",
                 "estacion": {
                   "id": 11,
                   "nombre": "pp_gpm_3h",
@@ -311,11 +376,11 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                 "date_range": {
                   "timestart": "2021-07-31T12:00:00.000Z",
                   "timeend": "2024-02-29T12:00:00.000Z",
-                  "count": "380"
+                  "count": 380
                 }
             }
         ] as Array<Serie>
-        return filterSeries(series, filter)
+        return filterSeries(series.map(s => new crud_serie(s)), filter)
     }
 
     async getFilesList(filter: ObservacionesFilter) {
@@ -350,7 +415,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         const response = await this.getFilesList(filter)
         // console.log(response.data)
         if (!response.data || !response.data.items || !response.data.items.length) {
-            console.error("accessors/gpm_3h: No products found")
+            console.error("accessors/gpm: No products found")
             return []
         }
         var product_urls = []
@@ -373,61 +438,54 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                 }
             }
         }
+        const local_path = (this.config.search_params.q == "precip_1d") ? this.config.dia_local_path : this.config.local_path
         var local_filenames = product_ids.map(id => {
-            return path.resolve(this.config.local_path, id)
+            return path.resolve(local_path, id)
         })
         const downloaded_files = await this.downloadFiles(product_urls, local_filenames)
-        const observaciones = await this.rast2obsList(downloaded_files)
+        const dt = (this.config.search_params.q == "precip_1d") ? {days: 1} : {hours: 3}
+        const observaciones = await this.rast2obsList(downloaded_files, dt)
         for (const file of downloaded_files) {
             unlinkSync(file)
         }
         return observaciones
     }
 
-    update(filter = {}, options) {
-        return this.get(filter, options)
-            .then(observaciones => {
-                if (!observaciones || observaciones.length == 0) {
-                    console.error("accessors/gpm_3h/update: Nothing retrieved")
-                    return []
-                }
-                return crud.upsertObservaciones(observaciones, "raster", this.config.series_id)
-                    .then(result_3h => {
-                        this.getDiario(filter, options)
-                            .then(result_diario => {
-                                fs.writeFileSync("/tmp/gpm_dia.json", JSON.stringify(result_diario, null, 4))
-                            })
-                            .catch(e => {
-                                console.error(e)
-                            })
-                        return result_3h
-                    })
-            })
+    async update(filter : ObservacionesFilter, options : {}) : Promise<Array<Observacion>> {
+        const observaciones = await this.get(filter, options)
+        if (!observaciones || observaciones.length == 0) {
+            console.error("accessors/gpm/update: Nothing retrieved")
+            return []
+        }
+        const result = await crud_observaciones.create(observaciones) //, "raster", this.config.series_id)
+        // const result_diario = await this.getDiario(filter, options)
+        // writeFileSync(this.config.tmpfile_json, JSON.stringify(result_diario, null, 4))
+        return result
     }
 
-    test() {
+    async test() : Promise<boolean> {
         const params = { ...this.config.search_params }
         params.startTime = new Date().toISOString().substring(0, 10)
         params.endTime = new Date().toISOString().substring(0, 10)
-        return axios.get(this.config.url, { params: params })
-            .then(response => {
-                if (response.status <= 299) {
-                    return true
-                } else {
-                    return false
-                }
-            })
-            .catch(e => {
-                console.error(e)
-                return false
-            })
+        try {
+          var response = await get(this.config.url, { params: params })
+        } catch (e) {
+          console.error(e)
+          return false
+        }
+        if (response.status <= 299) {
+            return true
+        } else {
+            return false
+        }
     }
 
     async downloadFiles(product_urls: Array<string>, local_filenames: Array<string>) {
-        const downloaded_files = []
+        const downloaded_files : Array<string> = []
+        this.downloaded_files = downloaded_files
         for (var u in product_urls) {
             var filename = local_filenames[u]
-            console.log("accessors/gpm_3h: downloading: " + product_urls[u])
+            console.log("accessors/gpm: downloading: " + product_urls[u] + " into: " + filename)
             try {
                 await fetch(product_urls[u], undefined, filename)
             } catch (e) {
@@ -439,14 +497,16 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         return downloaded_files
     }
 
-    async rast2obsList(filenames: Array<string>, dt: Interval = { days: 1 }) {
+    async rast2obsList(filenames: Array<string>, dt: Interval = { hours: 3 }) {
         // console.log(JSON.stringify(filenames))
         var observaciones = []
+        this.subset_files = []
         for (var filename of filenames) {
             var filename2 = filename.replace(/\.tif$/, "_subset.tif")
             var base = path.basename(filename)
             var b = base.split(".")
-            if (b[2] != undefined) {
+            if (b.length == 4) {
+                // has time
                 var timestart = new Date(
                     Date.UTC(
                         parseInt(b[1].substring(0, 4)),
@@ -456,6 +516,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                     ) - 2 * 3600 * 1000
                 )
             } else {
+                // only date
                 var timestart = new Date(
                     Date.UTC(
                         parseInt(b[1].substring(0, 4)),
@@ -464,7 +525,10 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                     )
                 )
             }
-            var timeend = advanceInterval(timestart.getTime, dt)
+            if(timestart.toString() == "Invalid Date") {
+                throw("Invalid Date: " + b[1])
+            }
+            var timeend = advanceInterval(timestart, dt)
             var scale = this.config.scale
             // return new Promise( (resolve, reject) => {
             try {
@@ -479,8 +543,17 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                 console.error(e)
                 continue
             }
+            this.subset_files.push(filename2)
 
-            observaciones.push({ tipo: "raster", series_id: this.config.series_id, timestart: timestart, timeend: timeend, scale: scale, valor: '\\x' + data })
+            observaciones.push(
+              {
+                tipo: "raster", 
+                series_id: (this.config.search_params.q == "precip_1d") ? this.config.dia_series_id : this.config.series_id, 
+                timestart: timestart, 
+                timeend: timeend, 
+                scale: scale, 
+                valor: '\\x' + data 
+              })
         }
         return observaciones
     }

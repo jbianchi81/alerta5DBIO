@@ -1,4 +1,4 @@
-import {Geometry} from './geometry_types' 
+import {Geometry, Polygon} from './geometry_types' 
 
 
 export type Observacion = {
@@ -11,7 +11,8 @@ export type Observacion = {
 export type Location = {
     id ? : number,
     nombre : string,
-    geom : Geometry
+    geom : Geometry,
+    [x : string] : unknown
 }
 
 export interface Estacion extends Location {
@@ -40,10 +41,10 @@ export interface Estacion extends Location {
 }
 
 export type SeriesDateRange = {
-    timestart : Date,
-    timeend : Date,
+    timestart : Date | string,
+    timeend : Date | string,
     count : number,
-    data_availability : "N" | "S" | "H" | "C" | "NRT" | "RT"  | "H+S" | "C+S" | "NRT+S" | "RT+S"
+    data_availability ? : "N" | "S" | "H" | "C" | "NRT" | "RT"  | "H+S" | "C+S" | "NRT+S" | "RT+S"
 }
 
 export type Variable = {
@@ -64,10 +65,10 @@ export type Variable = {
     type : string,
     
     /** tipo de dato de la variable según ODM */
-    dataType : string,
+    datatype : string,
     
     /** tipo de valor de la variable según ODM */
-    valueType : string,
+    valuetype : string,
     
     /** categoría general de la variable según ODM */
     GeneralCategory : string,
@@ -82,7 +83,9 @@ export type Variable = {
     def_unit_id : number,
     
     /** soporte temporal de la medición */
-    timeSupport : string
+    timeSupport : string | Interval,
+
+    def_hora_corte : string | Interval
 }
 
 export type MonthlyStats = {
@@ -122,7 +125,7 @@ export type Procedimiento = {
     abrev : string,
 
     /** descripción del Procedimiento */
-    descripicion : string
+    descripcion : string
 }
 
 export type Unidades = {
@@ -137,7 +140,7 @@ export type Unidades = {
     abrev : string,
 
     /** ID de unidades según ODM */
-    UnitsID : string,
+    UnitsID : number,
 
     /** tipo de unidades según ODM */
     UnitsType : string
@@ -160,13 +163,13 @@ export type Fuente = {
     tipo : string,
     
     /** id de procedimiento por defecto de la fuente */
-    def_proc_id : string,
+    def_proc_id : number,
     
     /** intervalo temporal por defecto de la fuente */
-    def_dt : string,
+    def_dt : string | Interval,
     
     /** hora de corte por defecto de la fuente */
-    hora_corte : string,
+    hora_corte : string | Interval,
     
     /** id de unidades por defecto de la fuente */
     def_unit_id : number,
@@ -190,22 +193,24 @@ export type Fuente = {
     /** ancho de pixel por defecto de la fuente */
     def_pixel_width : number,
 
+    /** tipo de dato del pixel */
+    def_pixeltype : string,
+
     /** código SRID de georeferenciación por defecto de la fuente */
     def_srid : number,
 
-    /** id de procedimiento por defecto de la fuente */
-    def_extent : string,
+    /** extensión espacial de la fuente */
+    def_extent : Geometry,
 
     date_column : string,
     
-    /** tipo de dato del pixel por defecto de la fuente */
-    def_pixel_type : string,
-
     /** descripción de la fuente */
     abstract : string,
 
     /** ubicación del origen de la fuente */
-    source : string
+    source : string,
+
+    public : boolean
 }
 
 export type Pronostico = {

@@ -119,7 +119,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
 
     config : Config
 
-    constructor(config : Object = {}) {
+    constructor(config : Config) {
         super(config)
         this.setConfig(config)
     }

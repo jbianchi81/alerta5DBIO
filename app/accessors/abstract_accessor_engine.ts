@@ -1,5 +1,6 @@
-import { Estacion, Observacion, Serie } from '../a5_types'
+import { Location, Estacion, Observacion, Serie } from '../a5_types'
 import { Geometry } from '../geometry_types'
+import get from 'axios'
 
 export interface SitesFilter {
     estacion_id ? : number | Array<number>
@@ -46,19 +47,27 @@ export interface AccessorEngine {
     update? (filter : ObservacionesFilter, options : { return_series ? : boolean}) : Promise<Array<Observacion>|Array<Serie>>
     getSeries(filter : SeriesFilter) : Promise<Array<Serie>>
     updateSeries? (filter : SeriesFilter) : Promise<Array<Serie>>
-    getSites(filter : SitesFilter) : Promise<Array<Estacion>>
+    getSites(filter : SitesFilter) : Promise<Array<Location>>
     updateSites? (filter : SitesFilter) : Promise<Array<Estacion>>
+    test() : Promise<boolean>
 
+}
+
+export interface Config {
+    url : string
+    [ x : string] : unknown
 }
 
 export class AbstractAccessorEngine {
 
     default_config : Object = {}
 
-    config : Object = {}
+    config : Config
 
-    setConfig(config : Object) : void {
-        this.config = {}
+    setConfig(config : Config) : void {
+        this.config = {
+            url: config.url
+        }
         Object.assign(this.config,this.default_config)
         Object.assign(this.config,config)
     }
@@ -68,7 +77,21 @@ export class AbstractAccessorEngine {
     //     return [] as Array<Observacion>
     // }
 
-    constructor(config = {}) {
+    constructor(config : Config) {
         this.setConfig(config)
+    }
+
+    async test() : Promise<boolean> {
+        try {
+          var response = await get(this.config.url)
+        } catch (e) {
+          console.error(e)
+          return false
+        }
+        if (response.status <= 299) {
+            return true
+        } else {
+            return false
+        }
     }
 }

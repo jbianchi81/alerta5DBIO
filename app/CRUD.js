@@ -7980,15 +7980,10 @@ internal.CRUD = class {
 	
 	static async upsertEscena(escena, client) {
 		//~ console.log("upsertEscena")
-		return new Promise((resolve,reject)=>{
-			if(escena.id) {
-				resolve(escena)
-			} else {
-				resolve(escena.getId(global.pool))
-			}
-		})
-		.then(()=>{
-			var query = "\
+		if(!escena.id) {
+			await escena.getId(global.pool)
+		}
+		var query = "\
 			INSERT INTO escenas (id, nombre,geom) \
 			VALUES ($1, $2, st_geomfromtext($3,4326))\
 			ON CONFLICT (id) DO UPDATE SET \
@@ -7998,9 +7993,9 @@ internal.CRUD = class {
 				escenas.id, \
 				escenas.nombre, \
 				st_astext(escenas.geom) AS geom"
-			var query_arguments = [escena.id,escena.nombre,escena.geom.toString()]
-			if(!escena.id) {
-				query = "\
+		var query_arguments = [escena.id,escena.nombre,escena.geom.toString()]
+		if(!escena.id) {
+			query = "\
 			INSERT INTO escenas (nombre,geom) \
 			VALUES ($1, st_geomfromtext($2,4326))\
 			ON CONFLICT (id) DO UPDATE SET \
@@ -8010,31 +8005,36 @@ internal.CRUD = class {
 				escenas.id, \
 				escenas.nombre, \
 				st_astext(escenas.geom) AS geom"
-				query_arguments = [escena.nombre,escena.geom.toString()]
-			}
+			query_arguments = [escena.nombre,escena.geom.toString()]
+		}
 			//~ console.log(internal.utils.pasteIntoSQLQuery(query,[escena.id,escena.nombre,escena.geom.toString()]))
+		try {
 			if(client) {
-				return client.query(query,query_arguments)
+				var result = await client.query(query,query_arguments)
 			} else {
-				return global.pool.query(query,query_arguments)
+				var result = await global.pool.query(query,query_arguments)
 			}
-		}).then(result=>{
-			if(result.rows.length<=0) {
-				console.error("Upsert failed")
-				return
+			if(!result.rows.length) {
+				throw new Error("Upsert failed")
 			}
-			console.log("Upserted escena.id=" + result.rows[0].id)
-			return result.rows[0]
-		}).catch(e=>{
-			console.error(e)
-			return
-		})
+		} catch(e) {
+			throw new Error(e)
+		}
+		console.debug("Upserted escena.id=" + result.rows[0].id)
+		return result.rows[0]
 	}
 	
 	static async upsertEscenas(escenas) {
-		return Promise.all(escenas.map(escena=>{
-			return this.upsertEscena(escena)
-		}).filter(e=>e))
+		const upserted = []
+		for(const escena of escenas) {
+			try {
+				var e = await this.upsertEscena(escena)
+			} catch(e) {
+				throw e
+			}
+			upserted.push(e)
+		}
+		return upserted
 	}
 	
 	static async deleteEscena(id) {
@@ -8741,7 +8741,7 @@ internal.CRUD = class {
 	 * @param {pg.Client=} client - pg client to use within transaction block 
 	 * @returns {Promise<internal.serie[]>} The created/updated series
 	 */
-	static async upsertSeries(series,all=false,upsert_estacion=false,generate_id=false,client) {
+	static async upsertSeries(series,all=false,upsert_estacion=false,generate_id=false,client, upsert_fuente=true) {
 		// var promises=[]
 		// console.log({all:all})
 		var series_result=[]
@@ -8807,10 +8807,17 @@ internal.CRUD = class {
 					if(!serie_props["unidades"]) {
 						throw(new Error("unidades " + serie.unidades.id + " not found"))
 					}
-					if(["areal","rast","raster"].indexOf(serie.tipo) >= 0 && !serie.fuentes.id) {
-						throw(new Error("fuentes.id missing"))
+					if(["areal","rast","raster"].indexOf(serie.tipo) >= 0 && (!serie.fuente || !serie.fuente.id ) ) {
+						throw(new Error("fuente.id missing"))
 					}
-					serie_props["fuente"] = (serie.fuente.id != null) ? await internal.fuente.read({id:serie.fuente.id}) : {}
+					if(upsert_fuente && serie.fuente instanceof internal.fuente) {
+						// promises.push(this.upsertFuente(serie.fuente))
+						console.debug("Upsert fuente: " + JSON.stringify(serie.fuente))
+						var result = await client.query(this.upsertFuenteQuery(serie.fuente))
+						serie_props.fuente = new internal.fuente(result.rows[0])
+					} else {				
+						serie_props["fuente"] = (serie.fuente.id != null) ? await internal.fuente.read({id:serie.fuente.id}) : {}
+					}
 				} 
 				if (all || upsert_estacion) {
 					// console.debug("Upsert estacion of new serie")
@@ -8871,6 +8878,10 @@ internal.CRUD = class {
 				// keys(serie_props).forEach(key=>{
 				// 	serie[key] = serie_props[key]
 				// })
+				if(["areal", "rast", "raster"].indexOf(serie.tipo) >= 0 && serie.fuente == undefined) {
+					throw("Specified Fuente not found")
+				}
+
 				var query_string
 				// check if series exists already
 				var series_match = await this.getSeries(serie.tipo,{estacion_id:serie.estacion.id,var_id:serie.var.id,proc_id:serie.procedimiento.id,unit_id:serie.unidades.id,fuentes_id:serie.fuente.id},{},client)

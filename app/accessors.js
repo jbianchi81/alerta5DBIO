@@ -47,7 +47,7 @@ internal.hidrowebservice = require('./accessors/hidrowebservice').Client
 internal.hidrowebservice_historico = require('./accessors/hidrowebservice_historico').Client
 internal.fewspirestwebservice = require('./accessors/fewspirestwebservice').Client
 internal.dados_ons = require('./accessors/dados_ons').Client
-internal.gpm_3h = require('./app/accessors/gpm').Client
+internal.gpm = require('./accessors/gpm').Client
 
 // Promise.allSettled polyfill
 
@@ -140,13 +140,15 @@ internal.getAccessor = async function (name,classname,config) {
 
 internal.Accessor = class {
 	constructor(fields={}) { // clase, url, series_tipo, series_source_id,config,series_id) {
-		this.clase=fields.class.toLowerCase()
-		this.url=fields.url
-		this.series_tipo=fields.series_tipo
-		this.series_source_id=fields.series_source_id
+		if(!fields.class) {
+			throw("Missing class")
+		}
+		this.clase = fields.class.toLowerCase()
+		this.url = fields.url
+		this.series_tipo = fields.series_tipo
+		this.series_source_id = fields.series_source_id
 		if(! internal[this.clase]) {
-			console.error("Invalid accessor class")
-			return
+			throw new Error("Invalid accessor class")
 		}
 		this.engine = new internal[this.clase](fields.config)
 		if(fields.series_id) {
@@ -222,7 +224,12 @@ internal.Accessor = class {
 		} else if(this.engine.getSeries) {
 			return this.engine.getSeries(filter,options,client)
 			.then(async series=>{
-				const result = await crud.upsertSeries(series,false,(options.upsert_estacion != undefined) ? options.upsert_estacion : true,undefined)
+				const result = await crud.upsertSeries(
+					series,
+					undefined,
+					(options.upsert_estacion != undefined) ? options.upsert_estacion : true,
+					undefined
+				)
 				if(options.refresh_series_json) {
 					crud.refreshSeriesJson()
 					crud.refreshSeriesArealJson()

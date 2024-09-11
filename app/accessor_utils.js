@@ -183,13 +183,15 @@ internal.filterByParam = function(filter_value, item_value, func) {
 }
 
 internal.filterSeries = function(series=[],params={}) {
-	return series.filter(s=>{
+	return series.filter(serie => {
         return (
             [
-                internal.filterByParam(params.estacion_id, s.estacion.id),
-                internal.filterByParam(params.var_id, s.var.id),
-                internal.filterByParam(params.unit_id, s.unidades.id),
-                internal.filterByParam(params.id_externo, s.estacion.id_externo)
+                internal.filterByParam(params.estacion_id, serie.estacion.id),
+                internal.filterByParam(params.var_id, serie.var.id),
+                internal.filterByParam(params.unit_id, serie.unidades.id),
+                internal.filterByParam(params.id_externo, serie.estacion.id_externo),
+                internal.filterByParam(params.series_id, serie.id),
+                internal.filterByParam(params.tipo, serie.tipo)
             ].indexOf(false) < 0
         )
 		

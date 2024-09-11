@@ -16,7 +16,7 @@ const duckdb_async_1 = require("../duckdb_async");
 const accessor_utils_1 = require("../accessor_utils");
 const CRUD_1 = require("../CRUD");
 class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
-    constructor(config = {}) {
+    constructor(config) {
         super(config);
         this.default_config = {
             url: "https://ons-aws-prod-opendata.s3.amazonaws.com/",
