@@ -12826,9 +12826,9 @@ internal.CRUD = class {
 			var timeupdate_column = "observaciones_rast.timeupdate"
 		}
 		if(options.source_time_support) {
-			var timeend_column = pasteIntoSQLQuery("timestart + $1::interval", [options.source_time_support])
+			var timeend_column = pasteIntoSQLQuery(`${data_table}.timestart + $1::interval`, [options.source_time_support])
 		} else {
-			var timeend_column = "timeend"
+			var timeend_column = `${data_table}.timeend`
 		}
 		var stmt
 		var args
@@ -12862,73 +12862,95 @@ internal.CRUD = class {
 			
 		} else {
 			const min_count_filter = (options.min_count) ? sprintf(" WHERE agg.count>=%d", options.min_count) : ""
-			stmt  = `WITH rasts as (
-			SELECT 
-				series_id, 
-				timestart, 
-				${timeend_column} AS timeend, 
-				${timeupdate_column} AS timeupdate, 
-				ST_Clip(
-					valor,
-					'{1}',
-					ST_GeomFromText($1,$2)
-				) AS rast
-			FROM ${data_table}
-			WHERE 
-				series_id=$3 
-			AND timestart>=$4 
-			AND timeend<=$5
-			${prono_filter}
+			stmt = `WITH dest_interval as (
+				SELECT
+					$4::timestamptz::timestamp AS timestart,
+					$5::timestamptz::timestamp AS timeend
 			),
-			agg AS (
+			  rasts as (
 				SELECT 
-					series_id, 
-					min(timestart) timestart,
-					max(timeend) timeend, 
-					max(timeupdate) timeupdate, 
-					count(timestart) count, 
-					sum(timeend - timestart) time_sum, 
-					ST_AddBand(
-						ST_Union(
-							${rescale_band},
-							$6
-						),
-						ST_Union(
-							rast,
-							'COUNT'
-						)
-					) AS rast
-				FROM rasts 
-				GROUP By series_id
-			),
-			raststats AS (
-				SELECT 
-					st_summarystats(rast) stats
-				FROM rasts
-			)
-			SELECT series_id,
-					timestart,
-					timeend,
-					timeupdate,
-					count AS obs_count,
-					time_sum,
-						(stats).*,
-					ST_AsGDALRaster(
-					rast,
-					$7
-					) AS valor
-			FROM agg, raststats
-			${min_count_filter}`
+						${data_table}.series_id, 
+						${data_table}.timestart as source_timestart, 
+						${timeend_column} as source_timeend, 
+						dest_interval.timestart, 
+						dest_interval.timeend, 
+						greatest(extract( epoch from ${data_table}.timestart ), extract( epoch from dest_interval.timestart)) AS inter_timestart,
+						least(extract(epoch from ${timeend_column}), extract( epoch from dest_interval.timeend)) AS inter_timeend,
+						${timeupdate_column} AS timeupdate, 
+						ST_Clip(
+								${data_table}.valor,
+								'{1}',
+								ST_GeomFromText($1, $2)
+						) AS rast
+				FROM 
+					${data_table},
+					dest_interval
+				WHERE
+					${data_table}.series_id = $3 
+					AND ${timeend_column} >= dest_interval.timestart
+					AND ${data_table}.timestart < dest_interval.timeend
+				    ${prono_filter}
+				),
+				agg AS (
+						SELECT 
+								series_id, 
+								timestart,
+								timeend, 
+								max(timeupdate) timeupdate, 
+								count(timestart) count, 
+								sum(
+									to_timestamp(inter_timeend)::timestamp - to_timestamp(inter_timestart)::timestamp
+								) AS time_sum, 
+								ST_AddBand(
+										ST_Union(
+												ST_MapAlgebra(
+													${rescale_band}, 
+													NULL, 
+													'[rast] * ' || least(
+														( inter_timeend - inter_timestart) / extract( epoch from (source_timeend - source_timestart)),
+														1
+													)::text),
+												$6
+										),
+										ST_Union(
+												rast,
+												'COUNT'
+										)
+								) AS rast
+						FROM rasts 
+						GROUP BY series_id, timestart, timeend
+				),
+				raststats AS (
+						SELECT 
+								st_summarystats(rast) stats
+						FROM agg
+				)
+				SELECT series_id,
+								timestart,
+								timeend,
+								timeupdate,
+								count AS obs_count,
+								time_sum,
+										(stats).*,
+							    ST_AsGDALRaster(
+							    rast,
+							    $7
+							   ) AS valor
+				FROM agg, raststats
+				${min_count_filter}`
+			
 			args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion,options.format]
 		}
+		// console.debug(pasteIntoSQLQuery(stmt, args))
 		try {
 			var result = await client.query(stmt,args)
 		} catch(e) {
 			if(release_client) {
 				client.release()
 			}
-			console.error(e)
-			return serie
+			throw new Error(e)
+			// console.error(new Error(e))
+			// return serie
 		}
 		if(!result.rows) {
 			console.log("No raster values found")
@@ -12952,7 +12974,28 @@ internal.CRUD = class {
 			}
 			return serie
 		}
-		const obs = new internal.observacion({tipo:"rast",series_id:result.rows[0].series_id,timestart:result.rows[0].timestart,timeend:result.rows[0].timeend,valor:result.rows[0].valor, nombre:options.funcion, descripcion: "agregación temporal", unit_id: serie.unidades.id, timeupdate: result.rows[0].timeupdate, count: result.rows[0].obs_count, options: options, stats: {count: result.rows[0].count, mean: result.rows[0].mean, stddev: result.rows[0].stddev, min: result.rows[0].min, max: result.rows[0].max}})
+		const obs = new internal.observacion(
+			{
+				tipo:"rast",
+				series_id:result.rows[0].series_id,
+				timestart:result.rows[0].timestart,
+				timeend:result.rows[0].timeend,
+				valor:result.rows[0].valor,
+				nombre:options.funcion,
+				descripcion: "agregación temporal", 
+				unit_id: serie.unidades.id, 
+				timeupdate: result.rows[0].timeupdate, 
+				count: result.rows[0].obs_count, 
+				options: options, 
+				stats: {
+					count: result.rows[0].count, 
+					mean: result.rows[0].mean, 
+					stddev: result.rows[0].stddev, 
+					min: result.rows[0].min, 
+					max: result.rows[0].max
+				}
+			}
+		)
 		obs.time_sum = result.rows[0].time_sum
 		serie.observaciones = [obs]
 		if(release_client) {
@@ -13512,7 +13555,7 @@ internal.CRUD = class {
 	}
 	
 	static async getRegularSeries(tipo="puntual",series_id,dt="1 days",timestart,timeend,options,client, cal_id, cor_id, forecast_date, qualifier) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate,no_insert_as_obs,source_time_support
-		// console.log({tipo:tipo,series_id:series_id,dt:dt,timestart:timestart,timeend:timeend,options:options})
+		console.debug({tipo:tipo,series_id:series_id,dt:dt,timestart:timestart,timeend:timeend,options:options})
 		if(!series_id || !timestart || !timeend) {
 			return Promise.reject("series_id, timestart and/or timeend missing")
 		}
@@ -13573,15 +13616,16 @@ internal.CRUD = class {
 			// console.log({dates:results})
 			var timestart = await this.date2obj(timestart)
 			var timeend = await this.date2obj(timeend) 
+			console.debug({timestart: timestart.toISOString(), timeend: timeend.toISOString()})
 			var dt = await this.interval2epoch(dt) * 1000
 			dt_epoch = (inst) ? 0 : dt
 			var t_offset = await this.interval2epoch(t_offset) * 1000
-			var timestart_time = (timestart.getHours()*3600 + timestart.getMinutes()*60 + timestart.getSeconds()) * 1000 + timestart.getMilliseconds() + timestart.getTimezoneOffset()*60*1000
+			var timestart_time = (timestart.getHours()*3600 + timestart.getMinutes()*60 + timestart.getSeconds()) * 1000 + timestart.getMilliseconds() // + timestart.getTimezoneOffset()*60*1000
 			if(timestart_time < t_offset) {
 				console.log("timestart < t_offset;timestart:" + timestart + ", " + timestart_time + " < " + t_offset)
 				timestart.setTime(timestart.getTime() - timestart_time + t_offset)
 			} else if (timestart_time > t_offset) {
-				console.log("timestart > t_offset;" + timestart + " > " + t_offset)
+				console.log("timestart > t_offset;" + timestart + ", " + timestart_time + " > " + t_offset)
 				timestart.setTime(timestart.getTime() - timestart_time + t_offset + dt)
 			}
 			var timeend_time = (timeend.getHours()*3600 + timeend.getMinutes()*60 + timeend.getSeconds())*1000 + timeend.getMilliseconds() + timeend.getTimezoneOffset()*60*1000
@@ -13626,7 +13670,7 @@ internal.CRUD = class {
 				if(dt_epoch) {
 					observaciones = observaciones.filter(o=>{
 						var time_sum_epoch = timeSteps.interval2epochSync(o.time_sum) * 1000
-						// console.debug("crud.getRegularSeries: dt:" + dt_epoch, "o.time_sum:"  + time_sum_epoch + ", min_time_fraction: " + min_time_fraction)
+						// console.debug("crud.getRegularSeries: dt:" + dt_epoch, "o.time_sum:"  + JSON.stringify(o.time_sum) + ", time_sum_epoch: " + time_sum_epoch + ", min_time_fraction: " + min_time_fraction)
 						if(time_sum_epoch / dt_epoch < min_time_fraction) {
 							console.error("crud.getRegularSeries: la observación no alcanza la mínima fracción de tiempo")
 							return false
@@ -14886,6 +14930,9 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 							const observaciones = serie.aggregateMonthly(filter.timestart,filter.timeend,a.agg_func,a.precision,opt.source_time_support,a.expression,opt.inst)
 							result = await this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id,undefined) // remove client, non-transactional
 						} else {
+							if(a.source_tipo != a.dest_tipo) {
+								throw("Invalid asociacion: source_tipo and dest_tipo must coincide if agg_func is set")
+							}
 							result =  await this.getRegularSeries(
 								a.source_tipo,
 								a.source_series_id,
