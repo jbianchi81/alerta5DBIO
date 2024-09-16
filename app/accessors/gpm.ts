@@ -49,6 +49,12 @@ interface GPMConfig extends Config {
 
 /**
  * Docs: https://pmmpublisher.pps.eosdis.nasa.gov/docs
+ * 
+ * Available date range for daily product: last 2 months
+ * 
+ * Time offset of daily product: 00Z
+ * 
+ * Latency approx. 12 hours
  */
 export class Client extends AbstractAccessorEngine implements AccessorEngine {
 

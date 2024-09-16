@@ -4988,7 +4988,9 @@ internal.sat2 = class {
 			var series = []
 			for(var site of sites) {
 				for(var serie of site.series) {
-					const s = new CRUD.serie(serie)
+					var s = {...serie}
+					delete s.estacion.series
+					s = new CRUD.serie(s)
 					await s.getId(global.pool)
 					if(!options.skip_new || s.id) {
 						series.push(s)
