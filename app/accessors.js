@@ -4871,7 +4871,8 @@ internal.sat2 = class {
 				"147": {"var_id": 2, "proc_id": 1, "unit_id": 11}, 
 				"148": {"var_id": 2, "proc_id": 1, "unit_id": 11}, 
 				"149": {"var_id": 37, "proc_id": 1, "unit_id": 11}, 
-				"162": {"var_id": 2, "proc_id": 1, "unit_id": 11}
+				"162": {"var_id": 2, "proc_id": 1, "unit_id": 11},
+				"206": {"var_id": 96, "proc_id": 1, "unit_id": 11}
 				//~ "13": { "var_id":12, "unit_id":15, "proc_id":1},  //          # humedad
 				//~ "15": {"var_id":16, "unit_id":17, "proc_id":1}, //            # presion
                 //~ "7": {"var_id":38, "unit_id":9, "proc_id":1},              // pluviometro

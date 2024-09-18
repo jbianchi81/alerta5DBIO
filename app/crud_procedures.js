@@ -4082,6 +4082,7 @@ if(1==1) {
     .option("-u, --update","Update series in database from downloaded records")
     .option("-p, --pretty",'pretty print output')
     .option("-P, --forecast", "Get (and update if -u is set) forecasts instead of observations (using GetPronosticoFromAccessorProcedure/UpdatePronosticoFromAccessorProcedure)")
+    .option("-n, --no_update_date_range", "no_update_date_range")
     .action(async (accessor_class,filter,options) => {
         try {
             filter = parseKVPArray(filter)
@@ -4125,7 +4126,7 @@ if(1==1) {
                     filter: filter,
                     output: output,
                     output_format: options.output_format,
-                    options: get_options
+                    options: (options.update) ? {...get_options, no_update_date_range: options.no_update_date_range} : get_options
                 }
             )
         } catch(e) {
