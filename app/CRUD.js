@@ -8355,9 +8355,14 @@ internal.CRUD = class {
 	}
 
 	static async upsertUnidadeses(unidadeses) {
-		return Promise.all(unidadeses.map(unit=>{
-			return this.upsertUnidades(unit)
-		}).filter(u=>u))
+		const upserted = []
+		for(const unit of unidadeses) {
+			const result = await this.upsertUnidades(unit)
+			if(result) {
+				upserted.push(result)
+			}
+		}
+		return upserted
 	}
 			
 	static async deleteUnidades(id) {
@@ -10057,11 +10062,11 @@ internal.CRUD = class {
 
 	static removeDuplicates(observaciones) {   // elimina observaciones con timestart duplicado
 		// var timestarts = []
-		console.log("sorting...")
+		// console.log("sorting...")
 		observaciones.sort((a,b) => (a.timestart - b.timestart))
-		console.log("done")
+		// console.log("done")
 		var previous_timestart = new Date("1800-01-01")
-		console.log("filtering...")
+		// console.log("filtering...")
 		return observaciones.filter(o=>{ 
 			if(o.timestart - previous_timestart == 0) {
 				console.log("removing duplicate observacion, timestart:"+o.timestart)

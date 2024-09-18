@@ -4984,22 +4984,30 @@ internal.sat2 = class {
 		})
 	}
 	async getSeries(filter,options={}) {
-		return this.getSites(filter)
-		.then(async sites=>{
-			var series = []
-			for(var site of sites) {
-				for(var serie of site.series) {
-					var s = {...serie}
-					delete s.estacion.series
-					s = new CRUD.serie(s)
-					await s.getId(global.pool)
-					if(!options.skip_new || s.id) {
-						series.push(s)
-					}
+		const sites = await this.getSites(filter)
+		var series = []
+		for(var site of sites) {
+			for(var serie of site.series) {
+				// console.debug(serie)
+				if(filter && filter.var_id && filter.var_id != serie.var_id) {
+					continue
+				}
+				if(filter && filter.proc_id && filter.proc_id != serie.proc_id) {
+					continue
+				}
+				if(filter && filter.unit_id && filter.unit_id != serie.unit_id) {
+					continue
+				}
+				var s = {...serie}
+				delete s.estacion.series
+				s = new CRUD.serie(s)
+				await s.getId(false)
+				if(!options.skip_new || s.id) {
+					series.push(s)
 				}
 			}
-			return series
-		})
+		}
+		return series
 	}
 	async updateSeries(filter,options={}) {
 		return this.getSeries(filter)
@@ -5010,63 +5018,74 @@ internal.sat2 = class {
 	async getSites(filter) {  // filter.id_externo = idEquipo, filter.nombre =~ descripcion
 		// console.log({filter:filter})
 		var cookieJar = request.jar()
-		return this.AutenticarUsuario(cookieJar)
-		.then(result=> {
-			// console.log({idCliente:result.idCliente})
-			return this.RecuperarEquipos(result.idCliente,cookieJar)
-		})
-		.then(async estaciones=>{
-			if(filter) {
-				if(filter.id_externo) {
-					if(Array.isArray(filter.id_externo)) {
-						estaciones = estaciones.filter(e=> filter.id_externo.indexOf(e.idEquipo.toString()) >= 0)
-					} else { 
-						estaciones = estaciones.filter(e=> e.idEquipo.toString() == filter.id_externo)
-					}
-				}
-				if(filter.nombre) {
-					estaciones = estaciones.filter(e=> new RegExp(filter.nombre).test(e.descripcion))
-				}
-				if(filter.id_grupo) {
-					estaciones = estaciones.filter(e=> e.idGrupo == filter.id_grupo)
+		const result = await this.AutenticarUsuario(cookieJar)
+		// console.log({idCliente:result.idCliente})
+		var estaciones = await this.RecuperarEquipos(result.idCliente,cookieJar)
+		if(filter) {
+			if(filter.id_externo) {
+				if(Array.isArray(filter.id_externo)) {
+					estaciones = estaciones.filter(e=> filter.id_externo.indexOf(e.idEquipo.toString()) >= 0)
+				} else { 
+					estaciones = estaciones.filter(e=> e.idEquipo.toString() == filter.id_externo)
 				}
 			}
-			const estaciones_a5 = []
-			for(var estacion of estaciones) {
-				// console.log({estacion:estacion})  // idEquipo, descripcion, lat, lng, NroSerie, fechaAlta, sensores, idGrupo
-				var estacion_a5 = new CRUD.estacion({
-					nombre: estacion.descripcion,
-					id_externo: estacion.idEquipo,
-					geom: {
-						type: "Point",
-						coordinates: [ -1*estacion.lng, -1*estacion.lat ]
-					},
-					tabla: "sat2",
-					automatica: true,
-					public: true,
-					real: true,
-					tipo: "A",
-					has_obs: true,
-					pais: "Argentina",
-					propietario: "RHN"
-				})
-				await estacion_a5.getEstacionId()
-				var series = []
-				for(var sensor of estacion.sensores) {
-					if(sensor.idSensor in this.config.sensores) {
-						var serie = {...this.config.sensores[sensor.idSensor]}
-						serie.estacion = estacion_a5
-						serie.tipo = "puntual"
-						series.push(serie)
-					}
+			if(filter.nombre) {
+				estaciones = estaciones.filter(e=> new RegExp(filter.nombre).test(e.descripcion))
+			}
+			if(filter.id_grupo) {
+				estaciones = estaciones.filter(e=> e.idGrupo == filter.id_grupo)
+			}
+		}
+		const estaciones_a5 = []
+		for(var estacion of estaciones) {
+			// filter out test instruments
+			if(estacion.descripcion.toLowerCase().includes("zprueba")) {
+				continue
+			}
+			// console.log({estacion:estacion})  // idEquipo, descripcion, lat, lng, NroSerie, fechaAlta, sensores, idGrupo
+			var estacion_a5 = new CRUD.estacion({
+				nombre: estacion.descripcion,
+				id_externo: estacion.idEquipo,
+				geom: {
+					type: "Point",
+					coordinates: [ -1*estacion.lng, -1*estacion.lat ]
+				},
+				tabla: "sat2",
+				automatica: true,
+				public: true,
+				real: true,
+				tipo: "A",
+				has_obs: true,
+				pais: "Argentina",
+				propietario: "RHN"
+			})
+			await estacion_a5.getEstacionId()
+			var series = []
+			for(var sensor of estacion.sensores) {
+				if(filter.id_sensor) {
+					if(Array.isArray(filter.id_sensor)) {
+						if(filter.id_sensor.indexOf(sensor.idSensor.toString()) < 0) {
+							continue
+						}
+					} else {
+						if(filter.id_sensor != sensor.idSensor) {
+							continue
+						}
+					}					
 				}
-				estacion_a5.series = series
+				if(sensor.idSensor in this.config.sensores) {
+					var serie = {...this.config.sensores[sensor.idSensor]}
+					serie.estacion = estacion_a5
+					serie.tipo = "puntual"
+					series.push(serie)
+				}
+			}
+			estacion_a5.series = series
 				// series = series.filter(s=>s)
 				// console.log({estacion_a5: estacion_a5})
-				estaciones_a5.push(estacion_a5)
-			}
-			return estaciones_a5
-		})
+			estaciones_a5.push(estacion_a5)
+		}
+		return estaciones_a5
 	}
 	async updateSites(filter,options={}) {
 		return this.getSites(filter)
@@ -5163,66 +5182,96 @@ internal.sat2 = class {
 		})
 	}
 
-	get(filter={},options) {
+	/**
+	 * 
+	 * @param {*} filter 
+	 * @param {*} options 
+	 * @param {boolean} options.update
+	 * @returns 
+	 */
+	async get(filter={},options={}) {
 		if(!filter.timestart || !filter.timeend) {
 			return Promise.reject("timestart or timeend missing")
 		}
 		if(filter.series_id) {
-			return this.getData(filter.series_id, filter.timestart, filter.timeend)
+			const obs = await this.getData(filter.series_id, filter.timestart, filter.timeend)
+			if(options.update) {
+				return crud.upsertObservaciones(obs)
+			} else {
+				return obs
+			}
 		}
 		var cookieJar = request.jar()
-		return this.AutenticarUsuario(cookieJar)												// AUTENTICACION
-		.then(result=> {
-			filter.tabla = "sat2"
-			return crud.getEstaciones(filter)													// GETESTACIONES DE DB
-			.then(estaciones=>{
-				return Promise.all(estaciones.map(estacion=>{
-					//~ console.log({estacion:estacion})
-					var seriesFilter = filter
-					seriesFilter.estacion_id = estacion.id
-					seriesFilter.proc_id = 1
-					//~ console.log({seriesFilter:seriesFilter})
-					return Promise.all([estacion,crud.getSeries("puntual",seriesFilter)])		// GETSERIES DE DB
-					.then(result=>{
-						var [estacion, series] = result
-						return Promise.all(series.map(serie=>{
-							//~ console.log({serie:serie})
-							//~ console.log({var_id: serie.var.id})
-							var idSensores = this.getIdSensores(serie.var.id,serie.unidades.id)
-							if(!idSensores) {
-								//~ console.log("idSensor not found")
-								return null
+		const result = await this.AutenticarUsuario(cookieJar)												// AUTENTICACION
+		const estaciones_filter = {...filter, tabla: "sat2"}
+		const estaciones = await crud.getEstaciones(estaciones_filter)													// GETESTACIONES DE DB
+		const observaciones = []
+		for(const estacion of estaciones) {
+			//~ console.log({estacion:estacion})
+			var seriesFilter = {...estaciones_filter}
+			seriesFilter.estacion_id = estacion.id
+			seriesFilter.proc_id = 1
+			// console.debug({seriesFilter:seriesFilter})
+			const series = await crud.getSeries("puntual",seriesFilter)		// GETSERIES DE DB
+			// console.debug({series_length: series.length})
+			for(const serie of series) {
+				//~ console.log({serie:serie})
+				//~ console.log({var_id: serie.var.id})
+				var idSensores = this.getIdSensores(serie.var.id,serie.unidades.id)
+				if(!idSensores) {
+					//~ console.log("idSensor not found")
+					continue
+				}
+				for(const idSensor of idSensores) {						// DESCARGA DATOS DE EQUIPO POR SENSOR DE API 
+					if(filter.id_sensor) {
+						if(Array.isArray(filter.id_sensor)) {
+							if(filter.id_sensor.indexOf(idSensor.toString()) < 0) {
+								continue
 							}
-							return Promise.all(idSensores.map(idSensor=>{						// DESCARGA DATOS DE EQUIPO POR SENSOR DE API 
-								return Promise.all([serie,this.RecuperarHistoricosDeEquipoPorSensor(estacion.id_externo,idSensor,filter.timestart,filter.timeend,cookieJar)])
-								.then(result=>{ // idEquipo, idSensor, fecha, valor
-									var [serie,historicos] = result
-									//~ console.log({historicos:historicos})
-									return crud.removeDuplicates(historicos.body.map(observacion=>{
-										return {
-											tipo: "puntual",
-											series_id: serie.id,
-											timestart: observacion.fecha,
-											timeend: observacion.fecha,
-											valor: observacion.valor
-										}
-									}))
-								})
-							}))
-						}))
-					})
-				}))
-			})
-		})
-		.then(result=>{
-			return accessor_utils.flatten(result).filter(o=>o)
-		})
+						} else {
+							if(filter.id_sensor != idSensor) {
+								continue
+							}
+						}
+					}
+					try {
+						var historicos = await this.RecuperarHistoricosDeEquipoPorSensor(estacion.id_externo,idSensor,filter.timestart,filter.timeend,cookieJar)
+					} catch(e) {
+						console.error(`sat2 retrieval failed for external site id: ${estacion.id_externo}, external sensor id: ${idSensor}: ${e.toString()}`)
+						continue
+					}
+						// idEquipo, idSensor, fecha, valor
+						//~ console.log({historicos:historicos})
+					const obs = crud.removeDuplicates(
+						historicos.body.map(
+							observacion=>{
+								return {
+									tipo: "puntual",
+									series_id: serie.id,
+									timestart: observacion.fecha,
+									timeend: observacion.fecha,
+									valor: observacion.valor
+								}
+					}))
+					if(obs.length) {
+						if(options.update) {
+							const upserted = await crud.upsertObservaciones(obs)
+							observaciones.push(...upserted)
+						} else {
+							observaciones.push(...obs)
+						}
+					}
+				}
+			}
+		}
+		return observaciones.filter(o=>o)
+		// return accessor_utils.flatten(observaciones).filter(o=>o)
 	}
-	update(filter={},options) {
-		return this.get(filter,options)
-		.then(observaciones=>{
-			return crud.upsertObservaciones(observaciones)
-		})
+
+	async update(filter={},options={}) {
+		const observaciones = await this.get(filter,{...options, update: true})
+		return observaciones
+		// return crud.upsertObservaciones(observaciones)
 	}
 	
 	AutenticarUsuario(cookieJar) {
