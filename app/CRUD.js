@@ -13913,6 +13913,9 @@ internal.CRUD = class {
 				var precision = (options.precision) ? parseInt(options.precision) : 2
 				if(aggFunction.toLowerCase() == "nearest") {
 					args = [timestart, t_offset, timeend, dt, series_id, precision]
+					if(options && options.dest_time_support) {
+						args.push(options.dest_time_support)
+					}
 					stmt=`WITH d AS (
 							SELECT generate_series(
 								$1::timestamp + $2::interval, 
@@ -13945,8 +13948,8 @@ internal.CRUD = class {
 						from t where rk=1
 						order by fecha
 						)
-						SELECT d.dd timestart,
-								d.dd timeend,
+						SELECT d.dd AS timestart,
+								d.dd ${(options && options.dest_time_support) ? `+ $7::interval` : ""} AS timeend,
 								v.valor
 						FROM d
 						LEFT JOIN v on (v.fecha=d.dd)
@@ -14730,7 +14733,7 @@ internal.CRUD = class {
 		//~ AND e."+site_id_col+"=coalesce($12,e."+site_id_col+")\
 		//~ AND "+provider_col+"=coalesce($13,"+provider_col+")\
 		//~ ORDER BY a.id",[filter.source_tipo,filter.source_series_id,filter.dest_tipo,filter.dest_series_id,options.agg_func,options.dt,options.t_offset,filter.source_var_id,filter.dest_var_id,filter.source_proc_id,filter.dest_proc_id,filter.estacion_id,filter.provider_id])
-		console.log(query)
+		// console.log(query)
 		return client.query(query)
 		.then(result=>{
 			if(release_client) {
@@ -14905,6 +14908,7 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 				if(options.no_insert_as_obs) {
 					opt.no_insert_as_obs = true
 				}
+				opt.dest_time_support = a.dest_time_support
 				//~ promises.push(a)
 				console.log("asociacion " + a.id)
 				var result
