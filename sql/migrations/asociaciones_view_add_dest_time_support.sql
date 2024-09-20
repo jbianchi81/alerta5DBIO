@@ -64,4 +64,5 @@ WITH s_all AS (
      LEFT JOIN calibrados ON calibrados.id = a.cal_id
   ORDER BY a.id;
 
-grant all on asociaciones_view to actualiza;
+-- grant all on asociaciones_view to actualiza;
+commit;

@@ -13560,7 +13560,7 @@ internal.CRUD = class {
 	}
 	
 	static async getRegularSeries(tipo="puntual",series_id,dt="1 days",timestart,timeend,options,client, cal_id, cor_id, forecast_date, qualifier) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate,no_insert_as_obs,source_time_support
-		console.debug({tipo:tipo,series_id:series_id,dt:dt,timestart:timestart,timeend:timeend,options:options})
+		// console.debug({tipo:tipo,series_id:series_id,dt:dt,timestart:timestart,timeend:timeend,options:options})
 		if(!series_id || !timestart || !timeend) {
 			return Promise.reject("series_id, timestart and/or timeend missing")
 		}
