@@ -116,15 +116,19 @@ internal.interval_key_map = {
 	year: "years"
 }
 
-internal.intervalFromString = function (string) {
-	const kvp = string.split(/\s+/)
-	var interval = parsePGinterval()
-	for(var i=0;i<kvp.length-1;i=i+2) {
-		var key = internal.interval_key_map[kvp[i+1].toLowerCase()]
-		if(!key) {
-			throw("Invalid interval key " + kvp[i+1].toLowerCase())
+internal.intervalFromString = function (interval_string) {
+	const kvp = interval_string.split(/\s+/)
+	if(kvp.length > 1) {
+		var interval = parsePGinterval()
+		for(var i=0;i<kvp.length-1;i=i+2) {
+			var key = internal.interval_key_map[kvp[i+1].toLowerCase()]
+			if(!key) {
+				throw("Invalid interval key " + kvp[i+1].toLowerCase())
+			}
+			interval[key] = parseInt(kvp[i])
 		}
-		interval[key] = parseInt(kvp[i])
+	} else {
+		var interval = parsePGinterval(interval_string)
 	}
 	// Object.assign(interval,JSON.parse(value))
 	return interval
