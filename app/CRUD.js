@@ -1868,7 +1868,8 @@ internal.serie = class extends baseModel {
 			minValor: this.minValor,
 			maxValor: this.maxValor,
 			observaciones: this.observaciones,
-			pronosticos: this.pronosticos
+			pronosticos: this.pronosticos,
+			percentiles: this.percentiles
 		}
 	}
 	toString() {
@@ -9764,8 +9765,8 @@ internal.CRUD = class {
 	}
 	
 	static async getSeries(tipo,filter={},options={},client,req) {
-		//~ console.log(options)
-		// console.log({filter:filter})
+		console.debug({options:options})
+		console.debug({filter:filter})
 		if(tipo) {
 			filter.tipo = tipo
 		}
