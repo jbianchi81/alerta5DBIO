@@ -6185,7 +6185,7 @@ internal.a5 = class {
 	async upsertSeries(filter={},options={}) {
 		return this.getSeries(filter,options)
 		.then(result=>{
-			return crud.upsertSeries(result,options.all,true,true)
+			return crud.upsertSeries(result,options.all,true,false)
 		})
 	}
 	async getPronostico(filter={},options={}) {
