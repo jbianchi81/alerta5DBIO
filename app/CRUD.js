@@ -3957,11 +3957,11 @@ internal.observacion = class extends baseModel {
 	constructor() {
 		super()
 		var tipo, series_id, timestart, timeend, nombre, descripcion, unit_id, timeupdate, valor, scale, offset, options, stats
-		var opt_fields = ['id','descripcion','nombre','unit_id','timeupdate']
+		var opt_fields = ['id','descripcion','nombre','unit_id','timeupdate','validada']
 		switch(arguments.length) {
 			case 1:
 				if(typeof(arguments[0]) == "string") {
-					[this.id,this.tipo, this.series_id, this.timestart, this.timeend, this.nombre, this.descripcion, this.unit_id, this.timeupdate, this.valor, this.scale, this.offset, this.count, this.options, this.stats] = arguments[0].split(",")
+					[this.id,this.tipo, this.series_id, this.timestart, this.timeend, this.nombre, this.descripcion, this.unit_id, this.timeupdate, this.valor, this.scale, this.offset, this.count, this.options, this.stats, this.validada] = arguments[0].split(",")
 					opt_fields.forEach(key=>{
 						if(this[key]) {
 							if(this[key] == "undefined") {
@@ -3996,10 +3996,11 @@ internal.observacion = class extends baseModel {
 					this.count=arguments[0].count
 					this.options=arguments[0].options
 					this.stats = (arguments[0].stats != null && Object.keys(arguments[0].stats).length) ? new internal.observacionStats(arguments[0].stats) : undefined
+					this.validada = arguments[0].validada
 				}
 				break;
 			default:
-				[this.tipo, this.series_id, this.timestart, this.timeend, this.nombre, this.descripcion, this.unit_id, this.timeupdate, this.valor, this.scale, this.offset, this.count, this.options, this.stats] = arguments
+				[this.tipo, this.series_id, this.timestart, this.timeend, this.nombre, this.descripcion, this.unit_id, this.timeupdate, this.valor, this.scale, this.offset, this.count, this.options, this.stats, this.validada] = arguments
 				break;
 		}
 		this.timeupdate = (this.timeupdate) ? this.timeupdate : new Date()
@@ -4014,6 +4015,7 @@ internal.observacion = class extends baseModel {
 		this.timestart = (typeof this.timestart == 'string') ? timeSteps.parseDateString(this.timestart) : this.timestart
 		this.timeend = (typeof this.timeend == 'string') ? timeSteps.parseDateString(this.timeend) : this.timeend
 		//~ console.log({timestart:this.timestart,timeend:this.timeend})
+		this.validada = (this.validada) ? (this.validada.toString().toLowerCase() == "true") : false
 	}
 	isValid() {
 		var tipos = ["puntual","areal","raster"]
@@ -4185,12 +4187,13 @@ internal.observacion = class extends baseModel {
 			unit_id: (this.unit_id) ? parseInt(this.unit_id) : null,
 			timeupdate: (this.timeupdate) ? this.timeupdate.toISOString() : null,
 			valor: (this.valor !== undefined) ? this.valor : null, // (this.valor != null) ? (this.tipo == "rast" || this.tipo == "raster") ? this.rasterToJSON() : parseFloat(this.valor) : null,
-			stats: (this.stats) ? this.stats : null
+			stats: (this.stats) ? this.stats : null,
+			validada: this.validada
 		}
 	}
 	toString() {
 		var valor = (this.valor) ? (this.tipo == "rast" || this.tipo == "raster") ? "rasterFile" : this.valor.toString() : "null"
-		return "{" + "id:" + this.id + ", tipo:" + this.tipo + ", series_id:" + this.series_id + ", timestart:" + this.timestart.toISOString() + ", timeend:" + this.timeend.toISOString() + ", nombre:" + this.nombre + ", descrpcion:" + this.descripcion + ", unit_id:" + this.unit_id + ", timeupdate:" + this.timeupdate.toISOString() + ", valor:" + valor + "}"
+		return "{" + "id:" + this.id + ", tipo:" + this.tipo + ", series_id:" + this.series_id + ", timestart:" + this.timestart.toISOString() + ", timeend:" + this.timeend.toISOString() + ", nombre:" + this.nombre + ", descrpcion:" + this.descripcion + ", unit_id:" + this.unit_id + ", timeupdate:" + this.timeupdate.toISOString() + ", valor:" + valor + ", validada:" +  this.validada.toString() + "}"
 	}
 	// toJSON() {
 	// 	return JSON.stringify({
@@ -4209,7 +4212,7 @@ internal.observacion = class extends baseModel {
 	/**
 	 * parses csv string into new observacion. Takes only first line of csv_string
 	 */
-	static fromCSV(csv_string,sep=",",header=["id","tipo","series_id","timestart","timeend","nombre","descripcion","unit_id","timeupdate","valor","stats.percentage_of_average","stats.rank","stats.count","stats.month","stats.historical_monthly_mean","stats.weibull_percentile","stats.percentile_category.name","stats.percentile_category.range.0","stats.percentile_category.range.1","stats.percentile_category.number"]) {
+	static fromCSV(csv_string,sep=",",header=["id","tipo","series_id","timestart","timeend","nombre","descripcion","unit_id","timeupdate","valor","stats.percentage_of_average","stats.rank","stats.count","stats.month","stats.historical_monthly_mean","stats.weibull_percentile","stats.percentile_category.name","stats.percentile_category.range.0","stats.percentile_category.range.1","stats.percentile_category.number","validada"]) {
 		var data = CSV.parse(csv_string,sep)[0]
 		const observacion = {}
 		for(var i in header) {
@@ -4228,6 +4231,8 @@ internal.observacion = class extends baseModel {
 							setDeepValue(observacion,header[i],data[i])
 						} else if(header[i] == "valor" && isNumeric(data[i])) {
 							observacion[header[i]] = parseFloat(data[i])
+						} else if(header[i] == "validada") {
+							observacion[header[i]] = (data[i].toLowerCase() == 'true')
 						} else {
 							// console.log("set string value")
 							observacion[header[i]] = data[i]		
@@ -4258,8 +4263,9 @@ internal.observacion = class extends baseModel {
 			this.stats.percentile_category.name, 
 			this.stats.percentile_category.range[0], 
 			this.stats.percentile_category.range[1],
-			this.stats.percentile_category.number) : ""
-		const result = [this.id,((this.tipo) ? this.tipo : "puntual"),this.series_id,((this.timestart) ? this.timestart.toISOString() : ""),((this.timeend) ? this.timeend.toISOString() : ""),this.nombre,((this.descripcion) ? this.descripcion : ""),((this.unit_id) ? this.unit_id : ""),((this.timeupdate) ? this.timeupdate.toISOString() : ""),((parseFloat(this.valor).toString() !== 'NaN') ? this.valor.toString() : "")].join(sep) + stats_string
+			this.stats.percentile_category.number
+		)  : ""
+		const result = [this.id,((this.tipo) ? this.tipo : "puntual"),this.series_id,((this.timestart) ? this.timestart.toISOString() : ""),((this.timeend) ? this.timeend.toISOString() : ""),this.nombre,((this.descripcion) ? this.descripcion : ""),((this.unit_id) ? this.unit_id : ""),((this.timeupdate) ? this.timeupdate.toISOString() : ""),((parseFloat(this.valor).toString() !== 'NaN') ? this.valor.toString() : "")].join(sep) + stats_string + (this.validada) ? sprintf(",%s", this.validada.toString()) : ",null"
 		return result 
 	}
 	toCSVcat(options={}) {
@@ -4271,7 +4277,7 @@ internal.observacion = class extends baseModel {
 	}
 	toCSVless(include_id=true) {
 		//~ return this.series_id + "," + ((this.timestart) ? this.timestart.toISOString() : "null") + "," +  ((parseFloat(this.valor)) ? this.valor.toString() : "null")
-		return ((include_id) ? (this.series_id) ? `${this.series_id},` : "," : "") + ((this.timestart) ? this.timestart.toISOString() : "") + "," + ((this.timeend) ? this.timeend.toISOString() : "") + "," +  ((parseFloat(this.valor).toString() !== 'NaN') ? this.valor.toString() : "")
+		return ((include_id) ? (this.series_id) ? `${this.series_id},` : "," : "") + ((this.timestart) ? this.timestart.toISOString() : "") + "," + ((this.timeend) ? this.timeend.toISOString() : "") + "," +  ((parseFloat(this.valor).toString() !== 'NaN') ? this.valor.toString() : "") + sprintf(",%s", this.validada.toString())
 		
 	}
 	toMnemos(codigo_de_estacion,codigo_de_variable) {
@@ -4301,7 +4307,8 @@ internal.observacion = class extends baseModel {
 			series_id: file_info["metadata"][""]["series_id"],
 			timestart: new Date(file_info["metadata"][""]["timestart"]),
 			timeend: new Date(file_info["metadata"][""]["timeend"]),
-			timeupdate: new Date(file_info["metadata"][""]["timeupdate"])
+			timeupdate: new Date(file_info["metadata"][""]["timeupdate"]),
+			validada: (file_info["metadata"][""]["timeupdate"]) ? (file_info["metadata"][""]["timeupdate"].toLowerCase() == "true") : false
 		})
 	}
 
@@ -4332,6 +4339,9 @@ internal.observacion = class extends baseModel {
 		},
 		"tipo": {
 			"type": "string"
+		},
+		"validada": {
+			"type": "boolean"
 		}
 	}
 
@@ -9127,7 +9137,18 @@ internal.CRUD = class {
 		}
 	}
 	
-	static async getSerie(tipo,id,timestart,timeend,options={},isPublic,timeupdate,client) {
+	/**
+	 * @param {string} tipo 
+	 * @param {integer} id 
+	 * @param {Date} timestart 
+	 * @param {Date} timeend
+	 * @param {Object} options
+	 * @param {boolean} isPublic   
+	 * @param {Date} timeupdate
+	 * @param {Client} client 
+	 * @param {boolean} validada - filter observations by validation status
+	 */
+	static async getSerie(tipo,id,timestart,timeend,options={},isPublic,timeupdate,client, validada) {
 		var release_client = false
 		if(!client) {
 			client = await global.pool.connect()
@@ -9172,10 +9193,10 @@ internal.CRUD = class {
 			if(timestart && timeend) {
 				options.obs_type = serie["var"].type
 				// console.log(JSON.stringify(["areal",{series_id:row.id,timestart:timestart,timeend:timeend},options]))
-				observaciones =  await this.getObservacionesRTS("areal",{series_id:row.id,timestart:timestart,timeend:timeend},options,serie)
+				observaciones =  await this.getObservacionesRTS("areal",{series_id:row.id,timestart:timestart,timeend:timeend, validada: validada},options,serie)
 			} else if(timeupdate) {
 				options.obs_type = serie["var"].type
-				observaciones = await this.getObservacionesRTS("areal",{series_id:row.id,timeupdate:timeupdate},options,serie)
+				observaciones = await this.getObservacionesRTS("areal",{series_id:row.id,timeupdate:timeupdate, validada: validada},options,serie)
 			}
 			if(options.asArray) {
 				serie.observaciones = observaciones
@@ -10101,15 +10122,45 @@ internal.CRUD = class {
 			var on_conflict_clause_obs = (no_update) ? " NOTHING " : (config.crud.update_observaciones_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\
 							descripcion=excluded.descripcion,\
 							unit_id=excluded.unit_id,\
-							timeupdate=excluded.timeupdate " : " NOTHING "
+							timeupdate=excluded.timeupdate, \
+							validada=excluded.validada " : " NOTHING "
 			var on_conflict_clause_val = (no_update) ? " NOTHING " : " UPDATE SET valor=excluded.valor "
 			const client = await global.pool.connect()
 			var res = await client.query('BEGIN')
-			const queryText = "INSERT INTO " + obs_tabla + " (series_id,timestart,timeend,nombre,descripcion,unit_id,timeupdate)\
-				VALUES ($1,$2,$3,$4,$5,$6,coalesce($7,now()))\
-				ON CONFLICT (series_id,timestart,timeend) DO " + on_conflict_clause_obs + "\
-				RETURNING *"
-			var stmt = internal.utils.pasteIntoSQLQuery(queryText,[observacion.series_id,observacion.timestart,observacion.timeend,observacion.nombre,observacion.descripcion,observacion.unit_id,observacion.timeupdate])
+			const queryText = `INSERT INTO ${obs_tabla} (
+				series_id,
+				timestart,
+				timeend,
+				nombre,
+				descripcion,
+				unit_id,
+				timeupdate
+				)
+				VALUES (
+					$1,
+					$2,
+					$3,
+					$4,
+					$5,
+					$6,
+					coalesce($7,now()),
+					$8
+				)
+				ON CONFLICT (series_id,timestart,timeend) 
+				DO ${on_conflict_clause_obs}
+				RETURNING *`
+			var stmt = internal.utils.pasteIntoSQLQuery(
+				queryText,
+				[
+					observacion.series_id,
+					observacion.timestart,
+					observacion.timeend,
+					observacion.nombre,
+					observacion.descripcion,
+					observacion.unit_id,
+					observacion.timeupdate,
+					observacion.validada
+				])
 			// console.log(stmt)
 			res = await client.query(stmt)
 			// return client.query(queryText,[observacion.series_id,observacion.timestart,observacion.timeend,observacion.nombre,observacion.descripcion,observacion.unit_id,observacion.timeupdate])
@@ -10117,7 +10168,18 @@ internal.CRUD = class {
 				// NO UPSERTED OBS
 				if(!config.crud.update_observaciones_timeupdate) {
 					// TRY TO UPDATE VAL
-					const obs = new internal.observacion({series_id: observacion.series_id, timestart: observacion.timestart, timeend:observacion.timeend, nombre: observacion.nombre,descripcion: observacion.descripcion, unit_id: observacion.unit_id, timeupdate: observacion.timeupdate})
+					const obs = new internal.observacion(
+						{
+							series_id: observacion.series_id, 
+							timestart: observacion.timestart, 
+							timeend: observacion.timeend, 
+							nombre: observacion.nombre,
+							descripcion: observacion.descripcion, 
+							unit_id: observacion.unit_id, 
+							timeupdate: observacion.timeupdate,
+							validada: observacion.validada
+						}
+					)
 					const insertValorText = "UPDATE " + val_tabla + " SET valor=$1 FROM " + obs_tabla + " WHERE " + obs_tabla + ".id=" + val_tabla + ".obs_id AND series_id=$2 AND timestart=$3 AND timeend=$4 RETURNING obs_id,valor"
 					// console.log(pasteIntoSQLQuery(insertValorText,[observacion.valor, observacion.series_id, observacion.timestart, observacion.timeend]))
 					res = await client.query(insertValorText, [observacion.valor, observacion.series_id, observacion.timestart, observacion.timeend])
@@ -10177,18 +10239,18 @@ internal.CRUD = class {
 				var offset = (observacion.offset) ? parseFloat(observacion.offset) : 0
 				var expression = "[rast]*" + scale + "+" + offset
 				stmt = "INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate)\
-				VALUES ($1, $2, $3, ST_mapAlgebra(ST_FromGDALRaster($4),'32BF',$5), $6)\
+				VALUES ($1, $2, $3, ST_mapAlgebra(ST_FromGDALRaster($4),'32BF',$5), $6, $7)\
 				ON CONFLICT (series_id, timestart, timeend)\
 				DO " + on_conflict_clause + "\
-				RETURNING id,series_id,timestart,timeend,st_asgdalraster(valor,'GTiff') valor,timeupdate"    // '\\x'||encode(st_asgdalraster(valor,'GTiff')::bytea,'hex')
-				args = [observacion.series_id, observacion.timestart, observacion.timeend, valor_string, expression, observacion.timeupdate]
+				RETURNING id, series_id, timestart, timeend, st_asgdalraster(valor,'GTiff') valor, timeupdate, validada"    // '\\x'||encode(st_asgdalraster(valor,'GTiff')::bytea,'hex')
+				args = [observacion.series_id, observacion.timestart, observacion.timeend, valor_string, expression, observacion.timeupdate, observacion.validada]
 			} else {
 				stmt = "INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate)\
-				VALUES ($1, $2, $3, ST_FromGDALRaster($4), $5)\
+				VALUES ($1, $2, $3, ST_FromGDALRaster($4), $5, $6)\
 				ON CONFLICT (series_id, timestart, timeend)\
 				DO " + on_conflict_clause + "\
-				RETURNING id,series_id,timestart,timeend,st_asgdalraster(valor, 'GTIff') valor,timeupdate" // '\\x'||encode(st_asgdalraster(valor,'GTiff')::bytea,'hex')
-				args = [observacion.series_id, observacion.timestart, observacion.timeend, valor_string, observacion.timeupdate]
+				RETURNING id, series_id, timestart, timeend, st_asgdalraster(valor, 'GTIff') valor, timeupdate, validada" // '\\x'||encode(st_asgdalraster(valor,'GTiff')::bytea,'hex')
+				args = [observacion.series_id, observacion.timestart, observacion.timeend, valor_string, observacion.timeupdate, observacion.validada]
 			}	
 			//~ if(options.hex) {
 				//~ args[3] = '\\x' + args[3]
@@ -10378,7 +10440,7 @@ internal.CRUD = class {
 				console.log("skipping null value, series_id:" + observacion.valor + ", timestart:" + observacion.timestart.toISOString())
 				return
 			}
-			obs_values.push(sprintf("(%d,'%s'::timestamptz,'%s'::timestamptz,'upsertObservacionesPuntual',now(),%f)", observacion.series_id, observacion.timestart.toISOString(), observacion.timeend.toISOString(),observacion.valor))
+			obs_values.push(sprintf("(%d,'%s'::timestamptz,'%s'::timestamptz,'upsertObservacionesPuntual',now(),%f,%s)", observacion.series_id, observacion.timestart.toISOString(), observacion.timeend.toISOString(),observacion.valor, (observacion.validada) ? (observacion.validada.toString().toLowerCase() == "true") : "false"))
 			return observacion
 		}).filter(o=>o)
 		//~ console.log({observaciones:observaciones})
@@ -10388,7 +10450,8 @@ internal.CRUD = class {
 		}
 		obs_values = obs_values.join(",")
 		var on_conflict_clause_obs = (no_update) ? " NOTHING " : (config.crud.update_observaciones_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\
-					  timeupdate=excluded.timeupdate" : " NOTHING "
+					  timeupdate=excluded.timeupdate,\
+					  validada=excluded.validada" : " NOTHING "
 		var on_conflict_clause_val = (no_update) ? " NOTHING " : " UPDATE SET valor=excluded.valor"
 		var disable_trigger = "" // (timeSupport) ? "ALTER TABLE observaciones DISABLE TRIGGER obs_puntual_dt_constraint_trigger;" : ""
 		var enable_trigger = "" //(timeSupport) ? "ALTER TABLE observaciones ENABLE TRIGGER obs_puntual_dt_constraint_trigger;" : ""
@@ -10402,12 +10465,12 @@ internal.CRUD = class {
 			//~ console.log({obs_values:obs_values})
 			await client.query("\
 					" + disable_trigger  + "\
-					CREATE TEMPORARY TABLE obs (series_id int,timestart timestamp,timeend timestamp,nombre varchar,timeupdate timestamp,valor real) ON COMMIT DROP ;\
-					INSERT INTO obs (series_id,timestart,timeend,nombre,timeupdate,valor)\
+					CREATE TEMPORARY TABLE obs (series_id int,timestart timestamp,timeend timestamp,nombre varchar,timeupdate timestamp,valor real, validada boolean) ON COMMIT DROP ;\
+					INSERT INTO obs (series_id,timestart,timeend,nombre,timeupdate,valor,validada)\
 					VALUES " + obs_values + ";")
 			await client.query("\
-					INSERT INTO observaciones (series_id,timestart,timeend,nombre,timeupdate)\
-					SELECT series_id,timestart,timeend,nombre,timeupdate\
+					INSERT INTO observaciones (series_id,timestart,timeend,nombre,timeupdate,validada)\
+					SELECT series_id,timestart,timeend,nombre,timeupdate,validada\
 					FROM obs \
 					ON CONFLICT (series_id,timestart,timeend)\
 					DO " + on_conflict_clause_obs)
@@ -10427,6 +10490,7 @@ internal.CRUD = class {
 							observaciones.timeend,\
 							observaciones.nombre,\
 							observaciones.timeupdate,\
+							observaciones.validada,\
 							valores_num.valor\
 					FROM observaciones,valores_num,obs\
 					WHERE observaciones.series_id=obs.series_id\
@@ -10496,7 +10560,7 @@ internal.CRUD = class {
 				console.log("skipping null value, series_id:" + observacion.valor + ", timestart:" + observacion.timestart.toISOString())
 				return
 			}
-			obs_values.push(sprintf("(%d,'%s'::timestamptz,'%s'::timestamptz,'upsertObservacionesAreal',now())", observacion.series_id, observacion.timestart.toISOString(), observacion.timeend.toISOString()))
+			obs_values.push(sprintf("(%d,'%s'::timestamptz,'%s'::timestamptz,'upsertObservacionesAreal',now())", observacion.series_id, observacion.timestart.toISOString(), observacion.timeend.toISOString(), (observacion.validada) ? (observacion.validada.toString().toLowerCase() == "true") : "false"))
 			return observacion
 		}).filter(o=>o)
 		if(config.verbose) {
@@ -10504,7 +10568,8 @@ internal.CRUD = class {
 		}
 		obs_values = obs_values.join(",")
 		var on_conflict_clause_obs = (no_update) ? " NOTHING " : (config.crud.update_observaciones_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\
-		timeupdate=excluded.timeupdate" : " NOTHING "
+		timeupdate=excluded.timeupdate,\
+		validada=excluded.validada" : " NOTHING "
 		var on_conflict_clause_val = (no_update) ? " NOTHING " : " UPDATE SET valor=excluded.valor "
 		var disable_trigger = "" // (timeSupport) ? "ALTER TABLE observaciones_areal DISABLE TRIGGER obs_dt_trig;" : ""
 		var enable_trigger = "" // (timeSupport) ? "ALTER TABLE observaciones_areal ENABLE TRIGGER obs_dt_trig;" : ""
@@ -10517,7 +10582,7 @@ internal.CRUD = class {
 		try {
 			await client.query(disable_trigger)
 			var rows = await executeQueryReturnRows("\
-					INSERT INTO observaciones_areal (series_id,timestart,timeend,nombre,timeupdate)\
+					INSERT INTO observaciones_areal (series_id,timestart,timeend,nombre,timeupdate,validada)\
 					VALUES " + obs_values + "\
 					ON CONFLICT (series_id,timestart,timeend)\
 					DO " + on_conflict_clause_obs + "\
@@ -10582,12 +10647,12 @@ internal.CRUD = class {
 			return Promise.reject("file " + csvFile + " not found")
 		}
 					//~ if(tipo.toLowerCase() == "puntual") {
-		var on_conflict_clause = (config.crud.update_observaciones_timeupdate) ? " UPDATE SET timeupdate=excluded.timeupdate " : " NOTHING "
+		var on_conflict_clause = (config.crud.update_observaciones_timeupdate) ? " UPDATE SET timeupdate=excluded.timeupdate, validada=excluded.validada " : " NOTHING "
 		return this.runSqlCommand(this.config.database,"BEGIN;\
-			CREATE TEMPORARY TABLE obs_temp (series_id int,timestart timestamptz,timeend timestamptz,valor real) ON COMMIT DROP;\
-			COPY obs_temp (series_id,timestart,timeend,valor) FROM STDIN WITH DELIMITER ',';\
-			INSERT INTO observaciones (series_id,timestart,timeend)\
-				SELECT series_id,timestart::timestamp,timeend::timestamp FROM obs_temp \
+			CREATE TEMPORARY TABLE obs_temp (series_id int,timestart timestamptz,timeend timestamptz,valor real,validada boolean) ON COMMIT DROP;\
+			COPY obs_temp (series_id,timestart,timeend,valor,validada) FROM STDIN WITH DELIMITER ',';\
+			INSERT INTO observaciones (series_id,timestart,timeend,validada)\
+				SELECT series_id,timestart::timestamp,timeend::timestamp,validada FROM obs_temp \
 				ON CONFLICT(series_id,timestart,timeend) \
 				DO " + on_conflict_clause + "\
 				RETURNING *;\
@@ -11225,7 +11290,8 @@ internal.CRUD = class {
 			unit_id:{type:"integer"},
 			timeupdate:{type:"date"},
 			var_id:{type:"integer",table:series_table},
-			proc_id:{type:"integer",table:series_table}
+			proc_id:{type:"integer",table:series_table},
+			validada: {type:"boolean", table: observaciones_table}
 		}
 		if(tipo=="puntual") {
 			valid_filters["red_id"] = {type:"integer",table:"redes",column:"id"}
@@ -11436,6 +11502,7 @@ internal.CRUD = class {
 			observaciones_areal.descripcion,\
 			observaciones_areal.unit_id,\
 			observaciones_areal.timeupdate,\
+			observaciones_areal.validada,\
 			" + valtablename + ".valor \
 			FROM observaciones_areal, " + valtablename + ",series_areal,fuentes\
 			WHERE observaciones_areal.series_id=series_areal.id \
@@ -11447,17 +11514,18 @@ internal.CRUD = class {
 			var format = (options) ? (options.format) ? options.format : "GTiff" : "GTiff"
 			switch(format.toLowerCase()) {
 				case "postgres":
-					stmt =  "SELECT observaciones_rast.id,observaciones_rast.series_id,observaciones_rast.timestart,observaciones_rast.timeend,observaciones_rast.valor,observaciones_rast.timeupdate FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart"
-					break;				case "GTiff":
-					stmt =  "SELECT observaciones_rast.id,observaciones_rast.series_id,observaciones_rast.timestart,observaciones_rast.timeend,ST_AsGDALRaster(observaciones_rast.valor,'GTIff') valor,(st_summarystats(observaciones_rast.valor)).*,observaciones_rast.timeupdate FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart"
+					stmt =  "SELECT observaciones_rast.id,observaciones_rast.series_id,observaciones_rast.timestart,observaciones_rast.timeend,observaciones_rast.valor,observaciones_rast.timeupdate,observaciones_rast.validada FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart"
+					break;				
+				case "GTiff":
+					stmt =  "SELECT observaciones_rast.id,observaciones_rast.series_id,observaciones_rast.timestart,observaciones_rast.timeend,ST_AsGDALRaster(observaciones_rast.valor,'GTIff') valor,(st_summarystats(observaciones_rast.valor)).*,observaciones_rast.timeupdate,observaciones_rast.validada FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart"
 					break;
 				case "hex":
-					stmt =  "SELECT observaciones_rast.id,observaciones_rast.series_id,observaciones_rast.timestart,observaciones_rast.timeend,'\\x' || encode(ST_AsGDALRaster(observaciones_rast.valor,'GTIff')::bytea,'hex') valor,(st_summarystats(observaciones_rast.valor)).*,observaciones_rast.timeupdate FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart"
+					stmt =  "SELECT observaciones_rast.id,observaciones_rast.series_id,observaciones_rast.timestart,observaciones_rast.timeend,'\\x' || encode(ST_AsGDALRaster(observaciones_rast.valor,'GTIff')::bytea,'hex') valor,(st_summarystats(observaciones_rast.valor)).*,observaciones_rast.timeupdate,observaciones_rast.validada FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart"
 					break;
 				case "png":
 					var width = (options.width) ? parseInt(options.width) : 300
 					var height = (options.height) ? parseInt(options.height) : 300
-					stmt =  "SELECT id,series_id,timestart,timeend,ST_asGDALRaster(st_colormap(st_resize(st_reclass(valor,'[' || (st_summarystats(valor)).min || '-' || (st_summarystats(valor)).max || ']:1-255, ' || st_bandnodatavalue(valor) || ':0','8BUI')," + width + "," + height + "),1,'grayscale','nearest'),'PNG') valor,(st_summarystats(valor)).*,timeupdate FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart"
+					stmt =  "SELECT id,series_id,timestart,timeend,ST_asGDALRaster(st_colormap(st_resize(st_reclass(valor,'[' || (st_summarystats(valor)).min || '-' || (st_summarystats(valor)).max || ']:1-255, ' || st_bandnodatavalue(valor) || ':0','8BUI')," + width + "," + height + "),1,'grayscale','nearest'),'PNG') valor,(st_summarystats(valor)).*,timeupdate,observaciones_rast.validada FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart"
 					break;
 				case "geojson":
 				case "json":
@@ -11468,7 +11536,8 @@ internal.CRUD = class {
 								   observaciones_rast.timeend,\
 								   (ST_PixelAsCentroids(observaciones_rast.valor, 1, true)).*,\
 								   (st_summarystats(observaciones_rast.valor)).*,\
-								   observaciones_rast.timeupdate \
+								   observaciones_rast.timeupdate, \
+								   observaciones_rast.validada \
 								FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart)\
 							SELECT id,\
 							       series_id,\
@@ -11486,7 +11555,7 @@ internal.CRUD = class {
 							ORDER BY timestart"
 					break
 				default:
-					stmt =  "SELECT observaciones_rast.id,observaciones_rast.series_id,observaciones_rast.timestart,observaciones_rast.timeend,ST_AsGDALRaster(observaciones_rast.valor,'GTIff') valor,(st_summarystats(observaciones_rast.valor)).*,observaciones_rast.timeupdate FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart"
+					stmt =  "SELECT observaciones_rast.id,observaciones_rast.series_id,observaciones_rast.timestart,observaciones_rast.timeend,ST_AsGDALRaster(observaciones_rast.valor,'GTIff') valor,(st_summarystats(observaciones_rast.valor)).*,observaciones_rast.timeupdate,observaciones_rast.validada FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart"
 					break;
 			}
 		} else {
@@ -11499,6 +11568,7 @@ internal.CRUD = class {
 			observaciones.descripcion,\
 			observaciones.unit_id,\
 			observaciones.timeupdate,\
+			observaciones.validada,\
 			"+valtablename+".valor \
 			FROM observaciones, "+valtablename+",series,estaciones,redes \
 			WHERE observaciones.series_id=series.id \
@@ -11667,13 +11737,33 @@ internal.CRUD = class {
 		for(var i = 0; i < res.rows.length; i++) {
 			var obs=res.rows[i]
 			if(tipo.toLowerCase()=="rast") {
-				const observacion = new internal.observacion({tipo:tipo, series_id:obs.series_id, timestart:obs.timestart, timeend:obs.timeend, nombre:obs.nombre, descripcion:obs.descripcion, unit_id: obs.unit_id, timeupdate: obs.timeupdate, valor:obs.valor, stats: {count: obs.count, mean: obs.mean, stddev: obs.stddev, min: obs.min, max: obs.max}})
+				const observacion = new internal.observacion(
+					{
+						tipo: tipo, 
+						series_id: obs.series_id, 
+						timestart: obs.timestart, 
+						timeend: obs.timeend, 
+						nombre: obs.nombre, 
+						descripcion: obs.descripcion, 
+						unit_id: obs.unit_id, 
+						timeupdate: obs.timeupdate, 
+						validada: obs.validada,
+						valor:obs.valor, 
+						stats: {
+							count: obs.count, 
+							mean: obs.mean, 
+							stddev: obs.stddev, 
+							min: obs.min, 
+							max: obs.max
+						}
+					}
+				)
 				observacion.id = obs.id
 				observaciones.push(observacion)
 			} else if (options && options.asArray) {
-				observaciones.push([obs.timestart, obs.timeend, obs.valor, obs.id])
+				observaciones.push([obs.timestart, obs.timeend, obs.valor, obs.id, obs.validada])
 			} else {
-				const observacion = new internal.observacion(tipo, obs.series_id, obs.timestart, obs.timeend, obs.nombre, obs.descripcion, obs.unit_id, obs.timeupdate, obs.valor)
+				const observacion = new internal.observacion({tipo: tipo, ...obs}) //.series_id, obs.timestart, obs.timeend, obs.nombre, obs.descripcion, obs.unit_id, obs.timeupdate, obs.valor, obs.validada)
 				observacion.id = obs.id
 				observaciones.push(observacion)
 			}
@@ -11781,7 +11871,7 @@ internal.CRUD = class {
 			return this.getObservaciones(tipo,getObsFilter)
 		} 
 		try {
-			var dateRange = await this.getObservacionesDateRange(tipo,{series_id:serie.id,timestart:filter.timestart,timeend:filter.timeend})
+			var dateRange = await this.getObservacionesDateRange(tipo,{series_id:serie.id,timestart:filter.timestart,timeend:filter.timeend, validada: filter.validada})
 		} catch(e) {
 			throw(e)
 		}
@@ -11815,6 +11905,7 @@ internal.CRUD = class {
 					seq.date timestart, \
 					seq.date + $2::interval AS timeend, \
 					" + obs_tabla + ".timeupdate,\
+					" + obs_tabla + ".validada,\
 					" + valuequerystring + " valor\
 			FROM seq\
 			LEFT JOIN " + obs_tabla + " ON (\
@@ -11833,6 +11924,10 @@ internal.CRUD = class {
 		if(filter.timeupdate) {
 			query += " WHERE " + obs_tabla + ".timeupdate=$6"
 			query_params.push(filter.timeupdate)
+		}
+		if(filter.validada) {
+			query += " WHERE " + obs_tabla + ".validada=$6"
+			query_params.push(filter.validada)
 		}
 		query += "ORDER BY seq.date"
 		// console.log(internal.utils.pasteIntoSQLQuery(query,[serie.id,interval_string,t_offset, timestart, timeend]))
@@ -11854,13 +11949,13 @@ internal.CRUD = class {
 			var obs=result.rows[i]
 			// console.log(JSON.stringify(obs))
 			if(tipo.toLowerCase()=="rast") {
-				const observacion = new internal.observacion({tipo:tipo, series_id:obs.series_id, timestart:obs.timestart, timeend:obs.timeend, nombre:obs.nombre, descripcion:obs.descripcion, unit_id: obs.unit_id, timeupdate: obs.timeupdate, valor:obs.valor, stats: {count: obs.count, mean: obs.mean, stddev: obs.stddev, min: obs.min, max: obs.max}})
+				const observacion = new internal.observacion({tipo:tipo, series_id:obs.series_id, timestart:obs.timestart, timeend:obs.timeend, nombre:obs.nombre, descripcion:obs.descripcion, unit_id: obs.unit_id, timeupdate: obs.timeupdate, valor:obs.valor, stats: {count: obs.count, mean: obs.mean, stddev: obs.stddev, min: obs.min, max: obs.max}, validada: obs.validada})
 				observacion.id = obs.id
 				observaciones.push(observacion)
 			} else if (options && options.asArray) {
-				observaciones.push([obs.timestart, obs.timeend, obs.valor, obs.id])
+				observaciones.push([obs.timestart, obs.timeend, obs.valor, obs.id, obs.validada])
 			} else {
-				const observacion = new internal.observacion({tipo:tipo, series_id:obs.series_id, timestart:obs.timestart, timeend:obs.timeend, nombre:obs.nombre, descripcion:obs.descripcion, unit_id:obs.unit_id, timeupdate:obs.timeupdate, valor:obs.valor})
+				const observacion = new internal.observacion({tipo:tipo, series_id:obs.series_id, timestart:obs.timestart, timeend:obs.timeend, nombre:obs.nombre, descripcion:obs.descripcion, unit_id:obs.unit_id, timeupdate:obs.timeupdate, valor:obs.valor, validada: obs.validada})
 				observacion.id = obs.id
 				observaciones.push(observacion)
 			}

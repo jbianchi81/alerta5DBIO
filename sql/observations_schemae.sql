@@ -179,7 +179,8 @@ CREATE TABLE public.observaciones (
     nombre character varying,
     descripcion character varying,
     unit_id integer,
-    timeupdate timestamp without time zone DEFAULT now()
+    timeupdate timestamp without time zone DEFAULT now(),
+    validada boolean default false
 );
 
 
@@ -228,7 +229,8 @@ CREATE TABLE public.observaciones_areal (
     nombre character varying,
     descripcion character varying,
     unit_id integer,
-    timeupdate timestamp without time zone DEFAULT now()
+    timeupdate timestamp without time zone DEFAULT now(),
+    validada boolean default false
 );
 
 
@@ -1186,7 +1188,8 @@ CREATE TABLE public.observaciones_rast (
     timestart timestamp without time zone NOT NULL,
     timeend timestamp without time zone NOT NULL,
     valor public.raster NOT NULL,
-    timeupdate timestamp without time zone DEFAULT now() NOT NULL
+    timeupdate timestamp without time zone DEFAULT now() NOT NULL,
+    validada boolean default false
 );
 
 
