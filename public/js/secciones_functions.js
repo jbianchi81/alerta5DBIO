@@ -1086,6 +1086,16 @@ function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create'
 			$(formContainer).find("button[type=submit]").removeAttr('formnovalidate')
 			$(formContainer).find("input.confirm.edit[name=id]").removeAttr('required')
 			//~ $(formContainer).find("button[type=submit]").unbind('submit').submit(onSubmitMetadata)
+			for (const key of Object.keys(mdElement.properties).filter(key => mdElement.properties[key].copy_from_filter)) {
+				console.debug({copy_from_filter: key})
+				$(formContainer).find(`.confirm.edit[name=${key}]`).val($(`form#selectorform .form-control[name=${key}]`).val())
+			}
+			// if(mdElement.propertiesobjectName == "observacion" && parseInt($("#selectorform input[name=series_id]").val()).toString() != "NaN") {
+			// 	$(formContainer).find("input.confirm.edit[name=series_id]").val($("#selectorform input[name=series_id]").val())
+			// }
+			// if(mdElement.objectName == "observacion" && $("#selectorform select[name=tipo]").val()) {
+			// 	$(formContainer).find("select.confirm.edit[name=tipo]").val($("#selectorform select[name=tipo]").val())
+			// }
 			break;
 		case "upload":
 			$("div#myModalMetadata div.modal-content div.modal-header h4.modal-title").text("Importar " + mdElement.objectName + " (JSON)")
@@ -1143,7 +1153,7 @@ function onSubmitMetadata(event) {
 	var objectName = global.mdElement.objectName
 	var objectNamePlural = global.mdElement.objectNamePlural
 	requestBody[objectName] = {}
-	var md_keys = Object.keys(global.mdElement.properties).filter(p=>(!global.mdElement.properties[p].no_md && global.mdElement.properties[p].edit))
+	var md_keys = Object.keys(global.mdElement.properties).filter(p=>(!global.mdElement.properties[p].no_md && (global.mdElement.properties[p].edit) || global.mdElement.properties[p].copy_from_filter))
 	if(action != "delete" && action != "upload") {
 		for(var i in md_keys) {
 			var key = md_keys[i]

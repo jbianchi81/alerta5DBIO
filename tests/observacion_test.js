@@ -87,7 +87,8 @@ test('observacion crud sequence', async(t) => {
                     "unit_id": null,
                     "timeupdate": "2024-07-23T18:21:46.563Z",
                     "valor": 398.53,
-                    "stats": null
+                    "stats": null,
+                    "validada": false
                 },
                 {
                     "id": 11,
@@ -100,7 +101,8 @@ test('observacion crud sequence', async(t) => {
                     "unit_id": null,
                     "timeupdate": "2024-07-23T18:21:46.563Z",
                     "valor": 0,
-                    "stats": null
+                    "stats": null,
+                    "validada": true
                 },
                 {
                     "id": 12,
@@ -125,6 +127,8 @@ test('observacion crud sequence', async(t) => {
         assert.equal(serie.id, 3281, "id of created serie must be 3281")
         assert.equal(serie.tipo, "puntual", "tipo of serie must be puntual")
         assert.equal(serie.observaciones.length, 3, "length of serie.observaciones must be 3")
+        assert.equal(serie.observaciones.filter(o=>o.validada == true).length, 1, "1 validated obs expected")
+        assert.equal(serie.observaciones.filter(o=>o.validada == false).length, 2, "2 non validated obs expected")
     })
 
     await t.test("read observaciones", async(t) => {
@@ -138,21 +142,32 @@ test('observacion crud sequence', async(t) => {
             assert.equal(observacion.tipo, "puntual", "tipo of observacion must be puntual")
             assert.notEqual(parseFloat(observacion.valor).toString(), "NaN", "valor of observacion must be a float")
         }
+        assert.equal(observaciones.filter(o=>o.validada == true).length, 1, "1 validated obs expected")
+        assert.equal(observaciones.filter(o=>o.validada == false).length, 2, "2 non validated obs expected")
+    })
+
+    await t.test("read observaciones validadas", async(t) => {
+        const observaciones = await Observacion.read({
+            series_id: 3281,
+            tipo: "puntual",
+            validada: true
+        })
+        assert.equal(observaciones.length, 1, "Length of read observaciones must equal 1")
     })
 
     await t.test("Delete observaciones", async(t) => {
         const deleted = await Observacion.delete(
             {
                 series_id: 3281,
-                timestart: new Date("2027-08-13T03:00:00.000Z"),
-                timeend: new Date("2027-08-13T03:00:00.000Z")
+                timestart: new Date("2027-03-03T03:08:00.000Z"),
+                timeend: new Date("2027-03-03T03:08:00.000Z")
             }
         )
         assert.equal(deleted.length,1, "Deleted observaciones must be of length 1")
         for(const obs of deleted) {
             assert.equal(obs.series_id,3281, "deleted observaciones must have series_id=3281")
-            assert(obs.timestart.getTime() >= new Date("2027-08-13T03:00:00.000Z").getTime(), "deleted observaciones must have timestart>='2027-08-13T03:00:00.000Z'")
-            assert(obs.timestart.getTime() <= new Date("2027-08-13T03:00:00.000Z").getTime(), "deleted observaciones must have timestart<='2027-08-13T03:00:00.000Z'")
+            assert(obs.timestart.getTime() >= new Date("2027-03-03T03:08:00.000Z").getTime(), "deleted observaciones must have timestart>='2027-03-03T03:08:00.000Z'")
+            assert(obs.timestart.getTime() <= new Date("2027-03-03T03:08:00.000Z").getTime(), "deleted observaciones must have timestart<='2027-03-03T03:08:00.000Z'")
         }
     })
 
@@ -174,7 +189,25 @@ test('observacion crud sequence', async(t) => {
         assert.equal(deleted.length, 0, "Deleted observaciones must be of length 0")
     })
 
-    await t.test("Delete with tabla, 2 obs", async(t) => {
+    await t.test("Delete observaciones no validadas", async(t) => {
+        const deleted = await Observacion.delete(
+            {
+                tabla: "red_acumar",
+                timestart: new Date("2027-03-03T03:08:00.000Z"),
+                timeend: new Date("2030-02-16T15:21:00.000Z"),
+                validada: false
+            }
+        )
+        assert.equal(deleted.length,1, "Deleted observaciones must be of length 1")
+        for(const obs of deleted) {
+            assert.equal(obs.series_id,3281, "deleted observaciones must have series_id=3281")
+            assert(obs.timestart.getTime() >= new Date("2030-02-16T15:21:00.000Z").getTime(), "deleted observaciones must have timestart>='2030-02-16T15:21:00.000Z'")
+            assert(obs.timestart.getTime() <= new Date("2030-02-16T15:21:00.000Z").getTime(), "deleted observaciones must have timestart<='2030-02-16T15:21:00.000Z'")
+            assert(obs.validada == false, "observacion.validada must be false")
+        }
+    })
+
+    await t.test("Delete with tabla, remaining 1 obs", async(t) => {
         const deleted = await Observacion.delete(
             {
                 tabla: "red_acumar",
@@ -182,7 +215,7 @@ test('observacion crud sequence', async(t) => {
                 timeend: new Date("2030-02-16T15:21:00.000Z")
             }
         )
-        assert.equal(deleted.length, 2, "Deleted observaciones must be of length 2")
+        assert.equal(deleted.length, 1, "Deleted observaciones must be of length 1")
     })
 
     await t.test("delete estacion", async(t)=> {

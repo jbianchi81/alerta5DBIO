@@ -129,6 +129,10 @@
                 "series_id": {
                     "type": "integer",
                     "description": "id de serie"
+                },
+                "validada": {
+                    "type": "boolean",
+                    "description": "indica si la observación fue validada"
                 }
             },
             "required": ["timestart", "valor"]

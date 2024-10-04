@@ -1807,6 +1807,8 @@ var metadataElements = {
 				where: "path",
 				filterRequired: true,
 				disabled: true,
+				copy_from_filter: true,
+				required: true
 			},
 			series_id: {
 				type: "number",
@@ -1832,19 +1834,21 @@ var metadataElements = {
 					name: "serie"
 				},
 				filterRequired: true,
-				disabled: true
+				disabled: true,
+				copy_from_filter: true,
+				required: true
 			},
 			timestart: {
-				type: "date",
+				type: "datetime-local",
 				title: "fecha/hora inicial",
-				required: false,
+				required: true,
 				filter: true,
 				edit: true,
 				description: "fecha/hora inicial",
 				filterRequired: true
 			},
 			timeend: {
-				type: "date",
+				type: "datetime-local",
 				title: "fecha/hora final",
 				required: false,
 				filter: true,
@@ -1893,6 +1897,14 @@ var metadataElements = {
 				edit: false,
 				description: "saltear registros nulos",
 				no_md: true
+			},
+			validada: {
+				type: "boolean",
+				title: "Indica si la observación fue validada",
+				required: false,
+				filter: true,
+				edit: true,
+				description: "Indica si la observación fue validada"
 			}
 		},
 		objectName: "observacion",

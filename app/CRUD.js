@@ -10134,7 +10134,8 @@ internal.CRUD = class {
 				nombre,
 				descripcion,
 				unit_id,
-				timeupdate
+				timeupdate,
+				validada
 				)
 				VALUES (
 					$1,
@@ -10238,14 +10239,14 @@ internal.CRUD = class {
 				var scale = parseFloat(observacion.scale)
 				var offset = (observacion.offset) ? parseFloat(observacion.offset) : 0
 				var expression = "[rast]*" + scale + "+" + offset
-				stmt = "INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate)\
+				stmt = "INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate, validada)\
 				VALUES ($1, $2, $3, ST_mapAlgebra(ST_FromGDALRaster($4),'32BF',$5), $6, $7)\
 				ON CONFLICT (series_id, timestart, timeend)\
 				DO " + on_conflict_clause + "\
 				RETURNING id, series_id, timestart, timeend, st_asgdalraster(valor,'GTiff') valor, timeupdate, validada"    // '\\x'||encode(st_asgdalraster(valor,'GTiff')::bytea,'hex')
 				args = [observacion.series_id, observacion.timestart, observacion.timeend, valor_string, expression, observacion.timeupdate, observacion.validada]
 			} else {
-				stmt = "INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate)\
+				stmt = "INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate, validada)\
 				VALUES ($1, $2, $3, ST_FromGDALRaster($4), $5, $6)\
 				ON CONFLICT (series_id, timestart, timeend)\
 				DO " + on_conflict_clause + "\
@@ -10910,7 +10911,7 @@ internal.CRUD = class {
 		if(tipo == "raster") {
 			var stmt
 			var args
-			var returning_clause = (options && options.no_send_data) ? " RETURNING 1 AS d" : " RETURNING series_id,id,timestart,timeend,ST_AsGDALRaster(valor, 'GTIff') valor, timeupdate"
+			var returning_clause = (options && options.no_send_data) ? " RETURNING 1 AS d" : " RETURNING series_id,id,timestart,timeend,ST_AsGDALRaster(valor, 'GTIff') valor, timeupdate, validada"
 			var select_deleted_clause = (options && options.no_send_data) ? " SELECT count(d) FROM deleted" : "SELECT * FROM deleted"
 			if(filter.id) {
 				stmt = "WITH deleted AS (DELETE FROM observaciones_rast WHERE id=$1 " + returning_clause + ") " +  select_deleted_clause
@@ -10920,7 +10921,8 @@ internal.CRUD = class {
 					series_id: {type:"integer"},
 					timestart:{type:"timestart"},
 					timeend:{type:"timeend"},
-					timeupdate:{type:"string"}
+					timeupdate:{type:"string"},
+					validada:{type:"boolean"}
 				}
 				var filter_string = internal.utils.control_filter2(valid_filters,filter)
 				if(!filter_string) {
@@ -10985,7 +10987,8 @@ internal.CRUD = class {
 					valor:{type:"numeric_interval"},
 					var_id:{type:"integer",table:series_tabla},
 					proc_id:{type:"integer",table:series_tabla},
-					unit_id:{type:"integer",table:series_tabla}
+					unit_id:{type:"integer",table:series_tabla},
+					validada:{type:"boolean"}
 				}
 				var join_clause = ""
 				var obs_using_clause = ""
