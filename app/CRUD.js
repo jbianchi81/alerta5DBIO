@@ -20682,19 +20682,23 @@ internal.utils = {
 			}
 		}
 	},
+	/**
+	 * converts accumulated to pulses
+	 * assigns timestamp of the start of the accumulation period
+	 * returns n - 1 observations
+	**/
 	acum2pulses: function (observaciones) {
 		observaciones = observaciones.sort((a,b)=>{
 			return new Date(a.timestart).getTime() - new Date(b.timestart).getTime()
 		})
-		return observaciones.map((o,i,arr)=>{
-			var observacion_pulse = new internal.observacion(arr[i])
+		const observaciones_pulse = []
+		for(var i=0;i<observaciones.length - 1; i++) {
+			const observacion_pulse = new internal.observacion(observaciones[i])
 			observacion_pulse.id = undefined
-			if(i<arr.length-1) {
-				var valor = (arr[i+1].valor < arr[i].valor) ? arr[i+1].valor : arr[i+1].valor - arr[i].valor
-				observacion_pulse.valor = valor
-			} 
-			return observacion_pulse
-		})
+			observacion_pulse.valor = (observaciones[i+1].valor < observaciones[i].valor) ? observaciones[i+1].valor : observaciones[i+1].valor - observaciones[i].valor
+			observaciones_pulse.push(observacion_pulse)
+		}
+		return observaciones_pulse
 	},
 	getLimitString(limit,offset) {
 		if(limit) {
