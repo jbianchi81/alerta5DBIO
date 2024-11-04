@@ -8916,7 +8916,8 @@ internal.CRUD = class {
 							}
 						}
 					} else {
-						// serie already exists and no new id provided, do nothing
+						serie.id = series_match[0].id
+						// console.debug("serie already exists and no new id provided, only update observaciones (if present)")
 					}
 				} else {
 					// this is a new serie
