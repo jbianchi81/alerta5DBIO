@@ -8057,7 +8057,7 @@ function guess_tipo (data) {
 		return undefined
 	}
 	if(Array.isArray(data) && data.length) {
-		var tipo_guess = data[0].tipo
+		var tipo_guess = data.find(item => item !== undefined).tipo
 		var count = 0
 		data.forEach((o,i) => {
 			if (o && o.tipo && o.tipo != tipo_guess) {

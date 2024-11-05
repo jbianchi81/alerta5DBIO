@@ -19,7 +19,7 @@ const timeSteps = require('./timeSteps')
 const QueryStream = require('pg-query-stream')
 const JSONStream = require('JSONStream')
 const CSV = require('csv-string')
-const gdal = require('gdal')
+// const gdal = require('gdal')
 const tmp = require('tmp')
 const { baseModel, BaseArray } = require('./baseModel')
 const querystring = require('node:querystring'); 
@@ -4163,15 +4163,15 @@ internal.observacion = class extends baseModel {
 		}
 	}
 	
-	rasterToJSON() {
-		const tmpFile = tmp.fileSync({mode: "0644", prefix: 'RasterObs',postfix:'.tif'})
-		this.toRaster(tmpFile.name)
-		const dataset = gdal.open(tmpFile.name)
-		const as_json = gdalDatasetToJSON(dataset)
-		fs.rmSync(tmpFile.name)
-		return as_json
+	// rasterToJSON() {
+	// 	const tmpFile = tmp.fileSync({mode: "0644", prefix: 'RasterObs',postfix:'.tif'})
+	// 	this.toRaster(tmpFile.name)
+	// 	const dataset = gdal.open(tmpFile.name)
+	// 	const as_json = gdalDatasetToJSON(dataset)
+	// 	fs.rmSync(tmpFile.name)
+	// 	return as_json
 
-	}
+	// }
 
 	toJSON() {
 		return {
@@ -7689,9 +7689,14 @@ internal.CRUD = class {
 	//~ }
 	
 	static async upsertAreas(areas) {
-		return Promise.all(areas.map(area=>{
-			return this.upsertArea(area)
-		}).filter(a=>a))
+		const created_areas = []
+		for(const area of areas) {
+			const created_area = await this.upsertArea(area)
+			if(created_area) {
+				created_areas.push(created_area)
+			}
+		}
+		return created_areas
 	}
 			
 	static async deleteArea(unid) {
@@ -8959,7 +8964,7 @@ internal.CRUD = class {
 					new_serie.observaciones = new_serie.observaciones.removeDuplicates()
 					new_serie.tipo_guess()
 					new_serie.idIntoObs()
-					var new_observaciones = await this.upsertObservaciones(serie.observaciones,serie.tipo,serie.id,undefined,client) // client.query(this.upsertObservacionesQuery(serie.observaciones,serie.tipo))
+					var new_observaciones = await this.upsertObservaciones(serie.observaciones,new_serie.tipo,new_serie.id,undefined,client) // client.query(this.upsertObservacionesQuery(serie.observaciones,serie.tipo))
 					new_serie.setObservaciones(new_observaciones)
 				}
 				series_result.push(new_serie)
@@ -10502,6 +10507,10 @@ internal.CRUD = class {
 		}).filter(o=>o)
 		if(config.verbose) {
 			// console.log("crud.upsertObservacionesAreal: obs_values:" + JSON.stringify(obs_values))
+		}
+		if(!obs_values.length) {
+			console.error("No values to insert")
+			return []
 		}
 		obs_values = obs_values.join(",")
 		var on_conflict_clause_obs = (no_update) ? " NOTHING " : (config.crud.update_observaciones_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\
