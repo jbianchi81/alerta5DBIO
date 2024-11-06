@@ -8752,7 +8752,7 @@ internal.CRUD = class {
 	 * @param {pg.Client=} client - pg client to use within transaction block 
 	 * @returns {Promise<internal.serie[]>} The created/updated series
 	 */
-	static async upsertSeries(series,all=false,upsert_estacion=false,generate_id=false,client, upsert_fuente=true) {
+	static async upsertSeries(series,all=false,upsert_estacion=false,generate_id=false,client, upsert_fuente=true, update_obs) {
 		// var promises=[]
 		// console.log({all:all})
 		var series_result=[]
@@ -8964,7 +8964,7 @@ internal.CRUD = class {
 					new_serie.observaciones = new_serie.observaciones.removeDuplicates()
 					new_serie.tipo_guess()
 					new_serie.idIntoObs()
-					var new_observaciones = await this.upsertObservaciones(serie.observaciones,new_serie.tipo,new_serie.id,undefined,client) // client.query(this.upsertObservacionesQuery(serie.observaciones,serie.tipo))
+					var new_observaciones = await this.upsertObservaciones(serie.observaciones,new_serie.tipo,new_serie.id,{no_update: (update_obs) ? false: true}, client) // client.query(this.upsertObservacionesQuery(serie.observaciones,serie.tipo))
 					new_serie.setObservaciones(new_observaciones)
 				}
 				series_result.push(new_serie)

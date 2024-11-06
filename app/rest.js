@@ -2505,7 +2505,7 @@ function upsertSeries(req,res) {
 	// if(options.series_metadata) { // upsert estacion,var,procedimiento,unidades,fuente
 		
 	// }
-	crud.upsertSeries(series,options.series_metadata)
+	crud.upsertSeries(series,options.series_metadata,undefined, undefined, undefined, undefined, options.update_obs)
 	.then(result=>{
 		if(!result) {
 			console.error("nothing upserted")
@@ -7968,6 +7968,9 @@ function getOptions(req) {
 		}
 		if(req.query.get_drainage_basin) {
 			options.get_drainage_basin = (req.query.get_drainage_basin.toString().toLowerCase() == 'true')
+		}
+		if(req.query.update_obs) {
+			options.update_obs = (req.query.update_obs.toString().toLowerCase() == 'true')
 		}
 		["agg_func","dt","t_offset","get_raster","min_count","group_by_cal","interval","stats","pivot","sort","order","from_view","get_cal_stats"].forEach(k=>{
 			if(req.query[k]) {
