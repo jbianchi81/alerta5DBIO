@@ -33,6 +33,7 @@
     "marked": "^5.1.2",
     "moment-timezone": "^0.5.46",
     "node-html-parser": "^6.1.13",
+    "node-libxml": "^5.0.6",
     "ogr2ogr": "^4.0.1",
     "passport": "^0.6.0",
     "passport-local": "^1.0.0",

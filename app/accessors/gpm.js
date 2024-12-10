@@ -31,6 +31,12 @@ class Escena_ extends CRUD_1.escena {
 }
 /**
  * Docs: https://pmmpublisher.pps.eosdis.nasa.gov/docs
+ *
+ * Available date range for daily product: last 2 months
+ *
+ * Time offset of daily product: 00Z
+ *
+ * Latency approx. 12 hours
  */
 class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     constructor(config) {

@@ -263,6 +263,19 @@ internal.CrudProcedure = class  {
                 throw("toRaster method not found for an instance of this class")
             }
             await data.toRaster(output)
+        } else if(output_format=="gmd") {
+            if(!Array.isArray(data)) {
+                if(data.rows) {
+                    data = data.rows
+                } else {
+                    data = [ data ]
+                }
+            }
+            if(!data[0] instanceof CRUD.serie) {
+                throw("toGmd method not present in object")    
+            }
+            await writeFile(output,CRUD.serie.toGmd(data))
+            
         } else {
             throw("Invalid format")
         }

@@ -2415,6 +2415,9 @@ function getSeries(req,res) {
 	if(filter.limit !== undefined) {
 		options.pagination = true
 	}
+	if(options.format && options.format.toLowerCase() == "gmd") {
+		options.include_geom = true
+	}
 	crud.getSeries(tipo,filter,options)
 	.then(result=>{
 		console.log("Results: " + result.length)
@@ -7200,9 +7203,37 @@ async function send_output(options,data,res,property_name) {
 					return
 	
 				})
+			} else if (options.format.toLowerCase() == 'gmd') {
+					if(!Array.isArray(data)) {
+						if(data.rows) {
+							data = data.rows
+						} else {
+							data = [data]
+						}
+					}
+					for(var item of data) {
+						if(!item instanceof CRUD.serie) {
+							console.error("Formato solicitado no válido")
+							res.status(400).send("Formato solicitado no válido")
+							return	
+						}
+					}
+					console.debug("data.length:" + data.length + ", data:" + JSON.stringify(data))
+					try {
+						output = CRUD.serie.toGmd(data)
+					} catch(e) {
+						console.error(e)
+						res.status(500).send("Server error")
+						return
+					}
+					contentType = "application/xml"
+					console.log("about to send " + output.length + " characters of data")
+					res.setHeader('Content-Type', contentType);
+					res.end(output);
+					return
 			} else {
 				console.error("Formato solicitado inválido: opciones: json, geojson, mnemos, csv, string")
-				res.status(400).send("Formato solicitado inválido: opciones: json, geojson, mnemos, csv, string")
+				res.status(400).send("Formato solicitado inválido: opciones: json, geojson, mnemos, csv, string, gmd")
 				return
 			}
 		}

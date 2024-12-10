@@ -1,14 +1,28 @@
-const { create } = require('xmlbuilder2');
+import { create } from 'xmlbuilder2';
+import { Serie } from './a5_types'
 
 // CRUD.serie.read({"tipo":"raster"},{include_geom:true}).then(r=>series=r)
 
-function serieToIso19115(serie) {
-    
+function seriesToGmd(series : Serie[]) {
+    var xml = create({ version: '1.0', encoding: 'UTF-8' })
+    for(var serie of series) { 
+        xml = append_MD_Element(xml, serie)
+    }
+    return xml.end({ prettyPrint: true });
+}
+
+function serieToGmd(serie : Serie) : string {    
     // Create XML structure
-    const xml = create({ version: '1.0', encoding: 'UTF-8' })
-        .ele('gmd:MD_Metadata', { 'xmlns:gmd': 'http://www.isotc211.org/2005/gmd', 'xmlns:gco': 'http://www.isotc211.org/2005/gco' })
-            .ele('gmd:fileIdentifier')
-                .ele('gco:CharacterString').txt(serie.id || 'N/A').up()
+    var xml = create({ version: '1.0', encoding: 'UTF-8' })
+    xml = append_MD_Element(xml, serie)
+    return xml.end({ prettyPrint: true });
+}
+
+function append_MD_Element(xml, serie : Serie) {
+    return xml
+        .ele('gmd:MI_Metadata', { 'xmlns:gmd': 'http://www.isotc211.org/2005/gmd', 'xmlns:gco': 'http://www.isotc211.org/2005/gco', 'xmlns:gml': 'http://www.opengis.net/gml/3.2', "xmlns:gmi": "http://www.isotc211.org/2005/gmi", 'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance", 'xsi:schemaLocation': "https://www.isotc211.org/2005/gmd gmd.xsd"})
+                .ele('gmd:fileIdentifier')
+                .ele('gco:CharacterString').txt(serie.id.toString()).up()
             .up()
             .ele('gmd:language')
                 .ele('gco:CharacterString').txt('es').up()
@@ -73,8 +87,8 @@ function serieToIso19115(serie) {
                         .ele('gmd:EX_TemporalExtent')
                             .ele('gmd:extent')
                                 .ele('gml:TimePeriod')
-                                    .ele('gml:beginPosition').txt(serie.date_range.timestart || 'N/A').up()
-                                    .ele('gml:endPosition').txt(serie.date_range.timeend || 'N/A').up()
+                                    .ele('gml:beginPosition').txt(serie.date_range.timestart instanceof Date ? serie.date_range.timestart.toISOString() : serie.date_range.timestart || 'N/A').up()
+                                    .ele('gml:endPosition').txt(serie.date_range.timeend instanceof Date ? serie.date_range.timeend.toISOString() : serie.date_range.timeend || 'N/A').up()
                                 .up()
                             .up()
                         .up()
@@ -125,6 +139,9 @@ function serieToIso19115(serie) {
                 .up()
             .up()
         .up();
+}
 
-    return xml.end({ prettyPrint: true });
+module.exports = {
+    serieToGmd: serieToGmd,
+    seriesToGmd: seriesToGmd
 }

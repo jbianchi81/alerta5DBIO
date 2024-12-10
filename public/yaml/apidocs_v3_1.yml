@@ -3093,6 +3093,17 @@ paths:
         required: false
         schema: { "type": "string"} 
         in: query
+      - name: format
+        description: formato (json, gmd)
+        required: false
+        schema:
+          oneOf:
+           - json
+           - geojson
+           - csv
+           - gmd
+           - string
+        in: query
       responses:
         '200':
           description: OK
@@ -3263,6 +3274,17 @@ paths:
         required: false
         schema: { "type": "boolean"} 
         in: query
+      - name: format
+        description: formato (json, gmd)
+        required: false
+        schema:
+          oneOf:
+           - json
+           - geojson
+           - csv
+           - gmd
+           - string
+        in: query      
       responses:
         '200':
           description: OK

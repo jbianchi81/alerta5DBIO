@@ -36,6 +36,7 @@ const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, c
 const { DateFromDateOrInterval, Interval } = require('./timeSteps');
 // const { isContext } = require('vm');
 const logger = require('./logger');
+const {serieToGmd, seriesToGmd} = require('./serieToGmd')
 
 const { escapeIdentifier, escapeLiteral } = require('pg');
 const { options } = require('marked');
@@ -1909,6 +1910,14 @@ internal.serie = class extends baseModel {
 				kvp_string = `${kvp_string}${kvp_sep}${line_start}tabla_id${sep}${this.estacion.tabla}${kvp_sep}${line_start}id_externo${sep}${this.estacion.id_externo}`
 			}
 			return kvp_string
+	}
+
+	toGmd() {
+		return serieToGmd(this)
+	}
+
+	static toGmd(series) {
+		return seriesToGmd(series)
 	}
 
 	/**
