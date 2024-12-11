@@ -2,142 +2,184 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const xmlbuilder2_1 = require("xmlbuilder2");
 // CRUD.serie.read({"tipo":"raster"},{include_geom:true}).then(r=>series=r)
-function seriesToGmd(series) {
-    var xml = (0, xmlbuilder2_1.create)({ version: '1.0', encoding: 'UTF-8' });
-    for (var serie of series) {
-        xml = append_MD_Element(xml, serie);
-    }
-    return xml.end({ prettyPrint: true });
-}
 function serieToGmd(serie) {
-    // Create XML structure
-    var xml = (0, xmlbuilder2_1.create)({ version: '1.0', encoding: 'UTF-8' });
-    xml = append_MD_Element(xml, serie);
+    const file_identifier = serie.tipo + ":" + serie.id.toString();
+    const topic_category = (serie.var.GeneralCategory in topicCategoryMapping) ? topicCategoryMapping[serie.var.GeneralCategory] : null;
+    //  [minX, minY, maxX, maxY]
+    var bbox = serie.estacion.geom.bbox();
+    const bbox_obj = {
+        'gmd:westBoundLongitude': {
+            'gco:Decimal': bbox[0]
+        },
+        'gmd:eastBoundLongitude': {
+            'gco:Decimal': bbox[2]
+        },
+        'gmd:southBoundLatitude': {
+            'gco:Decimal': bbox[1]
+        },
+        'gmd:northBoundLatitude': {
+            'gco:Decimal': bbox[3]
+        }
+    };
+    var doc_obj = {
+        'gmi:MI_Metadata': {
+            "@xmlns:gmi": "http://www.isotc211.org/2005/gmi",
+            "@xmlns": "http://www.isotc211.org/2005/gmi",
+            "@xmlns:gco": "http://www.isotc211.org/2005/gco",
+            "@xmlns:gmd": "http://www.isotc211.org/2005/gmd",
+            "@xmlns:gml": "http://www.opengis.net/gml/3.2",
+            "@xmlns:gmx": "http://www.isotc211.org/2005/gmx",
+            "@xmlns:gsr": "http://www.isotc211.org/2005/gsr",
+            "@xmlns:gss": "http://www.isotc211.org/2005/gss",
+            "@xmlns:gts": "http://www.isotc211.org/2005/gts",
+            "@xmlns:xlink": "http://www.w3.org/1999/xlink",
+            "@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+            "@xsi:schemaLocation": "http://www.isotc211.org/2005/gmi http://www.ngdc.noaa.gov/metadata/published/xsd/schema.xsd",
+            'gmd:fileIdentifier': {
+                'gco:CharacterString': file_identifier
+            },
+            'gmd:language': {
+                'gco:CharacterString': 'es'
+            },
+            'gmd:characterSet': {
+                'gmd:MD_CharacterSetCode': {
+                    '@codeListValue': 'utf8',
+                    '@codeList': 'http://www.ngdc.noaa.gov/metadata/published/xsd/schema/resources/Codelist/gmxCodelists.xml#MD_CharacterSetCode',
+                    '#': 'utf8'
+                }
+            },
+            'gmd:hierarchyLevel': {
+                'gmd:MD_ScopeCode': {
+                    '@codeListValue': 'series',
+                    '@codeList': 'http://www.ngdc.noaa.gov/metadata/published/xsd/schema/resources/Codelist/gmxCodelists.xml#MX_ScopeCode',
+                    '#': 'series'
+                }
+            },
+            'gmd:contact': {
+                'gmd:CI_ResponsibleParty': {
+                    'gmd:organisationName': {
+                        'gco:CharacterString': 'Instituto Nacional del Agua'
+                    },
+                    'gmd:role': {
+                        'gmd:CI_RoleCode': {
+                            '@codeListValue': 'author',
+                            '@codeList': 'http://www.ngdc.noaa.gov/metadata/published/xsd/schema/resources/Codelist/gmxCodelists.xml#CI_RoleCode',
+                            '#': 'author'
+                        }
+                    }
+                }
+            },
+            'gmd:dateStamp': {
+                'gco:DateTime': new Date().toISOString()
+            },
+            'gmd:identificationInfo': {
+                'gmd:MD_DataIdentification': {
+                    'gmd:citation': {
+                        'gmd:CI_Citation': {
+                            'gmd:title': {
+                                'gco:CharacterString': serie.fuente.source
+                            },
+                            'gmd:date': {
+                                'gmd:CI_Date': {
+                                    'gmd:date': {
+                                        '@gco:nilReason': 'unknown'
+                                    },
+                                    'gmd:dateType': ""
+                                }
+                            },
+                            'gmd:citedResponsibleParty': {
+                                'gmd:CI_ResponsibleParty': {
+                                    'gmd:organisationName': {
+                                        'gco:CharacterString': serie.fuente.source || serie.fuente.nombre || 'Unknown'
+                                    },
+                                    'gmd:role': {
+                                        'gmd:CI_RoleCode': {
+                                            '@codeListValue': 'originator',
+                                            '@codeList': 'http://www.ngdc.noaa.gov/metadata/published/xsd/schema/resources/Codelist/gmxCodelists.xml#CI_RoleCode',
+                                            '#': 'originator'
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    'gmd:abstract': {
+                        'gco:CharacterString': serie.fuente.abstract || 'N/A'
+                    },
+                    'gmd:descriptiveKeywords': {
+                        'gmd:MD_Keywords': {
+                            'gmd:keyword': [
+                                {
+                                    'gco:CharacterString': serie.var.VariableName || 'N/A'
+                                },
+                                {
+                                    'gco:CharacterString': serie.estacion.nombre || 'N/A'
+                                },
+                                {
+                                    'gco:CharacterString': serie.procedimiento.nombre || 'N/A'
+                                },
+                                {
+                                    'gco:CharacterString': serie.unidades.abrev || 'N/A'
+                                }
+                            ]
+                        }
+                    },
+                    'gmd:language': {
+                        'gco:CharacterString': 'es'
+                    },
+                    'gmd:topicCategory': {
+                        'gmd:MD_TopicCategoryCode': topic_category
+                    },
+                    'gmd:extent': {
+                        'gmd:EX_Extent': {
+                            'gmd:geographicElement': {
+                                'gmd:EX_GeographicBoundingBox': bbox_obj
+                            },
+                            'gmd:temporalElement': {
+                                'gmd:EX_TemporalExtent': {
+                                    'gmd:extent': {
+                                        'gml:TimePeriod': {
+                                            '@gml:id': 'boundingTimePeriod',
+                                            'gml:beginPosition': serie.date_range.timestart instanceof Date ? serie.date_range.timestart.toISOString() : serie.date_range.timestart || 'N/A',
+                                            'gml:endPosition': serie.date_range.timeend instanceof Date ? serie.date_range.timeend.toISOString() : serie.date_range.timeend || 'N/A'
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            'gmd:distributionInfo': {
+                'gmd:MD_Distribution': {
+                    'gmd:transferOptions': {
+                        'gmd:MD_DigitalTransferOptions': {
+                            'gmd:onLine': {
+                                'gmd:CI_OnlineResource': {
+                                    'gmd:linkage': {
+                                        'gmd:URL': `https://alerta.ina.gob.ar/a5/obs/${serie.tipo}/series/${serie.id}?include_geom=true&format=geojson`
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+    if (!topic_category) {
+        delete doc_obj['gmi:MI_Metadata']['gmd:identificationInfo']['gmd:MD_DataIdentification']['gmd:topicCategory'];
+    }
+    var xml = (0, xmlbuilder2_1.create)(doc_obj);
+    // xml = append_MD_Element(xml, serie)
     return xml.end({ prettyPrint: true });
 }
-function append_MD_Element(xml, serie) {
-    return xml
-        .ele('gmd:MI_Metadata', { 'xmlns:gmd': 'http://www.isotc211.org/2005/gmd', 'xmlns:gco': 'http://www.isotc211.org/2005/gco', 'xmlns:gml': 'http://www.opengis.net/gml/3.2', "xmlns:gmi": "http://www.isotc211.org/2005/gmi", 'xmlns:xsi': "http://www.w3.org/2001/XMLSchema-instance", 'xsi:schemaLocation': "https://www.isotc211.org/2005/gmd gmd.xsd" })
-        .ele('gmd:fileIdentifier')
-        .ele('gco:CharacterString').txt(serie.id.toString()).up()
-        .up()
-        .ele('gmd:language')
-        .ele('gco:CharacterString').txt('es').up()
-        .up()
-        .ele('gmd:characterSet')
-        .ele('gmd:MD_CharacterSetCode', { codeListValue: 'utf8', codeList: 'http://www.ngdc.noaa.gov/metadata/published/xsd/schema/resources/Codelist/gmxCodelists.xml#MD_CharacterSetCode' }).txt('utf8').up()
-        .up()
-        .ele('gmd:hierarchyLevel')
-        .ele('gmd:MD_ScopeCode', { codeListValue: 'series', codeList: 'http://www.ngdc.noaa.gov/metadata/published/xsd/schema/resources/Codelist/gmxCodelists.xml#MX_ScopeCode' }).txt('series').up()
-        .up()
-        .ele('gmd:contact')
-        .ele('gmd:CI_ResponsibleParty')
-        .ele('gmd:organisationName')
-        .ele('gco:CharacterString').txt('Instituto Nacional del Agua').up()
-        .up()
-        .ele('gmd:role')
-        .ele('gmd:CI_RoleCode', { codeListValue: 'author', codeList: 'http://www.ngdc.noaa.gov/metadata/published/xsd/schema/resources/Codelist/gmxCodelists.xml#CI_RoleCode' }).txt('author').up()
-        .up()
-        .up()
-        .up()
-        .ele('gmd:contact')
-        .ele('gmd:CI_ResponsibleParty')
-        .ele('gmd:organisationName')
-        .ele('gco:CharacterString').txt(serie.fuente.source || serie.fuente.nombre || 'Unknown').up()
-        .up()
-        .ele('gmd:role')
-        .ele('gmd:CI_RoleCode', { codeListValue: 'originator', codeList: 'http://www.ngdc.noaa.gov/metadata/published/xsd/schema/resources/Codelist/gmxCodelists.xml#CI_RoleCode' }).txt('originator').up()
-        .up()
-        .up()
-        .up()
-        .ele('gmd:dateStamp')
-        .ele('gco:DateTime').txt(new Date().toISOString()).up()
-        .up()
-        .ele('gmd:identificationInfo')
-        .ele('gmd:MD_DataIdentification')
-        .ele('gmd:abstract')
-        .ele('gco:CharacterString').txt(serie.fuente.abstract || 'N/A').up()
-        .up()
-        .ele('gmd:topicCategory')
-        .ele('gmd:MD_TopicCategoryCode').txt(serie.var.GeneralCategory || 'Unknown').up()
-        .up()
-        .ele('gmd:extent')
-        .ele('gmd:EX_Extent')
-        .ele('gmd:geographicElement')
-        .ele('gmd:EX_GeographicBoundingBox')
-        .ele('gmd:westBoundLongitude')
-        .ele('gco:Decimal').txt(serie.estacion.geom.coordinates[0][0][0]).up()
-        .up()
-        .ele('gmd:eastBoundLongitude')
-        .ele('gco:Decimal').txt(serie.estacion.geom.coordinates[0][1][0]).up()
-        .up()
-        .ele('gmd:southBoundLatitude')
-        .ele('gco:Decimal').txt(serie.estacion.geom.coordinates[0][2][1]).up()
-        .up()
-        .ele('gmd:northBoundLatitude')
-        .ele('gco:Decimal').txt(serie.estacion.geom.coordinates[0][0][1]).up()
-        .up()
-        .up()
-        .up()
-        .up()
-        .ele('gmd:temporalExtent')
-        .ele('gmd:EX_TemporalExtent')
-        .ele('gmd:extent')
-        .ele('gml:TimePeriod')
-        .ele('gml:beginPosition').txt(serie.date_range.timestart instanceof Date ? serie.date_range.timestart.toISOString() : serie.date_range.timestart || 'N/A').up()
-        .ele('gml:endPosition').txt(serie.date_range.timeend instanceof Date ? serie.date_range.timeend.toISOString() : serie.date_range.timeend || 'N/A').up()
-        .up()
-        .up()
-        .up()
-        .up()
-        .ele('gmd:keyword')
-        .ele('gmd:MD_Keywords')
-        .ele('gmd:keyword')
-        .ele('gco:CharacterString').txt(serie.var.VariableName || 'N/A').up()
-        .up()
-        .up()
-        .up()
-        .ele('gmd:keyword')
-        .ele('gmd:MD_Keywords')
-        .ele('gmd:keyword')
-        .ele('gco:CharacterString').txt(serie.estacion.nombre || 'N/A').up()
-        .up()
-        .up()
-        .up()
-        .ele('gmd:keyword')
-        .ele('gmd:MD_Keywords')
-        .ele('gmd:keyword')
-        .ele('gco:CharacterString').txt(serie.procedimiento.nombre || 'N/A').up()
-        .up()
-        .up()
-        .up()
-        .ele('gmd:keyword')
-        .ele('gmd:MD_Keywords')
-        .ele('gmd:keyword')
-        .ele('gco:CharacterString').txt(serie.unidades.abrev || 'N/A').up()
-        .up()
-        .up()
-        .up()
-        .up()
-        .up()
-        .ele('gmd:distributionInfo')
-        .ele('gmd:MD_Distribution')
-        .ele('gmd:transferOptions')
-        .ele('gmd:MD_DigitalTransferOptions')
-        .ele('gmd:onLine')
-        .ele('gmd:CI_OnlineResource')
-        .ele('gmd:linkage')
-        .ele('gmd:URL').txt(`https://alerta.ina.gob.ar/a5/obs/${serie.tipo}/series/${serie.id}?include_geom=true&format=geojson`).up()
-        .up()
-        .up()
-        .up()
-        .up()
-        .up()
-        .up()
-        .up()
-        .up();
-}
+const topicCategoryMapping = {
+    "Climate": "climatologyMeteorologyAtmosphere",
+    "Hydrology": "inlandWaters",
+    "Water Quality": "inlandWaters",
+    "Meteorology": "climatologyMeteorologyAtmosphere"
+};
 module.exports = {
-    serieToGmd: serieToGmd,
-    seriesToGmd: seriesToGmd
+    serieToGmd: serieToGmd
 };

@@ -34,10 +34,6 @@ test('serie rast read as gmd', async(t) => {
         const serie_gmd = series[0].toGmd()
         const libxml = new Libxml()
         assert(libxml.loadXmlFromString(serie_gmd),"Invalid xml")
-
-        const series_gmd = Serie.toGmd(series)
-        assert(libxml.loadXmlFromString(series_gmd),"Invalid xml")
-
     })
 
     await t.test("delete estacion", async(t)=> {

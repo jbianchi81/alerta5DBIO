@@ -6,6 +6,7 @@ const CSV = require('csv-string')
 const utils = require('./utils')
 const internal = {}
 const {Interval} = require('./timeSteps')
+const {Geometry} = require('./geometry')
 
 internal.writeModelToFile = async (model,output_file,output_format) => {
 	if(!model) {
@@ -165,7 +166,7 @@ internal.baseModel = class {
 					return parseFloat(value)
 				} else if (definition.type == "interval") {
 					return new Interval(value)
-				} else if (definition.type == "object" || definition.type == "geometry") {
+				} else if (definition.type == "object") {
 					if(typeof value == "string" && value.length) {
 						try {
 							return JSON.parse(value)
@@ -175,6 +176,19 @@ internal.baseModel = class {
 					} else {
 						return new Object(value)
 					}
+				} else if (definition.type == "geometry") {
+					var obj
+					if(typeof value == "string" && value.length) {
+						try {
+							obj = JSON.parse(value)
+						} catch(e) {
+							throw(new Error("json field sanitization error: string: '"+ value + "'. Error: " + e.toString()) )
+						}
+					} else {
+						obj = value
+					}
+					return new Geometry(obj)
+					
 				} else if (definition.type == "timestamp") {
 					return new Date(value)
 				} else if (definition.type == "array") {

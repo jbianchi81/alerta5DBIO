@@ -29,6 +29,7 @@ py/lib64
 py/share
 py/tests
 py/config.json
+py/myenv
 test
 views/layouts/main_abs.handlebars
 .vscode

@@ -274,7 +274,8 @@ internal.CrudProcedure = class  {
             if(!data[0] instanceof CRUD.serie) {
                 throw("toGmd method not present in object")    
             }
-            await writeFile(output,CRUD.serie.toGmd(data))
+            logger.warn("Writing only first match")
+            await writeFile(output,data[0].toGmd())
             
         } else {
             throw("Invalid format")
@@ -3731,6 +3732,22 @@ const writeResult = async function(procedure,result,options={}) {
                     throw("toGeoJSON method not found in class " + procedure.class_name)
                 }
                 process.stdout.write(JSON.stringify(geojson_result,null,4))
+            } else if (output_format.toLowerCase() == "gmd") {
+                if(!Array.isArray(result)) {
+                    if(result.rows) {
+                        result = result.rows
+                    } else {
+                        result = [ result ]
+                    }
+                }
+                if(!result.length) {
+                    throw("No records found")
+                }
+                if(!result[0] instanceof CRUD.serie) {
+                    throw("toGmd method not present in object")    
+                }
+                logger.warn("Only writing first match")
+                process.stdout.write((result[0].toGmd()))
             } else {
                 // if(result.toJSON) {
                 //     process.stdout.write(result.toJSON())
@@ -3929,7 +3946,7 @@ if(1==1) {
     .description('Run read procedure for given class and output in selected format. Accepts zero to many filters as "key1=value1 key2=value2 ..."')
     .option("-v, --validate",'validate only (don\'t run)')
     .option("-o, --output <value>",'save output to file. If -o nor -i are set, output is printed to STDOUT')
-    .option("-f, --format <value>",'output format (json (default), geojson or csv)')
+    .option("-f, --format <value>",'output format (json (default), geojson, csv o gmd)')
     .option("-p, --pretty",'pretty print output')
     .option("-i, --output_individual_files_pattern <value>",'output one file for each retrieved element using this printf pattern to use with element id and, additional fields (with -F option)')
     .option("-b, --base_path <value>",'to use together with -i. Prepends this base path to the constructed file paths')
@@ -3961,6 +3978,9 @@ if(1==1) {
                 process.exit(1)
             }
             Object.assign(read_options,options.more_options)
+        }
+        if(options.format && options.format.toLowerCase() == "gmd") {
+            read_options.include_geom = true
         }
         try {
             var procedure = new internal.ReadProcedure({class_name: class_name, filter:filter, output: (options.output) ? path.resolve(options.output) : undefined, output_format: options.format, options: read_options})

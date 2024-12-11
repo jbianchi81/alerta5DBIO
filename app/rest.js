@@ -7219,8 +7219,13 @@ async function send_output(options,data,res,property_name) {
 						}
 					}
 					console.debug("data.length:" + data.length + ", data:" + JSON.stringify(data))
+					if(!data.length) {
+						res.status(400).send("No se encontraron registros con los parámetros especificados")
+						return
+					}
+					console.warn("Writing only first match")
 					try {
-						output = CRUD.serie.toGmd(data)
+						output = (data[0].toGmd())
 					} catch(e) {
 						console.error(e)
 						res.status(500).send("Server error")
