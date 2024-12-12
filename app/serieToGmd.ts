@@ -1,6 +1,14 @@
 import { create } from 'xmlbuilder2';
 import { Serie } from './a5_types'
+import { advanceTimeStep }from './timeSteps'
 
+function getRestUrl() {
+    if(!global.config || !global.config.rest) {
+        console.error("Missing rest configuration")
+        return "protocol://host:port/path"
+    }
+    return `${global.config.rest.protocol}://${global.config.rest.host}:${global.config.rest.port}/${global.config.rest.path}`
+}
 
 // CRUD.serie.read({"tipo":"raster"},{include_geom:true}).then(r=>series=r)
 
@@ -24,6 +32,9 @@ function serieToGmd(serie : Serie) : string {
             'gco:Decimal': bbox[3]
         }
     }
+
+    const timestart = (serie.date_range.timestart) ? serie.date_range.timestart : undefined
+    const timeend = (serie.date_range.timeend) ? (serie.var.timeSupport) ? advanceTimeStep(serie.date_range.timeend, serie.var.timeSupport) : serie.date_range.timeend : undefined
     
     var doc_obj = {
         'gmi:MI_Metadata': { 
@@ -81,7 +92,7 @@ function serieToGmd(serie : Serie) : string {
                     'gmd:citation': {
                         'gmd:CI_Citation': {
                             'gmd:title': {
-                                'gco:CharacterString': serie.fuente.source
+                                'gco:CharacterString': serie.fuente.source || serie.fuente.nombre || ((serie.estacion.red) ? serie.estacion.red.nombre : serie.estacion.tabla) || 'Unknown'
                             },
                             'gmd:date': {
                                 'gmd:CI_Date': {
@@ -94,7 +105,7 @@ function serieToGmd(serie : Serie) : string {
                             'gmd:citedResponsibleParty': {
                                 'gmd:CI_ResponsibleParty': {
                                     'gmd:organisationName': {
-                                        'gco:CharacterString': serie.fuente.source || serie.fuente.nombre || 'Unknown'
+                                        'gco:CharacterString': serie.fuente.source || serie.fuente.nombre || ((serie.estacion.red) ? serie.estacion.red.nombre : serie.estacion.tabla) || 'Unknown'
                                     },
                                     'gmd:role': {
                                         'gmd:CI_RoleCode': {
@@ -144,8 +155,8 @@ function serieToGmd(serie : Serie) : string {
                                     'gmd:extent': {
                                         'gml:TimePeriod': {
                                             '@gml:id': 'boundingTimePeriod',
-                                            'gml:beginPosition': serie.date_range.timestart instanceof Date ? serie.date_range.timestart.toISOString() : serie.date_range.timestart || 'N/A',
-                                            'gml:endPosition': serie.date_range.timeend instanceof Date ? serie.date_range.timeend.toISOString() : serie.date_range.timeend || 'N/A'
+                                            'gml:beginPosition': (timestart) ? timestart.toISOString() : 'N/A',
+                                            'gml:endPosition': (timeend) ? timeend.toISOString() : 'N/A'
                                         }
                                     }
                                 }
@@ -156,17 +167,19 @@ function serieToGmd(serie : Serie) : string {
             },
             'gmd:distributionInfo': {
                 'gmd:MD_Distribution': {
-                    'gmd:transferOptions': {
-                        'gmd:MD_DigitalTransferOptions': {
-                            'gmd:onLine': {
-                                'gmd:CI_OnlineResource': {
-                                    'gmd:linkage': {
-                                        'gmd:URL': `https://alerta.ina.gob.ar/a5/obs/${serie.tipo}/series/${serie.id}?include_geom=true&format=geojson`
+                    'gmd:transferOptions': [
+                        {
+                            'gmd:MD_DigitalTransferOptions': {
+                                'gmd:onLine': {
+                                    'gmd:CI_OnlineResource': {
+                                        'gmd:linkage': {
+                                            'gmd:URL': `https://alerta.ina.gob.ar/a5/obs/${serie.tipo}/series/${serie.id}?include_geom=true&format=geojson`
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
+                    ]
                 }
             }
         }
@@ -175,7 +188,22 @@ function serieToGmd(serie : Serie) : string {
     if(!topic_category) {
         delete doc_obj['gmi:MI_Metadata']['gmd:identificationInfo']['gmd:MD_DataIdentification']['gmd:topicCategory']
     }
-    
+
+    if(serie.date_range.timestart) {
+        doc_obj["gmi:MI_Metadata"]["gmd:distributionInfo"]["gmd:MD_Distribution"]["gmd:transferOptions"].push(
+            {
+                'gmd:MD_DigitalTransferOptions': {
+                    'gmd:onLine': {
+                        'gmd:CI_OnlineResource': {
+                            'gmd:linkage': {
+                                'gmd:URL': `${getRestUrl()}obs/${serie.tipo}/series/${serie.id}/observaciones?timestart=${serie.date_range.timestart.toISOString()}&timeend=${timeend.toISOString()}&pagination=true`
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    }
     var xml = create(doc_obj)
     // xml = append_MD_Element(xml, serie)
     return xml.end({ prettyPrint: true });

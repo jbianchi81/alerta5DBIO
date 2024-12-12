@@ -259,7 +259,8 @@ internal.estacion = class extends baseModel {
 		cero_ign: {type: "number"},
 		ubicacion: {type: "string"},
 		drainage_basin: {type: "object"},
-		tabla: {foreign_key: true, type: "string", table: "redes", column: "tabla_id"}
+		tabla: {foreign_key: true, type: "string", table: "redes", column: "tabla_id"},
+		red: {type: internal.red}
 	}
 	constructor() {
 		switch(arguments.length) {
@@ -292,6 +293,7 @@ internal.estacion = class extends baseModel {
 					this.cero_ign = arg_arr[21]
 					this.ubicacion = arg_arr[22]
 					this.drainage_basin = arg_arr[23]
+					this.red = (arg_arr[24]) ? new internal.red(arg_arr[24]) : undefined
 				} else {
 					arguments[0].provincia = (arguments[0].hasOwnProperty("provincia")) ? arguments[0].provincia : arguments[0].distrito
 					delete arguments[0].distrito
@@ -349,6 +351,7 @@ internal.estacion = class extends baseModel {
 				this.cero_ign = arguments[21]
 				this.ubicacion = arguments[22]
 				this.drainage_basin = arguments[23]
+				this.red = arguments[24]
 				break;
 		}
 		//~ console.log({estacion:this})
@@ -430,7 +433,8 @@ internal.estacion = class extends baseModel {
 			public: this.public,
 			cero_ign: this.cero_ign,
 			ubicacion: this.ubicacion,
-			drainage_basin: this.drainage_basin
+			drainage_basin: this.drainage_basin,
+			red: this.red
 		}
 	}
 	toGeoJSON(includeProperties=true, includeDrainageBasin=true) {
@@ -3613,7 +3617,8 @@ internal.serie.build_read_query = function(filter={},options={}) {
 					'public', redes.public, 
 					'cero_ign', estaciones.cero_ign, 
 					'red_id', redes.id, 
-					'red_nombre', redes.nombre
+					'red_nombre', redes.nombre,
+					'red', json_build_object('nombre', redes.nombre, 'id', redes.id, 'tabla_id', redes.tabla_id, 'public', redes.public, 'public_his_plata', redes.public_his_plata)
 				) AS estacion`)
 			// }
 		}		
@@ -7259,7 +7264,7 @@ internal.CRUD = class {
 
 	static async getEstacion(id,isPublic,options={}) {
 		const stmt = "\
-		SELECT estaciones.nombre, estaciones.id_externo, st_x(estaciones.geom) geom_x, st_y(estaciones.geom) geom_y, estaciones.tabla,  estaciones.distrito, estaciones.pais, estaciones.rio, estaciones.has_obs, estaciones.tipo, estaciones.automatica, estaciones.habilitar, estaciones.propietario, estaciones.abrev, estaciones.URL, estaciones.localidad, estaciones.real, estaciones.id, estaciones.unid, nivel_alerta.valor nivel_alerta, nivel_evacuacion.valor nivel_evacuacion, nivel_aguas_bajas.valor nivel_aguas_bajas, estaciones.cero_ign, estaciones.altitud, redes.public\
+		SELECT estaciones.nombre, estaciones.id_externo, st_x(estaciones.geom) geom_x, st_y(estaciones.geom) geom_y, estaciones.tabla,  estaciones.distrito, estaciones.pais, estaciones.rio, estaciones.has_obs, estaciones.tipo, estaciones.automatica, estaciones.habilitar, estaciones.propietario, estaciones.abrev, estaciones.URL, estaciones.localidad, estaciones.real, estaciones.id, estaciones.unid, nivel_alerta.valor nivel_alerta, nivel_evacuacion.valor nivel_evacuacion, nivel_aguas_bajas.valor nivel_aguas_bajas, estaciones.cero_ign, estaciones.altitud, redes.public, redes.nombre as red_nombre, redes.id as red_id\
 		FROM estaciones\
 		LEFT OUTER JOIN redes ON (estaciones.tabla = redes.tabla_id) \
 		LEFT OUTER JOIN alturas_alerta nivel_alerta ON (estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado='a') \
@@ -7280,7 +7285,7 @@ internal.CRUD = class {
 			}
 		}
 		const geometry = new internal.geometry("Point", [result.rows[0].geom_x, result.rows[0].geom_y])
-		const estacion = new internal.estacion(result.rows[0].nombre,result.rows[0].id_externo,geometry,result.rows[0].tabla,result.rows[0].distrito,result.rows[0].pais,result.rows[0].rio,result.rows[0].has_obs,result.rows[0].tipo,result.rows[0].automatica,result.rows[0].habilitar,result.rows[0].propietario,result.rows[0].abrev,result.rows[0].URL,result.rows[0].localidad,result.rows[0].real,result.rows[0].nivel_alerta,result.rows[0].nivel_evacuacion,result.rows[0].nivel_aguas_bajas,result.rows[0].altitud,result.rows[0].public,result.rows[0].cero_ign)
+		const estacion = new internal.estacion(result.rows[0].nombre,result.rows[0].id_externo,geometry,result.rows[0].tabla,result.rows[0].distrito,result.rows[0].pais,result.rows[0].rio,result.rows[0].has_obs,result.rows[0].tipo,result.rows[0].automatica,result.rows[0].habilitar,result.rows[0].propietario,result.rows[0].abrev,result.rows[0].URL,result.rows[0].localidad,result.rows[0].real,result.rows[0].nivel_alerta,result.rows[0].nivel_evacuacion,result.rows[0].nivel_aguas_bajas,result.rows[0].altitud,result.rows[0].public,result.rows[0].cero_ign,undefined,undefined,{id:result.rows[0].red_id, nombre:result.rows[0].red_nombre,tabla_id: result.rows[0].tabla})
 		estacion.id =  result.rows[0].unid
 		if(options.get_drainage_basin) {
 			await estacion.getDrainageBasin()
@@ -7432,9 +7437,16 @@ internal.CRUD = class {
 				nivel_aguas_bajas.valor nivel_aguas_bajas, 
 				cero_ign, 
 				redes.public, 
-				altitud
+				altitud,
+				json_build_object(
+					'nombre', redes.red_nombre,
+					'id', redes.fuentes_id,
+					'tabla_id', redes.tabla_id,
+					'public', redes.public,
+					'public_his_plata', redes.public_his_plata
+				) as red
 		FROM estaciones
-		JOIN (select id fuentes_id, tabla_id, public, public_his_plata FROM redes) redes ON (estaciones.tabla=redes.tabla_id)
+		JOIN (SELECT id AS fuentes_id, tabla_id, public, public_his_plata, nombre AS red_nombre FROM redes) redes ON (estaciones.tabla=redes.tabla_id)
 		LEFT OUTER JOIN alturas_alerta nivel_alerta ON (estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado='a') 
 		LEFT OUTER JOIN alturas_alerta nivel_evacuacion ON (estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado='e') 
 		LEFT OUTER JOIN alturas_alerta nivel_aguas_bajas ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b') 
@@ -8570,12 +8582,12 @@ internal.CRUD = class {
 			}
 			if(serie.id) {
 				query = "\
-				INSERT INTO series_areal (area_id,var_id,proc_id,unit_id,fuentes_id)\
-				VALUES ($1,$2,$3,$4,$5)\
+				INSERT INTO series_areal (id,area_id,var_id,proc_id,unit_id,fuentes_id)\
+				VALUES ($1,$2,$3,$4,$5,$6)\
 				ON CONFLICT (area_id,var_id,proc_id,unit_id,fuentes_id)\
-				DO update set area_id=excluded.area_id\
+				DO update set id=excluded.id\
 				RETURNING id,area_id AS estacion_id,var_id,proc_id,unit_id,fuentes_id"
-				params = [serie.estacion.id,serie["var"].id,serie.procedimiento.id,serie.unidades.id,serie.fuente.id]
+				params = [serie.id,serie.estacion.id,serie["var"].id,serie.procedimiento.id,serie.unidades.id,serie.fuente.id]
 			} else {
 				query = "\
 				INSERT INTO series_areal (area_id,var_id,proc_id,unit_id,fuentes_id)\

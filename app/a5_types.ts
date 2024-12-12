@@ -8,11 +8,20 @@ export type Observacion = {
     series_id ? : number
 }
 
+export type Red = {
+    id : number
+    nombre : string
+    tabla_id : string
+    public ? : boolean
+    public_his_plata ? : boolean
+}
+
 export type Location = {
     id ? : number,
     nombre : string,
     geom : Geometry,
-    [x : string] : unknown
+    [x : string] : unknown,
+    red ? : Red
 }
 
 export interface Estacion extends Location {
@@ -41,8 +50,8 @@ export interface Estacion extends Location {
 }
 
 export type SeriesDateRange = {
-    timestart : Date | string,
-    timeend : Date | string,
+    timestart : Date,
+    timeend : Date,
     count : number,
     data_availability ? : "N" | "S" | "H" | "C" | "NRT" | "RT"  | "H+S" | "C+S" | "NRT+S" | "RT+S"
 }

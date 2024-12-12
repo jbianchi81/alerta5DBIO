@@ -152,7 +152,16 @@ internal.baseModel = class {
 			return value	
 		} else {
 			if(definition.type) {
-				if(definition.type == "string") {
+				if(definition.type instanceof Function) {
+					// prueba si es construible
+					try {
+						var obj_value = new definition.type(value)
+						return obj_value
+					} catch(e) {
+						console.warn("type is not constructable, trying call")
+						return definition.type(value)
+					}
+				} else if(definition.type == "string") {
 					return value.toString()
 				} else if (definition.type == "integer") {
 					if(parseInt(value).toString() == "NaN") {

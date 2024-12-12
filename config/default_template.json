@@ -17,9 +17,12 @@
 	"password": ""
   },
  "rest":
-  {
-	  "port": 3005,
-	  "skip_authentication": true
+  { 
+	"protocol": "http",
+	"host": "localhost",
+	"path": "",
+	"port": 3005,
+	"skip_authentication": true
   },
   "verbose": true,
   "rast":
