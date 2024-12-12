@@ -3,7 +3,8 @@ const assert = require('assert')
 process.env.NODE_ENV = "test"
 const {serie: Serie, escena: Escena, area: Area, estacion: Estacion} = require('../app/CRUD')
 // const { convert } = require('xmlbuilder2');
-const Libxml = require('node-libxml').Libxml;
+var parser = require('xml2json');
+const {Libxml} = require('node-libxml')
 
 test('serie rast read as gmd', async(t) => {
     await Serie.delete({
@@ -31,9 +32,10 @@ test('serie rast read as gmd', async(t) => {
         },{
             include_geom: true
         })
+        assert.equal(serie.fuente.def_pixel_width,0.5)
         const serie_gmd = series[0].toGmd()
-        const libxml = new Libxml()
-        assert(libxml.loadXmlFromString(serie_gmd),"Invalid xml")
+        js_obj = parser.toJson(serie_gmd, {coerce: true, object: true})
+        assert.equal(js_obj["gmi:MI_Metadata"]["gmd:spatialRepresentationInfo"]["gmd:MD_GridSpatialRepresentation"]["gmd:axisDimensionProperties"]["gmd:MD_Dimension"]["gmd:resolution"]["gco:Measure"]["$t"],0.5, "Expected resolution 0.5")
     })
 
     await t.test("delete estacion", async(t)=> {

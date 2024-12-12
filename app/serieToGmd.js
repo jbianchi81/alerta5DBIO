@@ -4,10 +4,15 @@ const xmlbuilder2_1 = require("xmlbuilder2");
 const timeSteps_1 = require("./timeSteps");
 function getRestUrl() {
     if (!global.config || !global.config.rest) {
-        console.error("Missing rest configuration");
+        console.error("Missing rest endpoint configuration");
         return "protocol://host:port/path";
     }
-    return `${global.config.rest.protocol}://${global.config.rest.host}:${global.config.rest.port}/${global.config.rest.path}`;
+    if (global.config.rest.public_endpoint) {
+        return global.config.rest.public_endpoint;
+    }
+    else {
+        return `${global.config.rest.protocol}://${global.config.rest.host}:${global.config.rest.port}/${global.config.rest.path}`;
+    }
 }
 // CRUD.serie.read({"tipo":"raster"},{include_geom:true}).then(r=>series=r)
 function serieToGmd(serie) {
@@ -29,8 +34,8 @@ function serieToGmd(serie) {
             'gco:Decimal': bbox[3]
         }
     };
-    const timestart = (serie.date_range.timestart) ? serie.date_range.timestart : undefined;
-    const timeend = (serie.date_range.timeend) ? (serie.var.timeSupport) ? (0, timeSteps_1.advanceTimeStep)(serie.date_range.timeend, serie.var.timeSupport) : serie.date_range.timeend : undefined;
+    const timestart = (serie.date_range.timestart) ? new Date(serie.date_range.timestart) : undefined;
+    const timeend = (serie.date_range.timeend) ? (serie.var.timeSupport) ? (0, timeSteps_1.advanceTimeStep)(new Date(serie.date_range.timeend), serie.var.timeSupport) : new Date(serie.date_range.timeend) : undefined;
     var doc_obj = {
         'gmi:MI_Metadata': {
             "@xmlns:gmi": "http://www.isotc211.org/2005/gmi",
@@ -159,36 +164,52 @@ function serieToGmd(serie) {
                         }
                     }
                 }
-            },
-            'gmd:distributionInfo': {
-                'gmd:MD_Distribution': {
-                    'gmd:transferOptions': [
-                        {
-                            'gmd:MD_DigitalTransferOptions': {
-                                'gmd:onLine': {
-                                    'gmd:CI_OnlineResource': {
-                                        'gmd:linkage': {
-                                            'gmd:URL': `https://alerta.ina.gob.ar/a5/obs/${serie.tipo}/series/${serie.id}?include_geom=true&format=geojson`
-                                        }
-                                    }
+            }
+        }
+    };
+    if (serie.tipo == "raster") {
+        doc_obj['gmi:MI_Metadata']['gmd:spatialRepresentationInfo'] = {
+            'gmd:MD_GridSpatialRepresentation': {
+                'gmd:axisDimensionProperties': {
+                    'gmd:MD_Dimension': {
+                        'gmd:resolution': {
+                            'gco:Measure': {
+                                '@uom': "kilometer",
+                                '#': `${serie.fuente.def_pixel_width}`
+                            }
+                        }
+                    }
+                }
+            }
+        };
+    }
+    doc_obj['gmi:MI_Metadata']['gmd:distributionInfo'] = {
+        'gmd:MD_Distribution': {
+            'gmd:transferOptions': [
+                {
+                    'gmd:MD_DigitalTransferOptions': {
+                        'gmd:onLine': {
+                            'gmd:CI_OnlineResource': {
+                                'gmd:linkage': {
+                                    'gmd:URL': `https://alerta.ina.gob.ar/a5/obs/${serie.tipo}/series/${serie.id}?include_geom=true&format=geojson`
                                 }
                             }
                         }
-                    ]
+                    }
                 }
-            }
+            ]
         }
     };
     if (!topic_category) {
         delete doc_obj['gmi:MI_Metadata']['gmd:identificationInfo']['gmd:MD_DataIdentification']['gmd:topicCategory'];
     }
-    if (serie.date_range.timestart) {
+    if (timestart) {
         doc_obj["gmi:MI_Metadata"]["gmd:distributionInfo"]["gmd:MD_Distribution"]["gmd:transferOptions"].push({
             'gmd:MD_DigitalTransferOptions': {
                 'gmd:onLine': {
                     'gmd:CI_OnlineResource': {
                         'gmd:linkage': {
-                            'gmd:URL': `${getRestUrl()}obs/${serie.tipo}/series/${serie.id}/observaciones?timestart=${serie.date_range.timestart.toISOString()}&timeend=${timeend.toISOString()}&pagination=true`
+                            'gmd:URL': `${getRestUrl()}obs/${serie.tipo}/series/${serie.id}/observaciones?timestart=${timestart.toISOString()}&timeend=${timeend.toISOString()}&pagination=true`
                         }
                     }
                 }

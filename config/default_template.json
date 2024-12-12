@@ -22,7 +22,8 @@
 	"host": "localhost",
 	"path": "",
 	"port": 3005,
-	"skip_authentication": true
+	"skip_authentication": true,
+    "public_endpoint": "protocol://host:port/path"
   },
   "verbose": true,
   "rast":
