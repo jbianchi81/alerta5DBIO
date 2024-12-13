@@ -253,8 +253,8 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                   "public": true
                 },
                 "date_range": {
-                  "timestart": "2021-07-31T00:00:00.000Z",
-                  "timeend": "2024-09-09T21:00:00.000Z",
+                  "timestart": new Date("2021-07-31T00:00:00.000Z"),
+                  "timeend": new Date("2024-09-09T21:00:00.000Z"),
                   "count": "3836"
                 }
             },
@@ -380,8 +380,8 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                   "public": true
                 },
                 "date_range": {
-                  "timestart": "2021-07-31T12:00:00.000Z",
-                  "timeend": "2024-02-29T12:00:00.000Z",
+                  "timestart": new Date("2021-07-31T12:00:00.000Z"),
+                  "timeend": new Date("2024-02-29T12:00:00.000Z"),
                   "count": 380
                 }
             }
