@@ -2824,7 +2824,9 @@ function getObservacionesDia(req,res) {
 	crud.getObservacionesDia(tipo,filter,options)
 	.then(result=>{
 		console.log("Results: " + result.length)
-		if(options.cume_dist) {
+		if(!result.length) {
+			res.status(404).send("No se encontraron observaciones")
+		} else if(options.cume_dist) {
 			var obs = []
 			result.forEach(r=>{
 				r.tipo="puntual"

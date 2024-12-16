@@ -456,7 +456,10 @@
 					<a id=descargarPercentilesDiariosBetweenDates download="PercentilesDiariosBetweenDates.csv" href="getPercentilesDiariosBetweenDates?tipo=puntual&series_id=&timestart=&timeend=&percentil=">getPercentilesDiariosBetweenDates?tipo=puntual&amp;series_id=&amp;timestart=&amp;timeend=&amp;percentil=</a>
 					<span>    (acepta 1 o más valores del parámetro 'percentil' [0.01 a 0.99]. Si falta obtiene todos)</span>
 				</li>
-
+				<li>
+					<b>Metadatos en formato ISO 19115-2:        </b>
+					<a id=descargarGmd download="series_metadata.xml" href="obs/{tipo}/series/{id}?format=gmd">obs/{tipo}/series/{id}?format=gmd</a>
+				</li>
 			</ul>
 			<div>Ver la descripción completa de la API <a href="apiUI">aquí</a></div>
 			<h4>Otros</h4>
@@ -1871,6 +1874,8 @@
 			$("a#descargarPercentilesCSV").attr('href',percentilesurlcsv).text(percentilesurlcsv)
 			var percentilesDiariosBetweenDatesurl = "obs/" + series.tipo + "/series/" + series.id + "/percentilesDiarios/" +  timestart.toISOString().substring(0,10) + "/" + timeend.toISOString().substring(0,10) // "getPercentilesDiariosBetweenDates?tipo=puntual&series_id="+series.id+ "&timestart=" + timestart.toISOString().substring(0,10) + "&timeend=" + timeend.toISOString().substring(0,10) + "&percentil="
 			$("a#descargarPercentilesDiariosBetweenDates").attr('href',percentilesDiariosBetweenDatesurl).text(percentilesDiariosBetweenDatesurl)
+			const gmd_url = `obs/${series.tipo}/series/${series.id}?format=gmd`
+			$("a#descargarGmd").attr('href',gmd_url).text(gmd_url)
 		}).fail( (xhr, status, e)=>{
 			console.error(e)
 		})

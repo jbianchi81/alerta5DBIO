@@ -4228,6 +4228,64 @@ internal.observacion = class extends baseModel {
 		})
 	}
 
+	static async insertFromArray(values, pixel_size, upper_left_x, upper_left_y, srid, data_type = "32BF", series_id, timestart, timeend) {
+		const stmt = `WITH params AS (
+		SELECT 
+			$1::double precision[][] AS values, -- 2D array of values
+			  $2 AS pixel_size,                 -- pixel resolution
+			  $3 AS upper_left_x,                -- upper-left corner X coordinate
+			  $4 AS upper_left_y                -- upper-left corner Y coordinate
+		),
+		generated_raster AS (
+		SELECT
+			ST_AddBand(
+			ST_MakeEmptyRaster(
+				array_length(values, 2),    -- Raster width (columns)
+				array_length(values, 1),    -- Raster height (rows)
+				upper_left_x::real,               -- X coordinate of upper-left corner
+				upper_left_y::real,               -- Y coordinate of upper-left corner
+				pixel_size::real                -- Pixel size
+			),
+			$6::text                        -- Band type (32-bit float)
+			) AS raster
+		FROM params
+		)
+		INSERT INTO observaciones_rast (series_id, timestart, timeend, valor)
+		SELECT 
+			$7,
+			$8,
+			$9,
+			ST_SetSRID(
+				ST_SetValues(
+					raster,
+					1,                              -- Band index
+					1, 1,                           -- Start at (row, col) = (1,1)
+					values                          -- 2D array of pixel values
+				),
+				$5
+			) AS raster
+		FROM generated_raster, params
+		RETURNING id, 'rast' AS tipo, series_id, timestart, timeend, st_asgdalraster(valor,'GTiff') AS valor`
+		const result = await global.pool.query(stmt, [values, parseInt(pixel_size), parseFloat(upper_left_x), parseFloat(upper_left_y), srid, data_type = "32BF", series_id, timestart, timeend])
+		// TODO: on conflict clause
+		if(!result.rows.length) {
+			throw(new Error("Insert failed"))
+		}
+		return new this(result.rows[0])
+	}
+
+	async insertFromArray(valor, pixel_size, upper_left_x, upper_left_y, srid, data_type = "32BF", series_id, timestart, timeend) {
+		// TODO: fetch defaults
+		valor = valor ?? this.valor
+		timestart = timestart ?? this.timestart
+		timeend = timeend ?? this.timeend
+		series_id = series_id ?? this.series_id
+		if(!valor || !timestart || !series_id || !timeend) {
+			throw("Missing one or more of valor, timestart, series_id, timeend")
+		}
+		return this.constructor.insertFromArray(valor, pixel_size, upper_left_x, upper_left_y, srid, data_type = "32BF", series_id, timestart, timeend)
+	}
+
 	static settable_parameters = {
 		"valor": {
 			type: "any"
@@ -11161,7 +11219,7 @@ internal.CRUD = class {
 			id:{type:"integer"},
 			series_id:{type:"integer"},
 			timestart:{type:"timestart"},
-			timeend:{type:"timeend"},
+			timeend:{type:"timeend", column: (options.include_partial_time_intersection) ? "timestart" : "timeend"},
 			unit_id:{type:"integer"},
 			timeupdate:{type:"date"},
 			var_id:{type:"integer",table:series_table},
@@ -11358,98 +11416,227 @@ internal.CRUD = class {
 		return stmt
 	}
 
-	static build_observaciones_query(tipo,filter,options) {
+	static getLimitClause(limit, offset) {
+		var stmt = ""
+		if(limit) {
+			stmt = pasteIntoSQLQuery(`${stmt} LIMIT $1`, [parseInt(limit)])
+		}
+		if(offset) {
+			stmt = pasteIntoSQLQuery(`${stmt} OFFSET $1`, [parseInt(offset)])
+		}
+		return stmt
+
+	}
+
+	static build_observaciones_query(tipo,filter={},options) {
 		tipo = this.getTipo(tipo)
 		var filter_string = this.getObservacionesFilterString(tipo,filter,options) 
 		// console.debug({filter_string:filter_string})
 		if(filter_string == "") {
 			throw "invalid filter value"
 		}
+		var limit_clause = this.getLimitClause(filter.limit,filter.offset)
 		var stmt
 		if (tipo.toLowerCase() == "areal") {
 			var valtablename = (options) ? (options.obs_type) ? (options.obs_type.toLowerCase() == 'numarr') ? "valores_numarr_areal" : "valores_num_areal" : "valores_num_areal" : "valores_num_areal"
-			stmt =  "SELECT observaciones_areal.id, \
-			observaciones_areal.series_id,\
-			observaciones_areal.timestart,\
-			observaciones_areal.timeend,\
-			observaciones_areal.nombre,\
-			observaciones_areal.descripcion,\
-			observaciones_areal.unit_id,\
-			observaciones_areal.timeupdate,\
-			" + valtablename + ".valor \
-			FROM observaciones_areal, " + valtablename + ",series_areal,fuentes\
-			WHERE observaciones_areal.series_id=series_areal.id \
-			AND series_areal.fuentes_id=fuentes.id \
-			AND observaciones_areal.id=" + valtablename + ".obs_id \
-			" + filter_string + "\
-			ORDER BY timestart"
+			stmt =  `SELECT observaciones_areal.id, 
+			observaciones_areal.series_id,
+			observaciones_areal.timestart,
+			observaciones_areal.timeend,
+			observaciones_areal.nombre,
+			observaciones_areal.descripcion,
+			observaciones_areal.unit_id,
+			observaciones_areal.timeupdate,
+			${valtablename}.valor 
+			FROM observaciones_areal, ${valtablename},series_areal,fuentes
+			WHERE observaciones_areal.series_id=series_areal.id 
+			AND series_areal.fuentes_id=fuentes.id 
+			AND observaciones_areal.id=${valtablename}.obs_id 
+			${filter_string}
+			ORDER BY timestart
+			${limit_clause}`
 		} else if (tipo.toLowerCase() == "rast" || tipo.toLowerCase() == "raster") {
 			var format = (options) ? (options.format) ? options.format : "GTiff" : "GTiff"
 			switch(format.toLowerCase()) {
 				case "postgres":
-					stmt =  "SELECT observaciones_rast.id,observaciones_rast.series_id,observaciones_rast.timestart,observaciones_rast.timeend,observaciones_rast.valor,observaciones_rast.timeupdate FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart"
-					break;				case "GTiff":
-					stmt =  "SELECT observaciones_rast.id,observaciones_rast.series_id,observaciones_rast.timestart,observaciones_rast.timeend,ST_AsGDALRaster(observaciones_rast.valor,'GTIff') valor,(st_summarystats(observaciones_rast.valor)).*,observaciones_rast.timeupdate FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart"
+					stmt =  `SELECT
+						observaciones_rast.id,
+						observaciones_rast.series_id,
+						observaciones_rast.timestart,
+						observaciones_rast.timeend,
+						observaciones_rast.valor,
+						observaciones_rast.timeupdate
+					FROM observaciones_rast,series_rast,fuentes 
+					WHERE observaciones_rast.series_id=series_rast.id 
+					AND series_rast.fuentes_id=fuentes.id ${filter_string} 
+					ORDER BY timestart
+					${limit_clause}`
+					break;				
+				case "GTiff":
+					stmt =  `SELECT 
+						observaciones_rast.id,
+						observaciones_rast.series_id,
+						observaciones_rast.timestart,
+						observaciones_rast.timeend,
+						ST_AsGDALRaster(observaciones_rast.valor,'GTIff') valor,
+						(st_summarystats(observaciones_rast.valor)).*,
+						observaciones_rast.timeupdate 
+					FROM observaciones_rast,series_rast,fuentes 
+					WHERE observaciones_rast.series_id=series_rast.id 
+					AND series_rast.fuentes_id=fuentes.id ${filter_string} 
+					ORDER BY timestart
+					${limit_clause}`
 					break;
 				case "hex":
-					stmt =  "SELECT observaciones_rast.id,observaciones_rast.series_id,observaciones_rast.timestart,observaciones_rast.timeend,'\\x' || encode(ST_AsGDALRaster(observaciones_rast.valor,'GTIff')::bytea,'hex') valor,(st_summarystats(observaciones_rast.valor)).*,observaciones_rast.timeupdate FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart"
+					stmt =  `SELECT 
+						observaciones_rast.id,
+						observaciones_rast.series_id,
+						observaciones_rast.timestart,
+						observaciones_rast.timeend,
+						'\\x' || encode(
+							ST_AsGDALRaster(
+								observaciones_rast.valor,
+								'GTIff'
+							)::bytea
+							,'hex') valor,
+						(st_summarystats(observaciones_rast.valor)).*,
+						observaciones_rast.timeupdate 
+					FROM observaciones_rast,series_rast,fuentes 
+					WHERE observaciones_rast.series_id=series_rast.id 
+					AND series_rast.fuentes_id=fuentes.id ${filter_string}
+					ORDER BY timestart
+					${limit_clause}`
 					break;
 				case "png":
 					var width = (options.width) ? parseInt(options.width) : 300
 					var height = (options.height) ? parseInt(options.height) : 300
-					stmt =  "SELECT id,series_id,timestart,timeend,ST_asGDALRaster(st_colormap(st_resize(st_reclass(valor,'[' || (st_summarystats(valor)).min || '-' || (st_summarystats(valor)).max || ']:1-255, ' || st_bandnodatavalue(valor) || ':0','8BUI')," + width + "," + height + "),1,'grayscale','nearest'),'PNG') valor,(st_summarystats(valor)).*,timeupdate FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart"
+					stmt =  `SELECT 
+						id,
+						series_id,
+						timestart,
+						timeend,
+						ST_asGDALRaster(
+							st_colormap(
+								st_resize(
+									st_reclass(
+										valor,
+										'[' || (st_summarystats(valor)).min || '-' || (st_summarystats(valor)).max || ']:1-255, ' || st_bandnodatavalue(valor) || ':0','8BUI'
+									),
+									${width},
+									${height}
+								),
+								1,
+								'grayscale',
+								'nearest'
+							),
+							'PNG'
+						) valor,
+						(st_summarystats(valor)).*,
+						timeupdate 
+					FROM observaciones_rast,series_rast,fuentes 
+					WHERE observaciones_rast.series_id=series_rast.id 
+					AND series_rast.fuentes_id=fuentes.id ${filter_string}
+					ORDER BY timestart
+					${limit_clause}`
 					break;
 				case "geojson":
 				case "json":
-					stmt = "WITH values AS (\
-								SELECT observaciones_rast.id,\
-					               observaciones_rast.series_id,\
-					               observaciones_rast.timestart,\
-								   observaciones_rast.timeend,\
-								   (ST_PixelAsCentroids(observaciones_rast.valor, 1, true)).*,\
-								   (st_summarystats(observaciones_rast.valor)).*,\
-								   observaciones_rast.timeupdate \
-								FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart)\
-							SELECT id,\
-							       series_id,\
-							       timestart,\
-							       timeend,\
-							       json_build_object('type','Feature', 'geometry', json_build_object('type', 'GeometryCollection', 'geometries', json_agg(json_build_object('type', 'Point', 'coordinates', ARRAY[ST_X(geom),ST_Y(geom),values.val]))), 'properties',json_build_object('id',values.id, 'series_id', values.series_id, 'timestart', values.timestart, 'timeend', values.timeend, 'stats', json_build_object('count',values.count, 'sum', values.sum, 'mean', values.mean, 'stddev', values.stddev, 'min', values.min, 'max', values.max))) valor,\
-							       values.count,\
-							       values.sum,\
-							       values.mean,\
-							       values.stddev,\
-							       values.min,\
-							       values.max\
-							FROM values\
-							GROUP BY id, series_id, timestart, timeend, count, sum, mean, stddev, min, max\
-							ORDER BY timestart"
+					stmt = `WITH values AS (
+							SELECT observaciones_rast.id,
+								observaciones_rast.series_id,
+								observaciones_rast.timestart,
+								observaciones_rast.timeend,
+								(ST_PixelAsCentroids(observaciones_rast.valor, 1, true)).*,
+								(st_summarystats(observaciones_rast.valor)).*,
+								observaciones_rast.timeupdate 
+							FROM observaciones_rast,series_rast,fuentes 
+							WHERE observaciones_rast.series_id=series_rast.id 
+							AND series_rast.fuentes_id=fuentes.id ${filter_string}
+							ORDER BY timestart
+							${limit_clause})
+						SELECT id,
+							series_id,
+							timestart,
+							timeend,
+							json_build_object(
+								'type','Feature', 
+								'geometry', json_build_object(
+									'type', 'GeometryCollection', 
+									'geometries', json_agg(
+										json_build_object(
+											'type', 'Point', 
+											'coordinates', ARRAY[
+												ST_X(geom),
+												ST_Y(geom),
+												values.val
+											]
+										)
+									)
+								),
+								'properties', json_build_object(
+									'id',values.id, 
+									'series_id', values.series_id, 
+									'timestart', values.timestart, 
+									'timeend', values.timeend, 
+									'stats', json_build_object(
+										'count',values.count, 
+										'sum', values.sum, 
+										'mean', values.mean, 
+										'stddev', values.stddev, 
+										'min', values.min, 
+										'max', values.max
+									)
+								)
+							) valor,
+							values.count,
+							values.sum,
+							values.mean,
+							values.stddev,
+							values.min,
+							values.max
+						FROM values
+						GROUP BY id, series_id, timestart, timeend, count, sum, mean, stddev, min, max
+						ORDER BY timestart`
 					break
 				default:
-					stmt =  "SELECT observaciones_rast.id,observaciones_rast.series_id,observaciones_rast.timestart,observaciones_rast.timeend,ST_AsGDALRaster(observaciones_rast.valor,'GTIff') valor,(st_summarystats(observaciones_rast.valor)).*,observaciones_rast.timeupdate FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id " + filter_string + " ORDER BY timestart"
+					stmt =  `SELECT 
+						observaciones_rast.id,
+						observaciones_rast.series_id,
+						observaciones_rast.timestart,
+						observaciones_rast.timeend,
+						ST_AsGDALRaster(
+							observaciones_rast.valor,
+							'GTIff'
+						) valor,
+						(st_summarystats(observaciones_rast.valor)).*,
+						observaciones_rast.timeupdate 
+					FROM observaciones_rast,series_rast,fuentes 
+					WHERE observaciones_rast.series_id=series_rast.id 
+					AND series_rast.fuentes_id=fuentes.id ${filter_string}
+					ORDER BY timestart
+					${limit_clause}`
 					break;
 			}
 		} else {
 			var valtablename = (options && options.obs_type && options.obs_type.toLowerCase() == 'numarr') ? "valores_numarr" : "valores_num"
-			stmt =  "SELECT observaciones.id,\
-			observaciones.series_id,\
-			observaciones.timestart,\
-			observaciones.timeend,\
-			observaciones.nombre,\
-			observaciones.descripcion,\
-			observaciones.unit_id,\
-			observaciones.timeupdate,\
-			"+valtablename+".valor \
-			FROM observaciones, "+valtablename+",series,estaciones,redes \
-			WHERE observaciones.series_id=series.id \
-			AND series.estacion_id=estaciones.unid \
-			AND estaciones.tabla=redes.tabla_id \
-			AND observaciones.id="+valtablename+".obs_id \
-			" + filter_string  + "\
-			ORDER BY timestart"
-		}
-		if(filter.limit) {
-			stmt += " LIMIT " + parseInt(filter.limit)
+			stmt =  `SELECT 
+				observaciones.id,
+				observaciones.series_id,
+				observaciones.timestart,
+				observaciones.timeend,
+				observaciones.nombre,
+				observaciones.descripcion,
+				observaciones.unit_id,
+				observaciones.timeupdate,
+				${valtablename}.valor 
+			FROM observaciones, ${valtablename},series,estaciones,redes 
+			WHERE observaciones.series_id=series.id 
+			AND series.estacion_id=estaciones.unid 
+			AND estaciones.tabla=redes.tabla_id 
+			AND observaciones.id=${valtablename}.obs_id 
+			${filter_string}
+			ORDER BY timestart
+			${filter_clause}`
 		}
 		return stmt
 	}
@@ -12066,235 +12253,236 @@ internal.CRUD = class {
 
 	static async getObservacionesDia(tipo, filter, options) {
 //		date=new Date(),tipo="puntual",series_id,estacion_id,var_id,proc_id=[1,2],agg_func="avg")
-		return new Promise( (resolve,reject) => {
-			if(!filter) {
-				reject("filter missing")
-				return
+		if(!filter) {
+			throw(new Error("filter missing"))
+		}
+		var date = (filter.date) ? new Date(filter.date) : new Date()
+		if(date=='Invalid Date') {
+			throw(new Error("Bad date"))
+		}
+		date = new Date(date.getTime() + date.getTimezoneOffset()*60*1000).toISOString().substring(0,10)
+		var series_id = filter.series_id
+		var estacion_id = filter.estacion_id
+		var area_id = filter.area_id
+		var var_id = filter.var_id
+		var proc_id = (filter.proc_id) ? filter.proc_id : [1,2] 
+		var agg_func = (filter.agg_func) ? filter.agg_func : (tipo.toLowerCase().substring(0,4) == "rast") ? "first": "avg"
+		var precision = (filter.precision) ? filter.precision : 3
+		var fuentes_id = filter.fuentes_id
+		if(!/^\d+$/.test(precision)) {
+			throw(new Error("Bad precision"))
+		}
+		if(tipo.substring(0,4).toLowerCase() == "rast") {
+			if(!series_id) {
+				throw new Error ("Missing series_id")
 			}
-			var date = (filter.date) ? new Date(filter.date) : new Date()
-			if(date=='Invalid Date') {
-				reject("Bad date")
-				return
+			const date_split= date.split("-")
+			const timestart = new Date(parseInt(date_split[0]), parseInt(date_split[1]) - 1, parseInt(date_split[2]))
+			const timeend = timeSteps.advanceTimeStep(timestart, {"days": 1})
+			const agg_func_map = {avg:"MEAN",sum:"SUM",min:"MIN",max:"MAX",count:"COUNT"}
+			if(agg_func.toLowerCase() in agg_func_map) {
+				agg_func = agg_func_map[agg_func.toLowerCase()]
 			}
-			date = new Date(date.getTime() + date.getTimezoneOffset()*60*1000).toISOString().substring(0,10)
-			var series_id = filter.series_id
-			var estacion_id = filter.estacion_id
-			var area_id = filter.area_id
-			var var_id = filter.var_id
-			var proc_id = (filter.proc_id) ? filter.proc_id : [1,2] 
-			var agg_func = (filter.agg_func) ? filter.agg_func : "avg"
-			var precision = (filter.precision) ? filter.precision : 3
-			var fuentes_id = filter.fuentes_id
-			if(!/^\d+$/.test(precision)) {
-				reject("Bad precision")
-				return
+			if(agg_func.toUpperCase() == "FIRST") {
+				return internal.CRUD.getObservaciones(
+					"raster",
+					{
+						series_id: series_id,
+						timestart: timestart,
+						timeend: timeend,
+						limit: 1
+					},
+					{
+						include_partial_time_intersection: true
+					}
+				)
 			}
-			if(!date instanceof Date) {
-				reject("Bad date")
-				return
+			const result = await internal.CRUD.rastExtract(series_id, timestart, timeend, {funcion: agg_func})
+			return result.observaciones
+		}
+		if(! {avg:1,sum:1,min:1,max:1,count:1}[agg_func.toLowerCase()]) {
+			throw(new Error("Bad agg_func"))
+		}
+		var series_table = (tipo.toLowerCase()=='areal') ? "series_areal" : "series"
+		var obs_table = (tipo.toLowerCase()=='areal') ? "observaciones_areal" : "observaciones"
+		var val_table = (tipo.toLowerCase()=='areal') ? "valores_num_areal" : "valores_num"
+		var est_column = (tipo.toLowerCase()=='areal') ? "area_id" : "estacion_id"
+		var public_table = (tipo.toLowerCase()=='areal') ? "fuentes" : "redes"
+		var public_filter = ""
+		if(filter.public) {
+			public_filter = " AND " + public_table + ".public=true "
+		}
+		if(series_id) {
+			if(Array.isArray(series_id)) {
+				series_id= series_id.join(",")
+			} 
+			if(!/^\d+(,\d+)*$/.test(series_id)) {
+				console.error("bad series_id")
+				throw(new Error("bad series_id"))
 			}
-			if(! {avg:1,sum:1,min:1,max:1,count:1}[agg_func.toLowerCase()]) {
-				reject("Bad agg_func")
-				return
-			}
-			var series_table = (tipo.toLowerCase()=='areal') ? "series_areal" : "series"
-			var obs_table = (tipo.toLowerCase()=='areal') ? "observaciones_areal" : "observaciones"
-			var val_table = (tipo.toLowerCase()=='areal') ? "valores_num_areal" : "valores_num"
-			var est_column = (tipo.toLowerCase()=='areal') ? "area_id" : "estacion_id"
-			var public_table = (tipo.toLowerCase()=='areal') ? "fuentes" : "redes"
-			var public_filter = ""
-			if(filter.public) {
-				public_filter = " AND " + public_table + ".public=true "
-			}
-		
-			if(series_id) {
-				if(Array.isArray(series_id)) {
-					series_id= series_id.join(",")
-				} 
-				if(!/^\d+(,\d+)*$/.test(series_id)) {
-					console.error("bad series_id")
-					reject("bad series_id")
-					return
-				}
-				var stmt
-				if(tipo.toLowerCase()=='areal') {
-					stmt = "SELECT observaciones_areal.timestart::date::text date,\
+			var stmt
+			if(tipo.toLowerCase()=='areal') {
+				stmt = "SELECT observaciones_areal.timestart::date::text date,\
+								observaciones_areal.series_id,\
+								series_areal.var_id,\
+								series_areal.proc_id,\
+								series_areal.unit_id,\
+								series_areal.fuentes_id,\
+								series_areal.area_id,\
+								round("+agg_func+"(valores_num_areal.valor)::numeric,$2::int) valor,\
+								fuentes.public\
+						FROM observaciones_areal,valores_num_areal,series_areal,fuentes\
+						WHERE observaciones_areal.id=valores_num_areal.obs_id\
+						AND series_areal.id=observaciones_areal.series_id\
+						AND observaciones_areal.series_id IN ("+series_id+")\
+						AND observaciones_areal.timestart::date=$1::date\
+						AND series_areal.fuentes_id=fuentes.id " + public_filter + "\
+						GROUP BY observaciones_areal.timestart::date::text,\
 									observaciones_areal.series_id,\
-									series_areal.var_id,\
-									series_areal.proc_id,\
-									series_areal.unit_id,\
-									series_areal.fuentes_id,\
-									series_areal.area_id,\
-								   round("+agg_func+"(valores_num_areal.valor)::numeric,$2::int) valor,\
-								   fuentes.public\
-							FROM observaciones_areal,valores_num_areal,series_areal,fuentes\
-							WHERE observaciones_areal.id=valores_num_areal.obs_id\
-							AND series_areal.id=observaciones_areal.series_id\
-							AND observaciones_areal.series_id IN ("+series_id+")\
-							AND observaciones_areal.timestart::date=$1::date\
-							AND series_areal.fuentes_id=fuentes.id " + public_filter + "\
-							GROUP BY observaciones_areal.timestart::date::text,\
-									 observaciones_areal.series_id,\
-									series_areal.var_id,\
-									series_areal.proc_id,\
-									series_areal.unit_id,\
-									series_areal.fuentes_id,\
-									series_areal.area_id,\
-									fuentes.public\
-							ORDER BY observaciones_areal.series_id;"
-				} else if(tipo.toLowerCase()=="puntual") {
-					stmt = "SELECT observaciones.timestart::date::text date,\
-									observaciones.series_id,\
-									series.var_id,\
-									series.proc_id,\
-									series.unit_id,\
-									series.estacion_id,\
-								   round("+agg_func+"(valores_num.valor)::numeric,$2::int) valor,\
-								   redes.public\
-							FROM observaciones,valores_num,series,estaciones,redes\
-							WHERE observaciones.id=valores_num.obs_id\
-							AND series.id=observaciones.series_id\
-							AND observaciones.series_id IN ("+series_id+")\
-							AND observaciones.timestart::date=$1::date\
-							AND series.estacion_id=estaciones.unid\
-							AND estaciones.tabla=redes.tabla_id " + public_filter + "\
-							GROUP BY observaciones.timestart::date::text,\
-									 observaciones.series_id,\
-									series.var_id,\
-									series.proc_id,\
-									series.unit_id,\
-									series.estacion_id,\
-									redes.public\
-							ORDER BY observaciones.series_id;"
-				} else {
-					reject("Bad tipo")
-					return
-				}
-				resolve(global.pool.query(stmt,[date,precision]))
-				return
-			} else {
-				var stmt
-				if (tipo.toLowerCase()=='areal') {
-					var area_id_filter = ""
-					if(area_id) {
-						if(Array.isArray(area_id)) {
-							area_id = area_id.join(",")
-						}
-						if(!/^\d+(,\d+)*$/.test(area_id)) {
-							console.error("bad area_id")
-							reject("bad area_id")
-							return
-						}
-						area_id_filter = " AND series_areal.area_id IN ("+area_id+")"
-					}
-					if(!fuentes_id) {
-						reject("fuentes_id or series_id missing")
-						return
-					}
-					if(Array.isArray(fuentes_id)) {
-						fuentes_id = fuentes_id.join(",")
-					}
-					if(!/^\d+(,\d+)*$/.test(fuentes_id)) {
-						reject("bad fuentes_id")
-						return
-					}
-					stmt = "SELECT observaciones_areal.timestart::date::text date,\
-									observaciones_areal.series_id,\
-									series_areal.var_id,\
-									series_areal.proc_id,\
-									series_areal.unit_id,\
-									series_areal.fuentes_id,\
-									series_areal.area_id,\
-								   round("+agg_func+"(valores_num_areal.valor)::numeric,$2::int) valor,\
-								   fuentes.public\
-							FROM observaciones_areal,valores_num_areal,series_areal,fuentes\
-							WHERE observaciones_areal.id=valores_num_areal.obs_id\
-							AND series_areal.id=observaciones_areal.series_id\
-							AND observaciones_areal.timestart::date=$1::date\
-							AND series_areal.fuentes_id=fuentes.id " + public_filter + "\
-							"+area_id_filter+"\
-							AND series_areal.fuentes_id IN ("+fuentes_id+")\
-							GROUP BY observaciones_areal.timestart::date::text,\
-									 observaciones_areal.series_id,\
-									series_areal.var_id,\
-									series_areal.proc_id,\
-									series_areal.unit_id,\
-									series_areal.area_id,\
-									series_areal.fuentes_id,\
-									fuentes.public\
-							ORDER BY observaciones_areal.series_id;"
-				} else {
-					var estacion_id_filter = ""
-					if(estacion_id) {
-						if(Array.isArray(estacion_id)) {
-							estacion_id = estacion_id.join(",")
-							console.log("estacion_id is array")
-						}
-						if(!/^\d+(,\d+)*$/.test(estacion_id)) {
-							console.error("bad estacion_id")
-							reject("bad estacion_id")
-							return
-						}
-						estacion_id_filter = " AND series.estacion_id IN ("+estacion_id+")"
-					}
-					if(!var_id) {
-						reject("var_id or series_id missing")
-						return
-					}
-					if(Array.isArray(var_id)) {
-						var_id = var_id.join(",")
-					}
-					if(!/^\d+(,\d+)*$/.test(var_id)) {
-						//~ console.error("bad var_id")
-						reject("bad var_id")
-						return
-					}
-					if(Array.isArray(proc_id)) {
-						proc_id=proc_id.join(",")
-					}
-					if(!/^\d+(,\d+)*$/.test(proc_id)) {
-						//~ console.error("bad proc_id")
-						reject("bad proc_id")
-						return
-					}
-					stmt = "SELECT observaciones.timestart::date::text date,\
+								series_areal.var_id,\
+								series_areal.proc_id,\
+								series_areal.unit_id,\
+								series_areal.fuentes_id,\
+								series_areal.area_id,\
+								fuentes.public\
+						ORDER BY observaciones_areal.series_id;"
+			} else if(tipo.toLowerCase()=="puntual") {
+				stmt = "SELECT observaciones.timestart::date::text date,\
 								observaciones.series_id,\
 								series.var_id,\
 								series.proc_id,\
 								series.unit_id,\
 								series.estacion_id,\
-							   round("+agg_func+"(valores_num.valor)::numeric,$2::int) valor,\
-							   redes.public\
+								round("+agg_func+"(valores_num.valor)::numeric,$2::int) valor,\
+								redes.public\
 						FROM observaciones,valores_num,series,estaciones,redes\
 						WHERE observaciones.id=valores_num.obs_id\
 						AND series.id=observaciones.series_id\
-						AND series.var_id IN ("+var_id+")\
-						AND series.proc_id IN ("+proc_id+")\
+						AND observaciones.series_id IN ("+series_id+")\
 						AND observaciones.timestart::date=$1::date\
 						AND series.estacion_id=estaciones.unid\
 						AND estaciones.tabla=redes.tabla_id " + public_filter + "\
-						"+estacion_id_filter+"\
 						GROUP BY observaciones.timestart::date::text,\
-								 observaciones.series_id,\
+									observaciones.series_id,\
 								series.var_id,\
 								series.proc_id,\
 								series.unit_id,\
 								series.estacion_id,\
 								redes.public\
 						ORDER BY observaciones.series_id;"
-				}
-				//~ console.log(stmt)
-				resolve(global.pool.query(stmt,[date,precision]))
-				return
+			} else {
+				throw(new Error("Bad tipo"))
 			}
-		})
-		.then(result=>{
-			if(!result.rows) {
-				return []
-			}
-			console.log("got "+result.rows.length+" daily obs")
+			const result = await global.pool.query(stmt,[date,precision])
 			return result.rows
-		})
+		} else {
+			var stmt
+			if (tipo.toLowerCase()=='areal') {
+				var area_id_filter = ""
+				if(area_id) {
+					if(Array.isArray(area_id)) {
+						area_id = area_id.join(",")
+					}
+					if(!/^\d+(,\d+)*$/.test(area_id)) {
+						console.error("bad area_id")
+						throw(new Error("bad area_id"))
+					}
+					area_id_filter = " AND series_areal.area_id IN ("+area_id+")"
+				}
+				if(!fuentes_id) {
+					throw(new Error("fuentes_id or series_id missing"))
+				}
+				if(Array.isArray(fuentes_id)) {
+					fuentes_id = fuentes_id.join(",")
+				}
+				if(!/^\d+(,\d+)*$/.test(fuentes_id)) {
+					throw(new Error("bad fuentes_id"))
+				}
+				stmt = "SELECT observaciones_areal.timestart::date::text date,\
+								observaciones_areal.series_id,\
+								series_areal.var_id,\
+								series_areal.proc_id,\
+								series_areal.unit_id,\
+								series_areal.fuentes_id,\
+								series_areal.area_id,\
+								round("+agg_func+"(valores_num_areal.valor)::numeric,$2::int) valor,\
+								fuentes.public\
+						FROM observaciones_areal,valores_num_areal,series_areal,fuentes\
+						WHERE observaciones_areal.id=valores_num_areal.obs_id\
+						AND series_areal.id=observaciones_areal.series_id\
+						AND observaciones_areal.timestart::date=$1::date\
+						AND series_areal.fuentes_id=fuentes.id " + public_filter + "\
+						"+area_id_filter+"\
+						AND series_areal.fuentes_id IN ("+fuentes_id+")\
+						GROUP BY observaciones_areal.timestart::date::text,\
+									observaciones_areal.series_id,\
+								series_areal.var_id,\
+								series_areal.proc_id,\
+								series_areal.unit_id,\
+								series_areal.area_id,\
+								series_areal.fuentes_id,\
+								fuentes.public\
+						ORDER BY observaciones_areal.series_id;"
+			} else {
+				var estacion_id_filter = ""
+				if(estacion_id) {
+					if(Array.isArray(estacion_id)) {
+						estacion_id = estacion_id.join(",")
+						console.log("estacion_id is array")
+					}
+					if(!/^\d+(,\d+)*$/.test(estacion_id)) {
+						console.error("bad estacion_id")
+						throw(new Error("bad estacion_id"))
+					}
+					estacion_id_filter = " AND series.estacion_id IN ("+estacion_id+")"
+				}
+				if(!var_id) {
+						throw(new Error("var_id or series_id missing"))
+				}
+				if(Array.isArray(var_id)) {
+					var_id = var_id.join(",")
+				}
+				if(!/^\d+(,\d+)*$/.test(var_id)) {
+					//~ console.error("bad var_id")
+					throw new Error("bad var_id")
+				}
+				if(Array.isArray(proc_id)) {
+					proc_id=proc_id.join(",")
+				}
+				if(!/^\d+(,\d+)*$/.test(proc_id)) {
+					//~ console.error("bad proc_id")
+					throw new Error("bad proc_id")
+				}
+				stmt = "SELECT observaciones.timestart::date::text date,\
+							observaciones.series_id,\
+							series.var_id,\
+							series.proc_id,\
+							series.unit_id,\
+							series.estacion_id,\
+							round("+agg_func+"(valores_num.valor)::numeric,$2::int) valor,\
+							redes.public\
+					FROM observaciones,valores_num,series,estaciones,redes\
+					WHERE observaciones.id=valores_num.obs_id\
+					AND series.id=observaciones.series_id\
+					AND series.var_id IN ("+var_id+")\
+					AND series.proc_id IN ("+proc_id+")\
+					AND observaciones.timestart::date=$1::date\
+					AND series.estacion_id=estaciones.unid\
+					AND estaciones.tabla=redes.tabla_id " + public_filter + "\
+					"+estacion_id_filter+"\
+					GROUP BY observaciones.timestart::date::text,\
+								observaciones.series_id,\
+							series.var_id,\
+							series.proc_id,\
+							series.unit_id,\
+							series.estacion_id,\
+							redes.public\
+					ORDER BY observaciones.series_id;"
+			}
+			//~ console.log(stmt)
+			const result = await global.pool.query(stmt,[date,precision])
+			return result.rows
+		}
 	}
 
 	static async getCubeSerie(fuentes_id,isPublic) {

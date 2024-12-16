@@ -1,7 +1,7 @@
 const test = require('node:test')
 const assert = require('assert')
 process.env.NODE_ENV = "test"
-const {serie: Serie, escena: Escena, area: Area, estacion: Estacion} = require('../app/CRUD')
+const {serie: Serie, escena: Escena, area: Area, estacion: Estacion, observacion: Observacion} = require('../app/CRUD')
 // const { convert } = require('xmlbuilder2');
 var parser = require('xml2json');
 const {Libxml} = require('node-libxml')
@@ -24,6 +24,28 @@ test('serie rast read as gmd', async(t) => {
         assert.equal(serie.tipo, "rast", "tipo of serie must be raster")
         assert.equal(serie.observaciones.length, 0, "length of serie.observaciones must be 0")
     })
+
+    // create dummy obs 
+
+    await t.test("crea observacion rast dummy", async(t) => {
+        const values = [[0.1,1.1,0.1],[1.3,0.01,4.2],[0.3,3.6,3.0]]
+        result = await Observacion.insertFromArray(
+            values,
+            10.0,
+            -70.0,
+            -40.0,
+            4326,
+            '32BF',
+            1,
+            new Date('2024-01-01'),
+            new Date('2024-01-02')
+        )
+        assert(result instanceof Observacion, "Expected an Observacion object")
+        assert.equal(result.timestart.toISOString(),new Date('2024-01-01').toISOString(), "expected timestart=2024-01-01")
+        assert.equal(result.series_id,1,"Expected series_id=1")
+        assert.equal(result.tipo,"raster","Expected tipo=raster")
+    })
+
 
     await t.test("read serie as gmd", async(t) => {
         const series = await Serie.read({

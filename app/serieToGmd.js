@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const xmlbuilder2_1 = require("xmlbuilder2");
 const timeSteps_1 = require("./timeSteps");
+var sprintf = require('sprintf-js').sprintf;
 function getRestUrl() {
     if (!global.config || !global.config.rest) {
         console.error("Missing rest endpoint configuration");
@@ -35,6 +36,7 @@ function serieToGmd(serie) {
         }
     };
     const timestart = (serie.date_range.timestart) ? new Date(serie.date_range.timestart) : undefined;
+    const original_timeend = (serie.date_range.timeend) ? serie.date_range.timeend : undefined;
     const timeend = (serie.date_range.timeend) ? (serie.var.timeSupport) ? (0, timeSteps_1.advanceTimeStep)(new Date(serie.date_range.timeend), serie.var.timeSupport) : new Date(serie.date_range.timeend) : undefined;
     const timeSupport_epoch = (serie.var.timeSupport) ? (0, timeSteps_1.interval2epochSync)(serie.var.timeSupport) : 0;
     const frequency_code = (timeSupport_epoch == 0) ? "unknown" : (timeSupport_epoch < 24 * 3600) ? "continual" : (timeSupport_epoch == 24 * 3600) ? "daily" : (timeSupport_epoch <= 7 * 24 * 3600) ? "weekly" : (timeSupport_epoch <= 31 * 24 * 3600) ? "monthly" : (timeSupport_epoch <= 366 * 24 * 3600) ? "annually" : "unknown";
@@ -303,6 +305,18 @@ function serieToGmd(serie) {
     };
     doc_obj['gmi:MI_Metadata']['gmd:distributionInfo'] = {
         'gmd:MD_Distribution': {
+            'gmd:distributionFormat': [
+                {
+                    'gmd:MD_Format': {
+                        'gmd:name': {
+                            'gco:CharacterString': 'geoJSON'
+                        },
+                        'gmd:version': {
+                            'gco:CharacterString': 'RFC 7946'
+                        }
+                    }
+                }
+            ],
             'gmd:transferOptions': [
                 {
                     'gmd:MD_DigitalTransferOptions': {
@@ -347,13 +361,28 @@ function serieToGmd(serie) {
     if (!topic_category) {
         delete doc_obj['gmi:MI_Metadata']['gmd:identificationInfo']['gmd:MD_DataIdentification']['gmd:topicCategory'];
     }
-    if (timestart) {
+    if (original_timeend) {
+        var dia = sprintf("%04d-%02d-%02d", original_timeend.getFullYear(), original_timeend.getMonth() + 1, original_timeend.getDate());
+        var distr_link = `${getRestUrl()}obs/${serie.tipo}/series/${serie.id}/dia/${dia}`;
+        if (serie.tipo.substring(0, 4) == "rast") {
+            distr_link = `${distr_link}?format=tif`;
+            doc_obj["gmi:MI_Metadata"]["gmd:distributionInfo"]["gmd:MD_Distribution"]["gmd:distributionFormat"].push({
+                'gmd:MD_Format': {
+                    'gmd:name': {
+                        'gco:CharacterString': 'GeoTIFF'
+                    },
+                    'gmd:version': {
+                        'gco:CharacterString': '1.1'
+                    }
+                }
+            });
+        }
         doc_obj["gmi:MI_Metadata"]["gmd:distributionInfo"]["gmd:MD_Distribution"]["gmd:transferOptions"].push({
             'gmd:MD_DigitalTransferOptions': {
                 'gmd:onLine': {
                     'gmd:CI_OnlineResource': {
                         'gmd:linkage': {
-                            'gmd:URL': `${getRestUrl()}obs/${serie.tipo}/series/${serie.id}/observaciones?timestart=${timestart.toISOString()}&timeend=${timeend.toISOString()}&pagination=true`
+                            'gmd:URL': distr_link
                         }
                     }
                 }
