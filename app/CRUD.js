@@ -11210,10 +11210,10 @@ internal.CRUD = class {
 		})
 	}
 
-	static getObservacionesFilterString(tipo,filter,options) {
+	static getObservacionesFilterString(tipo,filter,options={}) {
 		var series_table = (tipo=="puntual") ? "series" : (tipo=="areal") ? "series_areal" : "series_rast"
 		var observaciones_table = (tipo=="puntual") ? "observaciones" : (tipo=="areal") ? "observaciones_areal" : "observaciones_rast" 
-		var valores_table = (tipo.toLowerCase() == "areal") ? (options && options.obs_type && options.obs_type.toLowerCase() == 'numarr') ? "valores_numarr_areal" : "valores_num_areal" : (tipo.toLowerCase() == "rast" || tipo.toLowerCase() == "raster") ? "observaciones_rast" : (options && options.obs_type && options.obs_type.toLowerCase() == 'numarr') ? "valores_numarr" : "valores_num"
+		var valores_table = (tipo.toLowerCase() == "areal") ? (options.obs_type && options.obs_type.toLowerCase() == 'numarr') ? "valores_numarr_areal" : "valores_num_areal" : (tipo.toLowerCase() == "rast" || tipo.toLowerCase() == "raster") ? "observaciones_rast" : (options.obs_type && options.obs_type.toLowerCase() == 'numarr') ? "valores_numarr" : "valores_num"
 		var fuentes_table = (tipo.toLowerCase() == "areal") ? "fuentes" : (tipo.toLowerCase() == "rast" || tipo.toLowerCase() == "raster") ? "fuentes" : "redes"
 		var valid_filters = {
 			id:{type:"integer"},
@@ -11635,8 +11635,8 @@ internal.CRUD = class {
 			AND estaciones.tabla=redes.tabla_id 
 			AND observaciones.id=${valtablename}.obs_id 
 			${filter_string}
-			ORDER BY timestart
-			${filter_clause}`
+			ORDER BY timestart`
+			// ${filter_clause}`
 		}
 		return stmt
 	}
