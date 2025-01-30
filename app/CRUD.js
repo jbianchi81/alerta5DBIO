@@ -10073,7 +10073,7 @@ internal.CRUD = class {
 		})
 	}
 
-	static async upsertObservacion(observacion,no_update) {
+	static async upsertObservacion(observacion,no_update,client) {
 		//~ console.log(observacion)
 		if (!(observacion instanceof internal.observacion)) {
 			//~ console.log("create observacion")
@@ -10097,15 +10097,19 @@ internal.CRUD = class {
 							unit_id=excluded.unit_id,\
 							timeupdate=excluded.timeupdate " : " NOTHING "
 			var on_conflict_clause_val = (no_update) ? " NOTHING " : " UPDATE SET valor=excluded.valor "
-			const client = await global.pool.connect()
-			var res = await client.query('BEGIN')
+			var release_client = false
+			if(!client) {
+				client = await global.pool.connect()
+				release_client = true
+				await client.query('BEGIN')
+			}
 			const queryText = "INSERT INTO " + obs_tabla + " (series_id,timestart,timeend,nombre,descripcion,unit_id,timeupdate)\
 				VALUES ($1,$2,$3,$4,$5,$6,coalesce($7,now()))\
 				ON CONFLICT (series_id,timestart,timeend) DO " + on_conflict_clause_obs + "\
 				RETURNING *"
 			var stmt = internal.utils.pasteIntoSQLQuery(queryText,[observacion.series_id,observacion.timestart,observacion.timeend,observacion.nombre,observacion.descripcion,observacion.unit_id,observacion.timeupdate])
 			// console.log(stmt)
-			res = await client.query(stmt)
+			var res = await client.query(stmt)
 			// return client.query(queryText,[observacion.series_id,observacion.timestart,observacion.timeend,observacion.nombre,observacion.descripcion,observacion.unit_id,observacion.timeupdate])
 			if(res.rows.length == 0) {
 				// NO UPSERTED OBS
@@ -10121,15 +10125,19 @@ internal.CRUD = class {
 						if(client.notifications) {
 							throw(client.notifications.map(n=>n.message).join(","))
 						} else {
-							client.release()
+							if(release_client) {
+								client.release()
+							}
 							throw("No se insertó observación")
 						}
 					}
 					obs.tipo=observacion.tipo
 					obs.id = res.rows[0].obs_id
 					obs.valor=res.rows[0].valor
-					res = await client.query("COMMIT")
-					client.release()
+					if(release_client) {
+						res = await client.query("COMMIT")
+						client.release()
+					}
 					return new internal.observacion(obs)
 				}
 				console.log("No se inserto observacion")
@@ -10137,7 +10145,9 @@ internal.CRUD = class {
 				if(client.notifications) {
 					throw(client.notifications.map(n=>n.message).join(","))
 				} else {
-					client.release()
+					if(release_client) {
+						client.release()
+					}
 					throw("No se insertó observación")
 				}
 			} else {
@@ -10151,8 +10161,10 @@ internal.CRUD = class {
 				res = await client.query(insertValorText, [obs.id, observacion.valor])
 				obs.tipo=observacion.tipo
 				obs.valor=res.rows[0].valor
-				res = await client.query("COMMIT")
-				client.release()
+				if(release_client) {
+					res = await client.query("COMMIT")
+					client.release()
+				}
 				return new internal.observacion(obs)
 			}
 		} else {   // RAST //
@@ -10313,7 +10325,7 @@ internal.CRUD = class {
 				console.log("skipping null value, series_id:" + observacion.series_id + " timestart:" + observacion.timestart) 
 			} else {
 				try {
-					var o = await this.upsertObservacion(observacion,options.no_update)
+					var o = await this.upsertObservacion(observacion,options.no_update,client)
 					upserted.push(o)
 				} catch (e) {
 					errors.push(e)
