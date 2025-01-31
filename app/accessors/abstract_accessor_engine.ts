@@ -94,4 +94,19 @@ export class AbstractAccessorEngine {
             return false
         }
     }
+
+    static setFilterValuesToArray(filter : Object, empty_arrays : boolean = true) : Object {
+        const filter_ = Object.assign({},filter)
+        for(const key of ["series_id", "estacion_id", "var_id", "id_externo"]) {
+            if(filter_[key] != undefined) {
+                if(!Array.isArray(filter_[key])) {
+                    filter_[key] = [filter_[key]]
+                }
+            } else if(empty_arrays) {
+                filter_[key] = []
+            }
+        }
+        return filter_
+    }
+
 }
