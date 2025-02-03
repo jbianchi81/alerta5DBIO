@@ -185,6 +185,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             // const page = 381
             // const size = 15
             const page_url = `${this.config.url}?code=${code}&page=${page}`;
+            console.debug(`Get url: ${page_url}`);
             const response = yield (0, axios_1.default)(page_url);
             const matches = response.data.match(/var\sphp_vars\s?=\s?(\{.*\})/);
             const data = JSON.parse(matches[1]);

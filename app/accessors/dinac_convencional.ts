@@ -226,6 +226,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         // const page = 381
         // const size = 15
         const page_url = `${this.config.url}?code=${code}&page=${page}`
+        console.debug(`Get url: ${page_url}`)
         const response = await get(page_url)
         const matches = response.data.match(/var\sphp_vars\s?=\s?(\{.*\})/)
         const data = JSON.parse(matches[1])
