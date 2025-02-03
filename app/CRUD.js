@@ -1786,6 +1786,17 @@ internal.serie = class extends baseModel {
 			percentiles: this.percentiles
 		}
 	}
+	toJSONless() {
+		return { 
+			tipo: this.tipo, 
+			id: this.id, 
+			estacion_id: this.estacion.id, 
+			var_id: this.var.id, 
+			proc_id: this.procedimiento.id, 
+			unit_id: this.unidades.id,
+			fuentes_id: (this.fuente) ? this.fuente.id : undefined
+		}
+	}
 	toString() {
 		if (this.tipo == "areal") {
 			return "{id:" + this.id + ", area:" + this.estacion.toString() + ", var:" + this["var"].toString() + ", procedimiento:" + this.procedimiento.toString() + ", unidades:" + this.unidades.toString() + ", tipo:" + this.tipo + ", fuente:" + this.fuente.toString() + "}" 
@@ -7281,14 +7292,38 @@ internal.CRUD = class {
 		return global.pool.query("\
 			DELETE FROM estaciones\
 			WHERE unid=$1\
-			RETURNING *",[unid]
+			RETURNING *,st_x(geom) geom_x,st_y(geom) geom_y",[unid]
 		).then(result=>{
 			if(result.rows.length<=0) {
 				console.log("unid not found")
 				return
 			}
-			console.log("Deleted estaciones.unid=" + result.rows[0].unid)
-			return result.rows[0]
+			const row = result.rows[0]
+			console.log("Deleted estaciones.unid=" + row.unid)
+			const geometry = new internal.geometry("Point", [row.geom_x, row.geom_y])
+			const estacion = new internal.estacion({
+				id: row.unid,
+				nombre: row.nombre,
+				id_externo: row.id_externo,
+				geom: geometry,
+				tabla: row.tabla,
+				distrito: row.distrito,
+				pais: row.pais,
+				rio: row.rio,
+				has_obs: row.has_obs,
+				tipo: row.tipo,
+				automatica: row.automatica,
+				habilitar: row.habilitar,
+				propietario: row.propietario,
+				abreviatura: row.abrev,
+				URL: row.URL,
+				localidad: row.localidad,
+				real: row.real,
+				altitud: row.altitud,
+				public: row.public,
+				cero_ign: row.cero_ign
+			})
+			return estacion
 		}).catch(e=>{
 			//~ console.error(e)
 			throw(e)
@@ -7316,7 +7351,28 @@ internal.CRUD = class {
 				} 
 				return result.rows.map(row=>{
 					const geometry = new internal.geometry("Point", [row.geom_x, row.geom_y])
-					const estacion = new internal.estacion(row.nombre,row.id_externo,geometry,row.tabla,row.distrito,row.pais,row.rio,row.has_obs,row.tipo,row.automatica,row.habilitar,row.propietario,row.abrev,row.URL,row.localidad,row.real,undefined,undefined,undefined,row.altitud,row.public,row.cero_ign)
+					const estacion = new internal.estacion({
+						id: row.unid,
+						nombre: row.nombre,
+						id_externo: row.id_externo,
+						geom: geometry,
+						tabla: row.tabla,
+						distrito: row.distrito,
+						pais: row.pais,
+						rio: row.rio,
+						has_obs: row.has_obs,
+						tipo: row.tipo,
+						automatica: row.automatica,
+						habilitar: row.habilitar,
+						propietario: row.propietario,
+						abreviatura: row.abrev,
+						URL: row.URL,
+						localidad: row.localidad,
+						real: row.real,
+						altitud: row.altitud,
+						public: row.public,
+						cero_ign: row.cero_ign
+					})
 					estacion.id = row.unid
 					return estacion
 				})

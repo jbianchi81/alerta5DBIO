@@ -188,6 +188,31 @@ internal.CrudProcedure = class  {
             } else {
                 await writeFile(output,JSON.stringify(data))
             }
+        } else if(output_format.toLowerCase()=="jsonless") {
+            if(typeof data.toJSONless === 'function') {
+                var jsonless_result = data.toJSONless()
+            } else if(Array.isArray(data)) {
+                if (this.class && typeof this.class.toJSONless === 'function') {
+                    var jsonless_result = this.class.toJSONless(data)
+                } else {
+                    var jsonless_result = []
+                    data.forEach((item,i)=>{
+                        // for each item, check if instance method exists
+                        if(typeof item.toJSONless === 'function') {
+                            jsonless_result.features.push(item.toJSONless())
+                        } else {
+                            throw("toJSONless method not found in item " + i)
+                        }
+                    })
+                }
+            } else {
+                throw("toJSONless method not found in class " + this.class_name)
+            }
+            if(pretty) {
+                await writeFile(output,JSON.stringify(jsonless_result,null,4))
+            } else {
+                await writeFile(output,JSON.stringify(jsonless_result))
+            }        
         } else if(output_format.toLowerCase() == "geojson") {
             // check if instance method exists
             if(typeof data.toGeoJSON === 'function') {
@@ -3946,7 +3971,7 @@ if(1==1) {
     .description('Run read procedure for given class and output in selected format. Accepts zero to many filters as "key1=value1 key2=value2 ..."')
     .option("-v, --validate",'validate only (don\'t run)')
     .option("-o, --output <value>",'save output to file. If -o nor -i are set, output is printed to STDOUT')
-    .option("-f, --format <value>",'output format (json (default), geojson, csv o gmd)')
+    .option("-f, --format <value>",'output format (json (default), jsonless, geojson, csv o gmd)')
     .option("-p, --pretty",'pretty print output')
     .option("-i, --output_individual_files_pattern <value>",'output one file for each retrieved element using this printf pattern to use with element id and, additional fields (with -F option)')
     .option("-b, --base_path <value>",'to use together with -i. Prepends this base path to the constructed file paths')

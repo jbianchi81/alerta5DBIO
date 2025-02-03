@@ -13,6 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AbstractAccessorEngine = void 0;
+const CRUD_1 = require("../CRUD");
 const axios_1 = __importDefault(require("axios"));
 class AbstractAccessorEngine {
     setConfig(config) {
@@ -28,6 +29,9 @@ class AbstractAccessorEngine {
     // }
     constructor(config) {
         this.default_config = {};
+        if (new.target === AbstractAccessorEngine) {
+            throw new Error("Cannot instantiate an abstract class.");
+        }
         this.setConfig(config);
     }
     test() {
@@ -60,6 +64,54 @@ class AbstractAccessorEngine {
             }
         }
         return filter_;
+    }
+    get(filter, options) {
+        return __awaiter(this, void 0, void 0, function* () {
+            throw new Error("Method 'get()' must be implemented in child class");
+        });
+    }
+    update(filter, options = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const series = yield this.get(filter, Object.assign(Object.assign({}, options), { return_series: true }));
+            const updated = [];
+            for (var serie of series) {
+                const c_serie = new CRUD_1.serie(serie);
+                yield c_serie.createObservaciones();
+                updated.push(c_serie);
+            }
+            if (options.return_series) {
+                return updated;
+            }
+            else {
+                const observaciones = [];
+                for (var i = 0; i < updated.length; i++) {
+                    observaciones.push(...updated[i].observaciones);
+                }
+                return new CRUD_1.observaciones(observaciones);
+            }
+        });
+    }
+    getSeries(filter) {
+        return __awaiter(this, void 0, void 0, function* () {
+            throw new Error("Method 'getSeries()' must be implemented in child class");
+        });
+    }
+    updateSeries(filter) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const series = yield this.getSeries(filter);
+            return CRUD_1.serie.create(series);
+        });
+    }
+    getSites(filter) {
+        return __awaiter(this, void 0, void 0, function* () {
+            throw new Error("Method 'getSites()' must be implemented in child class");
+        });
+    }
+    updateSites(filter) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const sites = yield this.getSites(filter);
+            return CRUD_1.estacion.create(sites);
+        });
     }
 }
 exports.AbstractAccessorEngine = AbstractAccessorEngine;

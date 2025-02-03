@@ -131,6 +131,7 @@ internal.filterSites = function(sites=[],params={}) {
                 internal.filterByParam(params.nombre, s.nombre),
                 internal.filterByParam(params.id_externo, s.id_externo),
                 internal.filterByParam(params.estacion_id, s.id),
+                internal.filterByParam(params.id, s.id),
                 internal.filterByParam(params.geom, s.geom, internal.pointInPolygon)
             ].indexOf(false) < 0
         )
@@ -191,6 +192,7 @@ internal.filterSeries = function(series=[],params={}) {
                 internal.filterByParam(params.unit_id, serie.unidades.id),
                 internal.filterByParam(params.id_externo, serie.estacion.id_externo),
                 internal.filterByParam(params.series_id, serie.id),
+                internal.filterByParam(params.id, serie.id),
                 internal.filterByParam(params.tipo, serie.tipo)
             ].indexOf(false) < 0
         )

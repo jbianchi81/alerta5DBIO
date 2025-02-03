@@ -48,6 +48,7 @@ internal.hidrowebservice_historico = require('./accessors/hidrowebservice_histor
 internal.fewspirestwebservice = require('./accessors/fewspirestwebservice').Client
 internal.dados_ons = require('./accessors/dados_ons').Client
 internal.gpm = require('./accessors/gpm').Client
+internal.dinac_convencional = require('./accessors/dinac_convencional').Client
 
 // Promise.allSettled polyfill
 

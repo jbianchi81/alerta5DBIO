@@ -1,9 +1,10 @@
 const test = require('node:test')
 const assert = require('assert')
 process.env.NODE_ENV = "test"
-const {serie: Serie, observacion: Observacion, estacion: Estacion} = require('../app/CRUD')
+const {serie: Serie, observacion: Observacion, observaciones: Observaciones, estacion: Estacion} = require('../app/CRUD')
 const axios = require('axios')
 const {Client} = require("../app/accessors/dinac_convencional")
+const accessors = require("../app/accessors")
 
 test('dinac accessor get page', async(t) => {
 
@@ -92,25 +93,8 @@ test('dinac accessor get page', async(t) => {
         var timeend = new Date()
         timestart.setDate(timestart.getDate() - 45)
         const client = new Client({})
-        client.sites_map = [
-            {
-                estacion_id: 155,
-                code: 2000086134,
-                estacion: {
-                    id: 155,
-                    id_externo: 2000086134
-                }
-            }
-        ]
-        client.series_map = [
-            {
-                series_id: 155,
-                estacion_id: 155,
-                var_id: 2,
-                proc_id: 1,
-                unit_id: 11
-            }
-        ]
+        client.sites_map = test_sites_map
+        client.series_map = test_series_map
         result = await client.get({
             timestart: timestart,
             timeend: timeend,
@@ -127,6 +111,173 @@ test('dinac accessor get page', async(t) => {
         }
     })
 })
+
+test('dinac accessor getSeries', async(t) => {
+    await t.test("get series filter by id", async(t) => {
+        const client = new Client({})
+        const series = await client.getSeries({id:155})
+        assert.equal(series.length,1)
+        assert.equal(series[0].id, 155)
+    })
+})
+
+test('dinac accessor getSites', async(t) => {
+    await t.test("get sites filter by id", async(t) => {
+        const client = new Client({})
+        const sites = await client.getSites({id:155})
+        assert.equal(sites.length,1)
+        assert.equal(sites[0].id, 155)
+    })
+})
+
+test('dinac accessor update sequence', async(t) => {
+    await t.test("update sites filter by id", async(t) => {
+        const client = new Client({})
+        client.sites_map = test_sites_map
+        client.series_map = test_series_map
+
+        // update site
+        const sites = await client.updateSites({id:155})
+        assert.equal(sites.length,1)
+        assert.equal(sites[0].id, 155)
+        assert.equal(sites[0] instanceof Estacion,true)
+
+        // update serie
+        const series = await client.updateSeries({id:155})
+        assert.equal(series.length,1)
+        assert.equal(series[0].id, 155)
+        assert.equal(series[0] instanceof Serie,true)
+
+        // update obs
+        var timestart = new Date()
+        var timeend = new Date()
+        timestart.setDate(timestart.getDate() - 45)
+        const obs = await client.update({
+            series_id:155,
+            timestart: timestart,
+            timeend: timeend
+        })
+        assert.equal(obs.length,45)
+        assert.equal(obs instanceof Observaciones, true)
+        for(var i=0;i<obs.length;i++) {
+            assert.equal(obs[i].series_id, 155)
+            assert.equal(obs[i].timestart.getTime() >= timestart.getTime(), true)
+            assert.equal(obs[i].timestart.getTime() <= timeend.getTime(), true)
+            assert.notEqual(obs[i].valor.toString(), "NaN")
+            assert.equal(obs[i] instanceof Observacion,true)
+        }
+
+        // delete obs
+        const deleted_obs = await obs.delete()
+        assert.equal(Array.isArray(deleted_obs),true)
+        assert.equal(deleted_obs.length, 45)
+
+        // delete serie
+        const deleted_serie = await series[0].delete()
+        assert.equal(deleted_serie instanceof Serie,true)
+        assert.equal(deleted_serie.id,155)
+        
+        // delete site
+        const deleted_site = await sites[0].delete()
+        assert.equal(deleted_site instanceof Estacion,true)
+        assert.equal(deleted_site.id,155)
+    })
+})
+
+
+test('dinac accessor get return series', async(t) => {
+    await t.test("get one site, last 45 days, return series", async(t) => {
+        var timestart = new Date()
+        var timeend = new Date()
+        timestart.setDate(timestart.getDate() - 45)
+        const client = new Client({})
+        client.sites_map = test_sites_map
+        client.series_map = test_series_map
+        result = await client.get(
+            {
+                timestart: timestart,
+                timeend: timeend,
+                estacion_id: 155
+            },
+            {
+                return_series: true
+            }
+        )
+        assert.equal(result.length,1)
+        assert.equal(result[0].id, 155)
+        assert.equal(result[0].estacion.id, 155)
+        assert.equal(result[0].var.id, 2)
+        assert.equal(result[0].procedimiento.id, 1)
+        assert.equal(result[0].unidades.id, 11)
+        assert.equal(result[0].observaciones.length,45)
+        
+        for(var i=0;i<result[0].observaciones.length;i++) {
+            const obs = result[0].observaciones[i]
+            assert.equal(obs.series_id, 155)
+            assert.equal(obs.timestart.getTime() >= timestart.getTime(), true)
+            assert.equal(obs.timestart.getTime() <= timeend.getTime(), true)
+            assert.notEqual(obs.valor.toString(), "NaN")
+        }
+    })
+})
+
+test('dinac accessor.getSeries', async(t) => {
+    await t.test("dinac accessor.getSeries", async(t) => {
+        
+        var accessor = await accessors.new("dinac_convencional","dinac_convencional",{})
+        // accessor.engine.sites_map = test_sites_map
+        // accessor.engine.series_map = test_series_map
+
+        var timestart = new Date()
+        var timeend = new Date()
+        timestart.setDate(timestart.getDate() - 45)
+
+        
+        const result = await accessor.getSeries(
+            {
+                series_id:155,
+                timestart: timestart,
+                timeend: timeend
+            }
+        )
+        assert.equal(result.length,1)
+        assert.equal(result[0].id, 155)
+        assert.equal(result[0].estacion.id, 155)
+        assert.equal(result[0].var.id, 2)
+        assert.equal(result[0].procedimiento.id, 1)
+        assert.equal(result[0].unidades.id, 11)
+        assert.equal(result[0].observaciones.length,45)
+        
+        for(var i=0;i<result[0].observaciones.length;i++) {
+            const obs = result[0].observaciones[i]
+            assert.equal(obs.series_id, 155)
+            assert.equal(obs.timestart.getTime() >= timestart.getTime(), true)
+            assert.equal(obs.timestart.getTime() <= timeend.getTime(), true)
+            assert.notEqual(obs.valor.toString(), "NaN")
+        }
+    })
+})
+
+const test_sites_map = [
+    {
+        estacion_id: 155,
+        code: 2000086134,
+        estacion: {
+            id: 155,
+            id_externo: 2000086134
+        }
+    }
+]
+
+const test_series_map = [
+    {
+        series_id: 155,
+        estacion_id: 155,
+        var_id: 2,
+        proc_id: 1,
+        unit_id: 11
+    }
+]
 
 
         

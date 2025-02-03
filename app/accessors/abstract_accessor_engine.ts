@@ -1,5 +1,6 @@
 import { Location, Estacion, Observacion, Serie } from '../a5_types'
 import { Geometry } from '../geometry_types'
+import {serie as crud_serie, estacion as crud_estacion, observaciones as crud_observaciones} from '../CRUD'
 import get from 'axios'
 
 export interface SitesFilter {
@@ -78,6 +79,9 @@ export class AbstractAccessorEngine {
     // }
 
     constructor(config : Config) {
+        if (new.target === AbstractAccessorEngine) {
+            throw new Error("Cannot instantiate an abstract class.");
+        }
         this.setConfig(config)
     }
 
@@ -107,6 +111,55 @@ export class AbstractAccessorEngine {
             }
         }
         return filter_
+    }
+
+    async get(
+        filter : ObservacionesFilter, 
+        options : {
+            return_series ? : boolean
+        }) : Promise<Observacion[]|Serie[]> {
+            throw new Error("Method 'get()' must be implemented in child class")
+    }
+
+    async update(
+        filter : ObservacionesFilter,
+        options : {
+            return_series ? : boolean
+        } = {}) : Promise<Array<Observacion>|Array<Serie>> {
+        const series = await this.get(filter, {...options, return_series: true})
+        const updated : Array<Serie> = []
+        for(var serie of series) {
+            const c_serie = new crud_serie(serie)
+            await c_serie.createObservaciones()
+            updated.push(c_serie as Serie)
+        }
+        if (options.return_series) {
+            return updated
+        } else {
+            const observaciones = []
+            for(var i=0; i<updated.length; i++) {
+                observaciones.push(...updated[i].observaciones)
+            }
+            return new crud_observaciones(observaciones)
+        }
+    }
+
+    async getSeries(filter : SeriesFilter) : Promise<Array<Serie>> {
+        throw new Error("Method 'getSeries()' must be implemented in child class")
+    }
+
+    async updateSeries(filter : SeriesFilter) : Promise<Array<Serie>> {
+        const series = await this.getSeries(filter)
+        return crud_serie.create(series)
+    }
+
+    async getSites(filter : SitesFilter) : Promise<Array<Location>> {
+        throw new Error("Method 'getSites()' must be implemented in child class")
+    }
+
+    async updateSites(filter : SitesFilter) : Promise<Array<Estacion>> {
+        const sites = await this.getSites(filter)
+        return crud_estacion.create(sites)
     }
 
 }
