@@ -151,7 +151,7 @@ internal.Accessor = class {
 		if(! internal[this.clase]) {
 			throw new Error("Invalid accessor class")
 		}
-		this.engine = new internal[this.clase](fields.config)
+		this.engine = new internal[this.clase]((fields.config) ? fields.config : {})
 		if(fields.series_id) {
 			this.series_id = fields.series_id
 			this.engine.config.series_id = fields.series_id
