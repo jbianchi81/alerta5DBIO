@@ -730,6 +730,9 @@ internal.area = class extends baseModel  {
 		}
 		return
 	}
+	static async create(areas) {
+		return internal.CRUD.upsertAreas(areas)
+	}
 	static async read(filter={},options) {
 		if(filter.id && !Array.isArray(filter.id)) {
 			return internal.CRUD.getArea(filter.id,options)
@@ -7596,33 +7599,22 @@ internal.CRUD = class {
 	// AREA //
 	
 	static async upsertArea(area) {
-		return new Promise((resolve,reject)=>{
-			if(area.id) {
-				resolve(area)
-			} else {
-				resolve(area.getId(global.pool))
-			}
-		})
-		.then(()=>{
-			if(area.geom && area.geom.type && area.geom.type == "MultiPolygon") {
-				area.geom = new internal.geometry({
-					type: "Polygon",
-					coordinates: area.geom.coordinates[0]
-				})
-			}
-			return global.pool.query(this.upsertAreaQuery(area))
-		}).then(result=>{
-			if(result.rows.length<=0) {
-				console.error("Upsert failed")
-				return
-			}
-			console.log("Upserted areas_pluvio.unid=" + result.rows[0].id)
-			//~ console.log(result.rows[0])
-			return new internal.area(result.rows[0])
-		}).catch(e=>{
-			console.error(e)
-			return
-		})
+		if(!area.id) {
+			await area.getId(global.pool)
+		}
+		if(area.geom && area.geom.type && area.geom.type == "MultiPolygon") {
+			area.geom = new internal.geometry({
+				type: "Polygon",
+				coordinates: area.geom.coordinates[0]
+			})
+		}
+		const result = await global.pool.query(this.upsertAreaQuery(area))
+		if(result.rows.length<=0) {
+			throw new Error ("Area upsert failed: no rows returned")
+		}
+		console.info("Upserted areas_pluvio.unid=" + result.rows[0].id)
+		//~ console.log(result.rows[0])
+		return new internal.area(result.rows[0])
 	}
 	
 	static upsertAreaQuery (area)  {
@@ -7822,10 +7814,11 @@ internal.CRUD = class {
 	}
 
 	static async getAreasWithPagination(filter={},options={},req) {
-		filter.limit = filter.limit ?? config.pagination.default_limit
+		const config_pagination = config.pagination ?? {default_limit: 1000, max_limit: 10000}
+		filter.limit = filter.limit ?? config_pagination.default_limit
 		filter.limit = parseInt(filter.limit)
-		if (filter.limit > config.pagination.max_limit) {
-			throw(new Error("limit exceeds maximum records per page (" + config.pagination.max_limit) + ")")
+		if (filter.limit > config_pagination.max_limit) {
+			throw(new Error("limit exceeds maximum records per page (" + config_pagination.max_limit) + ")")
 		}
 		filter.offset = filter.offset ?? 0
 		filter.offset = parseInt(filter.offset)
