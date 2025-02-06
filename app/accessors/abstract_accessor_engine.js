@@ -53,14 +53,34 @@ class AbstractAccessorEngine {
     }
     static setFilterValuesToArray(filter, empty_arrays = true) {
         const filter_ = Object.assign({}, filter);
-        for (const key of ["series_id", "estacion_id", "var_id", "id_externo"]) {
-            if (filter_[key] != undefined) {
-                if (!Array.isArray(filter_[key])) {
-                    filter_[key] = [filter_[key]];
+        const valid_keys = [
+            {
+                "key": "series_id",
+                "type": "int"
+            }, {
+                "key": "estacion_id",
+                "type": "int"
+            }, {
+                "key": "var_id",
+                "type": "int"
+            }, {
+                "key": "id_externo",
+                "type": "string"
+            }
+        ];
+        for (const key of valid_keys) {
+            if (filter_[key.key] != undefined) {
+                if (!Array.isArray(filter_[key.key])) {
+                    if (key.type == "int") {
+                        filter_[key.key] = [parseInt(filter_[key.key])];
+                    }
+                    else {
+                        filter_[key.key] = [filter_[key.key].toString()];
+                    }
                 }
             }
             else if (empty_arrays) {
-                filter_[key] = [];
+                filter_[key.key] = [];
             }
         }
         return filter_;

@@ -147,6 +147,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                     }
                 }
                 if (options.return_series) {
+                    serie.observaciones.sort((a, b) => a.timestart.getTime() - b.timestart.getTime());
                     series.push(serie);
                 }
             }
@@ -161,7 +162,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     predict_date_range(page, data_length = this.config.page_size) {
         var pred_end_date = new Date();
         pred_end_date.setHours(0, 0, 0, 0);
-        pred_end_date.setDate(pred_end_date.getDate() - client.config.page_size * (page - 1));
+        pred_end_date.setDate(pred_end_date.getDate() - this.config.page_size * (page - 1));
         var pred_begin_date = new Date(pred_end_date);
         pred_begin_date.setDate(pred_begin_date.getDate() - data_length + 1);
         return {

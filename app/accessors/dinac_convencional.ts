@@ -186,6 +186,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                 }
             }  
             if(options.return_series) {
+                serie.observaciones.sort((a  : crud_observacion, b : crud_observacion) => a.timestart.getTime() - b.timestart.getTime())
                 series.push(serie)
             }          
         }
@@ -199,7 +200,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
     predict_date_range(page : number, data_length : number = this.config.page_size) : DateRange {
         var pred_end_date = new Date()
         pred_end_date.setHours(0,0,0,0)
-        pred_end_date.setDate(pred_end_date.getDate() - client.config.page_size * (page - 1))
+        pred_end_date.setDate(pred_end_date.getDate() - this.config.page_size * (page - 1))
 
         var pred_begin_date = new Date(pred_end_date)
         pred_begin_date.setDate(pred_begin_date.getDate() - data_length + 1)
