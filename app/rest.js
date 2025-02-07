@@ -817,6 +817,7 @@ app.get('/web_semanal',auth.isWriterView, (req,res)=>informe_semanal.renderForm(
 app.get("/web/semanal/informe/md",auth.isPublic,(req,res)=>informe_semanal.getInformeMd(req,res))
 const md = require("./render_md").md
 const marked = require("marked")
+const { max } = require('moment-timezone')
 app.get("/web/semanal/boceto_", auth.isPublic, (req,res)=> {
 	var html = md(__dirname + "/../public/md/nueva_web_boceto.md")
 	res.send(html)
@@ -2866,9 +2867,33 @@ function deleteObservaciones(req,res) {
 		res.status(400).send({message:"Error: Missing arguments",required_arguments:required,recieved_arguments:filter})
 		return
 	}
-	crud.deleteObservaciones(filter.tipo,filter)
+	if(global.config.rest.max_delete_batch_size) {
+		if(options.batch_size) {
+			if(parseInt(options.batch_size).toString() == "NaN") {
+				res.status(400).send({message:"Error: Bad argument: batch_size must be an integer"})
+				return 
+			}
+			var batch_size = Math.min(global.config.rest.max_delete_batch_size, parseInt(options.batch_size))
+		} else {
+			var batch_size = global.config.rest.max_delete_batch_size
+		}
+	} else if (options.batch_size) {
+		if(parseInt(options.batch_size).toString() == "NaN") {
+			res.status(400).send({message:"Error: Bad argument: batch_size must be an integer"})
+			return 
+		}
+		var batch_size = parseInt(options.batch_size)
+	}
+	crud.deleteObservaciones(
+		filter.tipo,
+		filter,
+		{
+			no_send_data: options.no_send_data,
+			batch_size: batch_size
+		}
+	)
 	.then(result=>{
-		console.log("Deleted: " + result.length)
+		console.log("Deleted: " + (options.no_send_data) ? result : result.length)
 		send_output(options,result,res)
 	})
 	.catch(e=>{
@@ -7424,6 +7449,12 @@ function getFilter(req) {
 		if(req.body.date) {
 			filter.date = req.body.date
 		}
+		if(req.body.time) {
+			filter.time = req.body.time
+		}
+		if(req.body.time_not) {
+			filter.time_not = req.body.time_not
+		}
 		if(req.body.agg_func) {
 			filter.agg_func = req.body.agg_func
 		}
@@ -7598,6 +7629,12 @@ function getFilter(req) {
 		}
 		if(req.query.date) {
 			filter.date = req.query.date
+		}
+		if(req.query.time) {
+			filter.time = req.query.time
+		}
+		if(req.query.time_not) {
+			filter.time_not = req.query.time_not
 		}
 		if(req.query.agg_func) {
 			filter.agg_func = req.query.agg_func
@@ -7870,7 +7907,7 @@ function getOptions(req) {
 		if(req.body.get_drainage_basin) {
 			options.get_drainage_basin = (req.body.get_drainage_basin.toString().toLowerCase() == 'true')
 		}
-		["agg_func","dt","t_offset","id_grupo","get_raster","min_count","group_by_cal","interval","stats","pivot","group_by_qualifier","sort","order","from_view","get_cal_stats"].forEach(k=>{
+		["agg_func","dt","t_offset","id_grupo","get_raster","min_count","group_by_cal","interval","stats","pivot","group_by_qualifier","sort","order","from_view","get_cal_stats","batch_size"].forEach(k=>{
 			if(req.body[k]) {
 				options[k] = req.body[k]
 			}
@@ -8010,7 +8047,7 @@ function getOptions(req) {
 		if(req.query.update_obs) {
 			options.update_obs = (req.query.update_obs.toString().toLowerCase() == 'true')
 		}
-		["agg_func","dt","t_offset","get_raster","min_count","group_by_cal","interval","stats","pivot","sort","order","from_view","get_cal_stats"].forEach(k=>{
+		["agg_func","dt","t_offset","get_raster","min_count","group_by_cal","interval","stats","pivot","sort","order","from_view","get_cal_stats","batch_size"].forEach(k=>{
 			if(req.query[k]) {
 				options[k] = req.query[k]
 			}

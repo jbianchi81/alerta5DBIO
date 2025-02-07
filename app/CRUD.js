@@ -4126,7 +4126,7 @@ internal.observacion = class extends baseModel {
 		}
 	}
 	toString() {
-		var valor = (this.valor) ? (this.tipo == "rast" || this.tipo == "raster") ? "rasterFile" : this.valor.toString() : "null"
+		var valor = (this.valor === undefined) ? "null" : (this.tipo == "rast" || this.tipo == "raster") ? "rasterFile" : (this.valor === null) ? "null" : this.valor.toString()
 		return "{" + "id:" + this.id + ", tipo:" + this.tipo + ", series_id:" + this.series_id + ", timestart:" + this.timestart.toISOString() + ", timeend:" + this.timeend.toISOString() + ", nombre:" + this.nombre + ", descrpcion:" + this.descripcion + ", unit_id:" + this.unit_id + ", timeupdate:" + this.timeupdate.toISOString() + ", valor:" + valor + "}"
 	}
 	// toJSON() {
@@ -10899,49 +10899,99 @@ internal.CRUD = class {
 		})	
 	}
 
-	static async deleteObservaciones(tipo,filter,options,client) { // con options.no_send_data devuelve count de registros eliminados, si no devuelve array de registros eliminados
+	/**
+	 * filter:
+	 * - id : int | int[]
+	 * - series_id : int | int[]
+	 * - timestart : Date
+	 * - timeend : Date
+	 * - timepudate : Date
+	 * - unit_id : int | int[]
+	 * - valor : [number, number]
+	 * - var_id : int | int[]
+	 * - proc_id : int | int[]
+	 * - area_id : int | int[]
+	 * - fuentes_id : int | int[]
+	 * - geom : Geometry
+	 * - estacion_id : int | int[]
+	 * - tabla : string | string[]
+	 * - id_externo : string | string[]
+	 * 
+	 * options:
+	 * - no_send_data : bool
+	 * - batch_size : int 
+	 */
+	static async deleteObservaciones(tipo,filter={},options={},client) { // con options.no_send_data devuelve count de registros eliminados, si no devuelve array de registros eliminados
+		tipo = (tipo) ? tipo : filter.tipo
+		delete filter.tipo
 		tipo = (tipo.toLowerCase() == "areal") ? "areal" : (tipo.toLowerCase() == "rast" || tipo.toLowerCase() == "raster") ? "raster" : "puntual"
+		const batch_size = (options.batch_size) ? parseInt(options.batch_size) : "NULL"
 		if(tipo == "raster") {
 			var stmt
 			var args
-			var returning_clause = (options && options.no_send_data) ? " RETURNING 1 AS d" : " RETURNING series_id,id,timestart,timeend,ST_AsGDALRaster(valor, 'GTIff') valor, timeupdate"
-			var select_deleted_clause = (options && options.no_send_data) ? " SELECT count(d) FROM deleted" : "SELECT * FROM deleted"
+			var returning_clause = (options.no_send_data) ? " RETURNING 1 AS d" : " RETURNING series_id,id,timestart,timeend,ST_AsGDALRaster(valor, 'GTIff') valor, timeupdate"
+			var select_deleted_clause = (options.no_send_data) ? " SELECT count(d) FROM deleted" : "SELECT * FROM deleted"
+			var result_rows = []
 			if(filter.id) {
-				stmt = "WITH deleted AS (DELETE FROM observaciones_rast WHERE id=$1 " + returning_clause + ") " +  select_deleted_clause
-				args = [parseInt(filter.id)]
+				var result = await executeQueryReturnRows(`WITH deleted AS (
+					DELETE FROM observaciones_rast WHERE id=$1
+					${returning_clause}) 
+					${select_deleted_clause}`,
+					[parseInt(filter.id)],
+					client)
+				result_rows = result
 			} else {
 				var valid_filters = {
 					series_id: {type:"integer"},
 					timestart:{type:"timestart"},
 					timeend:{type:"timeend"},
-					timeupdate:{type:"string"}
+					timeupdate:{type:"string"},
+					time: {type: "time", column:"timestart"},
+					time_not: {type: "time", column:"timestart", not: true}
 				}
 				var filter_string = internal.utils.control_filter2(valid_filters,filter)
 				if(!filter_string) {
 					return Promise.reject(new Error("invalid filter value"))
 				}
-				stmt = "WITH deleted AS (DELETE FROM observaciones_rast WHERE 1=1 " + filter_string + returning_clause + ") " + select_deleted_clause
-				args=[]
+				let deleted_rows 
+				do {
+					const result = await executeQueryReturnRows(`WITH selected AS (
+						SELECT * 
+						FROM observaciones_rast 
+						WHERE 1=1 
+						${filter_string}
+						LIMIT ${batch_size}
+					),
+					deleted AS (
+						DELETE FROM oservaciones_rast
+						WHERE id in (SELECT id from selected)
+						${returning_clause}
+					)					
+					${select_deleted_clause}`,
+					undefined,
+					client)
+					deleted_rows = (options.batch_size) ? result.length : 0
+					console.debug(`Deleted ${deleted_rows} rows...`)
+					result_rows.push(...result)
+				} while (deleted_rows > 0)
 			}
-			// console.log(pasteIntoSQLQuery(stmt,args))
-			var result = await executeQueryReturnRows(stmt,args,client)
-			if(!result) {
-				console.log("Error in transaction: no rows returned")
-				return (options && options.no_send_data) ? 0 : []
+			// if(!result) {
+			// 	console.log("Error in transaction: no rows returned")
+			// 	return (options && options.no_send_data) ? 0 : []
+			// }
+			if(result_rows.length == 0) {
+				console.warn("0 rows deleted")
+				return (options.no_send_data) ? 0 : []
 			}
-			if(result.length == 0) {
-				console.log("0 rows deleted")
-				return (options && options.no_send_data) ? 0 : []
-			}
-			if (options && options.no_send_data) {
-				console.log(result[0].count + " rows deleted")
-				return parseInt(result[0].count)
+			if (options.no_send_data) {
+				console.debug(result_rows[0].count + " rows deleted")
+				return parseInt(result_rows[0].count)
 			} else {
-				result = result.map(o=>{
+				result_rows = result_rows.map(o=>{
 					o.tipo = "raster"
 					return o
 				})
-				var observaciones = new internal.observaciones(result) // []
+				var observaciones = new internal.observaciones(result_rows) // []
 				// for(var i=0; i< result.length;i++) {
 				// 	const deleted_observacion = new internal.observacion(tipo, result[i].series_id, result[i].timestart, result[i].timeend, result[i].timeupdate, result[i].valor)
 				// 	deleted_observacion.id = result[i].id
@@ -10950,24 +11000,66 @@ internal.CRUD = class {
 				return observaciones
 			}
 		} else {
+			// puntual, areal
 			const obs_tabla = (tipo == "areal") ? "observaciones_areal" : "observaciones"
 			const val_tabla = (tipo == "areal") ? "valores_num_areal" : "valores_num"
 			const series_tabla = (tipo == "areal") ? "series_areal" : "series"
-			var deleteValorText
-			var deleteObsText
-			var returning_clause = (options && options.no_send_data) ? " RETURNING 1 AS d" : " RETURNING *"
-			var select_deleted_clause = (options && options.no_send_data) ? " SELECT count(d) FROM deleted" : "SELECT * FROM deleted"
+			var returning_clause = (options.no_send_data) ? " RETURNING 1 AS d" : " RETURNING *"
+			var select_deleted_clause = (options.no_send_data) ? " SELECT count(id) FROM deleted" : "SELECT * FROM deleted"
+
+			if(!client) {
+				var release_client = true
+				client = await global.pool.connect()
+				try {
+					await client.query('BEGIN')
+				} catch (e) {
+					await client.release()
+					throw new Error(e)
+				}
+			}
+			var result_rows = []
 			if(filter.id) {
 				if(Array.isArray(filter.id)) {
 					if(filter.id.length == 0) {
 						console.info("crud/deleteObservaciones: Nothing to delete (passed zero length id array)")
 						return Promise.resolve([])
 					}
-					deleteValorText = "WITH deleted AS (DELETE FROM " + val_tabla + " WHERE obs_id IN (" + filter.id.join(",") + ") " + returning_clause + ") " + select_deleted_clause
-					deleteObsText = "WITH deleted AS (DELETE FROM " + obs_tabla + " WHERE id IN (" + filter.id.join(",") + ") " + returning_clause + ") " + select_deleted_clause
+					// deleteValorText = `WITH deleted AS (DELETE FROM ${val_tabla} WHERE obs_id IN (${filter.id.map(id=>parseInt(id)).join(",")}) ${returning_clause}) ${select_deleted_clause}`
+					let row_count
+					do {
+						try {
+							const result = await executeQueryReturnRows(`WITH selected AS (
+								SELECT id FROM ${obs_tabla} 
+									WHERE id IN (${filter.id.map(id=>parseInt(id)).join(",")}) 
+									LIMIT ${batch_size}
+								), deleted AS (
+								DELETE FROM ${obs_tabla}
+									WHERE id IN (SELECT id FROM selected)
+									${returning_clause}
+								)
+								${select_deleted_clause}`,
+								undefined,
+								client)
+							row_count = (options.batch_size) ? result.length : 0
+							result_rows.push(...result)
+						} catch (e) {
+							throw(e)
+						}
+					} while (row_count > 0)
 				} else {
-					deleteValorText = "WITH deleted AS (DELETE FROM " + val_tabla + " WHERE obs_id=" + parseInt(filter.id) + " " + returning_clause + ") " + select_deleted_clause
-					deleteObsText = "WITH deleted AS (DELETE FROM " + obs_tabla + " WHERE id=" + parseInt(filter.id)  + returning_clause + ") " + select_deleted_clause
+					// deleteValorText = `WITH deleted AS (DELETE FROM ${val_tabla} WHERE obs_id=${parseInt(filter.id)} ${returning_clause}) ${select_deleted_clause}`
+					try {
+						result_rows = await executeQueryReturnRows(`WITH deleted AS (
+							DELETE FROM ${obs_tabla} 
+							WHERE id=$1
+							${returning_clause}
+							) 
+							${select_deleted_clause}`,
+							[parseInt(filter.id)],
+							client)
+					} catch (e) {
+						throw(e)
+					}
 				}
 			} else {
 				var valid_filters = {
@@ -10979,19 +11071,22 @@ internal.CRUD = class {
 					valor:{type:"numeric_interval"},
 					var_id:{type:"integer",table:series_tabla},
 					proc_id:{type:"integer",table:series_tabla},
-					unit_id:{type:"integer",table:series_tabla}
+					unit_id:{type:"integer",table:series_tabla},
+					time: {type: "time", column:"timestart"},
+					time_not: {type: "time", column:"timestart", not: true}
+
 				}
-				var join_clause = ""
-				var obs_using_clause = ""
-				var obs_where_clause = "WHERE 1=1"
+				// var join_clause = ""
+				// var obs_using_clause = ""
+				var obs_join_clause = ""
 				if(filter.var_id != undefined || filter.proc_id != undefined || filter.unit_id != undefined || filter.estacion_id != undefined || filter.area_id != undefined || filter.tabla != undefined || filter.tabla_id != undefined || filter.fuentes_id != undefined || filter.id_externo != undefined || filter.geom != undefined) {
-					join_clause += `JOIN ${series_tabla} ON (${series_tabla}.id = ${obs_tabla}.series_id)`
-					obs_using_clause = `USING ${series_tabla}`
-					obs_where_clause = `WHERE ${series_tabla}.id = ${obs_tabla}.series_id`
+					// join_clause += `JOIN ${series_tabla} ON (${series_tabla}.id = ${obs_tabla}.series_id)`
+					// obs_using_clause = `USING ${series_tabla}`
+					obs_join_clause = `JOIN ${series_tabla} ON (${series_tabla}.id = ${obs_tabla}.series_id)`
 					if(tipo == "areal") {
-						join_clause += `
-								JOIN areas_pluvio ON (areas_pluvio.unid = series_areal.area_id)`
-						obs_using_clause += `
+						// join_clause += `
+						// 		JOIN areas_pluvio ON (areas_pluvio.unid = series_areal.area_id)`
+						obs_join_clause += `
 								JOIN areas_pluvio ON (areas_pluvio.unid = series_areal.area_id)`
 						valid_filters = Object.assign(
 							valid_filters, 
@@ -11012,9 +11107,9 @@ internal.CRUD = class {
 							}
 						)
 					} else {
-						join_clause += `
-								JOIN estaciones ON (estaciones.unid = series.estacion_id)`
-						obs_using_clause += `
+						// join_clause += `
+						// 		JOIN estaciones ON (estaciones.unid = series.estacion_id)`
+						obs_join_clause += `
 								JOIN estaciones ON (estaciones.unid = series.estacion_id)`
 						valid_filters = Object.assign(
 							valid_filters, 
@@ -11048,80 +11143,94 @@ internal.CRUD = class {
 				if(!filter_string) {
 					return Promise.reject(new Error("invalid filter value"))
 				}
-				deleteValorText = `
-					WITH deleted AS (
-						DELETE FROM ${val_tabla}
-						USING ${obs_tabla}
-						${join_clause}
-						WHERE ${obs_tabla}.id=${val_tabla}.obs_id 
-						${filter_string}
-						${returning_clause}
-					)
-					${select_deleted_clause}`
-				deleteObsText = `
-					WITH deleted AS (
-						DELETE FROM ${obs_tabla}
-						${obs_using_clause}
-						${obs_where_clause}
-						${filter_string}
-						${returning_clause}
-					)
-					${select_deleted_clause}`
-			}
-			// console.debug(deleteObsText)
-			// console.debug(deleteValorText)
-			if(!client) {
-				var release_client = true
-				client = await global.pool.connect()
-			}
-			try {
-				if(release_client) {
-					await client.query('BEGIN')
-				}
-				var result = await executeQueryReturnRows(deleteValorText,undefined,client)
-				if(result.length == 0) {
-					console.info("No se eliminó ningun valor")
-				}
-				var deleted_valores={}
-				if(options && options.no_send_data) {
-					console.debug(result[0].count + " valores marked for deletion")
-				} else {
-					result.forEach(row=> {
-						deleted_valores[row.obs_id] = row.valor 
-					})
-				}
-				result = await executeQueryReturnRows(deleteObsText,undefined,client)
-				if(result.length == 0) {
-					console.info("No se eliminó ninguna observacion")
-				}
-				var deleted_observaciones
-				if(options && options.no_send_data) {
-					console.debug(result[0].count + " observaciones marked for deletion")
-				} else {
-					deleted_observaciones = result
-				}
+				// deleteValorText = `
+				// 	WITH deleted AS (
+				// 		DELETE FROM ${val_tabla}
+				// 		USING ${obs_tabla}
+				// 		${join_clause}
+				// 		WHERE ${obs_tabla}.id=${val_tabla}.obs_id 
+				// 		${filter_string}
+				// 		${returning_clause}
+				// 	)
+				// 	${select_deleted_clause}`
+				let target_obs
+				if(!options.no_send_data) {
+					try {
+						const result = await executeQueryReturnRows(`SELECT 
+							$1 as tipo,
+							${obs_tabla}.*,
+							${val_tabla}.valor 
+							FROM ${obs_tabla}
+							JOIN ${val_tabla} ON (${obs_tabla}.id = ${val_tabla}.obs_id)
+							${obs_join_clause}
+							WHERE 1=1
+							${filter_string}`,
+							[tipo],
+							client)
+						if(!result.length) {
+							console.warn("No observaciones matched for deleting")
+							if(release_client) {
+								await client.release()
+							}
+							if(options.no_send_data) {
+								return 0
+							} else {
+								return []
+							}
+						}
+							target_obs = new internal.observaciones(result)
+					} catch (e) {
+						throw(e)
+					}
+				} 
+
+				var result_rows = (options.no_send_data) ? 0 : []
+				let deleted_rows
+				do {
+					try {
+						const result = await executeQueryReturnRows(`
+							WITH selected AS (
+								SELECT ${obs_tabla}.id FROM ${obs_tabla}
+								${obs_join_clause}
+								WHERE 1=1
+								${filter_string}
+								LIMIT ${batch_size}
+							),
+							deleted AS (
+								DELETE FROM ${obs_tabla}
+								WHERE id in (SELECT id from selected)
+								RETURNING id
+							)
+							${select_deleted_clause}`,
+							undefined,
+							client)
+						if(options.no_send_data) {
+							result_rows = result_rows + parseInt(result[0].count)
+							deleted_rows = (options.batch_size) ? parseInt(result[0].count) : 0
+							console.debug(`result_rows: ${result_rows}`)
+						} else {
+							result_rows.push(...result)
+							deleted_rows = (options.batch_size) ? result.length : 0
+						}
+						console.debug(`deleted_rows: ${deleted_rows}`)
+					} catch (e) {
+						throw(e)
+					}
+				} while (deleted_rows > 0)
+				
+				// if(result_rows.length == 0) {
+				// 	console.info("No se eliminó ningun valor")
+				// }
 				if(release_client) {
 					await client.query("COMMIT")
 					client.release()
 				}
-				if(options && options.no_send_data) {
-					console.log("Deleted " + result[0].count + " rows from " + obs_tabla)
-					return parseInt(result[0].count)
+				if(options.no_send_data) {
+					console.debug(result_rows + " observaciones deleted")
+					return parseInt(result_rows)
 				} else {
-					console.log("Deleted " + deleted_observaciones.length + " observaciones from " + obs_tabla)
-					var observaciones=[]
-					for(var i=0; i< deleted_observaciones.length;i++) {
-						deleted_observaciones[i].valor = deleted_valores[deleted_observaciones[i].id]
-						deleted_observaciones[i].tipo = tipo
-						// const deleted_observacion = new internal.observacion(tipo, deleted_observaciones[i].series_id, deleted_observaciones[i].timestart, deleted_observaciones[i].timeend, deleted_observaciones[i].nombre, deleted_observaciones[i].descripcion, deleted_observaciones[i].unit_id, deleted_observaciones[i].timeupdate, valor)
-						// deleted_observacion.id = deleted_observaciones[i].id
-						// observaciones.push(deleted_observacion)
-					}
-					return new internal.observaciones(deleted_observaciones)
-				}
-			} catch (e) {
-				if(release_client) {
-					await client.release()
+					const idSet = new Set(result_rows.map(r=>r.id))
+					return target_obs.filter(o => idSet.has(o.id))
 				}
 			}
 		}
@@ -11284,7 +11393,10 @@ internal.CRUD = class {
 			unit_id:{type:"integer"},
 			timeupdate:{type:"date"},
 			var_id:{type:"integer",table:series_table},
-			proc_id:{type:"integer",table:series_table}
+			proc_id:{type:"integer",table:series_table},
+			time: {type: "time", column:"timestart"},
+			time_not: {type: "time", column:"timestart", not: true}
+
 		}
 		if(tipo=="puntual") {
 			valid_filters["red_id"] = {type:"integer",table:"redes",column:"id"}
@@ -20111,7 +20223,7 @@ internal.utils = {
 		}
 	},
 	control_filter2: function (valid_filters, filter, default_table, throw_if_invalid=false) {
-		// valid_filters = { column1: { table: "table_name", type: "data_type", required: bool, column: "column_name"}, ... }  
+		// valid_filters = { column1: { table: "table_name", type: "data_type", required: bool, column: "column_name", not: bool}, ... }  
 		// filter = { column1: "value1", column2: "value2", ....}
 		// default_table = "table"
 		var filter_string = " "
@@ -20230,6 +20342,42 @@ internal.utils = {
 			} else if (filter_def.type == "timeend") {
 				var ldate = (filter[key] instanceof Date) ? filter[key].toISOString() : timeSteps.parseDateString(filter[key]).toISOString()
 				filter_string += " AND " + fullkey + "::timestamptz<='" + ldate + "'"
+			} else if (filter_def.type == "time") {
+				if(Array.isArray(filter[key])) {
+					if(!filter[key].length) {
+						console.warn("Skipping time filter, empty array")
+					} else {
+						filter_string += ` AND (`
+						for(var i=0;i<filter[key].length;i++) {
+							if(!/^\d\d\:\d\d(:\d\d)?$/.test(filter[key][i].toString())) {
+								throw new Error(`Invalid time filter: ${filter[key][i]}`)
+							}
+							if(filter_def.not) {
+								if(i > 0) {
+									filter_string += ` AND `	
+								}
+								filter_string += `${fullkey}::time != '${filter[key][i].toString()}'`			
+							} else {
+								if(i > 0) {
+									filter_string += ` OR `	
+								}
+								filter_string += `${fullkey}::time = '${filter[key][i].toString()}'`			
+							}
+		
+						}
+						filter_string += `)`
+
+					}
+				} else {
+					if(!/^\d\d\:\d\d(:\d\d)?$/.test(filter[key].toString())) {
+						throw new Error(`Invalid time filter: ${filter[key]}`)
+					}
+					if(filter_def.not) {
+						filter_string += ` AND ${fullkey}::time != '${filter[key].toString()}'`			
+					} else {
+						filter_string += ` AND ${fullkey}::time = '${filter[key].toString()}'`			
+					}
+				}
 			} else if (filter_def.type == "numeric_interval") {
 				if(Array.isArray(filter[key])) {
 					if(filter[key].length < 2) {

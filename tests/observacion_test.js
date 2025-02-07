@@ -1,7 +1,7 @@
 const test = require('node:test')
 const assert = require('assert')
 process.env.NODE_ENV = "test"
-const {serie: Serie, observacion: Observacion, estacion: Estacion} = require('../app/CRUD')
+const {serie: Serie, observacion: Observacion, observaciones: Observaciones, estacion: Estacion} = require('../app/CRUD')
 
 test('observacion crud sequence', async(t) => {
     await Serie.delete({
@@ -77,43 +77,19 @@ test('observacion crud sequence', async(t) => {
             },
             "observaciones": [
                 {
-                    "id": 10,
-                    "tipo": "puntual",
-                    "series_id": 3281,
                     "timestart": "2027-03-03T03:08:00.000Z",
                     "timeend": "2027-03-03T03:08:00.000Z",
-                    "nombre": "upsertObservacionesPuntual",
-                    "descripcion": null,
-                    "unit_id": null,
-                    "timeupdate": "2024-07-23T18:21:46.563Z",
-                    "valor": 398.53,
-                    "stats": null
+                    "valor": 398.53
                 },
                 {
-                    "id": 11,
-                    "tipo": "puntual",
-                    "series_id": 3281,
                     "timestart": "2027-08-13T03:00:00.000Z",
                     "timeend": "2027-08-13T03:00:00.000Z",
-                    "nombre": "upsertObservacionesPuntual",
-                    "descripcion": null,
-                    "unit_id": null,
-                    "timeupdate": "2024-07-23T18:21:46.563Z",
-                    "valor": 0,
-                    "stats": null
+                    "valor": 0
                 },
                 {
-                    "id": 12,
-                    "tipo": "puntual",
-                    "series_id": 3281,
                     "timestart": "2030-02-16T15:21:00.000Z",
                     "timeend": "2030-02-16T15:21:00.000Z",
-                    "nombre": "upsertObservacionesPuntual",
-                    "descripcion": null,
-                    "unit_id": null,
-                    "timeupdate": "2024-07-23T18:21:46.563Z",
-                    "valor": 310.13,
-                    "stats": null
+                    "valor": 310.13
                 }
             ],
             "pronosticos": null
@@ -183,6 +159,162 @@ test('observacion crud sequence', async(t) => {
             }
         )
         assert.equal(deleted.length, 2, "Deleted observaciones must be of length 2")
+    })
+
+    await t.test("create obs, delete in batches", async() => {
+        const sequence = Array.from({ length: 10 }, (_, i) => {
+            return {
+                tipo: "puntual",
+                series_id: 3281,
+                timestart: new Date(2000,0,i + 1),
+                timeend: new Date(2000,0,i + 1),
+                valor: Math.random()
+            }
+        })
+        const observaciones = await Observaciones.create(sequence)
+        assert.equal(observaciones.length, 10)
+        
+        const deleted = await Observacion.delete({
+            tipo: "puntual",
+            series_id: 3281
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, 10)
+    })
+
+    await t.test("create obs, delete in batches, no_send_data (return count)", async() => {
+        const sequence = Array.from({ length: 1000 }, (_, i) => {
+            return {
+                tipo: "puntual",
+                series_id: 3281,
+                timestart: new Date(2000,0,i + 1),
+                timeend: new Date(2000,0,i + 1),
+                valor: Math.random()
+            }
+        })
+        const observaciones = await Observaciones.create(sequence)
+        assert.equal(observaciones.length, 1000)
+        
+        const deleted = await Observacion.delete({
+            tipo: "puntual",
+            series_id: 3281
+        },{
+            batch_size: 50,
+            no_send_data: true
+        })
+        assert.equal(deleted, 1000)
+    })
+
+    await t.test("filter by time", async(t)=> {
+        const sequence = Array.from({ length: 24 * 10 }, (_, i) => {
+            return {
+                tipo: "puntual",
+                series_id: 3281,
+                timestart: new Date(2000,0,1,i),
+                timeend: new Date(2000,0,1,i),
+                valor: Math.random()
+            }
+        })
+        const observaciones = await Observaciones.create(sequence)
+        assert.equal(observaciones.length, 24 * 10)
+
+        const get_filtered = await Observaciones.read({
+            tipo: "puntual",
+            series_id: 3281,
+            time: '00:00'
+        })
+        assert.equal(get_filtered.length, 10)
+        for(var i=0;i<get_filtered.length;i++) {
+            assert.equal(get_filtered[i].timestart.getHours(), 0)
+        }
+
+        const deleted = await Observacion.delete({
+            tipo: "puntual",
+            series_id: 3281,
+            time: '00:00'
+        },{
+            batch_size: 50
+        })
+        assert.equal(deleted.length, 10)
+        for(var i=0;i<deleted.length;i++) {
+            assert.equal(deleted[i].timestart.getHours(), 0)
+        }
+
+        const get_filtered_w_list = await Observaciones.read({
+            tipo: "puntual",
+            series_id: 3281,
+            time: ['09:00', '12:00']
+        })
+        assert.equal(get_filtered_w_list.length, 20)
+        for(var i=0;i<get_filtered_w_list.length;i++) {
+            assert.notEqual([9,12].indexOf(get_filtered_w_list[i].timestart.getHours()), -1)
+        }
+
+        const deleted_filtered_w_list = await Observacion.delete({
+            tipo: "puntual",
+            series_id: 3281,
+            time: ['09:00','12:00']
+        },{
+            batch_size: 50
+        })
+        assert.equal(deleted_filtered_w_list.length, 20)
+        for(var i=0;i<deleted_filtered_w_list.length;i++) {
+            assert.notEqual([9,12].indexOf(deleted_filtered_w_list[i].timestart.getHours()), -1)
+        }
+
+        const get_filtered_w_list_not = await Observaciones.read({
+            tipo: "puntual",
+            series_id: 3281,
+            time_not: ['10:00', '13:00','16:00']
+        })
+        assert.equal(get_filtered_w_list_not.length, 10 * 18)
+        for(var i=0;i<get_filtered_w_list_not.length;i++) {
+            assert.notEqual(get_filtered_w_list_not[i].timestart.getHours(), 10)
+            assert.notEqual(get_filtered_w_list_not[i].timestart.getHours(), 13)
+            assert.notEqual(get_filtered_w_list_not[i].timestart.getHours(), 16)
+        }
+
+        const deleted_filtered_w_list_not = await Observacion.delete({
+            tipo: "puntual",
+            series_id: 3281,
+            time_not: ['10:00','13:00','16:00']
+        },{
+            batch_size: 50
+        })
+        assert.equal(deleted_filtered_w_list_not.length, 10 * 18)
+        for(var i=0;i<deleted_filtered_w_list_not.length;i++) {
+            assert.notEqual(deleted_filtered_w_list_not[i].timestart.getHours(), 10)
+            assert.notEqual(deleted_filtered_w_list_not[i].timestart.getHours(), 13)
+            assert.notEqual(deleted_filtered_w_list_not[i].timestart.getHours(), 16)
+        }
+
+        const get_filtered_time_not = await Observaciones.read({
+            tipo: "puntual",
+            series_id: 3281,
+            time_not: '10:00'
+        })
+        assert.equal(get_filtered_time_not.length, 10 * 2)
+        for(var i=0;i<get_filtered_time_not.length;i++) {
+            assert.notEqual(get_filtered_time_not[i].timestart.getHours(), 10)
+        }
+
+        const deleted_time_not = await Observacion.delete({
+            tipo: "puntual",
+            series_id: 3281,
+            time_not: '10:00'
+        },{
+            batch_size: 50
+        })
+        assert.equal(deleted_time_not.length, 10 * 2)
+        for(var i=0;i<deleted_time_not.length;i++) {
+            assert.notEqual(deleted_time_not[i].timestart.getHours(), 10)
+        }
+
+        await Observacion.delete({
+            tipo: "puntual",
+            series_id: 3281
+        })
     })
 
     await t.test("delete estacion", async(t)=> {
