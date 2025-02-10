@@ -37,6 +37,7 @@ const { DateFromDateOrInterval, Interval } = require('./timeSteps');
 const logger = require('./logger');
 const {serieToGmd} = require('./serieToGmd')
 const {Geometry} = require('./geometry')
+const import_rast = require('./import_rast')
 
 const { escapeIdentifier, escapeLiteral } = require('pg');
 const { options } = require('marked');
@@ -4224,23 +4225,34 @@ internal.observacion = class extends baseModel {
 			logger.error(`No raster data found for series_id:${this.series_id}, timestart:${this.timestart.toISOString()}. Skipping`)
 		}
 	}
-	static fromRaster(input_file) {
-		if(!fs.existsSync(input_file)) {
-			throw("Input raster file not found")
-		}
-		var file_info = execSync(`gdalinfo -json ${input_file}`,{encoding:'utf-8'})
-		file_info = JSON.parse(file_info)
-		const buffer = fs.readFileSync(input_file)
-		return new internal.observacion({
-			tipo: "raster",
-			valor: buffer,
-			id: file_info["metadata"][""]["id"],
-			series_id: file_info["metadata"][""]["series_id"],
-			timestart: new Date(file_info["metadata"][""]["timestart"]),
-			timeend: new Date(file_info["metadata"][""]["timeend"]),
-			timeupdate: new Date(file_info["metadata"][""]["timeupdate"])
-		})
+
+	static fromRaster(...args) {
+		const obs = import_rast.fromRaster(...args)
+		return new this(obs)
 	}
+
+	static async importRaster(...args) {
+		const obs = await import_rast.importRaster(...args)
+		return new internal.observaciones(obs)
+	}
+
+	// static fromRaster(input_file) {
+	// 	if(!fs.existsSync(input_file)) {
+	// 		throw("Input raster file not found")
+	// 	}
+	// 	var file_info = execSync(`gdalinfo -json ${input_file}`,{encoding:'utf-8'})
+	// 	file_info = JSON.parse(file_info)
+	// 	const buffer = fs.readFileSync(input_file)
+	// 	return new internal.observacion({
+	// 		tipo: "raster",
+	// 		valor: buffer,
+	// 		id: file_info["metadata"][""]["id"],
+	// 		series_id: file_info["metadata"][""]["series_id"],
+	// 		timestart: new Date(file_info["metadata"][""]["timestart"]),
+	// 		timeend: new Date(file_info["metadata"][""]["timeend"]),
+	// 		timeupdate: new Date(file_info["metadata"][""]["timeupdate"])
+	// 	})
+	// }
 
 	static async insertFromArray(values, pixel_size, upper_left_x, upper_left_y, srid, data_type = "32BF", series_id, timestart, timeend) {
 		const stmt = `WITH params AS (
@@ -4587,6 +4599,17 @@ internal.observaciones = class extends BaseArray {
 		}
 		return this.map(o=>o.toMnemos(estacion_id,codigo_de_variable)).join("\n")
     }
+
+	static fromRaster(...args) {
+		const obs = import_rast.fromRaster(...args)
+		return new internal.observacion(obs)
+	}
+
+	static async importRaster(...args) {
+		const obs = await import_rast.importRaster(...args)
+		return new this(obs)
+	}
+
     removeDuplicates() {   // elimina observaciones con timestart duplicado
 		var timestarts = []
 		const filtered = []
@@ -7288,7 +7311,8 @@ internal.CRUD = class {
 			queries.push(this.upsertEstacionQuery(estaciones[i],options))
 		}
 		// return upserted // Promise.all(promises)
-		return this.executeQueryArray(queries,internal.estacion)
+		const result = await this.executeQueryArray(queries,internal.estacion)
+		return result
 	}
 			
 	static async deleteEstacion(unid) {
@@ -10927,8 +10951,6 @@ internal.CRUD = class {
 		tipo = (tipo.toLowerCase() == "areal") ? "areal" : (tipo.toLowerCase() == "rast" || tipo.toLowerCase() == "raster") ? "raster" : "puntual"
 		const batch_size = (options.batch_size) ? parseInt(options.batch_size) : "NULL"
 		if(tipo == "raster") {
-			var stmt
-			var args
 			var returning_clause = (options.no_send_data) ? " RETURNING 1 AS d" : " RETURNING series_id,id,timestart,timeend,ST_AsGDALRaster(valor, 'GTIff') valor, timeupdate"
 			var select_deleted_clause = (options.no_send_data) ? " SELECT count(d) FROM deleted" : "SELECT * FROM deleted"
 			var result_rows = []
@@ -11170,6 +11192,7 @@ internal.CRUD = class {
 						if(!result.length) {
 							console.warn("No observaciones matched for deleting")
 							if(release_client) {
+								await client.query('ROLLBACK')
 								await client.release()
 							}
 							if(options.no_send_data) {
@@ -11214,6 +11237,10 @@ internal.CRUD = class {
 						}
 						console.debug(`deleted_rows: ${deleted_rows}`)
 					} catch (e) {
+						if(release_client) {
+							await client.query("ROLLBACK")
+							await client.release()
+						}
 						throw(e)
 					}
 				} while (deleted_rows > 0)

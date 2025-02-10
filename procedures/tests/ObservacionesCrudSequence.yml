@@ -23,6 +23,14 @@ sequence:
       tabla: alturas_prefe
       geom: {"type": "Point", "coordinates": [-55, -25]}
       id_externo: 55
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: estacion
 - procedureName: CreateProcedure
   arguments:
     class_name: serie
@@ -37,6 +45,14 @@ sequence:
         id: 40
       unidades:
         id: 10
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
+  - testName: ResultIsInstanceOfTest
+    arguments:
+      class_name: serie
 - procedureName: CreateProcedure
   arguments:
     class_name: observaciones
@@ -175,7 +191,7 @@ sequence:
       tipo: puntual
       series_id: 34825
       timestart: 1990-01-01 00:00:00
-      timeend: 1991-01-01 00:00:00
+      timeend: 1990-07-01 00:00:00
     output: outputs/deleted_observaciones.json
   tests:
   - testName: PropertyEqualsTest
@@ -184,8 +200,33 @@ sequence:
       property_value: 34825
   - testName: ArrayLengthTest
     arguments:
-      min_length: 12
-      max_length: 12
+      min_length: 6
+      max_length: 6
+  - testName: OutputFileTest
+    arguments:
+      class_name: observaciones
+      output: outputs/deleted_observaciones.json
+- procedureName: DeleteProcedure
+  # delete in batches 
+  arguments:
+    class_name: observaciones
+    filter:
+      tipo: puntual
+      series_id: 34825
+      timestart: 1990-07-01 00:00:00
+      timeend: 1991-01-01 00:00:00
+    options:
+      batch_size: 3
+    output: outputs/deleted_observaciones.json
+  tests:
+  - testName: PropertyEqualsTest
+    arguments:
+      property_name: series_id
+      property_value: 34825
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 6
+      max_length: 6
   - testName: OutputFileTest
     arguments:
       class_name: observaciones

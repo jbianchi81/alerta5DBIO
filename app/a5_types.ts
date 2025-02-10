@@ -8,6 +8,13 @@ export type Observacion = {
     series_id ? : number
 }
 
+export type ObservacionRaster = {
+    timestart : Date,
+    timeend ? : Date,
+    valor : Buffer,
+    series_id ? : number
+}
+
 export type Red = {
     id : number
     nombre : string
@@ -251,7 +258,7 @@ export type SerieAbstracta = {
     count ? : number,
     minValor ? : number,
     maxValor ? : number,
-    observaciones ? : Array<Observacion>,
+    observaciones ? : Array<Observacion>|Array<ObservacionRaster>,
     pronosticos ? : Array<Pronostico>
 }
 
@@ -262,17 +269,20 @@ export interface Serie extends SerieAbstracta {
 
 export interface SeriePuntual extends SerieAbstracta {
     estacion : Estacion,
-    fuente : undefined
+    fuente : undefined,
+    observaciones ? : Array<Observacion>
 }
 
 export interface SerieAreal extends SerieAbstracta {
     estacion : Area,
-    fuente : Fuente
+    fuente : Fuente,
+    observaciones ? : Array<Observacion>
 }
 
 export interface SerieRaster extends SerieAbstracta {
     estacion : Escena,
-    fuente : Fuente
+    fuente : Fuente,
+    observaciones ? : Array<ObservacionRaster>
 }
 
 export interface SerieOnlyIds {

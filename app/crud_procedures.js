@@ -3900,6 +3900,7 @@ if(1==1) {
     .option("-H, --header",'use this option if csv input file has a header')
     .option("-a, --all", 'in serie creation, create parent objects (estacion, fuente, var, procedimiento, unidades')
     .option("-s, --station", "create parent station (estacion)")
+    .option("-p, --property_name <value>", "read list of elements to create from this property of the root element, or of each item if the root element is a list")
     .action(async (crud_class,files,options) => {
         var test_result = true
         if(!CRUD.hasOwnProperty(crud_class)) {
@@ -3927,6 +3928,9 @@ if(1==1) {
                 }
                 if(options.station) {
                     params.options.upsert_estacion = true
+                }
+                if(options.property_name) {
+                    params.property_name = options.property_name
                 }
                 var procedure = new internal.CreateProcedure(params)
             } catch(e) {
