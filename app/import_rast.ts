@@ -15,6 +15,8 @@ const internal = {
 		var file_info = execSync(`gdalinfo -json ${input_file}`,{encoding:'utf-8'})
 		file_info = JSON.parse(file_info)
 		const buffer = readFileSync(input_file)
+        var timeupdate = new Date(file_info["metadata"][""]["timeupdate"]) 
+        timeupdate = (timeupdate.toString() != "Invalid Date") ? timeupdate : new Date()
 		return {
 			tipo: "raster",
 			valor: buffer,
@@ -22,7 +24,7 @@ const internal = {
 			series_id: file_info["metadata"][""]["series_id"],
 			timestart: new Date(file_info["metadata"][""]["timestart"]),
 			timeend: new Date(file_info["metadata"][""]["timeend"]),
-			timeupdate: new Date(file_info["metadata"][""]["timeupdate"])
+			timeupdate: timeupdate
 		} as ObservacionRaster
 	},
 

@@ -13,7 +13,11 @@ class Geometry {
 					// if(config.verbose) {
 					// 	console.log("reading wkt string geometry")
 					// }
-					var geom = wkt.read(arguments[0]).toJson()
+					try {
+						var geom = wkt.read(arguments[0]).toJson()
+					} catch(e) {
+						throw new Error(e)
+					}
 					this.type = geom.type
 					this.coordinates = geom.coordinates
 				} else {

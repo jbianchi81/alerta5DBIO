@@ -1536,6 +1536,21 @@ internal.fuente = class extends baseModel {
 		}
 		return internal.CRUD.getFuentes(filter,options)
 	}
+
+	static async create(fuentes=[]) {
+		const results = []
+		if(Array.isArray(fuentes)) {
+			for(var f of fuentes) {
+				const fuente = this(f) 
+				results.push(await fuente.create())
+			}
+		} else {
+			const fuente = new this(fuentes) 
+			results.push(await fuente.create())
+		}
+		return results
+	}
+
 	async create(options={}) {
 		// console.log({options:options})
 		const created = await internal.CRUD.upsertFuente(this)
@@ -4128,7 +4143,7 @@ internal.observacion = class extends baseModel {
 	}
 	toString() {
 		var valor = (this.valor === undefined) ? "null" : (this.tipo == "rast" || this.tipo == "raster") ? "rasterFile" : (this.valor === null) ? "null" : this.valor.toString()
-		return "{" + "id:" + this.id + ", tipo:" + this.tipo + ", series_id:" + this.series_id + ", timestart:" + this.timestart.toISOString() + ", timeend:" + this.timeend.toISOString() + ", nombre:" + this.nombre + ", descrpcion:" + this.descripcion + ", unit_id:" + this.unit_id + ", timeupdate:" + this.timeupdate.toISOString() + ", valor:" + valor + "}"
+		return "{" + "id:" + this.id + ", tipo:" + this.tipo + ", series_id:" + this.series_id + ", timestart:" + this.timestart.toISOString() + ", timeend:" + this.timeend.toISOString() + ", nombre:" + this.nombre + ", descrpcion:" + this.descripcion + ", unit_id:" + this.unit_id + ", timeupdate:" + ((this.timeupdate && this.timeupdate instanceof Date) ? this.timeupdate.toISOString() : "null") + ", valor:" + valor + "}"
 	}
 	// toJSON() {
 	// 	return JSON.stringify({
@@ -4231,9 +4246,19 @@ internal.observacion = class extends baseModel {
 		return new this(obs)
 	}
 
-	static async importRaster(...args) {
-		const obs = await import_rast.importRaster(...args)
-		return new internal.observaciones(obs)
+	static async importRaster(
+		filename, 
+		timestart, 
+		dt = { days: 1 }, 
+		time_support = {}, 
+		series_id, 
+		create = False) {
+		const obs = await import_rast.importRaster(filename, timestart, dt, time_support, series_id)
+		if(create) {
+			return internal.observaciones.create(obs)
+		} else {
+			return new internal.observaciones(obs)
+		}
 	}
 
 	// static fromRaster(input_file) {
@@ -4605,9 +4630,19 @@ internal.observaciones = class extends BaseArray {
 		return new internal.observacion(obs)
 	}
 
-	static async importRaster(...args) {
-		const obs = await import_rast.importRaster(...args)
-		return new this(obs)
+	static async importRaster(
+		filename, 
+		timestart, 
+		dt = { days: 1 }, 
+		time_support = {}, 
+		series_id, 
+		create = false) {
+		const obs = await import_rast.importRaster(filename, timestart, dt, time_support, series_id)
+		if(create) {
+			return this.create(obs) 
+		} else {
+			return new this(obs)
+		}
 	}
 
     removeDuplicates() {   // elimina observaciones con timestart duplicado
@@ -8047,6 +8082,11 @@ internal.CRUD = class {
 	
 	static async upsertEscena(escena, client) {
 		//~ console.log("upsertEscena")
+		if(escena instanceof internal.escena) {
+			//
+		} else {
+			escena = new internal.escena(escena)
+		}
 		if(!escena.id) {
 			await escena.getId(global.pool)
 		}
@@ -8088,18 +8128,23 @@ internal.CRUD = class {
 			throw new Error(e)
 		}
 		console.debug("Upserted escena.id=" + result.rows[0].id)
-		return result.rows[0]
+		return new internal.escena(result.rows[0])
 	}
 	
-	static async upsertEscenas(escenas) {
+	static async upsertEscenas(escenas=[]) {
 		const upserted = []
-		for(const escena of escenas) {
-			try {
-				var e = await this.upsertEscena(escena)
-			} catch(e) {
-				throw e
+		if(Array.isArray(escenas)) {
+			for(const escena of escenas) {
+				try {
+					var e = await this.upsertEscena(escena)
+				} catch(e) {
+					throw e
+				}
+				upserted.push(e)
 			}
-			upserted.push(e)
+		} else {
+			const escena = await this.upsertEscena(escenas)
+			upserted.push(escena)
 		}
 		return upserted
 	}
@@ -8108,14 +8153,14 @@ internal.CRUD = class {
 		return global.pool.query("\
 			DELETE FROM escenas\
 			WHERE id=$1\
-			RETURNING *",[id]
+			RETURNING id, st_astext(geom) AS geom, nombre",[id]
 		).then(result=>{
 			if(result.rows.length<=0) {
 				console.log("id not found")
 				return
 			}
 			console.log("Deleted escenas.id=" + result.rows[0].id)
-			return result.rows[0]
+			return new internal.escena(result.rows[0])
 		})
 	}
 
@@ -8570,17 +8615,17 @@ internal.CRUD = class {
 	}
 			
 	static async deleteFuente(id) {
-		return global.pool.query("\
+		const result = await global.pool.query("\
 			DELETE FROM fuentes\
 			WHERE id=$1\
-			RETURNING *",[id]
-		).then(result=>{
-			if(result.rows.length<=0) {
-				console.log("id not found")
-				return
-			}
-			console.log("Deleted fuentes.id=" + result.rows[0].id)
-		})
+			RETURNING id, nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, st_astext(def_extent) as def_extent, date_column, def_pixeltype, abstract, source, public",[id]
+		)
+		if(result.rows.length<=0) {
+			console.warn("id not found")
+			return
+		}
+		console.debug("Deleted fuentes.id=" + result.rows[0].id)
+		return new internal.fuente(result.rows[0])
 	}
 
 	static async getFuente(id,isPublic) {
@@ -10985,7 +11030,7 @@ internal.CRUD = class {
 						LIMIT ${batch_size}
 					),
 					deleted AS (
-						DELETE FROM oservaciones_rast
+						DELETE FROM observaciones_rast
 						WHERE id in (SELECT id from selected)
 						${returning_clause}
 					)					
