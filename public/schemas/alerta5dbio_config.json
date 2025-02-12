@@ -175,6 +175,94 @@
                     "description": "A web accessible path where to write tar files. Relative to base dir. Usually public/rast"
                 }
             }
+        },
+        "crud": {
+            "type": "object",
+            "description": "Object relational mapping settings",
+            "properties": {
+                "default_vars": {
+                    "type": "object",
+                    "description": "Which variables to show in /secciones GUI",
+                    "properties": {
+                        "hidro": {
+                            "type": "array",
+                            "description": "Hydrological variables",
+                            "items": {
+                                "type": "object",
+                                "description": "List of variable ids for each procedure id",
+                                "properties": {
+                                    "proc_id" : {
+                                        "type": "number"
+                                    },
+                                    "var_id" : {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "number"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "meteo": {
+                            "type": "array",
+                            "description": "Meteorological variables",
+                            "items": {
+                                "type": "object",
+                                "description": "List of variable ids for each procedure id",
+                                "properties": {
+                                    "proc_id" : {
+                                        "type": "number"
+                                    },
+                                    "var_id" : {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "number"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "backup_base_dir": {
+                    "type": "string",
+                    "description": "Location of backup in local filesystem"
+                },
+                "update_observaciones_timeupdate": {
+                    "type": "boolean",
+                    "description": "On update observaciones, update 'timeupdate' field"
+                },
+                "delete_batch_size": {
+                    "type": "number",
+                    "description": "Split observaciones delete actions into batches of this size"
+                }
+            }
+        },
+        "rest": {
+            "type": "object",
+            "description": "Web application settings",
+            "properties": {
+                "port": {
+                    "type": "number",
+                    "description": "Port number"
+                },
+                "skip_authentication": {
+                    "type": "boolean",
+                    "description": "Skip user authentication"
+                },
+                "restricted": {
+                    "type": "boolean",
+                    "description": "Restrict access of anonymous users"
+                },
+                "public_endpoint": {
+                    "type": "string",
+                    "description": "URL where the service is publicly exposed"
+                },
+                "max_delete_batch_size": {
+                    "type": "number",
+                    "description": "Limit of the observaciones delete batch size"
+                }
+            }      
         }
     },
     "required": [],

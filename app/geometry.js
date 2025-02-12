@@ -2,6 +2,7 @@ const Wkt = require('wicket')
 var wkt = new Wkt.Wkt()
 const {bbox} = require("@turf/bbox")
 var turfHelpers = require("@turf/helpers")
+const geojsonValidation = require('geojson-validation');
 
 class Geometry {
 	constructor() {
@@ -30,6 +31,16 @@ class Geometry {
 				this.coordinates = arguments[1]
 				break;
 		}
+		if(!this.type) {
+			throw new Error("Invalid geometry: missing type")
+		}
+		if(!this.coordinates) {
+			throw new Error("Invalid geometry: missing coordinates")
+		}
+		if(!geojsonValidation.isGeometryObject({type: this.type, coordinates: this.coordinates})) {
+			throw new Error("Invalid geometry")
+		}
+		
 		if(this.type.toUpperCase() == "BOX") {
 			this.type = "Polygon"
 			var coords = Array.isArray(this.coordinates) ? this.coordinates : this.coordinates.split(",").map(c=>parseFloat(c))

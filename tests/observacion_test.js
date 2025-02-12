@@ -317,6 +317,230 @@ test('observacion crud sequence', async(t) => {
         })
     })
 
+    await t.test("create obs, delete with filters", async() => {
+        const sequence = Array.from({ length: 1000 }, (_, i) => {
+            return {
+                tipo: "puntual",
+                series_id: 3281,
+                timestart: new Date(2000,0,i + 1),
+                timeend: new Date(2000,0,i + 1),
+                valor: Math.random()
+            }
+        })
+        var observaciones = await Observaciones.create(sequence)
+        assert.equal(observaciones.length, 1000)
+        
+        var obs = observaciones.shift()
+        // filter by id
+        var deleted = await Observacion.delete({
+            tipo: "puntual",
+            id: obs.id
+
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, 1)
+        assert.equal(deleted[0].id, obs.id)
+
+        var obs_1 = observaciones.shift()
+        var obs_2 = observaciones.shift()
+        // filter by list of id
+        deleted = await Observacion.delete({
+            tipo: "puntual",
+            id: [obs_1.id, obs_2.id]
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, 2)
+        assert.equal(deleted[0].id, obs_1.id)
+        assert.equal(deleted[1].id, obs_2.id)
+
+        obs = observaciones.shift()
+        // filter by unit_id
+        deleted = await Observacion.delete({
+            tipo: "puntual",
+            unit_id: 9,
+            series_id: 3281,
+            timestart: obs.timestart,
+            timeend: obs.timeend
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, 1)
+        assert.equal(deleted[0].id, obs.id)
+
+        // filter by unit_id, no results
+        deleted = await Observacion.delete({
+            tipo: "puntual",
+            unit_id: 987987
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, 0)
+
+        // filter by valor
+        var valor = observaciones[0].valor
+        var count = observaciones.filter(o=> o.valor == valor).length
+        deleted = await Observacion.delete({
+            tipo: "puntual",
+            series_id: 3281,
+            valor: valor
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, count)
+
+        observaciones = observaciones.filter(o=> deleted.map(d=>d.id).indexOf(o.id) == -1)
+
+        // filter by valor range
+        var valores = [0.45, 0.55]
+        count = observaciones.filter(o=> o.valor >= valores[0] && o.valor <= valores[1]).length
+        deleted = await Observacion.delete({
+            tipo: "puntual",
+            series_id: 3281,
+            valor: valores
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, count)
+        
+        observaciones = observaciones.filter(o=> deleted.map(d=>d.id).indexOf(o.id) == -1)
+
+        // filter by var_id
+        obs = observaciones.shift()
+        deleted = await Observacion.delete({
+            tipo: "puntual",
+            series_id: 3281,
+            var_id: 27,
+            timestart: obs.timestart,
+            timeend: obs.timeend
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, 1)
+
+        // filter by var_id, no results
+        deleted = await Observacion.delete({
+            tipo: "puntual",
+            var_id: 7984648
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, 0)
+
+        // filter by proc_id
+        obs = observaciones.shift()
+        deleted = await Observacion.delete({
+            tipo: "puntual",
+            series_id: 3281,
+            proc_id: 1,
+            timestart: obs.timestart,
+            timeend: obs.timeend
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, 1)
+
+        // filter by proc_id, no results
+        deleted = await Observacion.delete({
+            tipo: "puntual",
+            proc_id: 7984648
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, 0)
+
+        // filter by geom
+        obs = observaciones.shift()
+        deleted = await Observacion.delete({
+            tipo: "puntual",
+            series_id: 3281,
+            geom: {
+                "type": "Point",
+                "coordinates": [
+                    -58.358055556,
+                    -34.636666667
+                ]
+            },
+            timestart: obs.timestart,
+            timeend: obs.timeend
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, 1)
+
+        // filter by geom, no results
+        deleted = await Observacion.delete({
+            tipo: "puntual",
+            geom: {
+                "type": "Point",
+                "coordinates": [
+                    -77,
+                    -77
+                ]
+            }
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, 0)
+
+        // filter by estacion_id
+        obs = observaciones.shift()
+        deleted = await Observacion.delete({
+            tipo: "puntual",
+            series_id: 3281,
+            estacion_id: serie.estacion.id,
+            timestart: obs.timestart,
+            timeend: obs.timeend
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, 1)
+
+        // filter by estacion_id, no results
+        deleted = await Observacion.delete({
+            tipo: "puntual",
+            estacion_id: 65498624
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, 0)
+
+        // filter by tabla + id_externo
+        obs = observaciones.shift()
+        deleted = await Observacion.delete({
+            tipo: "puntual",
+            series_id: 3281,
+            tabla: serie.estacion.tabla,
+            id_externo: serie.estacion.id_externo,
+            timestart: obs.timestart,
+            timeend: obs.timeend
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, 1)
+
+        // filter by tabla + id_externo, no results
+        deleted = await Observacion.delete({
+            tipo: "puntual",
+            tabla: "red_acumar",
+            id_externo: "kvjnoirunvoijvn"
+        },{
+            batch_size: 5
+        })
+        assert.equal(deleted.length, 0)
+
+        // delete remaining
+        deleted = await Observacion.delete({
+            tipo: "puntual",
+            series_id: 3281
+        },{
+            batch_size: 50
+        })
+        assert.equal(deleted.length, observaciones.length)
+
+    })
+
     await t.test("delete estacion", async(t)=> {
         const deleted = await Estacion.delete({
             "tabla": "red_acumar",

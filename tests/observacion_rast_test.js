@@ -206,6 +206,7 @@ test('observacion rast crud sequence', async(t) => {
             batch_size: 2
 
         })
+        // observaciones.sort((a,b)=>a.timestart.getTime() - b.timestart.getTime())
         assert.equal(observaciones.length, 5)
         for(var i=0;i<observaciones.length;i++) {
             assert.ok(observaciones[i] instanceof Observacion)

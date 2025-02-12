@@ -23,7 +23,8 @@
 	"path": "",
 	"port": 3005,
 	"skip_authentication": true,
-    "public_endpoint": "protocol://host:port/path"
+    "public_endpoint": "protocol://host:port/path",
+	"max_delete_batch_size": 5000
   },
   "verbose": true,
   "rast":
@@ -615,7 +616,8 @@
 			"meteo": [
 				{ "proc_id":1, "var_id": [1,5,6,7,9,10,11,12,13,14,16,17,18,27,31,34,38,43,53,54,55,56,57,58,59,60,61,62,63] }
 			]
-		}
+		},
+		"delete_batch_size": 5000
 	},
 	"conae_gc": {
 		"url": "ftp01.uss.saocom.conae.gov.ar",

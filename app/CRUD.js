@@ -4497,6 +4497,7 @@ internal.observaciones = class extends BaseArray {
 		if(arr) {
 			super(...[])
 			for (const x of arr) this.push(new internal.observacion(x))
+			this.sort((a,b)=> a.timestart.getTime() - b.timestart.getTime())
 		} else {
 			super(arr)
 		}
@@ -10988,13 +10989,13 @@ internal.CRUD = class {
 	 * 
 	 * options:
 	 * - no_send_data : bool
-	 * - batch_size : int 
+	 * - batch_size : int | "NULL"
 	 */
 	static async deleteObservaciones(tipo,filter={},options={},client) { // con options.no_send_data devuelve count de registros eliminados, si no devuelve array de registros eliminados
 		tipo = (tipo) ? tipo : filter.tipo
 		delete filter.tipo
 		tipo = (tipo.toLowerCase() == "areal") ? "areal" : (tipo.toLowerCase() == "rast" || tipo.toLowerCase() == "raster") ? "raster" : "puntual"
-		const batch_size = (options.batch_size) ? parseInt(options.batch_size) : "NULL"
+		const batch_size = (options.batch_size) ? parseInt(options.batch_size) : (global.config.crud && global.config.crud.delete_batch_size) ? global.config.crud.delete_batch_size : "NULL"
 		if(tipo == "raster") {
 			var returning_clause = (options.no_send_data) ? " RETURNING 1 AS d" : " RETURNING series_id,id,timestart,timeend,ST_AsGDALRaster(valor, 'GTIff') valor, timeupdate"
 			var select_deleted_clause = (options.no_send_data) ? " SELECT count(d) FROM deleted" : "SELECT * FROM deleted"
@@ -11084,12 +11085,18 @@ internal.CRUD = class {
 					throw new Error(e)
 				}
 			}
+			console.debug("release_client: " + release_client.toString())
 			var result_rows = []
 			if(filter.id) {
 				if(Array.isArray(filter.id)) {
 					if(filter.id.length == 0) {
 						console.info("crud/deleteObservaciones: Nothing to delete (passed zero length id array)")
-						return Promise.resolve([])
+						if(release_client) {
+							console.debug("ROLLBACK")
+							await client.query("ROLLBACK")
+							await client.release()
+						}
+						return []
 					}
 					// deleteValorText = `WITH deleted AS (DELETE FROM ${val_tabla} WHERE obs_id IN (${filter.id.map(id=>parseInt(id)).join(",")}) ${returning_clause}) ${select_deleted_clause}`
 					let row_count
@@ -11106,7 +11113,8 @@ internal.CRUD = class {
 								)
 								${select_deleted_clause}`,
 								undefined,
-								client)
+								client,
+								release_client)
 							row_count = (options.batch_size) ? result.length : 0
 							result_rows.push(...result)
 						} catch (e) {
@@ -11123,11 +11131,17 @@ internal.CRUD = class {
 							) 
 							${select_deleted_clause}`,
 							[parseInt(filter.id)],
-							client)
+							client,
+							release_client)
 					} catch (e) {
 						throw(e)
 					}
 				}
+				if(release_client) {
+					await client.query("COMMIT")
+					await client.release()
+				}
+				return result_rows
 			} else {
 				var valid_filters = {
 					series_id:{type:"integer"},
@@ -11135,7 +11149,7 @@ internal.CRUD = class {
 					timeend:{type:"timeend"},
 					unit_id:{type:"integer"},
 					timeupdate:{type:"string"},
-					valor:{type:"numeric_interval"},
+					valor:{type:"numeric_interval", table: val_tabla},
 					var_id:{type:"integer",table:series_tabla},
 					proc_id:{type:"integer",table:series_tabla},
 					unit_id:{type:"integer",table:series_tabla},
@@ -11145,11 +11159,11 @@ internal.CRUD = class {
 				}
 				// var join_clause = ""
 				// var obs_using_clause = ""
-				var obs_join_clause = ""
+				var	obs_join_clause = `JOIN ${val_tabla} ON (${obs_tabla}.id = ${val_tabla}.obs_id)`
 				if(filter.var_id != undefined || filter.proc_id != undefined || filter.unit_id != undefined || filter.estacion_id != undefined || filter.area_id != undefined || filter.tabla != undefined || filter.tabla_id != undefined || filter.fuentes_id != undefined || filter.id_externo != undefined || filter.geom != undefined) {
 					// join_clause += `JOIN ${series_tabla} ON (${series_tabla}.id = ${obs_tabla}.series_id)`
 					// obs_using_clause = `USING ${series_tabla}`
-					obs_join_clause = `JOIN ${series_tabla} ON (${series_tabla}.id = ${obs_tabla}.series_id)`
+					obs_join_clause += ` JOIN ${series_tabla} ON (${series_tabla}.id = ${obs_tabla}.series_id)`
 					if(tipo == "areal") {
 						// join_clause += `
 						// 		JOIN areas_pluvio ON (areas_pluvio.unid = series_areal.area_id)`
@@ -11228,16 +11242,18 @@ internal.CRUD = class {
 							${obs_tabla}.*,
 							${val_tabla}.valor 
 							FROM ${obs_tabla}
-							JOIN ${val_tabla} ON (${obs_tabla}.id = ${val_tabla}.obs_id)
 							${obs_join_clause}
 							WHERE 1=1
 							${filter_string}`,
 							[tipo],
-							client)
+							client,
+							release_client)
 						if(!result.length) {
 							console.warn("No observaciones matched for deleting")
 							if(release_client) {
+								console.debug("ROLLBACK")
 								await client.query('ROLLBACK')
+								console.debug("Releasing client")
 								await client.release()
 							}
 							if(options.no_send_data) {
@@ -11246,7 +11262,7 @@ internal.CRUD = class {
 								return []
 							}
 						}
-							target_obs = new internal.observaciones(result)
+						target_obs = new internal.observaciones(result)
 					} catch (e) {
 						throw(e)
 					}
@@ -11271,7 +11287,8 @@ internal.CRUD = class {
 							)
 							${select_deleted_clause}`,
 							undefined,
-							client)
+							client,
+							release_client)
 						if(options.no_send_data) {
 							result_rows = result_rows + parseInt(result[0].count)
 							deleted_rows = (options.batch_size) ? parseInt(result[0].count) : 0
@@ -11283,7 +11300,9 @@ internal.CRUD = class {
 						console.debug(`deleted_rows: ${deleted_rows}`)
 					} catch (e) {
 						if(release_client) {
+							console.debug("ROLLBACK")
 							await client.query("ROLLBACK")
+							console.debug("releasing client")
 							await client.release()
 						}
 						throw(e)
@@ -20385,15 +20404,22 @@ internal.utils = {
 					filter_string += " AND "+ fullkey + "=false"
 				} 
 			} else if (filter_def.type == "geometry") {
-				if(! filter[key] instanceof internal.geometry) {
-					internal.utils.alert_error(
-						"Invalid geometry object at filter key " + key,
-						throw_if_invalid)
-					control_flag++
-				} else if (filter[key].type == "Point"){
-					filter_string += "  AND ST_Distance(st_transform(" + fullkey + ",4326),st_Buffer(st_transform(" + filter[key].toSQL() + ",4326),0.001)) < 0.000001" 
+				if(filter[key] instanceof internal.geometry) {
+					var geom = filter[key]
 				} else {
-					filter_string += "  AND ST_Distance(st_transform(" + fullkey + ",4326),st_transform(" + filter[key].toSQL() + ",4326)) < 0.001" 
+					try {
+						var geom = new internal.geometry(filter[key])
+					} catch(e) {
+						internal.utils.alert_error(
+							"Invalid geometry object at filter key " + key,
+							throw_if_invalid)
+						control_flag++
+					}					
+				}
+				if (geom.type == "Point"){
+					filter_string += "  AND ST_Distance(st_transform(" + fullkey + ",4326),st_Buffer(st_transform(" + geom.toSQL() + ",4326),0.001)) < 0.000001" 
+				} else {
+					filter_string += "  AND ST_Distance(st_transform(" + fullkey + ",4326),st_transform(" + geom.toSQL() + ",4326)) < 0.001" 
 				}
 			} else if (filter_def.type == "date") {
 				let d
@@ -20458,10 +20484,10 @@ internal.utils = {
 							throw_if_invalid)
 						control_flag++
 					} else {
-						filter_string += " AND " + fullkey + ">=" + parseFloat(filter[key][0]) + " AND " + key + "<=" + parseFloat(filter[key][1])
+						filter_string += ` AND ${fullkey}::real BETWEEN ${parseFloat(filter[key][0])}::real AND ${parseFloat(filter[key][1])}`
 					}
 				} else {
-						filter_string += " AND " + fullkey + "=" + parseFloat(filter[key])
+					filter_string += ` AND ${fullkey}::real=${parseFloat(filter[key])}::real`
 				}
 			} else if(filter_def.type == "numeric_min") {
 				filter_string += " AND " + fullkey + ">=" + parseFloat(filter[key])
@@ -20510,7 +20536,7 @@ internal.utils = {
 							)
 							control_flag++
 						} else {
-							filter_string += " AND "+ fullkey + " IN (" + values.join(",") + ")"
+							filter_string += ` AND ${fullkey}::real IN (${values.map(v=>`${v}::real`).join(",")})`
 						}
 					} else if(filter_def.required) {
 						internal.utils.alert_error(
@@ -20528,7 +20554,7 @@ internal.utils = {
 						)
 						control_flag++
 					} else {
-						filter_string += " AND "+ fullkey + "=" + value + ""
+						filter_string += ` AND ${fullkey}::real=${value}::real`
 					}
 				}
 			} else if (filter_def.type == "interval") {
@@ -21143,6 +21169,7 @@ async function executeQueryReturnRows(query_string,query_args,client,release_cli
 				var result = await client.query(query_string,query_args)
 			} catch(e) {
 				if(release_client) {
+					client.query("ROLLBACK")
 					client.release()
 				}
 				throw(e)
@@ -21152,14 +21179,15 @@ async function executeQueryReturnRows(query_string,query_args,client,release_cli
 				var result = await client.query(query_string)
 			} catch(e) {
 				if(release_client) {
+					client.query("ROLLBACK")
 					client.release()
 				}
 				throw(e)
 			}
 		}
-		if(release_client) {
-			client.release()
-		}
+		// if(release_client) {
+		// 	client.release()
+		// }
 	} else {
 		if(query_args) {
 			var result = await global.pool.query(query_string,query_args)
