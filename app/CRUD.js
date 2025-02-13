@@ -11022,7 +11022,9 @@ internal.CRUD = class {
 					return Promise.reject(new Error("invalid filter value"))
 				}
 				let deleted_rows 
+				var page = -1
 				do {
+					page = page + 1
 					const result = await executeQueryReturnRows(`WITH selected AS (
 						SELECT * 
 						FROM observaciones_rast 
@@ -11038,8 +11040,8 @@ internal.CRUD = class {
 					${select_deleted_clause}`,
 					undefined,
 					client)
-					deleted_rows = (options.batch_size) ? result.length : 0
-					console.debug(`Deleted ${deleted_rows} rows...`)
+					deleted_rows = (batch_size.toString() != "NULL") ? result.length : 0
+					console.debug(`Page: ${page}, Deleted ${deleted_rows} rows...`)
 					result_rows.push(...result)
 				} while (deleted_rows > 0)
 			}
@@ -11100,7 +11102,9 @@ internal.CRUD = class {
 					}
 					// deleteValorText = `WITH deleted AS (DELETE FROM ${val_tabla} WHERE obs_id IN (${filter.id.map(id=>parseInt(id)).join(",")}) ${returning_clause}) ${select_deleted_clause}`
 					let row_count
+					var page = -1
 					do {
+						page = page + 1
 						try {
 							const result = await executeQueryReturnRows(`WITH selected AS (
 								SELECT id FROM ${obs_tabla} 
@@ -11115,7 +11119,7 @@ internal.CRUD = class {
 								undefined,
 								client,
 								release_client)
-							row_count = (options.batch_size) ? result.length : 0
+							row_count = (batch_size.toString() != "NULL") ? result.length : 0
 							result_rows.push(...result)
 						} catch (e) {
 							throw(e)
@@ -11270,8 +11274,10 @@ internal.CRUD = class {
 
 				var result_rows = (options.no_send_data) ? 0 : []
 				let deleted_rows
+				var page = -1
 				do {
 					try {
+						page = page + 1
 						const result = await executeQueryReturnRows(`
 							WITH selected AS (
 								SELECT ${obs_tabla}.id FROM ${obs_tabla}
@@ -11291,13 +11297,13 @@ internal.CRUD = class {
 							release_client)
 						if(options.no_send_data) {
 							result_rows = result_rows + parseInt(result[0].count)
-							deleted_rows = (options.batch_size) ? parseInt(result[0].count) : 0
+							deleted_rows = (batch_size.toString() != "NULL") ? parseInt(result[0].count) : 0
 							console.debug(`result_rows: ${result_rows}`)
 						} else {
 							result_rows.push(...result)
-							deleted_rows = (options.batch_size) ? result.length : 0
+							deleted_rows = (batch_size.toString() != "NULL") ? result.length : 0
 						}
-						console.debug(`deleted_rows: ${deleted_rows}`)
+						console.debug(`page: ${page}, deleted_rows: ${deleted_rows}`)
 					} catch (e) {
 						if(release_client) {
 							console.debug("ROLLBACK")
