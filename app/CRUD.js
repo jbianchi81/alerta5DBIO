@@ -11238,14 +11238,14 @@ internal.CRUD = class {
 				if(!options.no_send_data) {
 					try {
 						const result = await executeQueryReturnRows(`SELECT 
-							$1 as tipo,
+							'${tipo}' as tipo,
 							${obs_tabla}.*,
 							${val_tabla}.valor 
 							FROM ${obs_tabla}
 							${obs_join_clause}
 							WHERE 1=1
 							${filter_string}`,
-							[tipo],
+							undefined,
 							client,
 							release_client)
 						if(!result.length) {
