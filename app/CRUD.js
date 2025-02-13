@@ -10422,9 +10422,9 @@ internal.CRUD = class {
 		}
 		if(tipo) {
 			if(tipo=="puntual") {
-				return this.upsertObservacionesPuntual(observaciones,options.skip_nulls,options.no_update,(serie) ? serie.var.timeSupport : undefined,client)
+				return this.upsertObservacionesPuntual(observaciones,options.skip_nulls,options.no_update,(serie) ? serie.var.timeSupport : undefined,client, (serie) ? serie.var.def_hora_corte : undefined)
 			} else if(tipo=="areal") {
-				return this.upsertObservacionesAreal(observaciones,options.skip_nulls,options.no_update, (serie) ? serie.var.timeSupport : undefined,client)
+				return this.upsertObservacionesAreal(observaciones,options.skip_nulls,options.no_update, (serie) ? serie.var.timeSupport : undefined,client, (serie) ? serie.var.def_hora_corte : undefined)
 			}
 			observaciones = observaciones.map(o=>{
 				o.tipo = tipo
@@ -10469,7 +10469,7 @@ internal.CRUD = class {
 	}
 	
 			
-	static async upsertObservacionesPuntual(observaciones,skip_nulls,no_update,timeSupport,client) {
+	static async upsertObservacionesPuntual(observaciones,skip_nulls,no_update,timeSupport,client,t_offset) {
 		//~ console.log({observaciones:observaciones})	
 		var obs_values = []
 		observaciones = observaciones.map(observacion=> {
@@ -10503,7 +10503,21 @@ internal.CRUD = class {
 				console.log("skipping null value, series_id:" + observacion.valor + ", timestart:" + observacion.timestart.toISOString())
 				return
 			}
-			obs_values.push(sprintf("(%d,'%s'::timestamptz,'%s'::timestamptz,'upsertObservacionesPuntual',now(),%f)", observacion.series_id, observacion.timestart.toISOString(), observacion.timeend.toISOString(),observacion.valor))
+			if(timeSupport) {
+				const dt = new Interval(timeSupport)
+				if(dt.toEpoch() % 86400 == 0 ) {
+					if(t_offset) {
+						const t_o = new Interval(t_offset)
+						obs_values.push(sprintf("(%d,'%s'::timestamptz::date::timestamp + interval '%s','%s'::timestamptz::date::timestamp + interval '%s','upsertObservacionesPuntual',now(),%f)", observacion.series_id, observacion.timestart.toISOString(), t_offset.toPostgres(), observacion.timeend.toISOString(), t_offset.toPostgres(), observacion.valor))
+					} else {
+						obs_values.push(sprintf("(%d,'%s'::timestamptz::date::timestamp,'%s'::timestamptz::date::timestamp,'upsertObservacionesPuntual',now(),%f)", observacion.series_id, observacion.timestart.toISOString(), observacion.timeend.toISOString(),observacion.valor))		
+					}
+				} else {
+					obs_values.push(sprintf("(%d,'%s'::timestamptz,'%s'::timestamptz,'upsertObservacionesPuntual',now(),%f)", observacion.series_id, observacion.timestart.toISOString(), observacion.timeend.toISOString(),observacion.valor))	
+				}
+			} else {
+				obs_values.push(sprintf("(%d,'%s'::timestamptz,'%s'::timestamptz,'upsertObservacionesPuntual',now(),%f)", observacion.series_id, observacion.timestart.toISOString(), observacion.timeend.toISOString(),observacion.valor))
+			}
 			return observacion
 		}).filter(o=>o)
 		//~ console.log({observaciones:observaciones})
@@ -13958,7 +13972,7 @@ internal.CRUD = class {
 		return serie
 	}
 	
-	static async getRegularSeries(tipo="puntual",series_id,dt="1 days",timestart,timeend,options,client, cal_id, cor_id, forecast_date, qualifier) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate,no_insert_as_obs,source_time_support
+	static async getRegularSeries(tipo="puntual",series_id,dt="1 days",timestart,timeend,options={},client, cal_id, cor_id, forecast_date, qualifier) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate,no_insert_as_obs,source_time_support
 		// console.debug({tipo:tipo,series_id:series_id,dt:dt,timestart:timestart,timeend:timeend,options:options})
 		if(!series_id || !timestart || !timeend) {
 			return Promise.reject("series_id, timestart and/or timeend missing")
@@ -14113,7 +14127,11 @@ internal.CRUD = class {
 							tipo
 						)
 					} else {
-						return this.upsertObservaciones(observaciones,undefined,undefined,options) 
+						return this.upsertObservaciones(
+							observaciones,
+							tipo,
+							options.insertSeriesId,
+							options) 
 					}
 						// removed client, non-transactional
 							//~ .then(results=>{
@@ -14197,6 +14215,9 @@ internal.CRUD = class {
 			// SERIE NO INSTANTANEA //
 				var timeSupport
 				if (!options.timeSupport) {
+					if(!serie["var"].timeSupport) {
+						throw("Missing timeSupport. If variable is instantaneous, set inst=true")
+					}
 					timeSupport = serie["var"].timeSupport.toPostgres()
 				} else {
 					if(/[';]/.test(options.timeSupport)) {
@@ -14535,7 +14556,7 @@ internal.CRUD = class {
 					)
 				} else {
 					try {
-						var obs = await this.upsertObservaciones(observaciones.filter(o=> o.valor),tipo.toLowerCase(),undefined,options)	// filter out null values and return
+						var obs = await this.upsertObservaciones(observaciones.filter(o=> o.valor),tipo.toLowerCase(),options.insertSeriesId,options)	// filter out null values and return
 						console.debug("Inserted " + obs.length + " observaciones")
 						if(options.no_send_data) {
 							return obs.length
