@@ -10472,6 +10472,7 @@ internal.CRUD = class {
 	static async upsertObservacionesPuntual(observaciones,skip_nulls,no_update,timeSupport,client,t_offset) {
 		//~ console.log({observaciones:observaciones})	
 		var obs_values = []
+		var dates = new Set()
 		observaciones = observaciones.map(observacion=> {
 			if(!observacion.series_id) {
 				console.error("missing series_id")
@@ -10505,7 +10506,12 @@ internal.CRUD = class {
 			}
 			if(timeSupport) {
 				const dt = new Interval(timeSupport)
-				if(dt.toEpoch() % 86400 == 0 ) {
+				if(dt.toEpoch() != 0 && dt.toEpoch() % 86400 == 0 ) {
+					const date = new Date(observacion.timestart.getFullYear(),observacion.timestart.getMonth(),observacion.timestart.getDate())
+					if(dates.has(date.toISOString())) {
+						throw new Error(`Duplicate date: ${date.toLocaleDateString()} for series id: ${observacion.series_id}`)
+					}
+					dates.add(date.toISOString())
 					if(t_offset) {
 						const t_o = new Interval(t_offset)
 						obs_values.push(sprintf("(%d,'%s'::timestamptz::date::timestamp + interval '%s','%s'::timestamptz::date::timestamp + interval '%s','upsertObservacionesPuntual',now(),%f)", observacion.series_id, observacion.timestart.toISOString(), t_offset.toPostgres(), observacion.timeend.toISOString(), t_offset.toPostgres(), observacion.valor))
@@ -10544,12 +10550,12 @@ internal.CRUD = class {
 					CREATE TEMPORARY TABLE obs (series_id int,timestart timestamp,timeend timestamp,nombre varchar,timeupdate timestamp,valor real) ON COMMIT DROP ;\
 					INSERT INTO obs (series_id,timestart,timeend,nombre,timeupdate,valor)\
 					VALUES " + obs_values + ";")
-			await client.query("\
+			const upsert_obs = await client.query("\
 					INSERT INTO observaciones (series_id,timestart,timeend,nombre,timeupdate)\
 					SELECT series_id,timestart,timeend,nombre,timeupdate\
 					FROM obs \
 					ON CONFLICT (series_id,timestart,timeend)\
-					DO " + on_conflict_clause_obs)
+					DO " + on_conflict_clause_obs+ " RETURNING *")
 			await client.query("\
 					INSERT INTO valores_num (obs_id,valor)\
 					SELECT observaciones.id,obs.valor\
