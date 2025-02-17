@@ -6215,7 +6215,7 @@ internal.a5 = class {
 	}
 
 	async updatePronostico(filter={},options={}) {
-		const result = await this.getPronostico(filter,options)
+		const result = await this.getPronostico(filter,{...options, includeProno:true})
 		const ups_corrida = await crud.upsertCorrida(result,options.replace_last)
 		if(!options.no_update_date_range) {
 			await crud.updateSeriesPronoDateRange({cor_id: ups_corrida.id})
