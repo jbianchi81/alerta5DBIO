@@ -10,7 +10,7 @@ var sprintf = require('sprintf-js').sprintf, vsprintf = require('sprintf-js').vs
 var fs =require("promise-fs")
 const { exec, spawn, execSync } = require('child_process');
 const pexec = require('child-process-promise').exec;
-const ogr2ogr = require("ogr2ogr")
+const ogr2ogr = require("ogr2ogr").default
 var path = require('path');
 const validFilename = require('valid-filename');
 const printMap = require("./printMap")
@@ -19440,17 +19440,17 @@ ORDER BY cal.cal_id`
 	// tools
 	
 	static async points2rast(points,metadata={},options={},upsert) {
-		var outputdir = (options.outputdir) ? path.resolve(options.outputdir) : path.resolve(this.config.pp_cdp.outputdir)
-		var nmin=(options.nmin) ? options.nmin : this.config.pp_cdp.nmin;
-		var radius1= (options.radius1) ? options.radius1 : this.config.pp_cdp.radius1;
-		var radius2= (options.radius2) ? options.radius2 : this.config.pp_cdp.radius2;
-		var out_x =  (options.out_x) ? options.out_x : this.config.pp_cdp.out_x;
-		var out_y =  (options.out_y) ? options.out_y : this.config.pp_cdp.out_y;
-		var nullvalue = (options.nullvalue) ? options.nullvalue : this.config.pp_cdp.nullvalue;
+		var outputdir = (options.outputdir) ? path.resolve(options.outputdir) : path.resolve(global.config.pp_cdp.outputdir)
+		var nmin=(options.nmin) ? options.nmin : global.config.pp_cdp.nmin;
+		var radius1= (options.radius1) ? options.radius1 : global.config.pp_cdp.radius1;
+		var radius2= (options.radius2) ? options.radius2 : global.config.pp_cdp.radius2;
+		var out_x =  (options.out_x) ? options.out_x : global.config.pp_cdp.out_x;
+		var out_y =  (options.out_y) ? options.out_y : global.config.pp_cdp.out_y;
+		var nullvalue = (options.nullvalue) ? options.nullvalue : global.config.pp_cdp.nullvalue;
 		if(!metadata.series_id) {
-			metadata.series_id = this.config.pp_cdp.series_id
+			metadata.series_id = global.config.pp_cdp.series_id
 		}
-		var method_ = (options.method) ? options.method : this.config.pp_cdp.method;
+		var method_ = (options.method) ? options.method : global.config.pp_cdp.method;
 		var method
 		{
 			switch (method_.toLowerCase()) {
@@ -19467,24 +19467,24 @@ ORDER BY cal.cal_id`
 					return Promise.reject("Método incorrecto. Válidos: invdist, nearest, linear");
 			}
 		}
-		var target_extent = (options.target_extent) ? options.target_extent : this.config.pp_cdp.target_extent
-		var roifile = (options.roifile) ? options.roifile : path.resolve(this.config.pp_cdp.roifile)
-		var srs = (options.srs) ? parseInt(srs) : this.config.pp_cdp.srs
-		var makepng = (options.makepng) ? options.makepng : this.config.pp_cdp.makepng 
+		var target_extent = (options.target_extent) ? options.target_extent : global.config.pp_cdp.target_extent
+		var roifile = (options.roifile) ? options.roifile : path.resolve(global.config.pp_cdp.roifile)
+		var srs = (options.srs) ? parseInt(srs) : global.config.pp_cdp.srs
+		var makepng = (options.makepng) ? options.makepng : global.config.pp_cdp.makepng 
 		var rand = sprintf("%08d",Math.random()*100000000)
 		var geojsonfile= (options.geojsonfile) ? path.resolve(options.geojsonfile) : "/tmp/points_"+rand+".geojson"
 		var rasterfile="/tmp/grid_"+rand+".tif";
 		var rasternonull="/tmp/grid_nonull_"+rand+".tif";
 		var tempresultfile="/tmp/grid_nonull_crop_"+rand+".tif";
 		var warpedfile= "/tmp/grid_nonull_crop_warped_"+rand+".tif";
-		var rules_file = path.resolve( (options.tipo) ? (options.tipo == "diario") ? this.config.pp_cdp.rules_file_diario : this.config.pp_cdp.rules_file_semanal : this.config.pp_cdp.rules_file )
-		var zfield = (options.zfield) ? options.zfield : this.config.pp_cdp.zfield
+		var rules_file = path.resolve( (options.tipo) ? (options.tipo == "diario") ? global.config.pp_cdp.rules_file_diario : global.config.pp_cdp.rules_file_semanal : global.config.pp_cdp.rules_file )
+		var zfield = (options.zfield) ? options.zfield : global.config.pp_cdp.zfield
 		if(options.output) {
 			if(!validFilename(options.output)) {
 				return Promise.reject("invalid output filename")
 			}
 		}
-		var resultfile= (options.output) ? outputdir + "/" + options.output : path.resolve(this.config.pp_cdp.outputdir) + "/rast_" + method_ + "_" + radius1 + "_" + radius2 + "_" + out_x + "_" + out_y + ".tif" 
+		var resultfile= (options.output) ? outputdir + "/" + options.output : path.resolve(global.config.pp_cdp.outputdir) + "/rast_" + method_ + "_" + radius1 + "_" + radius2 + "_" + out_x + "_" + out_y + ".tif" 
 		var pngfile= resultfile.replace(/\.tif$/,".png"); // "/home/alerta5/13-SYNOP/mapas_semanales_gdal/pp_semanal_idw_$label_date.png";
 
 		return global.pool.query("with p as (\
@@ -19495,9 +19495,9 @@ ORDER BY cal.cal_id`
 			if(result.rows.length==0) {
 				throw "extent reprojection error"
 			}
-			return ogr2ogr(points).format("GeoJSON").options(['-t_srs','EPSG:'+srs]).promise()
-		}).then(data=>{
-			return fs.writeFile(geojsonfile,JSON.stringify(data))
+			return ogr2ogr(points,{format: "GeoJSON",'-t_srs':`EPSG:${srs}`})
+		}).then(ogr=>{
+			return fs.writeFile(geojsonfile,JSON.stringify(ogr.data))
 		}).then(()=> {
 			return pexec("gdal_grid -txe " + target_extent[0][0] + " " + target_extent[1][0] + " -tye " + target_extent[0][1] + " " + target_extent[1][1] + " -outsize " + out_x + " " + out_y + " -zfield " + zfield + " -ot Float32 -a " + method + " " + geojsonfile + " " + rasterfile)
 		}).then(result=>{
@@ -19604,7 +19604,7 @@ ORDER BY cal.cal_id`
 		timestart = new Date(timestart.getUTCFullYear(),timestart.getUTCMonth(),timestart.getUTCDate(),9)
 		var timeend = new Date(timestart.getTime() + 24*3600*1000)
 		console.log({ts:timestart,te:timeend})
-		filter.estacion_id = (filter.estacion_id) ? filter.estacion_id : this.config.pp_cdp.estacion_ids
+		filter.estacion_id = (filter.estacion_id) ? filter.estacion_id : global.config.pp_cdp.estacion_ids
 		return this.getCampo(1,timestart,timeend,filter,options)
 		.then(campo=>{
 			if(!options.skip_count_control) {
@@ -19616,13 +19616,13 @@ ORDER BY cal.cal_id`
 				}
 			}
 			options.output = "pp_diaria_" + timestart.toISOString().substring(0,10).replace(/-/g,"") + "_nearest.tif"
-			if(!fs.existsSync(path.resolve(sprintf("%s/%04d", this.config.pp_cdp.outputdir, timestart.getUTCFullYear())))) {
-				fs.mkdirSync(path.resolve(sprintf("%s/%04d", this.config.pp_cdp.outputdir, timestart.getUTCFullYear())))
+			if(!fs.existsSync(path.resolve(sprintf("%s/%04d", global.config.pp_cdp.outputdir, timestart.getUTCFullYear())))) {
+				fs.mkdirSync(path.resolve(sprintf("%s/%04d", global.config.pp_cdp.outputdir, timestart.getUTCFullYear())))
 			}
-			if(!fs.existsSync(path.resolve(sprintf("%s/%04d/%02d", this.config.pp_cdp.outputdir, timestart.getUTCFullYear(), timestart.getUTCMonth()+1)))) {
-				fs.mkdirSync(path.resolve(sprintf("%s/%04d/%02d", this.config.pp_cdp.outputdir, timestart.getUTCFullYear(), timestart.getUTCMonth()+1)))
+			if(!fs.existsSync(path.resolve(sprintf("%s/%04d/%02d", global.config.pp_cdp.outputdir, timestart.getUTCFullYear(), timestart.getUTCMonth()+1)))) {
+				fs.mkdirSync(path.resolve(sprintf("%s/%04d/%02d", global.config.pp_cdp.outputdir, timestart.getUTCFullYear(), timestart.getUTCMonth()+1)))
 			}
-			options.outputdir = path.resolve(sprintf("%s/%04d/%02d", this.config.pp_cdp.outputdir, timestart.getUTCFullYear(), timestart.getUTCMonth()+1))
+			options.outputdir = path.resolve(sprintf("%s/%04d/%02d", global.config.pp_cdp.outputdir, timestart.getUTCFullYear(), timestart.getUTCMonth()+1))
 			var csv_file = path.resolve(options.outputdir + "/" + "pp_diaria_" + timestart.toISOString().substring(0,10).replace(/-/g,"") + ".csv")
 			// escribe archivo CSV
 			fs.writeFile(csv_file,campo.toCSV())
@@ -19635,24 +19635,24 @@ ORDER BY cal.cal_id`
 			var geojson_file = path.resolve(options.outputdir + "/" + "pp_diaria_" + timestart.toISOString().substring(0,10).replace(/-/g,"") +".json")
 			var nearest_file = path.resolve(options.outputdir + "/" + options.output)
 			// genera raster x vecino más próximo y escribe archivo geojson
-			return this.points2rast(campo.toGeoJSON(),{series_id:this.config.pp_cdp.series_id,timestart:timestart,timeend:timeend},{...options,geojsonfile:geojson_file,tipo:"diario"},upsert)
+			return this.points2rast(campo.toGeoJSON(),{series_id:global.config.pp_cdp.series_id,timestart:timestart,timeend:timeend},{...options,geojsonfile:geojson_file,tipo:"diario"},upsert)
 			.then(result=>{
 				if(upsert && !options.no_update_areales) {
 					// calcula medias areales
-					this.rast2areal(this.config.pp_cdp.series_id,timestart,timeend,"all")
+					this.rast2areal(global.config.pp_cdp.series_id,timestart,timeend,"all")
 					.then(result=>{
-						console.log("upserted " + result.length + " into series_areal, series_id:" + this.config.pp_cdp.series_id)
+						console.log("upserted " + result.length + " into series_areal, series_id:" + global.config.pp_cdp.series_id)
 					})
 					.catch(e=>{
 						console.error(e)
 					})
 				}
 				// genera raster x splines
-				var surf_parameters = {...this.config.grass,maskfile: path.resolve(this.config.pp_cdp.maskfile),timestart:timestart,timeend:timeend,res:0.1}
+				var surf_parameters = {...global.config.grass,maskfile: path.resolve(global.config.pp_cdp.maskfile),timestart:timestart,timeend:timeend,res:0.1}
 				return printMap.surf(geojson_file,surf_file,surf_parameters)
 				.then(output=>{
 					console.log(output)
-					var parameters = {...this.config.grass, timestart: timestart,timeend: timeend, title: "precipitaciones diarias campo interpolado [mm]"}
+					var parameters = {...global.config.grass, timestart: timestart,timeend: timeend, title: "precipitaciones diarias campo interpolado [mm]"}
 					parameters.render_file = undefined
 					// imprime mapa splines
 					return printMap.print_pp_cdp_diario(surf_file,png_file,parameters,geojson_file)
@@ -19679,7 +19679,7 @@ ORDER BY cal.cal_id`
 		var timeend = new Date(timestart.getTime() + 7*24*3600*1000)
 		console.log({ts:timestart,te:timeend})
 		// toma filtro de estaciones del archivo de configuración
-		filter.estacion_id = (filter.estacion_id) ? filter.estacion_id : this.config.pp_cdp.estacion_ids
+		filter.estacion_id = (filter.estacion_id) ? filter.estacion_id : global.config.pp_cdp.estacion_ids
 		// obtiene campo de precipitaciones puntuales
 		return this.getCampo(1,timestart,timeend,filter,options)
 		.then(campo=>{
@@ -19696,13 +19696,13 @@ ORDER BY cal.cal_id`
 			}
 			// genera nombre de archivo raster y crea directorios YYYY/MM si no existen
 			options.output = "pp_semanal_" + timestart.toISOString().substring(0,10).replace(/-/g,"") + "_nearest.tif"
-			if(!fs.existsSync(path.resolve(sprintf("%s/%04d", this.config.pp_cdp.outputdir_semanal, timestart.getUTCFullYear())))) {
-				fs.mkdirSync(path.resolve(sprintf("%s/%04d", this.config.pp_cdp.outputdir_semanal, timestart.getUTCFullYear())))
+			if(!fs.existsSync(path.resolve(sprintf("%s/%04d", global.config.pp_cdp.outputdir_semanal, timestart.getUTCFullYear())))) {
+				fs.mkdirSync(path.resolve(sprintf("%s/%04d", global.config.pp_cdp.outputdir_semanal, timestart.getUTCFullYear())))
 			}
-			if(!fs.existsSync(path.resolve(sprintf("%s/%04d/%02d", this.config.pp_cdp.outputdir_semanal, timestart.getUTCFullYear(), timestart.getUTCMonth()+1)))) {
-				fs.mkdirSync(path.resolve(sprintf("%s/%04d/%02d", this.config.pp_cdp.outputdir_semanal, timestart.getUTCFullYear(), timestart.getUTCMonth()+1)))
+			if(!fs.existsSync(path.resolve(sprintf("%s/%04d/%02d", global.config.pp_cdp.outputdir_semanal, timestart.getUTCFullYear(), timestart.getUTCMonth()+1)))) {
+				fs.mkdirSync(path.resolve(sprintf("%s/%04d/%02d", global.config.pp_cdp.outputdir_semanal, timestart.getUTCFullYear(), timestart.getUTCMonth()+1)))
 			}
-			options.outputdir = path.resolve(sprintf("%s/%04d/%02d", this.config.pp_cdp.outputdir_semanal, timestart.getUTCFullYear(), timestart.getUTCMonth()+1))
+			options.outputdir = path.resolve(sprintf("%s/%04d/%02d", global.config.pp_cdp.outputdir_semanal, timestart.getUTCFullYear(), timestart.getUTCMonth()+1))
 			var csv_file = path.resolve(options.outputdir + "/" + "pp_semanal_" + timestart.toISOString().substring(0,10).replace(/-/g,"") + ".csv")
 			// escribe archivo CSV
 			fs.writeFile(csv_file,campo.toCSV())
@@ -19717,13 +19717,13 @@ ORDER BY cal.cal_id`
 			// genera raster x vecino más próximo y escribe archivo geojson
 			return this.points2rast(campo.toGeoJSON(),{timestart:timestart,timeend:timeend},{...options,geojsonfile: geojson_file,tipo:"semanal"})
 			.then(result=>{
-				var surf_parameters = {...this.config.grass,maskfile: path.resolve(this.config.pp_cdp.maskfile),timestart:timestart,timeend:timeend,res:0.1}
+				var surf_parameters = {...global.config.grass,maskfile: path.resolve(global.config.pp_cdp.maskfile),timestart:timestart,timeend:timeend,res:0.1}
 				surf_parameters.tension = 80
 				// genera raster x splines
 				return printMap.surf(geojson_file,surf_file,surf_parameters)
 				.then(output=>{
 					console.log(output)
-					var parameters = {...this.config.grass, timestart: timestart,timeend: timeend, title: "precipitaciones semanales campo interpolado [mm]"}
+					var parameters = {...global.config.grass, timestart: timestart,timeend: timeend, title: "precipitaciones semanales campo interpolado [mm]"}
 					parameters.render_file = undefined
 					// imprime mapa splines
 					return printMap.print_pp_cdp_semanal(surf_file,png_file,parameters,geojson_file)
