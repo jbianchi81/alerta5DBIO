@@ -30,7 +30,12 @@ export interface TimePeriodFilter {
     timeend : Date   
 }
 
-export interface ObservacionesFilter extends SeriesFilter, TimePeriodFilter {}
+export interface PageRangeFilter {
+    page_begin : number,
+    page_end : number
+}
+
+export interface ObservacionesFilter extends SeriesFilter, TimePeriodFilter, PageRangeFilter {}
 
 export interface ObservacionesFilterWithArrays extends TimePeriodFilter {
     series_id : Array<number>,

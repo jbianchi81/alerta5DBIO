@@ -118,13 +118,39 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         }
     }
 
+    async get_page_range(
+        code : number, 
+        begin: number, 
+        end: number,
+        series_id : number, 
+        timestart : Date, 
+        timeend : Date
+    ) : Promise<Observacion[]> {
+        const observaciones = []
+        for(var page = begin; page <= end; page++) {
+            const page_obs = await this.getPage(code, page, series_id)
+            var filtered_obs = page_obs.filter(o=> 
+                (!timestart || o.timestart.getTime() >= timestart.getTime())
+                && 
+                (!timeend || o.timestart.getTime() <= timeend.getTime())
+            )
+            observaciones.push(...filtered_obs)
+        }
+        return observaciones
+    }
+
+
     async get(
         filter : ObservacionesFilter,
         options : {
             return_series ? : boolean
         } = {}) : Promise<Array<Observacion>|Array<Serie>> {
-        if(!filter || !filter.timestart || !filter.timeend) {
-            throw("Missing timestart and/or timeend")
+        if(!filter) {
+            throw new Error("Missing filter")
+        } else if(!filter.timestart || !filter.timeend) {
+            if(!filter.page_begin || !filter.page_end) {
+                throw new Error("Missing timestart - timeend or page_begin - page_end in filter")
+            } 
         }
         if(!this.sites_map.length) {
             await this.loadSitesMap()
@@ -167,28 +193,19 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                 var serie = new crud_serie(series_match[0])
                 serie.observaciones = []
             }
-            const page_range = this.predict_page_range(filter.timestart, filter.timeend)
-            for(var page = page_range.begin; page <= page_range.end; page++) {
-                const page_obs = await this.getPage(code, page, series_id)
-                var filtered_obs = page_obs.filter(o=> 
-                    o.timestart.getTime() >= filter_.timestart.getTime() 
-                    && 
-                    o.timestart.getTime() <= filter_.timeend.getTime()
-                )
-                if(options.return_series) {
-                    serie.observaciones.push(
-                        ...filtered_obs
-                    )
-                } else {
-                    observaciones.push(
-                        ...filtered_obs
-                    )
-                }
-            }  
+            const page_range = (filter.page_begin && filter.page_end) ? {begin: filter.page_begin, end: filter.page_end} : this.predict_page_range(filter.timestart, filter.timeend)
+            const observaciones_from_page_range = await this.get_page_range(code, page_range.begin, page_range.end, series_id, filter_.timestart, filter_.timeend)
             if(options.return_series) {
+                serie.observaciones.push(
+                    ...observaciones_from_page_range
+                )
                 serie.observaciones.sort((a  : crud_observacion, b : crud_observacion) => a.timestart.getTime() - b.timestart.getTime())
                 series.push(serie)
-            }          
+            } else {
+                observaciones.push(
+                    ...observaciones_from_page_range
+                )
+            }
         }
         if(options.return_series) {
             return series
@@ -221,12 +238,15 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         }
     }
 
+    getPageUrl(code : number, page : number) {
+        return `${this.config.url}?code=${code}&page=${page}`
+    }
 
     async getPage(code : number, page : number, series_id : number|undefined) : Promise<Observacion[]> {
         // const code = 2000086134
         // const page = 381
         // const size = 15
-        const page_url = `${this.config.url}?code=${code}&page=${page}`
+        const page_url = this.getPageUrl(code, page)
         console.debug(`Get url: ${page_url}`)
         const response = await get(page_url)
         const matches = response.data.match(/var\sphp_vars\s?=\s?(\{.*\})/)

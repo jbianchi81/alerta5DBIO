@@ -24,6 +24,16 @@ test('dinac accessor get page', async(t) => {
         assert.equal(page_range.end, 4, `Expected end page: 3, got: ${page_range.end}`)
     })
 
+    await t.test("get page range", async (t) => {
+
+        const client = new Client({})
+
+        const observaciones = await client.get_page_range(2000086033, 222, 226)
+
+        assert.equal(observaciones.length, 15 * 5)
+
+    })
+
     await t.test("predict page range 2", async (t) => {
         const timestart = new Date()
         timestart.setHours(0,0,0,0)
@@ -109,6 +119,27 @@ test('dinac accessor get page', async(t) => {
             assert.equal(obs.timestart.getTime() <= timeend.getTime(), true)
             assert.notEqual(obs.valor.toString(), "NaN")
         }
+    })
+
+})
+
+test('test get with page range filter',async(t)=> {
+
+    await t.test("get with page range filter", async (t) => {
+
+        // var timestart = new Date()
+        // var timeend = new Date()
+        // timestart.setDate(timestart.getDate() - 45)
+        const client = new Client({})
+        client.sites_map = test_sites_map
+        client.series_map = test_series_map
+        result = await client.get({
+            page_begin: 222,
+            page_end: 226,
+            estacion_id: 155
+        })
+        assert.equal(result.length, 5 * 15)
+
     })
 })
 

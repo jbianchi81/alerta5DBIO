@@ -86,10 +86,28 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             }
         });
     }
+    get_page_range(code, begin, end, series_id, timestart, timeend) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const observaciones = [];
+            for (var page = begin; page <= end; page++) {
+                const page_obs = yield this.getPage(code, page, series_id);
+                var filtered_obs = page_obs.filter(o => (!timestart || o.timestart.getTime() >= timestart.getTime())
+                    &&
+                        (!timeend || o.timestart.getTime() <= timeend.getTime()));
+                observaciones.push(...filtered_obs);
+            }
+            return observaciones;
+        });
+    }
     get(filter, options = {}) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!filter || !filter.timestart || !filter.timeend) {
-                throw ("Missing timestart and/or timeend");
+            if (!filter) {
+                throw new Error("Missing filter");
+            }
+            else if (!filter.timestart || !filter.timeend) {
+                if (!filter.page_begin || !filter.page_end) {
+                    throw new Error("Missing timestart - timeend or page_begin - page_end in filter");
+                }
             }
             if (!this.sites_map.length) {
                 yield this.loadSitesMap();
@@ -133,22 +151,15 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                     var serie = new CRUD_1.serie(series_match[0]);
                     serie.observaciones = [];
                 }
-                const page_range = this.predict_page_range(filter.timestart, filter.timeend);
-                for (var page = page_range.begin; page <= page_range.end; page++) {
-                    const page_obs = yield this.getPage(code, page, series_id);
-                    var filtered_obs = page_obs.filter(o => o.timestart.getTime() >= filter_.timestart.getTime()
-                        &&
-                            o.timestart.getTime() <= filter_.timeend.getTime());
-                    if (options.return_series) {
-                        serie.observaciones.push(...filtered_obs);
-                    }
-                    else {
-                        observaciones.push(...filtered_obs);
-                    }
-                }
+                const page_range = (filter.page_begin && filter.page_end) ? { begin: filter.page_begin, end: filter.page_end } : this.predict_page_range(filter.timestart, filter.timeend);
+                const observaciones_from_page_range = yield this.get_page_range(code, page_range.begin, page_range.end, series_id, filter_.timestart, filter_.timeend);
                 if (options.return_series) {
+                    serie.observaciones.push(...observaciones_from_page_range);
                     serie.observaciones.sort((a, b) => a.timestart.getTime() - b.timestart.getTime());
                     series.push(serie);
+                }
+                else {
+                    observaciones.push(...observaciones_from_page_range);
                 }
             }
             if (options.return_series) {
@@ -180,12 +191,15 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             end: Math.trunc(end_days_ago / this.config.page_size) + 1
         };
     }
+    getPageUrl(code, page) {
+        return `${this.config.url}?code=${code}&page=${page}`;
+    }
     getPage(code, page, series_id) {
         return __awaiter(this, void 0, void 0, function* () {
             // const code = 2000086134
             // const page = 381
             // const size = 15
-            const page_url = `${this.config.url}?code=${code}&page=${page}`;
+            const page_url = this.getPageUrl(code, page);
             console.debug(`Get url: ${page_url}`);
             const response = yield (0, axios_1.default)(page_url);
             const matches = response.data.match(/var\sphp_vars\s?=\s?(\{.*\})/);
