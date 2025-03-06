@@ -32,6 +32,19 @@ internal.Interval = class extends interval.constructor {
 	toEpoch() {
 		return internal.interval2epochSync(this);
 	}
+	getKey() {
+		for(var key of Object.keys(this)) {
+			if(this(key) > 0) {
+				return key
+			}
+		}
+	}
+	getValue() {
+		const key = this.getKey()
+		if(key) {
+			return this[key]
+		}
+	}
 }
 
 

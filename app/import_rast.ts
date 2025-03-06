@@ -4,7 +4,7 @@ import {execSync} from 'child_process'
 import createGunzip from 'zlib'
 import * as path from 'path'
 import * as os from 'os'
-import {advanceTimeStep} from './timeSteps'
+import {advanceTimeStep, Interval as Interval_pg} from './timeSteps'
 
 const internal = {
 
@@ -40,8 +40,8 @@ const internal = {
     importRaster: async(
         filename : string|string[],
         timestart : Date,
-        dt : Interval = {days: 1},
-        time_support : Interval = {},
+        dt : Interval = new Interval_pg({days: 1}),
+        time_support : Interval = new Interval_pg({}),
         series_id : number
         // create : boolean = false
     ) : Promise<ObservacionRaster[]> => {

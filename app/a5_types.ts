@@ -5,7 +5,8 @@ export type Observacion = {
     timestart : Date,
     timeend ? : Date,
     valor : number,
-    series_id ? : number
+    series_id ? : number,
+    id? : number
 }
 
 export type ObservacionRaster = {
@@ -99,7 +100,7 @@ export type Variable = {
     def_unit_id : number,
     
     /** soporte temporal de la medición */
-    timeSupport : string | Interval,
+    timeSupport : Interval,
 
     def_hora_corte : string | Interval
 }
@@ -303,4 +304,7 @@ export interface Interval {
     days ? : number
     months ? : number
     years ? : number
+    toEpoch() : number
+    getKey() : string
+    getValue() : number
 }

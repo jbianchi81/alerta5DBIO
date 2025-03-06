@@ -4,7 +4,7 @@ import get from 'axios'
 import path from 'path'
 import { unlinkSync, readFileSync, writeFileSync } from 'fs'
 import { fetch, filterSeries } from '../accessor_utils'
-import { advanceInterval } from '../timeSteps'
+import { advanceInterval, Interval_pg } from '../timeSteps'
 import { exec } from 'child-process-promise'
 import { getRegularSeries, rastExtract, escena as crud_escena, observaciones as crud_observaciones, serie as crud_serie} from '../CRUD'
 import { print_rast_series } from '../print_rast'
@@ -181,10 +181,10 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                   "VariableName": "Precipitation",
                   "SampleMedium": "Precipitation",
                   "def_unit_id": 9,
-                  "timeSupport": {
+                  "timeSupport": new Interval_pg({
                     "hours": 3
-                  },
-                  "def_hora_corte": {}
+                  }),
+                  "def_hora_corte": new Interval_pg({})
                 },
                 "procedimiento": {
                   "id": 5,
@@ -206,10 +206,10 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                   "data_column": "rast",
                   "tipo": "QPE",
                   "def_proc_id": 5,
-                  "def_dt": {
+                  "def_dt": new Interval_pg({
                     "hours": 3
-                  },
-                  "hora_corte": {},
+                  }),
+                  "hora_corte": new Interval_pg({}),
                   "def_unit_id": 9,
                   "def_var_id": 34,
                   "fd_column": null,
@@ -304,12 +304,12 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                   "VariableName": "Precipitation",
                   "SampleMedium": "Precipitation",
                   "def_unit_id": 22,
-                  "timeSupport": {
+                  "timeSupport": new Interval_pg({
                     "days": 1
-                  },
-                  "def_hora_corte": {
+                  }),
+                  "def_hora_corte": new Interval_pg({
                     "hours": 9
-                  }
+                  })
                 },
                 "procedimiento": {
                   "id": 5,
@@ -331,12 +331,12 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                   "data_column": "rast",
                   "tipo": "QPE",
                   "def_proc_id": 5,
-                  "def_dt": {
+                  "def_dt": new Interval_pg({
                     "days": 1
-                  },
-                  "hora_corte": {
+                  }),
+                  "hora_corte": new Interval_pg({
                     "hours": 9
-                  },
+                  }),
                   "def_unit_id": 22,
                   "def_var_id": 1,
                   "fd_column": null,
@@ -449,7 +449,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
             return path.resolve(local_path, id)
         })
         const downloaded_files = await this.downloadFiles(product_urls, local_filenames)
-        const dt = (this.config.search_params.q == "precip_1d") ? {days: 1} : {hours: 3}
+        const dt = (this.config.search_params.q == "precip_1d") ? new Interval_pg({days: 1}) : new Interval_pg({hours: 3})
         const observaciones = await this.rast2obsList(downloaded_files, dt)
         for (const file of downloaded_files) {
             unlinkSync(file)
@@ -503,7 +503,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         return downloaded_files
     }
 
-    async rast2obsList(filenames: Array<string>, dt: Interval = { hours: 3 }) {
+    async rast2obsList(filenames: Array<string>, dt: Interval = new Interval_pg({ hours: 3 })) {
         // console.log(JSON.stringify(filenames))
         var observaciones = []
         this.subset_files = []

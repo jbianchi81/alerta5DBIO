@@ -66,7 +66,7 @@ const internal = {
      * @param series_id  - optional. If not passed, reads from file metadata
      * @returns Array of ObservacionesRaster
      */
-    importRaster: (filename, timestart, dt = { days: 1 }, time_support = {}, series_id
+    importRaster: (filename, timestart, dt = new timeSteps_1.Interval({ days: 1 }), time_support = new timeSteps_1.Interval({}), series_id
     // create : boolean = false
     ) => __awaiter(void 0, void 0, void 0, function* () {
         var tmp_dir;
