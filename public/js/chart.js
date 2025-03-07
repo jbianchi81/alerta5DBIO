@@ -257,8 +257,10 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 			//~ json.series[0].step = 'left';
 			
 		}
+
+		const h_var_ids = [2, 33, 39, 67]
 	 
-		if(getseriesbysiteandvarobj.var.id == 2 && getseriesbysiteandvarobj.estacion.nivel_alerta) {
+		if(h_var_ids.indexOf(getseriesbysiteandvarobj.var.id) >= 0 && getseriesbysiteandvarobj.estacion.nivel_alerta) {
 			json.yAxis.plotLines.push({
 				id: 1,
 				color: 'yellow',
@@ -273,7 +275,7 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 			json.yAxis.max = Math.max(getseriesbysiteandvarobj.estacion.nivel_alerta,json.yAxis.max) // ...seriesdata.map(function(el) { return el[1]})); 
 			json.yAxis.min = Math.min(getseriesbysiteandvarobj.estacion.nivel_alerta,json.yAxis.min) // ...seriesdata.map(function(el) { return el[1]})); 
 		}
-		if(getseriesbysiteandvarobj.var.id == 2 && getseriesbysiteandvarobj.estacion.nivel_evacuacion) {
+		if(h_var_ids.indexOf(getseriesbysiteandvarobj.var.id) >= 0 && getseriesbysiteandvarobj.estacion.nivel_evacuacion) {
 			json.yAxis.plotLines.push({
 				id: 2,
 				color: 'red',
@@ -290,7 +292,7 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 				json.yAxis.min = Math.min(getseriesbysiteandvarobj.estacion.nivel_evacuacion,...seriesdata.map(function(el) { return el[1]})); 
 			}
 		}	//~ $('#'+chart_container_id).show();
-		if(getseriesbysiteandvarobj.var.id == 2 && getseriesbysiteandvarobj.estacion.nivel_aguas_bajas) {
+		if(h_var_ids.indexOf(getseriesbysiteandvarobj.var.id) >= 0 && getseriesbysiteandvarobj.estacion.nivel_aguas_bajas) {
 			json.yAxis.plotLines.push({
 				id: 3,
 				color: 'orange',
