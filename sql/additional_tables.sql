@@ -201,3 +201,9 @@ ALTER TABLE ONLY public.series_mon_stats
 
 -- GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.series_mon_stats TO actualiza;
 -- GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.series_mon_stats TO sololectura;
+
+create table series_percentiles_ref (
+  series_id int references series(id), 
+  percentil int not null, 
+  valor real not null, 
+  unique (series_id, percentil));

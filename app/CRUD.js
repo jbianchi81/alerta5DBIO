@@ -1776,6 +1776,7 @@ internal.serie = class extends baseModel {
 						}
 					}
 					this.pronosticos = arguments[0].pronosticos
+					this.percentiles_ref = arguments[0].percentiles_ref
 				}
 				break;
 			default:
@@ -1802,7 +1803,8 @@ internal.serie = class extends baseModel {
 			maxValor: this.maxValor,
 			observaciones: this.observaciones,
 			pronosticos: this.pronosticos,
-			percentiles: this.percentiles
+			percentiles: this.percentiles,
+			percentiles_ref: this.percentiles_ref
 		}
 	}
 	toJSONless() {
@@ -2827,6 +2829,18 @@ internal.serie = class extends baseModel {
 			o.valor = eval(expression)
 		}
 		return serie_0
+	}
+
+	async setPercentilesRef() {
+		if(!this.id) {
+			console.error("Can't retrieve percentiles ref, id is undefined")
+			return
+		}
+		const percentiles = await pool.query("SELECT * from series_percentiles_ref WHERE series_id=$1", [this.id])
+		this.percentiles_ref = {}
+		percentiles.rows.forEach(p => {
+			this.percentiles_ref[p.percentil] = p.valor
+		})
 	}
 }
 
@@ -9426,6 +9440,7 @@ internal.CRUD = class {
 					serie.monthlyStats = await this.getMonthlyStats("puntual",serie.id).values
 				}
 			}
+			await serie.setPercentilesRef()
 			
 			if(release_client) {
 				await client.release()
