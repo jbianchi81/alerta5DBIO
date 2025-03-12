@@ -309,6 +309,25 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 				json.yAxis.min = Math.min(getseriesbysiteandvarobj.estacion.nivel_aguas_bajas,...seriesdata.map(function(el) { return el[1]})); 
 			}
 		}	//~ $('#'+chart_container_id).show();
+		if(getseriesbysiteandvarobj.percentiles_ref && (!getseriesbysiteandvarobj.monthlyStats || !getseriesbysiteandvarobj.monthlyStats.length)) {
+			var line_id = 4
+			for(const [perc, valor] of Object.entries(getseriesbysiteandvarobj.percentiles_ref)) {
+				json.yAxis.plotLines.push({
+					id: line_id,
+					color: 'black',
+					dashStyle: 'LongDash',
+					value: valor,
+					width:1,
+					label: {
+						text: `p${perc}`
+					},
+					zIndex:11
+				});
+				json.yAxis.max = (json.yAxis.max !== undefined) ? Math.max(valor,json.yAxis.max) : valor 
+				json.yAxis.min = (json.yAxis.min !== undefined) ? Math.min(valor,json.yAxis.min) : Math.min(valor, ...seriesdata.map(el => el[1]))
+				line_id++
+			}
+		}
 	}
 	var datatable_prono
 	if(getseriesbysiteandvarobj.pronosticos) {
@@ -342,7 +361,7 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 						},
 						zIndex: 10
 					});
-					console.log("added fd plotline")
+					// console.log("added fd plotline")
 				}
 				// ADD SERIES
 				p.corrida.series.forEach(s=>{
@@ -473,7 +492,7 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 		date.setUTCHours(3)
 		while(new Date(date).setUTCMonth(date.getUTCMonth()-1) < new Date(getseriesbysiteandvarobj.request_params.timeend).getTime()) {
 			var mon = date.getUTCMonth()
-			console.log({mon:mon})
+			// console.log({mon:mon})
 			// var start_of_month = new Date(date.getUTCFullYear(),mon,1)
 			if(getseriesbysiteandvarobj.monthlyStats[mon]) {
 				percentiles[0].data.push([date.getTime(),getseriesbysiteandvarobj.monthlyStats[mon].p99])
@@ -817,4 +836,35 @@ function interval2epochSync(interval) {
 		}
 	})
 	return seconds
+}
+
+function togglePercLines(serie,chart,action="toggle") {
+	let plotLines = chart.yAxis[0].plotLinesAndBands.filter(line => line.label && /^p\d\d?$/.test(line.label.textStr))
+    if (plotLines.length) {
+		if(action == "show") {
+			return
+		}
+		for(const line of plotLines) {
+	        chart.yAxis[0].removePlotLine(line.id);
+		}
+    } else {
+		if(action == "hide") {
+			return
+		}
+		let line_id = 4
+		for(const [perc, valor] of Object.entries(serie.percentiles_ref)) {
+			chart.yAxis[0].addPlotLine({
+				id: line_id,
+				color: 'black',
+				dashStyle: 'LongDash',
+				value: valor,
+				width:1,
+				label: {
+					text: `p${perc}`
+				},
+				zIndex:11
+			})
+			line_id++
+		}
+    }
 }

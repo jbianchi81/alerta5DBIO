@@ -390,6 +390,7 @@
 							<option value=0.98>0.98</option>
 							<option value=0.99>0.99</option>
 						</select>
+						<input name="inverted" value="true" hidden>
 						<input type=submit>
 					</form>
 				  </div>
@@ -453,7 +454,7 @@
 				</li>
 				<li>
 					<b>Percentiles diarios entre fechas (JSON):    </b>
-					<a id=descargarPercentilesDiariosBetweenDates download="PercentilesDiariosBetweenDates.csv" href="getPercentilesDiariosBetweenDates?tipo=puntual&series_id=&timestart=&timeend=&percentil=">getPercentilesDiariosBetweenDates?tipo=puntual&amp;series_id=&amp;timestart=&amp;timeend=&amp;percentil=</a>
+					<a id=descargarPercentilesDiariosBetweenDates download="PercentilesDiariosBetweenDates.csv" href="getPercentilesDiariosBetweenDates?tipo=puntual&series_id=&timestart=&timeend=&percentil=&inverted=true">getPercentilesDiariosBetweenDates?tipo=puntual&amp;series_id=&amp;timestart=&amp;timeend=&amp;percentil=&amp;inverted=true</a>
 					<span>    (acepta 1 o más valores del parámetro 'percentil' [0.01 a 0.99]. Si falta obtiene todos)</span>
 				</li>
 				<li>
@@ -1647,6 +1648,16 @@
 						$('<h3 id="p_obs">No hay observaciones</h3>')
 				))
 			}
+			if(series.percentiles_ref && Object.keys(series.percentiles_ref).length) {
+				$("div#general ul#general").append(
+					$("<li></li>").append(
+						$('<h3 id="p_obs">Valores de referencia (percentiles)</h3>'),
+						$("<ul></ul>").append(
+							Object.entries(series.percentiles_ref).map(([perc, value]) => $(`<li>${perc}: <b> ${value}</b></li>`))
+						)
+					)
+				)
+			}
 			if (series.procedimiento) {
 				$("div#general ul#general").append(
 					$("<li></li>").append(
@@ -1908,7 +1919,7 @@
 				},200)
 			})
 		}
-		console.log("enable chart buttons")
+		// console.log("enable chart buttons")
 		// enable chart buttons
 		$("div.tabcontent#grafico").find("button.add-series").prop('disabled',false)
 		.on('click', function () {
@@ -1967,103 +1978,121 @@
 		}
 		
 		// enable stats buttons
-		if(series.monthlyStats && series.monthlyStats.length) {
+		const stats_button_states = (series.monthlyStats && series.monthlyStats.length) ?  Object.keys(series.percentiles_ref).length ? ["monthly","yearly","both","none"] : ["monthly","none"] : Object.keys(series.percentiles_ref).length ? ["yearly","none"] : []
+		if (stats_button_states.length) {
+			var stats_button_state = stats_button_states[0] 
 			//~ console.log("enable Stats buttons")
 			$("div.tabcontent#grafico").find("button.toggle-stats").prop('disabled',false)
 			.on('click', function () {
+				stats_button_state = getNextValue(stats_button_states, stats_button_state)
 				var chart = $("#chart_container").highcharts()
-				chart.series.forEach(s=>{  
-					if(/^permanencia\s\d\d?\%$/.test(s.name)) {
-					if(s.visible) {
-						s.hide()
-					} else {
-						s.show()
-					}
-					}
-				})
-			});
-			$("div.tabcontent#grafico").find("button.downld-stats").prop('disabled',false)
-			.on('click', function () {
-				var chart = $("#chart_container").highcharts()
-				var doystatsseries = chart.series.filter(s=> /^permanencia\s\d\d?\%$/.test(s.name))
-				if(doystatsseries.length == 0) {
-					console.log("nothing to download")
-					return
-				}
-				var doystats = doystatsseries[0].data.map( (d,i) => {
-					var date = new Date(d.x).toISOString().substring(0,10)
-					var values = doystatsseries.map(s=> {
-						return s.data[i].y
+				if(stats_button_state == "monthly" || stats_button_state == "both") {
+					chart.series.forEach(s=>{  
+						if(/^permanencia\s\d\d?\%$/.test(s.name)) {
+							// if(s.visible) {
+							//	s.hide()
+							//} else {
+								s.show()
+							//}
+						}
 					})
-					return [date,...values]	
-				})
-				var colnames = ["date",...doystatsseries.map(s=>s.name)]
-				var csv = colnames.join(",") + "\n" + doystats.map(d=>d.join(",")).join("\n")
-				var gblob = new Blob([csv], {type: "octet/stream"})
-				var gurl = window.URL.createObjectURL(gblob);
-				$("#myModal span#exportcsv a").attr({'href':gurl,download:'stats.csv'}).html("Descargar CSV").on("click", e=>{
-					//~ $("#myModal").modal("hide")
-				})
-				$("#myModal span#exportjson input#exportjsonurl").val(window.location.origin + window.location.pathname.replace(/[^/]*$/,"") + "obs/puntual/series/" + gSeries.id + "/estadisticosMensuales?format=json").removeAttr("disabled")
-				$("div#myModal span#exportcsv").show()
-				$("div#myModal span#exportjson").show()
-				$("div#myModal div#authentication").hide()
-				$("div#myModal div#authentication input").attr("disabled",true)
-				$("div#myModal").modal('show').on('hide.bs.modal', function (e) {
-					$(e.target).find("span#exportcsv").hide()
-					$(e.target).find("span#exportjson").hide()
-					$(e.target).find("span#exportcsv a").attr({"href":null,download:'observaciones.csv'})
-					$("#myModal span#exportjson input#exportjsonurl").val("").attr("disabled","disabled")
-					$(e.target).find("div#authentication").show()
-					$(e.target).find("div#authentication input").attr("disabled",false)
-				})
-			});
-			$("div.tabcontent#grafico").find("button.add-percentile").prop('disabled',false)
-			.on('click', function () {
-				$("div#chartModal2").modal('show').on('hide.bs.modal', function (e) {
-					$(e.target).find("select[name=percentil]").val([])
-				})
-			});
-			$("div.tabcontent#grafico").find("button.downld-percentile")
-			.on('click', function () {
-				var chart = $("#chart_container").highcharts()
-				var percentile_series = chart.series.filter(s=> /^percentil\s0\.\d\d?$/.test(s.name))
-				if(percentile_series.length == 0) {
-					console.log("Nothing to download")
-					return
-				}
-				var percentiles = percentile_series[0].data.map( (d,i) => {
-					var date = new Date(d.x).toISOString().substring(0,10)
-					var values = percentile_series.map(s=> {
-						return s.data[i].y
+				} else {
+					chart.series.forEach(s=>{  
+						if(/^permanencia\s\d\d?\%$/.test(s.name)) {
+							s.hide()
+						}
 					})
-					return [date,...values]	
-				})
-				var colnames = ["date",...percentile_series.map(s=>s.name)]
-				var csv = colnames.join(",") + "\n" + percentiles.map(d=>d.join(",")).join("\n")
-				var gblob = new Blob([csv], {type: "octet/stream"})
-				var gurl = window.URL.createObjectURL(gblob);
-				$("#myModal span#exportcsv a").attr({'href':gurl,download:'percentiles.csv'}).html("Descargar CSV");
-				//~ .on("click", e=>{
-					//~ $("#myModal").modal("hide")
-				//~ })
-				var percentil = percentile_series.map(s=>{
-					return parseFloat(s.name.replace(/^percentil\s/,""));
-				}).join(",")
-				$("#myModal span#exportjson input#exportjsonurl").val(window.location.origin + window.location.pathname.replace(/[^/]*$/,"") + "obs/puntual/series/" + global.series.id + "/percentilesDiarios/" + global.series.timestart + "/" + global.series.timeend+ "?percentil=" + percentil).removeAttr("disabled")
-				$("div#myModal span#exportcsv").show()
-				$("div#myModal span#exportjson").show()
-				$("div#myModal div#authentication").hide()
-				$("div#myModal div#authentication input").attr("disabled",true)
-				$("div#myModal").modal('show').on('hide.bs.modal', function (e) {
-					$(e.target).find("span#exportcsv").hide()
-					$(e.target).find("span#exportjson").hide()
-					$(e.target).find("span#exportcsv a").attr({"href":null,download:'observaciones.csv'})
-					$("#myModal span#exportjson input#exportjsonurl").val("").attr("disabled","disabled")
-					$(e.target).find("div#authentication").show()
-					$(e.target).find("div#authentication input").attr("disabled",false)
-				})
+				}
+				if(stats_button_state == "yearly" || stats_button_state == "both") {
+					togglePercLines(series,chart,"show")
+				} else {
+					togglePercLines(series,chart,"hide")
+				}
 			});
+			if(stats_button_states.indexOf("monthly") >= 0 || stats_button_states.indexOf("both") >= 0) {
+				$("div.tabcontent#grafico").find("button.downld-stats").prop('disabled',false)
+				.on('click', function () {
+					var chart = $("#chart_container").highcharts()
+					var doystatsseries = chart.series.filter(s=> /^permanencia\s\d\d?\%$/.test(s.name))
+					if(doystatsseries.length == 0) {
+						console.log("nothing to download")
+						return
+					}
+					var doystats = doystatsseries[0].data.map( (d,i) => {
+						var date = new Date(d.x).toISOString().substring(0,10)
+						var values = doystatsseries.map(s=> {
+							return s.data[i].y
+						})
+						return [date,...values]	
+					})
+					var colnames = ["date",...doystatsseries.map(s=>s.name)]
+					var csv = colnames.join(",") + "\n" + doystats.map(d=>d.join(",")).join("\n")
+					var gblob = new Blob([csv], {type: "octet/stream"})
+					var gurl = window.URL.createObjectURL(gblob);
+					$("#myModal span#exportcsv a").attr({'href':gurl,download:'stats.csv'}).html("Descargar CSV").on("click", e=>{
+						//~ $("#myModal").modal("hide")
+					})
+					$("#myModal span#exportjson input#exportjsonurl").val(window.location.origin + window.location.pathname.replace(/[^/]*$/,"") + "obs/puntual/series/" + gSeries.id + "/estadisticosMensuales?format=json").removeAttr("disabled")
+					$("div#myModal span#exportcsv").show()
+					$("div#myModal span#exportjson").show()
+					$("div#myModal div#authentication").hide()
+					$("div#myModal div#authentication input").attr("disabled",true)
+					$("div#myModal").modal('show').on('hide.bs.modal', function (e) {
+						$(e.target).find("span#exportcsv").hide()
+						$(e.target).find("span#exportjson").hide()
+						$(e.target).find("span#exportcsv a").attr({"href":null,download:'observaciones.csv'})
+						$("#myModal span#exportjson input#exportjsonurl").val("").attr("disabled","disabled")
+						$(e.target).find("div#authentication").show()
+						$(e.target).find("div#authentication input").attr("disabled",false)
+					})
+				});
+				$("div.tabcontent#grafico").find("button.add-percentile").prop('disabled',false)
+				.on('click', function () {
+					$("div#chartModal2").modal('show').on('hide.bs.modal', function (e) {
+						$(e.target).find("select[name=percentil]").val([])
+					})
+				});
+				$("div.tabcontent#grafico").find("button.downld-percentile")
+				.on('click', function () {
+					var chart = $("#chart_container").highcharts()
+					var percentile_series = chart.series.filter(s=> /^percentil\s0\.\d\d?$/.test(s.name))
+					if(percentile_series.length == 0) {
+						console.log("Nothing to download")
+						return
+					}
+					var percentiles = percentile_series[0].data.map( (d,i) => {
+						var date = new Date(d.x).toISOString().substring(0,10)
+						var values = percentile_series.map(s=> {
+							return s.data[i].y
+						})
+						return [date,...values]	
+					})
+					var colnames = ["date",...percentile_series.map(s=>s.name)]
+					var csv = colnames.join(",") + "\n" + percentiles.map(d=>d.join(",")).join("\n")
+					var gblob = new Blob([csv], {type: "octet/stream"})
+					var gurl = window.URL.createObjectURL(gblob);
+					$("#myModal span#exportcsv a").attr({'href':gurl,download:'percentiles.csv'}).html("Descargar CSV");
+					//~ .on("click", e=>{
+						//~ $("#myModal").modal("hide")
+					//~ })
+					var percentil = percentile_series.map(s=>{
+						return parseFloat(s.name.replace(/^percentil\s/,""));
+					}).join(",")
+					$("#myModal span#exportjson input#exportjsonurl").val(window.location.origin + window.location.pathname.replace(/[^/]*$/,"") + "obs/puntual/series/" + global.series.id + "/percentilesDiarios/" + global.series.timestart + "/" + global.series.timeend+ "?inverted=true&percentil=" + percentil).removeAttr("disabled")
+					$("div#myModal span#exportcsv").show()
+					$("div#myModal span#exportjson").show()
+					$("div#myModal div#authentication").hide()
+					$("div#myModal div#authentication input").attr("disabled",true)
+					$("div#myModal").modal('show').on('hide.bs.modal', function (e) {
+						$(e.target).find("span#exportcsv").hide()
+						$(e.target).find("span#exportjson").hide()
+						$(e.target).find("span#exportcsv a").attr({"href":null,download:'observaciones.csv'})
+						$("#myModal span#exportjson input#exportjsonurl").val("").attr("disabled","disabled")
+						$(e.target).find("div#authentication").show()
+						$(e.target).find("div#authentication input").attr("disabled",false)
+					})
+				});
+			}
 		}
 
 		$("form#choosepercentile input[name=series_id]").val(series.id)
@@ -2614,6 +2643,14 @@
 			$("form#selectorform select[name=fuentesId]").parent().addClass("additionalFilters")
 			$("form#chooseaddseries input[name=tipo]").val("puntual")
 		} 
+	}
+	function getNextValue(arr, val) {
+		var index = arr.indexOf(val)
+		if(index >= 0 && index < arr.length - 1) {
+			return arr[index + 1]
+		} else {
+			return arr[0]
+		}
 	}
 </script>
 <!--

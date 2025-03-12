@@ -5136,6 +5136,11 @@ paths:
         required: true
         schema: { "type": "string"} 
         in: path
+      - name: inverted
+        description: 'Toma percentiles como frecuencia de superación (permanencia por encima). Si se omite, los toma como frecuenca de no superación (permanencia por debajo)'
+        required: false
+        schema: { "type": "boolean"} 
+        in: query
       responses:
         '200':
           description: OK

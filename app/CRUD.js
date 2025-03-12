@@ -16194,7 +16194,7 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 		})
 	}
 	
-	static async getPercentilesDiariosBetweenDates(tipo="puntual",series_id,percentil,timestart,timeend,isPublic) {
+	static async getPercentilesDiariosBetweenDates(tipo="puntual",series_id,percentil,timestart,timeend,isPublic, inverted) {
 		if(!series_id || !timestart || !timeend) {
 			return Promise.reject("Missing series_id, timestart or timeend")
 		}
@@ -16203,34 +16203,44 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 			var percentil_filter = ""
 			if(percentil) {
 				if(Array.isArray(percentil)) {
-					percentil_filter = " AND percentil IN (" + percentil.map(p=>parseFloat(p)).join(",") + ")"
+					if(inverted) {
+						percentil = percentil.map(p => 1 - p)
+					}
+					percentil_filter = " AND percentil IN (" + percentil.map(p=>`ROUND(${parseFloat(p)}::numeric,2)`).join(",") + ")"
 					//~ promise = global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2  ORDER BY percentil,doy",[tipo,series_id])
 				} else {
-					percentil_filter = "AND percentil::numeric=" + parseFloat(percentil) + "::numeric"
+					if(inverted) {
+						percentil = 1 - percentil
+					}
+					percentil_filter = `AND percentil::numeric=ROUND(${parseFloat(percentil)}::numeric,2)::numeric`
 					//~ promise = global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2 AND percentil=$3  ORDER BY percentil,doy",[tipo,series_id,percentil])
 				}
 			} 
-			return global.pool.query("WITH dates as (\
-				SELECT generate_series($1::date,$2::date,'1 days'::interval) date\
-				), data as (\
-				SELECT series_doy_percentiles.percentil AS percentil,\
-						 json_build_object('date',dates.date,'doy',series_doy_percentiles.doy,'tipo',series_doy_percentiles.tipo,'series_id',series_doy_percentiles.series_id,'valor',series_doy_percentiles.valor) AS data\
-				FROM dates, series_doy_percentiles\
-				WHERE extract(doy from dates.date)=series_doy_percentiles.doy\
-				AND series_doy_percentiles.tipo=$3\
-				AND series_doy_percentiles.series_id=$4\
-				"+ percentil_filter+"\
-				ORDER BY percentil,dates.date\
-				) SELECT data.percentil,array_agg(data) AS data FROM DATA\
-				GROUP BY percentil\
-				ORDER BY percentil",[timestart,timeend,tipo,series_id])
+			return global.pool.query(`WITH dates as (
+				SELECT generate_series($1::date,$2::date,'1 days'::interval) date
+				), data as (
+				SELECT series_doy_percentiles.percentil AS percentil,
+						 json_build_object('date',dates.date,'doy',series_doy_percentiles.doy,'tipo',series_doy_percentiles.tipo,'series_id',series_doy_percentiles.series_id,'valor',series_doy_percentiles.valor) AS data
+				FROM dates, series_doy_percentiles
+				WHERE extract(doy from dates.date)=series_doy_percentiles.doy
+				AND series_doy_percentiles.tipo=$3
+				AND series_doy_percentiles.series_id=$4
+				${percentil_filter}
+				ORDER BY percentil,dates.date
+				) SELECT 
+				 	ROUND((${(inverted) ? "1 - " : ""} data.percentil)::numeric,2) AS percentil,
+					array_agg(data) AS data 
+					FROM DATA
+					GROUP BY percentil
+					ORDER BY percentil`,
+					[timestart,timeend,tipo,series_id])
 		})
 		.then(result=>{
 			if(!result.rows) {
 				throw("Nothing found")
 				return
 			}
-			console.log("found " + result.rows.length + " percentile arrays")
+			// console.log("found " + result.rows.length + " percentile arrays")
 			return result.rows // .map(r=>new internal.doy_percentil(r))
 		})
 	}
@@ -16636,7 +16646,7 @@ ORDER BY cal.cal_id`
 		var calibrados = result.rows
 		// console.log({calibrados:calibrados})
 		if(cal_id) {
-			console.log("Querying for cal_out")
+			// console.log("Querying for cal_out")
 			const cal_filter = internal.utils.control_filter2(
 				{
 					cal_id: {
@@ -16649,7 +16659,7 @@ ORDER BY cal.cal_id`
 			)
 			const cal_out = await global.pool.query("SELECT  * from cal_out WHERE 1=1 " + cal_filter + " order by orden")
 			if(cal_out.rows) {
-				console.log("Got " + cal_out.rows.length + " records from cal_out")
+				// console.log("Got " + cal_out.rows.length + " records from cal_out")
 				calibrados.forEach((c,i)=>{
 					//~ console.log("cal i:"+i)
 					c.outputs = cal_out.rows
@@ -18147,7 +18157,7 @@ ORDER BY cal.cal_id`
 		ORDER BY pronosticos.series_id,pronosticos.timestart"
 		// to_char(pronosticos.timestart::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timestart,\
 		//	to_char(pronosticos.timeend::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timeend,\
-		console.debug(stmt)
+		// console.debug(stmt)
 		const result = await client.query(stmt)
 		if(release_client) {
 			client.release()

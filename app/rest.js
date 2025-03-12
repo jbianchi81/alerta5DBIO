@@ -4270,7 +4270,7 @@ function getPercentilesDiariosBetweenDates(req,res) {
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	}
-	crud.getPercentilesDiariosBetweenDates(filter.tipo,filter.series_id,filter.percentil,filter.timestart,filter.timeend,filter.public)
+	crud.getPercentilesDiariosBetweenDates(filter.tipo,filter.series_id,filter.percentil,filter.timestart,filter.timeend,filter.public, options.inverted)
 	.then(result=>{
 		//~ if(filter.format == "csv") {
 			//~ res.setHeader('content-type','text/plain')
@@ -7907,6 +7907,9 @@ function getOptions(req) {
 		if(req.body.get_drainage_basin) {
 			options.get_drainage_basin = (req.body.get_drainage_basin.toString().toLowerCase() == 'true')
 		}
+		if(req.body.inverted) {
+			options.inverted = (req.body.inverted.toString().toLowerCase() == 'true')
+		}
 		["agg_func","dt","t_offset","id_grupo","get_raster","min_count","group_by_cal","interval","stats","pivot","group_by_qualifier","sort","order","from_view","get_cal_stats","batch_size"].forEach(k=>{
 			if(req.body[k]) {
 				options[k] = req.body[k]
@@ -8046,6 +8049,9 @@ function getOptions(req) {
 		}
 		if(req.query.update_obs) {
 			options.update_obs = (req.query.update_obs.toString().toLowerCase() == 'true')
+		}
+		if(req.query.inverted) {
+			options.inverted = (req.query.inverted.toString().toLowerCase() == 'true')
 		}
 		["agg_func","dt","t_offset","get_raster","min_count","group_by_cal","interval","stats","pivot","sort","order","from_view","get_cal_stats","batch_size"].forEach(k=>{
 			if(req.query[k]) {
