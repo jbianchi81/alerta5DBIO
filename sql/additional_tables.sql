@@ -207,3 +207,14 @@ create table series_percentiles_ref (
   percentil int not null, 
   valor real not null, 
   unique (series_id, percentil));
+
+
+create table estaciones_cercanas (
+    madre int references estaciones(unid) on delete cascade, 
+    hija int references estaciones(unid) on delete cascade, 
+    CONSTRAINT check_columns_diff CHECK (madre <> hija), 
+    unique(madre, hija)
+);
+
+
+-- with p as (select estacion_id,series_id,var_id,percentil,valor from series_percentiles_ref join series on series.id=series_id where series.var_id=4)  insert into series_percentiles_ref (series_id,percentil,valor) select series.id series_hija,percentil,valor from p join estaciones_cercanas on estaciones_cercanas.madre=p.estacion_id join series on estaciones_cercanas.hija=series.estacion_id where series.var_id in (40,48,102,87) and series.proc_id=1 order by series.estacion_id, series.var_id, p.valor;
