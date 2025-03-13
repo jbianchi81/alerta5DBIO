@@ -216,5 +216,27 @@ create table estaciones_cercanas (
     unique(madre, hija)
 );
 
+create view estaciones_cercanas_view as
+with madres as (
+    select
+    estaciones_cercanas.*,estaciones.* 
+    from estaciones_cercanas 
+    join estaciones on madre=unid )
+select  
+  madres.madre,
+  madres.nombre as madre_nombre,
+  madres.tabla as madre_tabla, 
+  estaciones.unid as hija,
+  estaciones.nombre as hija_nombre, 
+  estaciones.tabla as hija_tabla, 
+  round(st_distance(madres.geom,estaciones.geom)::numeric,4) as distancia 
+from madres 
+join estaciones 
+on madres.hija=estaciones.unid 
+order by madres.madre;
+
+-- \copy estaciones_cercanas (madre,hija) from 'estaciones_cercanas_parana.csv' with csv
 
 -- with p as (select estacion_id,series_id,var_id,percentil,valor from series_percentiles_ref join series on series.id=series_id where series.var_id=4)  insert into series_percentiles_ref (series_id,percentil,valor) select series.id series_hija,percentil,valor from p join estaciones_cercanas on estaciones_cercanas.madre=p.estacion_id join series on estaciones_cercanas.hija=series.estacion_id where series.var_id in (40,48,102,87) and series.proc_id=1 order by series.estacion_id, series.var_id, p.valor;
+
+-- with p as (select estacion_id,series_id,var_id,percentil,valor from series_percentiles_ref join series on series.id=series_id where series.var_id=2)  insert into series_percentiles_ref (series_id,percentil,valor) select series.id series_hija,percentil,valor from p join estaciones_cercanas on estaciones_cercanas.madre=p.estacion_id join series on estaciones_cercanas.hija=series.estacion_id where series.var_id in (33,39,67,85,101) and series.proc_id=1 on conflict (series_id,percentil) do nothing;
