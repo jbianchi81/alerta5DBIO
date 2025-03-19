@@ -1434,7 +1434,7 @@ internal.telex = class {
 		var rows_q=[ 80, 81, 82, 83, 84, 85, 87, 90, 92, 96] // //números de fila de caudales Telex ... SAFE reincorporado (2023-07-06) 92,
 		var rows_Q=[ 89,94,95,98, 99, 100, 101, 102] // números de fila de caudales (estaciones sin altura) Telex
 		for(var i=0;i<=104;i++) {
-			if(i>=2 && i<=44 || i>=46 && i<=47 || i>=49 && i<=78 || i>=103 && i<=104 ){ // números de fila de alturas Telex   .... PILCO desactivado!!!! 2018/07/13, SFER DESACTIVADO 2020/10/02
+			if(i>=2 && i<=44 || i>=46 && i<=48 || i>=49 && i<=78 || i>=103 && i<=104 ){ // números de fila de alturas Telex   .... PILCO desactivado!!!! 2018/07/13, SFER DESACTIVADO 2020/10/02 ... PILCO reactivaot!! 2025/03/19
 				rows_h.push(i)
 			}
 		}
