@@ -1589,7 +1589,8 @@
 								$("<li>límite norte: <b>" + Math.max(...series.estacion.geom.coordinates[0].map(p=>p[1])) + "</b></li>"),
 								$("<li>latitud exutorio: <b>" + ((series.estacion.exutorio) ? series.estacion.exutorio.coordinates[0] : "") + "</b></li>"),
 								$("<li>longitud exutorio: <b>" + ((series.estacion.exutorio) ? series.estacion.exutorio.coordinates[1] : "") + "</b></li>"),
-								$("<li>exutorio_id: <b>" + ((series.estacion.exutorio_id) ? series.estacion.exutorio_id : "") + "</b></li>")
+								$("<li>exutorio_id: <b>" + ((series.estacion.exutorio_id) ? series.estacion.exutorio_id : "") + "</b></li>"),
+								$("<li>area (km^2): <b>" + ((series.estacion.area) ? Math.round(parseInt(series.estacion.area) * 0.0001 ) / 100 : "") + "</b></li>")
 					)))
 
 				} else if(series.tipo == "raster") {
