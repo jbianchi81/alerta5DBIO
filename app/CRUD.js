@@ -5818,7 +5818,7 @@ internal.calibrado = class extends internal.genericModel {
 		return
 	}
 	static async read(filter={},options={}) {
-		return internal.CRUD.getCalibrados(filter.estacion_id,filter.var_id,filter.includeCorr,filter.timestart,filter.timeend,filter.cal_id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,options.no_metadata,options.group_by_cal,filter.forecast_date,options.includeInactive,filter.series_id,filter.nombre)
+		return internal.CRUD.getCalibrados(filter.estacion_id,filter.var_id,filter.includeCorr,filter.timestart,filter.timeend,filter.cal_id ?? filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,options.no_metadata,options.group_by_cal,filter.forecast_date,options.includeInactive,filter.series_id,filter.nombre)
 	}
 	static async delete(filter={}) {
 		return internal.CRUD.deleteCalibrados(filter)
