@@ -18507,16 +18507,16 @@ ORDER BY cal.cal_id`
 					throw("Invalid cor_id filter")
 				}
 				var query = "DELETE FROM series_puntual_prono_date_range WHERE 1=1 " + cor_filter
-				console.log(query)
+				// console.log(query)
 				var result = await client.query(query)
 				query = "DELETE FROM series_areal_prono_date_range WHERE 1=1 " + cor_filter
-				console.log(query)
+				// console.log(query)
 				result = await client.query(query)
 				var query = "DELETE FROM series_puntual_prono_date_range_by_qualifier WHERE 1=1 " + cor_filter
-				console.log(query)
+				// console.log(query)
 				var result = await client.query(query)
 				query = "DELETE FROM series_areal_prono_date_range_by_qualifier WHERE 1=1 " + cor_filter
-				console.log(query)
+				// console.log(query)
 				result = await client.query(query)
 				// delete from valores_prono_num
 				cor_filter = internal.utils.control_filter2(
@@ -18693,7 +18693,7 @@ ORDER BY cal.cal_id`
 				corridas = corridas.filter(c=> filter.skip_cal_id.indexOf(c.cal_id) < 0)
 			}
 			var cor_id = corridas.map(c=>c.id)
-			console.log({corridas:corridas,cor_id:cor_id})
+			// console.log({corridas:corridas,cor_id:cor_id})
 			var savePromise
 			if(options.save) {
 				console.log("options.save, guardando en corridas_guardadas")
