@@ -18534,7 +18534,7 @@ ORDER BY cal.cal_id`
 					throw("Invalid cor_id filter")
 				}
 				query = "DELETE FROM valores_prono_num USING pronosticos WHERE  pronosticos.id=valores_prono_num.prono_id " + cor_filter
-				console.log(query)
+				// console.log(query)
 				var result = await client.query(query)
 			} else {
 				var cor_filter = internal.utils.control_filter2(
