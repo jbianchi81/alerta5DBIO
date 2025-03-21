@@ -4102,6 +4102,8 @@ if(1==1) {
     .option("-i, --output_individual_files_pattern <value>",'output one file for each retrieved element using this printf pattern to use with element id and, additional fields (with -F option)')
     .option("-b, --base_path <value>",'to use together with -i. Prepends this base path to the constructed file paths')
     .option("-F, --iter_field <value>",'Field of elements to iterate over to generate separate output files (combined with -i)')
+    .option("--save", "For forecast runs (class corrida), save into corridas_guardadas before deleting")
+    .option("--save-prono", "For forecast runs (class corrida), save only forecasted tuples (discard warmup period) into corridas_guardadas before deleting")
     .action(async (crud_class,filter,options) => {
         filter = parseKVPArray(filter)
         var test_result = true
@@ -4112,6 +4114,12 @@ if(1==1) {
         const class_name = crud_class
         crud_class = CRUD.CRUD[class_name]
         const delete_options = getOutputOptions(options)
+        if(options.save) {
+            delete_options.save = true
+        }
+        if(options.saveProno) {
+            delete_options.save_prono = true
+        }
         try {
             var procedure = new internal.DeleteProcedure({class_name: class_name, filter:filter, output: (options.output) ? path.resolve(options.output): undefined, output_format: options.format, options: delete_options})
         } catch(e) {
