@@ -256,4 +256,19 @@ internal.createUrlParams = function(params) {
     return url_params
 }
 
+internal.fetchData = async function(url) {
+    try {
+        const response = await axios.get(url);
+        return response.data;
+    } catch (error) {
+        if (error.response) {
+            const status = error.response.status;
+            const message = error.response.data?.message || error.message;
+            throw new Error(`Request failed with status ${status}: ${message}`);
+        } else {
+            throw new Error(error.message || 'Unknown error');
+        }
+    }
+}
+
 module.exports = internal

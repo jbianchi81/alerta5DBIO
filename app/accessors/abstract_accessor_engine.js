@@ -51,6 +51,20 @@ class AbstractAccessorEngine {
             }
         });
     }
+    static setFilterValuesToFirst(filter) {
+        const filter_ = Object.assign({}, filter);
+        for (const key of Object.keys(filter_)) {
+            if (Array.isArray(filter_[key])) {
+                if (filter_[key].length) {
+                    filter_[key] = filter_[key][0];
+                }
+                else {
+                    filter_[key] = undefined;
+                }
+            }
+        }
+        return filter_;
+    }
     static setFilterValuesToArray(filter, empty_arrays = true) {
         const filter_ = Object.assign({}, filter);
         const valid_keys = [

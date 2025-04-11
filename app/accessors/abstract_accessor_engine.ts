@@ -20,6 +20,15 @@ export interface SeriesFilter extends SitesFilter {
     var_id ? : number | Array<number>
 }
 
+export interface SeriesFilterNoArrays {
+    estacion_id ? : number
+    id_externo ? : string
+    geom ? : Geometry
+    series_id ? : number
+    var_id ? : number
+}
+
+
 export interface SeriesFilterWithArrays extends SitesFilterWithArrays {
     series_id : Array<number>
     var_id : Array<number>
@@ -102,6 +111,20 @@ export class AbstractAccessorEngine {
         } else {
             return false
         }
+    }
+
+    static setFilterValuesToFirst(filter : Object) : SeriesFilterNoArrays {
+        const filter_ = Object.assign({},filter)
+        for(const key of Object.keys(filter_)) {
+            if(Array.isArray(filter_[key])) {
+                if(filter_[key].length) {
+                    filter_[key] = filter_[key][0]
+                } else {
+                    filter_[key] = undefined
+                }
+            }
+        }
+        return filter_
     }
 
     static setFilterValuesToArray(filter : Object, empty_arrays : boolean = true) : Object {
