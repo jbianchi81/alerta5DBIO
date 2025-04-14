@@ -145,7 +145,8 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
           var_id: 39,
           estacion_id: 5936
         },
-        { station_name: 'Yuty', code: 49, var_id: 85, estacion_id: 5943 }
+        { station_name: 'Yuty', code: 49, var_id: 39, estacion_id: 5943 } // pasó a diario a partir de 2024-03-07
+        // { station_name: 'Yuty', code: 49, var_id: 85, estacion_id: 5943 }
     ]
 
     constructor(config : Config) {
