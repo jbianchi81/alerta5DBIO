@@ -342,7 +342,7 @@ function formatLocalDate(date : Date) {
 
 
 
-function getMeans(observaciones : Observacion[], sig_figs : number=2) : Observacion[] {
+function getMeans(observaciones : Observacion[], sig_figs : number=3) : Observacion[] {
     observaciones.sort( (a, b) => a.timestart.getTime() - b.timestart.getTime() )
     // const times = new Set(observaciones.map(o=>o.timestart.getTime()))
     const grouped_obs = {}

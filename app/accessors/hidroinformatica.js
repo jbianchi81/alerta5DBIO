@@ -286,7 +286,7 @@ function formatLocalDate(date) {
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
-function getMeans(observaciones, sig_figs = 2) {
+function getMeans(observaciones, sig_figs = 3) {
     observaciones.sort((a, b) => a.timestart.getTime() - b.timestart.getTime());
     // const times = new Set(observaciones.map(o=>o.timestart.getTime()))
     const grouped_obs = {};
