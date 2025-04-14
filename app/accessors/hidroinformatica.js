@@ -174,7 +174,9 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             if (!this.series_map.length) {
                 yield this.loadSeriesMap();
             }
-            return (0, accessor_utils_1.filterSeries)(this.series_map.map(s => new CRUD_1.serie(s)), filter);
+            return (0, accessor_utils_1.filterSeries)(this.series_map.map(s => {
+                return new CRUD_1.serie(Object.assign({ id: s.series_id, tipo: "puntual" }, s));
+            }), filter);
         });
     }
     setDefaultSeriesMap() {
@@ -203,7 +205,15 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             const serie = this.getCode(filter_.estacion_id, filter_.var_id, filter_.series_id);
             const data = yield this.downloadData(serie.code, filter.timestart, filter.timeend);
             const time_support = (serie.var_id == 39) ? "daily" : (serie.var_id == 85) ? "hourly" : "instantaneous";
-            return data.map(item => Client.parseDataItem(item, serie.series_id, time_support));
+            const observaciones = data.map(item => Client.parseDataItem(item, serie.series_id, time_support));
+            if (options.return_series) {
+                return [
+                    new CRUD_1.serie(Object.assign({ id: serie.series_id, tipo: "puntual", observaciones: observaciones }, serie))
+                ];
+            }
+            else {
+                return observaciones;
+            }
         });
     }
     getCode(estacion_id, var_id, series_id) {

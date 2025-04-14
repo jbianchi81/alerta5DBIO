@@ -37,7 +37,7 @@ class Geometry {
 		if(!this.coordinates) {
 			throw new Error("Invalid geometry: missing coordinates")
 		}
-		if(!geojsonValidation.isGeometryObject({type: this.type, coordinates: this.coordinates})) {
+		if(!geojsonValidation.isGeometryObject({type: capitalize_initial(this.type), coordinates: this.coordinates})) {
 			throw new Error("Invalid geometry")
 		}
 		
@@ -115,6 +115,12 @@ class Geometry {
 		return bbox(geom)
 	}
 }
+
+function capitalize_initial(str) {
+	if (!str) return str;
+	return str.charAt(0).toUpperCase() + str.slice(1);
+}
+  
 
 module.exports = {
     Geometry: Geometry

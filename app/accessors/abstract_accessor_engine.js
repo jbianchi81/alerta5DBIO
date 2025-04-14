@@ -119,7 +119,9 @@ class AbstractAccessorEngine {
             else {
                 const observaciones = [];
                 for (var i = 0; i < updated.length; i++) {
-                    observaciones.push(...updated[i].observaciones);
+                    if (updated[i].observaciones) {
+                        observaciones.push(...updated[i].observaciones);
+                    }
                 }
                 return new CRUD_1.observaciones(observaciones);
             }

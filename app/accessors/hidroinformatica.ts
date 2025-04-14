@@ -210,7 +210,14 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         if(!this.series_map.length) {
             await this.loadSeriesMap()
         }
-        return filterSeries(this.series_map.map(s=>new crud_serie(s)), filter)
+        return filterSeries(this.series_map.map(s=> {
+            
+            return new crud_serie({
+                id: s.series_id,
+                tipo: "puntual",
+                ...s
+            })
+    }), filter)
     }
 
     setDefaultSeriesMap() {
@@ -242,7 +249,19 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         const serie = this.getCode(filter_.estacion_id, filter_.var_id, filter_.series_id)
         const data : ResponseDataItem[] = await this.downloadData(serie.code, filter.timestart, filter.timeend)
         const time_support = (serie.var_id == 39) ? "daily" : (serie.var_id == 85) ? "hourly" : "instantaneous"
-        return data.map(item => Client.parseDataItem(item, serie.series_id,time_support))
+        const observaciones = data.map(item => Client.parseDataItem(item, serie.series_id,time_support))
+        if(options.return_series) {
+            return [
+                    new crud_serie({
+                    id: serie.series_id,
+                    tipo: "puntual",
+                    observaciones: observaciones,
+                    ...serie
+                })
+            ]
+        } else {
+            return observaciones
+        }
     }
 
     getCode(estacion_id : number, var_id : number, series_id : number) : LoadedSerieMap {

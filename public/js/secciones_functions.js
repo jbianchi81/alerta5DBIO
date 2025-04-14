@@ -521,7 +521,7 @@ function onSubmitMetadataEdit(event) {
 	}
 	if(metadataElement == "estacion") {
 		requestBody[objectName].geom = {
-			type: "point",
+			type: "Point",
 			coordinates: [
 				parseFloat(requestBody[objectName].longitud),
 				parseFloat(requestBody[objectName].latitud)

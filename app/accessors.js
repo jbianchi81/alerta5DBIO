@@ -49,6 +49,7 @@ internal.fewspirestwebservice = require('./accessors/fewspirestwebservice').Clie
 internal.dados_ons = require('./accessors/dados_ons').Client
 internal.gpm = require('./accessors/gpm').Client
 internal.dinac_convencional = require('./accessors/dinac_convencional').Client
+internal.hidroinformatica = require('./accessors/hidroinformatica').Client
 
 // Promise.allSettled polyfill
 

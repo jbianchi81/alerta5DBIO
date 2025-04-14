@@ -5,7 +5,7 @@ process.env.NODE_ENV = "test"
 const {Client} = require("../app/accessors/hidroinformatica")
 // const accessors = require("../app/accessors")
 
-test('hidroinformatica accessor get page', async(t) => {
+test('hidroinformatica accessor', async(t) => {
 
     const client = new Client({})
     client.setDefaultSeriesMap()
