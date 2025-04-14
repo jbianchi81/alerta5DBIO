@@ -343,7 +343,7 @@ function formatLocalDate(date : Date) {
 
 
 
-function getMeans(observaciones : Observacion[], sig_figs : number=3) : Observacion[] {
+function getMeans(observaciones : Observacion[], precision : number=3) : Observacion[] {
     observaciones.sort( (a, b) => a.timestart.getTime() - b.timestart.getTime() )
     // const times = new Set(observaciones.map(o=>o.timestart.getTime()))
     const grouped_obs = {}
@@ -366,7 +366,7 @@ function getMeans(observaciones : Observacion[], sig_figs : number=3) : Observac
         .sort( (a,b) => a - b )
         .map(time => {
             const mean = (grouped_obs[time].valores.length > 1) ? grouped_obs[time].valores.reduce((sum: number, num: number) => sum + num, 0) / grouped_obs[time].valores.length : grouped_obs[time].valores[0]
-            const meanRounded = Number(mean.toPrecision(sig_figs))
+            const meanRounded = Number(mean.toFixed(precision))
             return {
                 timestart: grouped_obs[time].timestart,
                 timeend: grouped_obs[time].timeend,
