@@ -414,6 +414,8 @@ function makeObsEditTable(container,series,isW) {
 			Object.keys(requestBody).forEach(k=>{ 
 				if(requestBody[k].length==1) {
 					requestBody[k] = requestBody[k][0]
+				} else if (requestBody[k].length > 1) {
+					requestBody[k] = requestBody[k].filter(v => v != "null")
 				}
 			})
 			//~ var jqxhr = $.post($(event.currentTarget).attr('action'),requestBody,function(response) {
