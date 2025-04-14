@@ -205,7 +205,11 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             const serie = this.getCode(filter_.estacion_id, filter_.var_id, filter_.series_id);
             const data = yield this.downloadData(serie.code, filter.timestart, filter.timeend);
             const time_support = (serie.var_id == 39) ? "daily" : (serie.var_id == 85) ? "hourly" : "instantaneous";
-            const observaciones = data.map(item => Client.parseDataItem(item, serie.series_id, time_support));
+            let observaciones = data.map(item => Client.parseDataItem(item, serie.series_id, time_support));
+            // if not instantaneous, get mean of each time step
+            if (time_support != "instantaneous") {
+                observaciones = getMeans(observaciones);
+            }
             if (options.return_series) {
                 return [
                     new CRUD_1.serie(Object.assign({ id: serie.series_id, tipo: "puntual", observaciones: observaciones }, serie))
@@ -281,4 +285,39 @@ function formatLocalDate(date) {
     const month = String(date.getMonth() + 1).padStart(2, '0'); // 0-indexed
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+}
+function getMeans(observaciones, sig_figs = 2) {
+    observaciones.sort((a, b) => a.timestart.getTime() - b.timestart.getTime());
+    // const times = new Set(observaciones.map(o=>o.timestart.getTime()))
+    const grouped_obs = {};
+    for (const obs of observaciones) {
+        const time = obs.timestart.getTime();
+        if (!(time in grouped_obs)) {
+            grouped_obs[time] = {
+                timestart: obs.timestart,
+                timeend: obs.timeend,
+                series_id: obs.series_id,
+                id: obs.id,
+                valores: [obs.valor]
+            };
+        }
+        else {
+            grouped_obs[time].valores.push(obs.valor);
+        }
+    }
+    const mean_obs = Object.keys(grouped_obs)
+        .map(Number)
+        .sort((a, b) => a - b)
+        .map(time => {
+        const mean = (grouped_obs[time].valores.length > 1) ? grouped_obs[time].valores.reduce((sum, num) => sum + num, 0) / grouped_obs[time].valores.length : grouped_obs[time].valores[0];
+        const meanRounded = Number(mean.toPrecision(sig_figs));
+        return {
+            timestart: grouped_obs[time].timestart,
+            timeend: grouped_obs[time].timeend,
+            series_id: grouped_obs[time].series_id,
+            id: grouped_obs[time].id,
+            valor: meanRounded
+        };
+    });
+    return mean_obs;
 }
