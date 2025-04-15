@@ -30,7 +30,7 @@ function reloadWithPars(evt) {
 	var ts = $("input#timestart").val()
 	var te = $("input#timeend").val()
 	var series_id = evt.currentTarget.id
-	var GeneralCategory = $("select#GeneralCategory").val()
+	var generalCategory = $("select#GeneralCategory").val()
 	var var_id = $("select#varId").val()
 	var red_id = $("select#redId").val()
 	var estacion_id = $("select#estacionId").val()
@@ -53,7 +53,7 @@ function reloadWithPars(evt) {
 		prono_args += "&fuentesId=" + $(".form-control[name=fuentesId]").val()
 	}
 	$('a#maptab').click()
-	window.location.search = '?GeneralCategory=' + GeneralCategory + '&varId=' + var_id + '&seriesId=' + series_id + ((ts) ? '&timestart=' + ts : '') + ((te) ? '&timeend=' + te : '') + ((red_id) ? '&redId=' + red_id : '') + ((estacion_id) ? '&estacionId=' + estacion_id : '') + '&proc_id=' + proc_id + prono_args
+	window.location.search = '?generalCategory=' + generalCategory + '&varId=' + var_id + '&seriesId=' + series_id + ((ts) ? '&timestart=' + ts : '') + ((te) ? '&timeend=' + te : '') + ((red_id) ? '&redId=' + red_id : '') + ((estacion_id) ? '&estacionId=' + estacion_id : '') + '&proc_id=' + proc_id + prono_args
 }
 
 function addToChart(evt) {
