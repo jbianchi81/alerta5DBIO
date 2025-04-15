@@ -8942,7 +8942,7 @@ internal.CRUD = class {
 					if(["areal","rast","raster"].indexOf(serie.tipo) >= 0 && (!serie.fuente || !serie.fuente.id ) ) {
 						throw(new Error("fuente.id missing"))
 					}
-					if(upsert_fuente && serie.fuente instanceof internal.fuente) {
+					if(upsert_fuente && serie.fuente instanceof internal.fuente && serie.fuente.nombre) {
 						// promises.push(this.upsertFuente(serie.fuente))
 						console.debug("Upsert fuente: " + JSON.stringify(serie.fuente))
 						var result = await client.query(this.upsertFuenteQuery(serie.fuente))

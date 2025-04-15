@@ -1,6 +1,6 @@
 var series_input_fields = ["estacion_id","var_id","proc_id","unit_id"]
 var editable_fields = ["estacion_id","var_id","proc_id","unit_id","fuentes_id"]
-var actions = '<a class="add" title="Add/Update" data-toggle="tooltip" style="display:none"><i class="material-icons">&#xE03B;</i></a> ' +
+var series_row_actions = '<a class="add" title="Add/Update" data-toggle="tooltip" style="display:none"><i class="material-icons">&#xE03B;</i></a> ' +
 					'<a class="edit" title="Edit" data-toggle="tooltip"><i class="material-icons">&#xE254;</i></a> ' +
 					'<a class="delete" title="Delete" data-toggle="tooltip"><i class="material-icons">&#xE872;</i></a>' +
 					'<a class="cancel" title="Cancel" data-toggle="tooltip" style="display:none"><i class="material-icons">cancel</i></a>' +
@@ -391,6 +391,18 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual",
 		}
 		$(container).find('[data-toggle="tooltip"]').tooltip();
 		//~ actions = $(container).find("table.series_edit_table td:last-child").html();
+		$("div#myModalSeries form#confirm select.new-series[name=series_table]").on('change', function () {
+			const selected_value = $("div#myModalSeries form#confirm select.new-series[name=series_table]").val() 
+			const new_action = (selected_value == "series_areal") ?  "obs/areal/series" : "obs/puntual/series"
+			$('div#myModalSeries form#confirm').attr('action', new_action);
+			if(selected_value == "series_areal") {
+				$("div#myModalSeries form#confirm select.new-series[name=fuentes_id]").attr("required",true)
+				$("div#myModalSeries form#confirm div#fuentes_id").show()
+			} else {
+				$("div#myModalSeries form#confirm select.new-series[name=fuentes_id]").attr("required",false)
+				$("div#myModalSeries form#confirm div#fuentes_id").hide()
+			}
+		});
 		// Show modal for insert new series on 'add new' button click
 		$(container).find(".add-new").click(function(){
 			$(this).attr("disabled", "disabled");
@@ -401,6 +413,15 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual",
 			$("div#myModalSeries form#confirm").attr("method","POST")
 			$("div#myModalSeries form#confirm select.new-series").attr("required",true)
 			$("div#myModalSeries form#confirm div.row.new-series").attr("hidden",false).show()
+			if(tipo == "areal") {
+				$("div#myModalSeries form#confirm select.new-series[name=fuentes_id]").attr("required",true)
+				$("div#myModalSeries form#confirm div#fuentes_id").show()
+				$("div#myModalSeries form#confirm select.new-series[name=series_table]").val("series_areal")
+			} else {
+				$("div#myModalSeries form#confirm select.new-series[name=fuentes_id]").attr("required",false)
+				$("div#myModalSeries form#confirm div#fuentes_id").hide()
+				$("div#myModalSeries form#confirm select.new-series[name=series_table]").val("series")
+			}
 			$("div#myModalSeries form#confirm input[name=series_id]").val("")
 			$("div#myModalSeries form#confirm input[name=timestart]").val("")
 			$("div#myModalSeries form#confirm input[name=timeend]").val("")
@@ -754,7 +775,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual",
 					inputs[k] = inputs[k][0]
 				}
 			})
-			console.log({inputs:inputs})
+			console.debug({inputs:inputs})
 			// if(reqPars.type == "GET") {
 			// 	reqPars.success = function(response){
 			// 		console.log("Downloaded 1 series")
@@ -762,13 +783,13 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual",
 			// 	}
 			// } else 
 			if(reqPars.type == "POST") {
-				console.log("prepara post obs/puntual/series")
+				console.debug("prepara post obs/{tipo}/series")
 				if(inputs.series != "") {   // input series set by csv import
 					reqPars.data = '{"series":'+inputs.series+'}'
 				} else { // series object parameters set by form select
 					reqPars.data = JSON.stringify({series:[makeSeriesObj($(event.currentTarget).find('select.new-series'))]})
 				}
-				console.log({request_data:reqPars.data})
+				console.debug({request_data:reqPars.data})
 				reqPars.contentType = "application/json; charset=utf-8"
 				reqPars.dataType = "json"
 				reqPars.success = function(response){
@@ -846,7 +867,9 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual",
 						$("body").css("cursor","default")
 						if(response.id) {
 							$(container).find("table.series_edit_table").bootstrapTable('removeByUniqueId',response.id)
-							features = features.filter(f=> f.series_id != response.id)
+							if(features) {
+								features = features.filter(f=> f.series_id != response.id)
+							}
 							$("button.remove-selected").attr("disabled",true)
 						} else {
 							alert("Nothing done")
@@ -1038,7 +1061,7 @@ function updateSeriesTable(container,features,newObs,isWriter) {
 			data_availability: null,
 			fuente: serie.estacion.tabla,
 			id_externo: serie.estacion.id_externo,
-			action: (isWriter) ? actions : public_actions
+			action: (isWriter) ? series_row_actions : public_actions
 		}
 		var match=false
 		for(var i=0;i<data.length;i++) {
@@ -1076,17 +1099,21 @@ function makeSeriesObj(input) {
 			empty = true;
 		} else{
 			$(this).removeClass("error");
-			var valor = parseInt($(this).val())
-			if($(this).attr("name") == "estacion_id") {
-				seriesObj.estacion = {id: valor}
-			} else if($(this).attr("name") == "var_id") {
-				seriesObj.var = {id: valor}
-			} else if($(this).attr("name") == "proc_id") {
-				seriesObj.procedimiento = {id: valor}
-			} else if($(this).attr("name") == "unit_id") {
-				seriesObj.unidades = {id: valor}
-			} else if($(this).attr("name") == "fuentes_id") {
-				seriesObj.fuente = {id: valor}
+			if($(this).attr("name") == "series_table") {
+				seriesObj.tipo = ($(this).val() == "series_areal") ? "areal" : "puntual"
+			} else {
+				var valor = parseInt($(this).val())
+				if($(this).attr("name") == "estacion_id") {
+					seriesObj.estacion = {id: valor}
+				} else if($(this).attr("name") == "var_id") {
+					seriesObj.var = {id: valor}
+				} else if($(this).attr("name") == "proc_id") {
+					seriesObj.procedimiento = {id: valor}
+				} else if($(this).attr("name") == "unit_id") {
+					seriesObj.unidades = {id: valor}
+				} else if($(this).attr("name") == "fuentes_id") {
+					seriesObj.fuente = {id: valor}
+				} 
 			}
 			//~ seriesObj[$(this).attr("name")] = $(this).val() //("div#myModal form#confirm input.confirm[name="+$(this).attr("name")+"]").val($(this).val())
 		}

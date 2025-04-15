@@ -2919,12 +2919,12 @@ function deleteObservacion(req,res) {   // by id+tipo
 	}
 	crud.deleteObservacion(filter.tipo,filter.id)
 	.then(obs=>{
-		if(obs.id) {
-			console.log("Deleted: id " + obs.id)
+		if(obs) {
+			console.debug("Deleted: id " + obs.id)
 			send_output(options,obs,res)
 		} else {
-			console.log("Nothing deleted")
-			send_output(options,{},res)
+			console.debug("Nothing deleted")
+			res.status(404).send({message:`Error: couldn't delete observacion with tipo '${filter.tipo ?? "puntual"}', id '${filter.id}': Not Found`})
 		}
 	})
 	.catch(e=>{

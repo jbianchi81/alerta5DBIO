@@ -240,3 +240,44 @@ order by madres.madre;
 -- with p as (select estacion_id,series_id,var_id,percentil,valor from series_percentiles_ref join series on series.id=series_id where series.var_id=4)  insert into series_percentiles_ref (series_id,percentil,valor) select series.id series_hija,percentil,valor from p join estaciones_cercanas on estaciones_cercanas.madre=p.estacion_id join series on estaciones_cercanas.hija=series.estacion_id where series.var_id in (40,48,102,87) and series.proc_id=1 order by series.estacion_id, series.var_id, p.valor;
 
 -- with p as (select estacion_id,series_id,var_id,percentil,valor from series_percentiles_ref join series on series.id=series_id where series.var_id=2)  insert into series_percentiles_ref (series_id,percentil,valor) select series.id series_hija,percentil,valor from p join estaciones_cercanas on estaciones_cercanas.madre=p.estacion_id join series on estaciones_cercanas.hija=series.estacion_id where series.var_id in (33,39,67,85,101) and series.proc_id=1 on conflict (series_id,percentil) do nothing;
+
+-- redes_accessors --
+
+CREATE TABLE public.redes_accessors (
+    id integer NOT NULL,
+    tipo character varying NOT NULL,
+    tabla_id character varying NOT NULL,
+    var_id integer NOT NULL,
+    accessor character varying,
+    asociacion boolean DEFAULT false,
+    CONSTRAINT redes_accessors_check CHECK ((((accessor IS NULL) AND (asociacion = true)) OR ((accessor IS NOT NULL) AND (asociacion = false)))),
+    CONSTRAINT redes_accessors_tipo_check CHECK ((((tipo)::text = 'puntual'::text) OR ((tipo)::text = 'areal'::text) OR ((tipo)::text = 'raster'::text)))
+);
+
+CREATE SEQUENCE public.redes_accessors_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.redes_accessors_id_seq OWNED BY public.redes_accessors.id;
+
+ALTER TABLE ONLY public.redes_accessors ALTER COLUMN id SET DEFAULT nextval('public.redes_accessors_id_seq'::regclass);
+
+ALTER TABLE ONLY public.redes_accessors
+    ADD CONSTRAINT redes_accessors_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.redes_accessors
+    ADD CONSTRAINT redes_accessors_tipo_tabla_id_var_id_key UNIQUE (tipo, tabla_id, var_id);
+
+ALTER TABLE ONLY public.redes_accessors
+    ADD CONSTRAINT redes_accessors_accessor_fkey FOREIGN KEY (accessor) REFERENCES public.accessors(name);
+
+ALTER TABLE ONLY public.redes_accessors
+    ADD CONSTRAINT redes_accessors_tabla_id_fkey FOREIGN KEY (tabla_id) REFERENCES public.redes(tabla_id);
+
+ALTER TABLE ONLY public.redes_accessors
+    ADD CONSTRAINT redes_accessors_var_id_fkey FOREIGN KEY (var_id) REFERENCES public.var(id);
+
+

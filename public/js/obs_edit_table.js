@@ -1,6 +1,6 @@
 var obs_input_fields = ["timestart","timeend","valor"]
 
-var actions = '<a class="add" title="Add/Update" data-toggle="tooltip" style="display:none"><i class="material-icons">&#xE03B;</i></a> ' +
+const obs_row_actions = '<a class="add" title="Add/Update" data-toggle="tooltip" style="display:none"><i class="material-icons">&#xE03B;</i></a> ' +
 					'<a class="edit" title="Edit" data-toggle="tooltip"><i class="material-icons">&#xE254;</i></a> ' +
 					'<a class="delete" title="Delete" data-toggle="tooltip"><i class="material-icons">&#xE872;</i></a>' +
 					'<a class="cancel" title="Cancel" data-toggle="tooltip" style="display:none"><i class="material-icons">cancel</i></a>'
@@ -98,7 +98,7 @@ function makeObsEditTable(container,series,isW) {
 					timestart: '<input type="text" class="form-control" name="timestart" id="timestart" placeholder="'+ placeholders[2]+'" style="width: 200px" min=10 max=24 pattern="^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3}Z)?)?$">', 
 					timeend: '<input type="text" class="form-control" name="timeend" id="timeend" placeholder="'+ placeholders[3]+'" style="width: 200px" min=10 max=24 pattern="^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3}Z)?)?$">', 
 					valor: '<input type="text" class="form-control" name="valor" id="valor" placeholder="'+ placeholders[4]+'" style="width: 140px" pattern="^\\d+(\\.\\d+)?$">',
-					action: isWriter ? actions : ""
+					action: isWriter ? obs_row_actions : ""
 			})
 			//~ $(container).find("table.obs_edit_table").prepend(row);		
 			$(container).find('table.obs_edit_table tbody tr[data-uniqueid="-1"]').eq(0).find(".add, .edit, .cancel").toggle(); // eq(index + 1).find(".add, .edit").toggle();
@@ -452,12 +452,15 @@ function makeObsEditTable(container,series,isW) {
 								$(container).find("table.obs_edit_table").bootstrapTable('removeByUniqueId',response.id)
 							}
 							$("button.remove-selected").attr("disabled",true)
-						} else if ($(event.currentTarget).attr('action') == "upsertObservacion") {
+						} else if (/^obs\/puntual\/observaciones\/\d+$/.test($(event.currentTarget).attr('action')) && $(event.currentTarget).attr('method') == "PUT") {
 							//~ $(container).find("table.obs_edit_table tbody tr[id="+response.id+"]:not(.rowToAdd)").remove()
 							updateObsTable(container,series,response)
 							
 						} else if ($(event.currentTarget).attr('action') == "upsertObservaciones") {
 							alert("Upserted " + response.length + " observaciones")
+							updateObsTable(container,series,response)
+						} else if ($(event.currentTarget).attr('action') == "upsertObservacion") {
+							alert(`Upserted observacion id ${response.id}`)
 							updateObsTable(container,series,response)
 						} else if ($(event.currentTarget).attr('action') == "getFromSource") {
 							console.log("Got " + response.length + " observaciones from source")
@@ -614,13 +617,13 @@ function arr2csv(arr) {
 //~ }
 
 function updateObsTable(container,series,newObs) {
-	console.log("updateObsTable, isWriter:" + isWriter)
+	console.debug("updateObsTable, isWriter:" + isWriter)
 	if(!Array.isArray(newObs)) {
 		newObs = [newObs]
 	}
 	var data = $(container).find("table.obs_edit_table").bootstrapTable('getData',{unfiltered:true})
 	newObs.forEach( (obs,i) => {
-		var newData={id:obs.id,action: isWriter ? actions : ""}
+		var newData={id:obs.id,action: isWriter ? obs_row_actions : ""}
 		obs_input_fields.forEach(f=>{
 			newData[f] = obs[f]
 		})
@@ -645,9 +648,9 @@ function updateObsTable(container,series,newObs) {
 		}
 	})
 	$(container).find("table.obs_edit_table").bootstrapTable('removeAll')
-	//~ $(container).find("table.obs_edit_table").bootstrapTable('removeByUniqueId',-1)
 	$(container).find("table.obs_edit_table").bootstrapTable('append',data)
 	$(container).find("table.obs_edit_table").bootstrapTable('refresh')
+	$(container).find("table.obs_edit_table").bootstrapTable('removeByUniqueId',-1)
 	$(container).find(".add-new").removeAttr("disabled");
 	$(container).find(".export-csv-all").removeAttr("disabled");
 }
