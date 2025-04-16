@@ -2777,7 +2777,7 @@ internal.CreateProcedure = class extends internal.CrudProcedure {
         if(this.elements) {
             this.elements = this.elements.map(e=>new this.class(e))
             for(var i in this.elements) {
-                console.log({element: i,is_of_class: this.elements[i] instanceof this.class, class_name: this.class_name})
+                console.debug({element: i,is_of_class: this.elements[i] instanceof this.class, class_name: this.class_name})
             }
         }
     }
