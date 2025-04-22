@@ -5873,6 +5873,9 @@ components:
     Observacion:
       type: object
       properties:
+        id:
+          type: number
+          description: identificador único del registro
         tipo:
           schema: { "type": "string"} 
           description: tipo de registro
@@ -5886,6 +5889,12 @@ components:
         timeend:
           schema: { "type": "string"} 
           description: fecha-hora final del registro
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        unit_id:
+          type: number
         valor:
           oneOf:
           - type: number
@@ -5895,10 +5904,62 @@ components:
           description: valor del registro
         series_id:
           type: integer 
-          description: id de serie
+          description: identificador único de la serie
+        stats:
+          "$ref": "#/components/schemas/ObservacionStats"
       required:
       - timestart
       - valor
+    ObservacionStats:
+      type: object
+      properties:
+        percentage_of_average: 
+          type: number
+          description: Percentage above or below the series mean
+        rank:
+          type: number
+          description: Rank of the observation within the ordered series (ascending)
+        count:
+          type: number
+          description: Number of observations in the series used for statistical computation
+        month:
+          type: number
+          description: month of the year (0 based)
+        historical_monthly_mean:
+          type: number
+          description: Monthly mean of the series for this month of the year  
+        weibull_percentile:
+          type: number
+          description: Estimated percentile (0-1) of this observation using Weibull distribution
+        percentile_category:
+          type: object
+          description: Assigned category of this observation
+          properties:
+            name:
+              description: Category name
+              type: string
+              enum:
+              - low flow
+              - below normal
+              - normal range
+              - above normal
+              - high flow
+            range:
+              type: array
+              description: Value range of this category (low bound, high bound)
+              items:
+                type: number
+              minItems: 2
+              maxItems: 2
+            number: 
+              description: Category number
+              type: string
+              enum:
+              - 1
+              - 2
+              - 3
+              - 4
+              - 5
     Accessor:
       type: object
       properties:
