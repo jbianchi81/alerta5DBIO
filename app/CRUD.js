@@ -3915,7 +3915,11 @@ internal.observacionStats = class extends baseModel {
 			"month": this.month,
 			"historical_monthly_mean": toFixedFloat(this.historical_monthly_mean,2),
 			"weibull_percentile": toFixedFloat(this.weibull_percentile,2),
-			"percentile_category": (this.percentile_category) ? {name: this.percentile_category.name, range: (this.percentile_category.range  != null) ? [toFixedFloat(this.percentile_category.range[0],2), toFixedFloat(this.percentile_category.range[1],2)] : undefined} : null
+			"percentile_category": (this.percentile_category) ? {
+				name: this.percentile_category.name, 
+				range: (this.percentile_category.range  != null) ? [toFixedFloat(this.percentile_category.range[0],2), toFixedFloat(this.percentile_category.range[1],2)] : undefined,
+				number: this.percentile_category.number
+			} : null
 		}
 	}
 }
@@ -4610,7 +4614,7 @@ internal.observaciones = class extends BaseArray {
 		} else {
 			var header = `id${sep}tipo${sep}series_id${sep}timestart${sep}timeend${sep}nombre${sep}descripcion${sep}unit_id${sep}timeupdate${sep}valor`
 			if(options.hasMonthlyStats) {
-				header = header + `${sep}stats.percentage_of_average${sep}stats.rank${sep}stats.count${sep}stats.month${sep}stats.historical_monthly_mean${sep}stats.weibull_percentile${sep}stats.percentile_category.name${sep}stats.percentile_category.range.0${sep}stats.percentile_category.range.1`
+				header = header + `${sep}stats.percentage_of_average${sep}stats.rank${sep}stats.count${sep}stats.month${sep}stats.historical_monthly_mean${sep}stats.weibull_percentile${sep}stats.percentile_category.name${sep}stats.percentile_category.range.0${sep}stats.percentile_category.range.1${sep}stats.percentile_category.number`
 			}
 			return `${header}\n${this.map(o=>o.toCSV(sep)).join("\n")}`
 		}
