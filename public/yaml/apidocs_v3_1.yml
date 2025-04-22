@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/schemas/v3.1/schema.json
+# yaml-language-server: $schema=https://schemas.sourcemeta.com/openapi/v3.1/schema/2022-10-07.json
 ---
 openapi: 3.1.0
 info:
@@ -3261,16 +3261,21 @@ paths:
         in: path
       - name: timestart
         description: fecha inicial de las observaciones
-        required: true
+        required: false
         schema: { "type": "string"} 
         in: query
       - name: timeend
         description: fecha final de las observaciones
-        required: true
+        required: false
         schema: { "type": "string"} 
         in: query
       - name: no_metadata
         description: no incluir metadatos
+        required: false
+        schema: { "type": "boolean"} 
+        in: query
+      - name: getMonthlyStats
+        description: incluir estadísticos mensuales
         required: false
         schema: { "type": "boolean"} 
         in: query
@@ -6289,6 +6294,11 @@ components:
           type: array
           items:
             "$ref": "#/components/schemas/Observacion"
+        monthlyStats:
+          description: estadísticos mensuales
+          type: array
+          items:
+            "$ref": "#/components/schemas/MonthlyStats"
       required:
       - tipo
       - estacion_id
@@ -6296,6 +6306,65 @@ components:
       - proc_id
       - unit_id
       table_name: series
+    MonthlyStats:
+      type: object
+      properties:
+        tipo:
+          schema: 
+            type: string
+          enum:
+          - puntual
+          - areal
+          - raster
+        series_id:
+          type: number
+        mon:
+          description: mes del año en base 0 (0 a 11)
+          type: number
+        count:
+          type: number
+        min:
+          type: number
+        max:
+          type: number
+        mean:
+          type: number
+        p01:
+          type: number
+        p10:
+          type: number
+        p50:
+          type: number
+        p90:
+          type: number
+        p99:
+          type: number
+        timestart:
+          type: string
+        timeend:
+          type: string
+        valores:
+          description: valores utilizados en el cálculo
+          type: array
+          items:
+            type: number
+        percentage_complete:
+          type: number
+        p13:
+          type: number
+        p28:
+          type: number
+        p72:
+          type: number
+        p87:
+          type: number
+      required:
+      - tipo
+      - series_id
+      - mon
+      - count
+      - timestart
+      - timeend
     ObservacionDia:
       type: object
       properties:

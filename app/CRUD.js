@@ -5033,21 +5033,27 @@ internal.monthlyStats = class extends baseModel {
 					this.p99=arguments[0].p99
 					this.timestart=new Date(arguments[0].timestart)
 					this.timeend=new Date(arguments[0].timeend)
+					this.valores=arguments[0].valores
+					this.percentage_complete=arguments[0].percentage_complete
+					this.p13=arguments[0].p13
+					this.p28=arguments[0].p28
+					this.p72=arguments[0].p72
+					this.p87=arguments[0].p87
 				}
 				break;
 			default:
-				[this.tipo, this.series_id, this.mon, this.count, this.min, this.max, this.mean, this.p01, this.p10, this.p50, this.p90, this.p99, this.timestart, this.timeend] = arguments
+				[this.tipo, this.series_id, this.mon, this.count, this.min, this.max, this.mean, this.p01, this.p10, this.p50, this.p90, this.p99, this.timestart, this.timeend, this.valores, this.percentage_complete, this.p13, this.p28, this.p72, this.p87] = arguments
 				break;
 		}
 	}
 	toString() {
-		return JSON.stringify({tipo:this.tipo,series_id:this.series_id,mon:this.mon,count:this.count, min:this.min, max:this.max, mean:this.mean, p01:this.p01, p10:this.p10, p50:this.p50, p90:this.p90, p99:this.p99, timestart:this.timestart, timeend:this.timeend})
+		return JSON.stringify({tipo:this.tipo,series_id:this.series_id,mon:this.mon,count:this.count, min:this.min, max:this.max, mean:this.mean, p01:this.p01, p10:this.p10, p50:this.p50, p90:this.p90, p99:this.p99, timestart:this.timestart, timeend:this.timeend, valores: this.valores, percentage_complete: this.percentage_complete, p13: this.p13, p28: this.p28, p72: this.p72, p87: this.p87})
 	}
 	toCSV() {
-		return this.tipo + "," + this.series_id + "," + this.mon + "," + this.count+ "," + this.min+ "," + this.max+ "," + this.mean+ "," + this.p01 + "," + this.p10+ "," + this.p50+ "," + this.p90+ "," + this.p99 + "," + this.timestart.toISOString() + "," + this.timeend.toISOString()
+		return [this.tipo,this.series_id,this.mon,this.count,this.min,this.max,this.mean,this.p01,this.p10,this.p50,this.p90,this.p99,this.timestart.toISOString(),this.timeend.toISOString(),this.valores.map(v=>v.toString()).join(";"), this.percentage_complete, this.p13, this.p28, this.p72, this.p87].map(i=>i.toString()).join(",")
 	}
 	toCSVless() {
-		return this.tipo + "," + this.series_id + "," + this.doy+ "," + this.count+ "," + this.min+ "," + this.max+ "," + this.mean+ "," + this.p01 + "," + this.p10+ "," + this.p50+ "," + this.p90+ "," + this.p99 + "," + this.timestart.toISOString() + "," + this.timeend.toISOString()
+		return [this.tipo,this.series_id,this.mon,this.count,this.min,this.max,this.mean,this.p01,this.p10,this.p50,this.p90,this.p99,this.timestart.toISOString(),this.timeend.toISOString(), this.percentage_complete, this.p13, this.p28, this.p72, this.p87].map(i=>i.toString()).join(",")
 	}
 	static async read(filter,options) {
 		return internal.CRUD.getMonthlyStats(filter.tipo,filter.series_id,filter.public,true)
@@ -5066,9 +5072,9 @@ internal.monthlyStats = class extends baseModel {
 	}
 
 	async create() {
-		return executeQueryReturnRows(`INSERT INTO series_mon_stats (tipo, series_id, mon,count ,min ,max ,mean ,p01 ,p10 ,p50 ,p90 ,p99 ,timestart ,timeend) \
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) \
-		ON CONFLICT (tipo,series_id,mon) DO UPDATE SET count=excluded.count ,min=excluded.min ,max=excluded.max ,mean=excluded.mean ,p01=excluded.p01 ,p10=excluded.p10 ,p50=excluded.p50 ,p90=excluded.p90 ,p99=excluded.p99 ,timestart=excluded.timestart ,timeend=excluded.timeend RETURNING *`,[this.tipo,this.series_id,this.mon,this.count,this.min,this.max,this.mean,this.p01,this.p10,this.p50,this.p90,this.p99,this.timestart,this.timeend])
+		return executeQueryReturnRows(`INSERT INTO series_mon_stats (tipo, series_id, mon,count ,min ,max ,mean ,p01 ,p10 ,p50 ,p90 ,p99 ,timestart ,timeend, valores, percentage_complete, p13, p28, p72, p87) \
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) \
+		ON CONFLICT (tipo,series_id,mon) DO UPDATE SET count=excluded.count ,min=excluded.min ,max=excluded.max ,mean=excluded.mean ,p01=excluded.p01 ,p10=excluded.p10 ,p50=excluded.p50 ,p90=excluded.p90 ,p99=excluded.p99 ,timestart=excluded.timestart ,timeend=excluded.timeend, valores=excluded.valores, percentage_complete=excluded.percentage_complete, p13=excluded.p13, p28=excluded.p13, p72=excluded.p13, p87=excluded.p13 RETURNING *`,[this.tipo,this.series_id,this.mon,this.count,this.min,this.max,this.mean,this.p01,this.p10,this.p50,this.p90,this.p99,this.timestart,this.timeend,this.valores, this.percentage_complete, this.p13, this.p28, this.p72, this.p87])
 		.then(result=>{
 			if(!result.length) {
 				console.error("Nothing insterted/updated")
@@ -5079,7 +5085,7 @@ internal.monthlyStats = class extends baseModel {
 	}
 
 	set(changes={}) {
-		var settable_parameters = ["count", "min", "max", "mean", "p01", "p10", "p50", "p90", "p99", "p99", "timestart", "timeend"]
+		var settable_parameters = ["count", "min", "max", "mean", "p01", "p10", "p50", "p90", "p99", "p99", "timestart", "timeend","valores","percentage_complete","p13","p28","p72","p87"]
 		for(var key of Object.keys(changes)) {
 			if(settable_parameters.indexOf(key) < 0) {
 				// console.error(`Can't update parameter ${key}`)
@@ -5264,7 +5270,7 @@ internal.monthlyStats = class extends baseModel {
 internal.monthlyStatsList = class extends baseModel {
 	constructor() {
         super()
-		this.varNames = ["tipo", "series_id", "mon", "count", "min", "max", "mean", "p01", "p10", "p50", "p90", "p99", "timestart", "timeend"]
+		this.varNames = ["tipo", "series_id", "mon", "count", "min", "max", "mean", "p01", "p10", "p50", "p90", "p99", "timestart", "timeend","valores","percentage_complete","p13","p28","p72","p87"]
 		this.values = arguments[0].map(v=>{
 			if(v instanceof internal.monthlyStats) {
 				return v
@@ -9438,10 +9444,11 @@ internal.CRUD = class {
 				console.log("got stats for series")
 			}
 			if(options && options.getMonthlyStats) {
-				if(serie.var.id == 48) {
+				if(serie.var.id == 48 && serie.observaciones.length > 0) {
 					serie.getWeibullPercentiles()
 				} else {
-					serie.monthlyStats = await this.getMonthlyStats("puntual",serie.id).values
+					const monthlyStats = await this.getMonthlyStats("puntual",serie.id)
+					serie.monthlyStats = monthlyStats.values
 				}
 			}
 			await serie.setPercentilesRef()
@@ -15962,15 +15969,15 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 			if(!m.series_id) {
 				throw("Missing series_id")
 			}
-			return internal.utils.pasteIntoSQLQuery("($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)",[m.tipo,m.series_id,m.mon,m.count,m.min,m.max,m.mean,m.p01,m.p10,m.p50,m.p90,m.p99,m.timestart.toISOString(),m.timeend.toISOString()])
+			return internal.utils.pasteIntoSQLQuery("($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)",[m.tipo,m.series_id,m.mon,m.count,m.min,m.max,m.mean,m.p01,m.p10,m.p50,m.p90,m.p99,m.timestart.toISOString(),m.timeend.toISOString(),m.valores,m.percentage_complete,m.p13,m.p28,m.p72,m.p87])
 		}).join(",")
 		if(!values.length) {
 			console.log("No stats found")
 			return []
 		}
-		var stmt = `INSERT INTO series_mon_stats (tipo, series_id, mon,count ,min ,max ,mean ,p01 ,p10 ,p50 ,p90 ,p99 ,timestart ,timeend) \
+		var stmt = `INSERT INTO series_mon_stats (tipo, series_id, mon,count ,min ,max ,mean ,p01 ,p10 ,p50 ,p90 ,p99 ,timestart ,timeend, valores, percentage_complete, p13, p28, p72, p87) \
 		VALUES ${values} \
-		ON CONFLICT (tipo,series_id,mon) DO UPDATE SET count=excluded.count ,min=excluded.min ,max=excluded.max ,mean=excluded.mean ,p01=excluded.p01 ,p10=excluded.p10 ,p50=excluded.p50 ,p90=excluded.p90 ,p99=excluded.p99 ,timestart=excluded.timestart ,timeend=excluded.timeend RETURNING *`
+		ON CONFLICT (tipo,series_id,mon) DO UPDATE SET count=excluded.count ,min=excluded.min ,max=excluded.max ,mean=excluded.mean ,p01=excluded.p01 ,p10=excluded.p10 ,p50=excluded.p50 ,p90=excluded.p90 ,p99=excluded.p99 ,timestart=excluded.timestart ,timeend=excluded.timeend, valores=excluded.valores, percentage_complete=excluded.percentage_complete, p13=excluded.p13, p28=excluded.p28, p72=excluded.p72, p87=excluded.p87 RETURNING *`
 		// console.log(stmt)
 		return global.pool.query(stmt)
 		.then(result=>{
@@ -15979,20 +15986,15 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 	}
 
 	static async getMonthlyStats(tipo="puntual",series_id,isPublic,as_array) {
-		return this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic)
-		.then(serie=>{
-			return global.pool.query("SELECT * FROM series_mon_stats WHERE tipo=$1 AND series_id=$2 ORDER BY mon",[tipo,series_id])
-		})
-		.then(result=>{
-			if(!result.rows) {
-				throw("Nothing found")
-				return
-			}
-			if(as_array) {
-				return result.rows.map(r=>new internal.monthlyStats(r))
-			}
-			return new internal.monthlyStatsList(result.rows)
-		})
+		const result = await global.pool.query("SELECT * FROM series_mon_stats WHERE tipo=$1 AND series_id=$2 ORDER BY mon",[tipo,series_id])
+		
+		if(!result.rows) {
+			throw("Nothing found")
+		}
+		if(as_array) {
+			return result.rows.map(r=>new internal.monthlyStats(r))
+		}
+		return new internal.monthlyStatsList(result.rows)
 	}
 
 	static async getMonthlyStatsSeries(tipo="puntual",series_id,isPublic) {

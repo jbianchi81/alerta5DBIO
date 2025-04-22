@@ -459,7 +459,11 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 			{key:"p90",name:"permanencia 10%",type:"area",data:[],zIndex:-1,lineWidth:1,fillColor:'#ffffff',color:"#939393",dashStyle:"ShortDash",marker:{enabled:false}},
 			{key:"p50",name:"permanencia 50%",type:"area",data:[],zIndex:-1,lineWidth:1,fillColor:'#ffffff',color:"#939393",dashStyle:"ShortDash",marker:{enabled:false}},
 			{key:"p10",name:"permanencia 90%",type:"area",data:[],zIndex:-1,lineWidth:1,fillColor:'#d0d0d0',color:"#939393",dashStyle:"ShortDash",marker:{enabled:false}},
-			{key:"p01",name:"permanencia 99%",type:"area",data:[],zIndex:-1,lineWidth:1,fillColor:'#ffffff',color:'#d0d0d0',marker:{enabled:false}}
+			{key:"p01",name:"permanencia 99%",type:"area",data:[],zIndex:-1,lineWidth:1,fillColor:'#ffffff',color:'#d0d0d0',marker:{enabled:false}},
+			{key:"p87",name:"permanencia 13%",type:"area",data:[],zIndex:-1,lineWidth:1,color:'#d0d0d0',marker:{enabled:false}, visible: false, showInLegend: true},
+			{key:"p72",name:"permanencia 28%",type:"area",data:[],zIndex:-1,lineWidth:1,fillColor:'#ffffff',color:"#939393",dashStyle:"ShortDash",marker:{enabled:false}, visible: false, showInLegend: true},
+			{key:"p28",name:"permanencia 72%",type:"area",data:[],zIndex:-1,lineWidth:1,fillColor:'#ffffff',color:"#939393",dashStyle:"ShortDash",marker:{enabled:false}, visible: false, showInLegend: true},
+			{key:"p13",name:"permanencia 87%",type:"area",data:[],zIndex:-1,lineWidth:1,fillColor:'#d0d0d0',color:"#939393",dashStyle:"ShortDash",marker:{enabled:false}, visible: false, showInLegend: true}
 		]
 		//~ for(var i=xMin; i<=xMax;i=i+24*3600*1000) {
 		for(var i=new Date(getseriesbysiteandvarobj.request_params.timestart).getTime(); i<=new Date(getseriesbysiteandvarobj.request_params.timeend).getTime();i=i+24*3600*1000) {
@@ -471,8 +475,20 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 			percentiles[2].data.push([i,getseriesbysiteandvarobj.dailyDoyStats[doy-1].p50])
 			percentiles[3].data.push([i,getseriesbysiteandvarobj.dailyDoyStats[doy-1].p10])
 			percentiles[4].data.push([i,getseriesbysiteandvarobj.dailyDoyStats[doy-1].p01])
+			if (getseriesbysiteandvarobj.dailyDoyStats[doy-1].p87) {
+				percentiles[5].data.push([i,getseriesbysiteandvarobj.dailyDoyStats[doy-1].p87])
+			}
+			if (getseriesbysiteandvarobj.dailyDoyStats[doy-1].p72) {
+				percentiles[6].data.push([i,getseriesbysiteandvarobj.dailyDoyStats[doy-1].p72])
+			}
+			if (getseriesbysiteandvarobj.dailyDoyStats[doy-1].p28) {
+				percentiles[7].data.push([i,getseriesbysiteandvarobj.dailyDoyStats[doy-1].p28])
+			}
+			if (getseriesbysiteandvarobj.dailyDoyStats[doy-1].p13) {
+				percentiles[8].data.push([i,getseriesbysiteandvarobj.dailyDoyStats[doy-1].p13])
+			}
 		}
-		json.series = json.series.concat(percentiles)
+		json.series = json.series.concat(percentiles.filter(serie => serie.data.length))
 		json.yAxis.max = (parseFloat(json.yAxis.max).toString() !== 'NaN') ? Math.max(json.yAxis.max, ...percentiles[0].data.map(d => d[1])) : Math.max(...percentiles[0].data.map(d => d[1]))
 		json.yAxis.min = (parseFloat(json.yAxis.min).toString() !== 'NaN') ? Math.min(json.yAxis.min, ...percentiles[4].data.map(d => d[1])) : Math.min(...percentiles[4].data.map(d => d[1]));
 	} else if(getseriesbysiteandvarobj.monthlyStats && getseriesbysiteandvarobj.monthlyStats.length) {
@@ -484,7 +500,11 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 			{key:"p90",name:"permanencia 10%",type:"area",data:[],zIndex:-1,lineWidth:1,fillColor:'#ffffff',color:"#939393",dashStyle:"ShortDash",marker:{enabled:false},step: true,tooltip:{ headerFormat: '<b>{series.name}</b><br>', pointFormat: '{point.x:%b}: {point.y:.2f}'}},
 			{key:"p50",name:"permanencia 50%",type:"area",data:[],zIndex:-1,lineWidth:1,fillColor:'#ffffff',color:"#939393",dashStyle:"ShortDash",marker:{enabled:false},step: true,tooltip:{ headerFormat: '<b>{series.name}</b><br>', pointFormat: '{point.x:%b}: {point.y:.2f}'}},
 			{key:"p10",name:"permanencia 90%",type:"area",data:[],zIndex:-1,lineWidth:1,fillColor:'#d0d0d0',color:"#939393",dashStyle:"ShortDash",marker:{enabled:false},step: true,tooltip:{ headerFormat: '<b>{series.name}</b><br>', pointFormat: '{point.x:%b}: {point.y:.2f}'}},
-			{key:"p01",name:"permanencia 99%",type:"area",data:[],zIndex:-1,lineWidth:1,fillColor:'#ffffff',color:'#d0d0d0',marker:{enabled:false},step: true,tooltip:{ headerFormat: '<b>{series.name}</b><br>', pointFormat: '{point.x:%b}: {point.y:.2f}'}}
+			{key:"p01",name:"permanencia 99%",type:"area",data:[],zIndex:-1,lineWidth:1,fillColor:'#ffffff',color:'#d0d0d0',marker:{enabled:false},step: true,tooltip:{ headerFormat: '<b>{series.name}</b><br>', pointFormat: '{point.x:%b}: {point.y:.2f}'}},
+			{key:"p87",name:"permanencia 13%",type:"area",data:[],zIndex:-1,lineWidth:1,color:'#d0d0d0',marker:{enabled:false}, visible: false, showInLegend: true},
+			{key:"p72",name:"permanencia 28%",type:"area",data:[],zIndex:-1,lineWidth:1,fillColor:'#ffffff',color:"#939393",dashStyle:"ShortDash",marker:{enabled:false}, visible: false, showInLegend: true},
+			{key:"p28",name:"permanencia 72%",type:"area",data:[],zIndex:-1,lineWidth:1,fillColor:'#ffffff',color:"#939393",dashStyle:"ShortDash",marker:{enabled:false}, visible: false, showInLegend: true},
+			{key:"p13",name:"permanencia 87%",type:"area",data:[],zIndex:-1,lineWidth:1,fillColor:'#d0d0d0',color:"#939393",dashStyle:"ShortDash",marker:{enabled:false}, visible: false, showInLegend: true}
 		]
 		//~ for(var i=xMin; i<=xMax;i=i+24*3600*1000) {
 		var date = new Date(getseriesbysiteandvarobj.request_params.timestart)  
@@ -495,15 +515,28 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 			// console.log({mon:mon})
 			// var start_of_month = new Date(date.getUTCFullYear(),mon,1)
 			if(getseriesbysiteandvarobj.monthlyStats[mon]) {
-				percentiles[0].data.push([date.getTime(),getseriesbysiteandvarobj.monthlyStats[mon].p99])
-				percentiles[1].data.push([date.getTime(),getseriesbysiteandvarobj.monthlyStats[mon].p90])
-				percentiles[2].data.push([date.getTime(),getseriesbysiteandvarobj.monthlyStats[mon].p50])
-				percentiles[3].data.push([date.getTime(),getseriesbysiteandvarobj.monthlyStats[mon].p10])
-				percentiles[4].data.push([date.getTime(),getseriesbysiteandvarobj.monthlyStats[mon].p01])
+				const this_mon_stats = getseriesbysiteandvarobj.monthlyStats[mon]
+				percentiles[0].data.push([date.getTime(),this_mon_stats.p99])
+				percentiles[1].data.push([date.getTime(),this_mon_stats.p90])
+				percentiles[2].data.push([date.getTime(),this_mon_stats.p50])
+				percentiles[3].data.push([date.getTime(),this_mon_stats.p10])
+				percentiles[4].data.push([date.getTime(),this_mon_stats.p01])
+				if (this_mon_stats.p87 !== undefined && this_mon_stats.p87 !== null) {
+					percentiles[5].data.push([date.getTime(),this_mon_stats.p87])
+				}
+				if (this_mon_stats.p72 !== undefined && this_mon_stats.p72 !== null) {
+					percentiles[6].data.push([date.getTime(),this_mon_stats.p72])
+				}
+				if (this_mon_stats.p28 !== undefined && this_mon_stats.p28 !== null) {
+					percentiles[7].data.push([date.getTime(),this_mon_stats.p28])
+				}
+				if (this_mon_stats.p13 !== undefined && this_mon_stats.p13 !== null) {
+					percentiles[8].data.push([date.getTime(),this_mon_stats.p13])
+				}
 			}
 			date.setUTCMonth(mon+1)
 		}
-		json.series = json.series.concat(percentiles)
+		json.series = json.series.concat(percentiles.filter(serie=>serie.data.length))
 		json.yAxis.max = (parseFloat(json.yAxis.max).toString() !== 'NaN') ? Math.max(json.yAxis.max, ...percentiles[0].data.map(d => d[1])) : Math.max(...percentiles[0].data.map(d => d[1]))
 		json.yAxis.min = (parseFloat(json.yAxis.min).toString() !== 'NaN') ? Math.min(json.yAxis.min, ...percentiles[4].data.map(d => d[1])) : Math.min(...percentiles[4].data.map(d => d[1]));
 	}

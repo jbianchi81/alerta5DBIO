@@ -1979,7 +1979,19 @@
 		}
 		
 		// enable stats buttons
-		const stats_button_states = (series.monthlyStats && series.monthlyStats.length) ?  series.percentiles_ref && Object.keys(series.percentiles_ref).length ? ["monthly","yearly","both","none"] : ["monthly","none"] : series.percentiles_ref && Object.keys(series.percentiles_ref).length ? ["yearly","none"] : []
+		const has_ukceh_percentiles = Boolean(series.monthlyStats && series.monthlyStats.length && series.monthlyStats[0].p87 !== undefined && series.monthlyStats[0].p87 !== null)
+		const stats_button_states = 
+		(series.monthlyStats && series.monthlyStats.length) ? 
+			(series.percentiles_ref && Object.keys(series.percentiles_ref).length) ? 
+				(has_ukceh_percentiles) ? 
+					["monthly","monthly_ukceh","yearly","both","none"] : 
+					["monthly","yearly","both","none"] 
+				: (has_ukceh_percentiles) ? 
+					["monthly","monthly_ukceh","none"]
+				    : ["monthly","none"] 
+			: (series.percentiles_ref && Object.keys(series.percentiles_ref).length) ? 
+				["yearly","none"] 
+				: []
 		if (stats_button_states.length) {
 			var stats_button_state = stats_button_states[0] 
 			//~ console.log("enable Stats buttons")
@@ -1989,7 +2001,7 @@
 				var chart = $("#chart_container").highcharts()
 				if(stats_button_state == "monthly" || stats_button_state == "both") {
 					chart.series.forEach(s=>{  
-						if(/^permanencia\s\d\d?\%$/.test(s.name)) {
+						if(/^permanencia\s(?:1|10|50|90|99)\%$/.test(s.name)) {
 							// if(s.visible) {
 							//	s.hide()
 							//} else {
@@ -1999,7 +2011,7 @@
 					})
 				} else {
 					chart.series.forEach(s=>{  
-						if(/^permanencia\s\d\d?\%$/.test(s.name)) {
+						if(/^permanencia\s(?:1|10|50|90|99)\%$/.test(s.name)) {
 							s.hide()
 						}
 					})
@@ -2008,6 +2020,23 @@
 					togglePercLines(series,chart,"show")
 				} else {
 					togglePercLines(series,chart,"hide")
+				}
+				if(stats_button_state == "monthly_ukceh") {
+					chart.series.forEach(s=>{  
+						if(/^permanencia\s(?:13|28|72|87)\%$/.test(s.name)) {
+							// if(s.visible) {
+							//	s.hide()
+							//} else {
+								s.show()
+							//}
+						}
+					})
+				} else {
+					chart.series.forEach(s=>{  
+						if(/^permanencia\s(?:13|28|72|87)\%$/.test(s.name)) {
+							s.hide()
+						}
+					})
 				}
 			});
 			if(stats_button_states.indexOf("monthly") >= 0 || stats_button_states.indexOf("both") >= 0) {
