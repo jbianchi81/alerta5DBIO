@@ -28,10 +28,12 @@ interface HidroestimadorConfig extends Config {
     url: string,
     user: string,
     password: string,
+    remote_path : string,
     local_path: string,
     series_id: number,
     escena_id: number,
-    file_pattern: string
+    file_pattern: string,
+    t_offset: number // hours
 }
 
 /**
@@ -55,18 +57,20 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
     }
 
     default_config: HidroestimadorConfig = {
-        url: "ftp://ftp.smn.gob.ar/SQPE",
+        url: "ftp.smn.gob.ar",
         user: "user",
         password: "password",
+        remote_path: "SQPE",
         local_path: "data/hidroestimador",
         series_id: 16,
-        scale: 0.1,
-        dia_series_id: 13,
         escena_id: 24,
-        file_pattern: "^Ajuste_(\d{6}).tif$"
+        file_pattern: "^Ajuste_(\d{8}).tif$",
+        t_offset: 9
     }
 
-    file_pattern : RegExp = new RegExp(/^Ajuste_\d{6}\.tif$/)
+    file_pattern : RegExp = new RegExp(/^Ajuste_(\d{8})\.tif$/)
+
+    ftp_client : FtpClient
 
     async getSites(filter : SitesFilter) : Promise<Array<Location>> {
       const escenas = [
@@ -103,23 +107,26 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                   "descripcion": "Estimado a partir de observaciones indirectas"
                 },
                 "unidades": {"id":22,"nombre":"milímetros por día","abrev":"mm/d","UnitsID":305,"UnitsType":"velocity"},
-                "fuente": {"id":11,"nombre":"hidroestimador_diario","data_table":"hidroestimador_diario_table","data_column":"rast","tipo":"QPE","def_proc_id":5,"def_dt":{"years":0,"months":0,"days":1,"hours":0,"minutes":0,"seconds":0,"milliseconds":0},"hora_corte":{"years":0,"months":0,"days":0,"hours":9,"minutes":0,"seconds":0,"milliseconds":0},"def_unit_id":22,"def_var_id":1,"fd_column":null,"mad_table":null,"scale_factor":null,"data_offset":null,"def_pixel_height":0.1,"def_pixel_width":0.1,"def_srid":4326,"def_extent":{"type":"Polygon","coordinates":[[[-76.0999954223633,-19.8999988555908],[-48.9000007629395,-19.8999988555908],[-48.9000007629395,-56.0999992370605],[-76.0999954223633,-56.0999992370605],[-76.0999954223633,-19.8999988555908]]]},"date_column":"date","def_pixeltype":"16BUI","abstract":"Estimación satelital de la precipitación a paso diario de la misión GOES, producto Hidrestimador. Fuente: SMN","source":"http://www.smn.gob.ar","public":false,"constraints":[{"table_name":"hidroestimador_diario_table","constraint_name":"hidroestimador_diario_table_pkey","constraint_type":"p","column_names":["date"]}]},
+                "fuente": {"id":11,"nombre":"hidroestimador_diario","data_table":"hidroestimador_diario_table","data_column":"rast","tipo":"QPE","def_proc_id":5,"def_dt":{"years":0,"months":0,"days":1,"hours":0,"minutes":0,"seconds":0,"milliseconds":0},"hora_corte":{"years":0,"months":0,"days":0,"hours":9,"minutes":0,"seconds":0,"milliseconds":0},"def_unit_id":22,"def_var_id":1,"fd_column":null,"mad_table":null,"scale_factor":null,"data_offset":null,"def_pixel_height":0.1,"def_pixel_width":0.1,"def_srid":4326,"def_extent":{"type":"Polygon","coordinates":[[[-76.0999954223633,-19.8999988555908],[-48.9000007629395,-19.8999988555908],[-48.9000007629395,-56.0999992370605],[-76.0999954223633,-56.0999992370605],[-76.0999954223633,-19.8999988555908]]]},"date_column":"date","def_pixeltype":"16BUI","abstract":"Estimación satelital de la precipitación a paso diario de la misión GOES, producto Hidrestimador. Fuente: SMN","source":"http://www.smn.gob.ar","public":false}
             }
-        ] as Array<Serie>
+        ] as unknown as Array<Serie>
         return filterSeries(series.map(s => new crud_serie(s)), filter)
     }
 
-    async getFilesList(filter: ObservacionesFilter) : Promise<FileInfo[]> {
-        const ftp_client = new FtpClient()
-        ftp_client.ftp.verbose = false
-        await ftp_client.access(
+    async accessServer() : Promise<void> {
+        this.ftp_client = new FtpClient()
+        this.ftp_client.ftp.verbose = false
+        const response = await this.ftp_client.access(
             {
                 host: this.config.url, 
                 user: this.config.user, 
-                password: this.config.password,
-                secure:false
+                password: this.config.password
             })
-        return ftp_client.list()
+        console.debug(response.message)
+    }
+
+    async getFilesList(filter: ObservacionesFilter) : Promise<FileInfo[]> {
+        return this.ftp_client.list(this.config.remote_path)
     }
 
     async get(filter: ObservacionesFilter, options: Object): Promise<Array<Observacion>> {
@@ -139,6 +146,13 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                 throw new Error("Invalid timeend")
             }
         }
+        if(!this.ftp_client) {
+            try {
+                await this.accessServer()
+            } catch(e) {
+                throw(e)
+            }
+        }
         var files_list = await this.getFilesList(filter)
         files_list = files_list.filter(f => f.isFile).filter(f=> this.file_pattern.test(f.name))
         
@@ -146,152 +160,92 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
             console.error("accessors/hidroestimador: No files found")
             return []
         }
-        var product_urls = []
-        var product_ids = []
+        var remote_paths = []
         for (var item of files_list) {
-            // TODO: extract date
-            // TODO: push url
+            remote_paths.push(`${this.config.remote_path}/${item.name}`)
         }
-        const downloaded_files = await this.downloadFiles(product_urls, this.config.local_path)
-        const dt = (this.config.search_params.q == "precip_1d") ? new Interval_pg({days: 1}) : new Interval_pg({hours: 3})
-        const observaciones = await this.rast2obsList(downloaded_files, dt)
+        const downloaded_files = await this.downloadFiles(remote_paths)
+        const observaciones = await this.rast2obsList(downloaded_files)
         for (const file of downloaded_files) {
             unlinkSync(file)
         }
         return observaciones
     }
 
-    // async update(filter : ObservacionesFilter, options : {}) : Promise<Array<Observacion>> {
-    //     const observaciones = await this.get(filter, options)
-    //     if (!observaciones || observaciones.length == 0) {
-    //         console.error("accessors/gpm/update: Nothing retrieved")
-    //         return []
-    //     }
-    //     const result = await crud_observaciones.create(observaciones) //, "raster", this.config.series_id)
-    //     // const result_diario = await this.getDiario(filter, options)
-    //     // writeFileSync(this.config.tmpfile_json, JSON.stringify(result_diario, null, 4))
-    //     return result
-    // }
+    parseDateFromFilename(filename : string) : Date { 
+        const matches = filename.match(this.file_pattern)[1]
+        if(!matches.length) {
+            throw new Error("File pattern not matched in filename: " + filename)
+        }
+        const d = matches[1]
+        return new Date(parseInt(`${d[0]}${d[1]}${d[2]}${d[3]}`) + 2000, parseInt(`${d[4]}${d[5]}`) -1, parseInt(`${d[6]}${d[7]}`),this.config.t_offset)
+    }
 
-    // async test() : Promise<boolean> {
-    //     const params = { ...this.config.search_params }
-    //     params.startTime = new Date().toISOString().substring(0, 10)
-    //     params.endTime = new Date().toISOString().substring(0, 10)
-    //     try {
-    //       var response = await get(this.config.url, { params: params })
-    //     } catch (e) {
-    //       console.error(e)
-    //       return false
-    //     }
-    //     if (response.status <= 299) {
-    //         return true
-    //     } else {
-    //         return false
-    //     }
-    // }
+    async update(filter : ObservacionesFilter, options : {}) : Promise<Array<Observacion>> {
+        const observaciones = await this.get(filter, options)
+        if (!observaciones || observaciones.length == 0) {
+            console.error("accessors/hidroestimador/update: Nothing retrieved")
+            return []
+        }
+        const result = await crud_observaciones.create(observaciones) //, "raster", this.config.series_id)
+        // const result_diario = await this.getDiario(filter, options)
+        // writeFileSync(this.config.tmpfile_json, JSON.stringify(result_diario, null, 4))
+        return result
+    }
 
-    // async downloadFiles(product_urls: Array<string>, local_filenames: Array<string>) {
-    //     const downloaded_files : Array<string> = []
-    //     this.downloaded_files = downloaded_files
-    //     for (var u in product_urls) {
-    //         var filename = local_filenames[u]
-    //         console.log("accessors/gpm: downloading: " + product_urls[u] + " into: " + filename)
-    //         try {
-    //             await fetch(product_urls[u], undefined, filename)
-    //         } catch (e) {
-    //             console.error(e)
-    //             continue
-    //         }
-    //         downloaded_files.push(filename)
-    //     }
-    //     return downloaded_files
-    // }
+    async test() : Promise<boolean> {
+        try {
+          this.accessServer()
+        } catch (e) {
+          console.error(e)
+          return false
+        }
+        return true
+    }
 
-    // async rast2obsList(filenames: Array<string>, dt: Interval = new Interval_pg({ hours: 3 })) {
-    //     // console.log(JSON.stringify(filenames))
-    //     var observaciones = []
-    //     this.subset_files = []
-    //     for (var filename of filenames) {
-    //         var filename2 = filename.replace(/\.tif$/, "_subset.tif")
-    //         var base = path.basename(filename)
-    //         var b = base.split(".")
-    //         if (b.length == 4) {
-    //             // has time
-    //             var timestart = new Date(
-    //                 Date.UTC(
-    //                     parseInt(b[1].substring(0, 4)),
-    //                     parseInt(b[1].substring(4, 6)) - 1,
-    //                     parseInt(b[1].substring(6, 8)),
-    //                     parseInt(b[2].substring(0, 2))
-    //                 ) - 2 * 3600 * 1000
-    //             )
-    //         } else {
-    //             // only date
-    //             var timestart = new Date(
-    //                 Date.UTC(
-    //                     parseInt(b[1].substring(0, 4)),
-    //                     parseInt(b[1].substring(4, 6)) - 1,
-    //                     parseInt(b[1].substring(6, 8))
-    //                 )
-    //             )
-    //         }
-    //         if(timestart.toString() == "Invalid Date") {
-    //             throw("Invalid Date: " + b[1])
-    //         }
-    //         var timeend = advanceInterval(timestart, dt)
-    //         var scale = this.config.scale
-    //         // return new Promise( (resolve, reject) => {
-    //         try {
-    //             await exec('gdal_translate -projwin ' + this.config.bbox.join(" ") + ' -a_nodata 9999 ' + filename + ' ' + filename2) // ('gdal_translate -a_scale 0.1 -unscale -projwin ' + this.config.bbox.join(" ") + ' ' + filename + ' ' + filename2)  this.config.tmpfile)  // ulx uly lrx lrt
-    //         } catch (e) {
-    //             console.error(e)
-    //             continue
-    //         }
-    //         try {
-    //             var data = readFileSync(filename2, 'hex')
-    //         } catch (e) {
-    //             console.error(e)
-    //             continue
-    //         }
-    //         this.subset_files.push(filename2)
+    // Downloads files to this.config.local_path
+    async downloadFiles(product_urls: Array<string>) : Promise<Array<string>> {
+        const downloaded_files : Array<string> = []
+        this.downloaded_files = downloaded_files
+        if(!this.ftp_client) {
+            await this.accessServer()
+        }
+        for (var u of product_urls) {
+            var local_filename = path.join(this.config.local_path, path.basename(u))
+            console.debug("accessors/hidroestimador: downloading: " + u + " into: " + local_filename)
+            await this.ftp_client.downloadTo(local_filename, u)
+            downloaded_files.push(local_filename)
+        }
+        return downloaded_files
+    }
 
-    //         observaciones.push(
-    //           {
-    //             tipo: "raster", 
-    //             series_id: (this.config.search_params.q == "precip_1d") ? this.config.dia_series_id : this.config.series_id, 
-    //             timestart: timestart, 
-    //             timeend: timeend, 
-    //             scale: scale, 
-    //             valor: '\\x' + data 
-    //           })
-    //     }
-    //     return observaciones
-    // }
-
-    // async getDiario(filter: ObservacionesFilter, options = {}) {
-    //     // console.log({config:this.config})
-    //     options["insertSeriesId"] = this.config.dia_series_id
-    //     options["t_offset"] = "12:00:00"
-    //     const result = await getRegularSeries(
-    //         "raster",
-    //         this.config.series_id,
-    //         { days: 1 },
-    //         filter.timestart,
-    //         filter.timeend,
-    //         options
-    //     )
-    //     const dia_location = path.resolve(this.config.dia_local_path)
-    //     return print_rast_series(
-    //         {
-    //             id: 13,
-    //             observaciones: result
-    //         }, {
-    //         location: dia_location,
-    //         format: "GTiff",
-    //         patron_nombre: "gpm_dia.YYYYMMDD.HHMMSS.tif"
-    //     }
-    //     )
-    // }
+    async rast2obsList(filenames: Array<string>) : Promise<Array<Observacion>> {
+        // console.log(JSON.stringify(filenames))
+        var observaciones = []
+        for (const filename of filenames) {
+            const base = path.basename(filename)
+            const timestart = this.parseDateFromFilename(base)
+            if(timestart.toString() == "Invalid Date") {
+                throw("Invalid Date at filename: " + base)
+            }
+            var timeend : Date = advanceInterval(timestart, {days: 1})
+            try {
+                var data = readFileSync(filename, 'hex')
+            } catch (e) {
+                console.error(e)
+                continue
+            }
+            observaciones.push(
+              {
+                tipo: "raster", 
+                series_id: this.config.series_id, 
+                timestart: timestart, 
+                timeend: timeend,
+                valor: '\\x' + data 
+              })
+        }
+        return observaciones
+    }
 
     // printMaps(timestart: Date, timeend: Date) {
     //     return this.callPrintMaps(timestart, timeend, false)
