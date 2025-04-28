@@ -178,7 +178,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
             throw new Error("File pattern not matched in filename: " + filename)
         }
         const d = matches[1]
-        return new Date(parseInt(`${d[0]}${d[1]}${d[2]}${d[3]}`) + 2000, parseInt(`${d[4]}${d[5]}`) -1, parseInt(`${d[6]}${d[7]}`),this.config.t_offset)
+        return new Date(parseInt(`${d[0]}${d[1]}${d[2]}${d[3]}`), parseInt(`${d[4]}${d[5]}`) - 1, parseInt(`${d[6]}${d[7]}`),this.config.t_offset)
     }
 
     async update(filter : ObservacionesFilter, options : {}) : Promise<Array<Observacion>> {

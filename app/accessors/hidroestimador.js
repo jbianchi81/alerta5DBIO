@@ -159,13 +159,13 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         });
     }
     parseDateFromFilename(filename) {
-        const d = filename.match(this.file_pattern)[1];
-        if (!d.length) {
+        const matches = filename.match(this.file_pattern)[1];
+        if (!matches.length) {
             throw new Error("File pattern not matched in filename: " + filename);
         }
-        return new Date(parseInt(`${d[0]}${d[1]}${d[2]}${d[3]}`) + 2000, parseInt(`${d[4]}${d[5]}`) - 1, parseInt(`${d[6]}${d[7]}`), this.config.t_offset);
+        const d = matches[1];
+        return new Date(parseInt(`${d[0]}${d[1]}${d[2]}${d[3]}`), parseInt(`${d[4]}${d[5]}`) - 1, parseInt(`${d[6]}${d[7]}`), this.config.t_offset);
     }
-    
     update(filter, options) {
         return __awaiter(this, void 0, void 0, function* () {
             const observaciones = yield this.get(filter, options);
