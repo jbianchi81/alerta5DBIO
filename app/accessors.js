@@ -5939,7 +5939,8 @@ internal.sihn = class {
 			ids[key] = this.config.series_map[key].series_id
 			estacion_ids[key] = this.config.series_map[key].estacion_id
 		})
-		var url = this.config.url // "https://www.hidro.gob.ar/api/v1/AlturasHorarias/geojsonRiopla" // ; # "http://geoportal.ddns.net/Api/AAHH/geoJsonRiopla";
+		var url = this.config.url ?? "https://www.hidro.gob.ar/api/v1/AlturasHorarias" // "https://www.hidro.gob.ar/api/v1/AlturasHorarias/geojsonRiopla" // ; # "http://geoportal.ddns.net/Api/AAHH/geoJsonRiopla";
+		const values_property = this.config.values_property ?? "lecturas" // "valores"
 		return axios.get(url,{responseType:"json"})
 		.then(response=>{
 			var data = response.data
@@ -5980,16 +5981,21 @@ internal.sihn = class {
 				if(!data.features[i].properties) {
 					throw "propiedad properties no definida en features " + i + ", saliendo"
 				}
-				if(!data.features[i].properties.valores) {
-					throw "propiedad valores no definida en properties de features " + i + ", saliendo";
+				if(!data.features[i].properties[values_property]) {
+					throw "propiedad " + values_property + " no definida en properties de features " + i + ", saliendo";
 				}
-				if(!Array.isArray(data.features[i].properties.valores)) {
-					console.error("valores no es un ARRAY, salteando")
+				if(!Array.isArray(data.features[i].properties[values_property])) {
+					console.error(values_property + " no es un ARRAY, salteando")
 					continue
 				}
-				for(var j=0;j<data.features[i].properties.valores.length;j++) {
-					var fecha = data.features[i].properties.valores[j][0]
-					var valor = data.features[i].properties.valores[j][1]
+				if(!data.features[i].properties[values_property].length) {
+					console.error("id " + id + ", serie " + ids[id] + ": " + values_property + " es un array vacío, salteando")
+					continue
+				}
+				const this_reg = []
+				for(var j=0;j<data.features[i].properties[values_property].length;j++) {
+					var fecha = data.features[i].properties[values_property][j][0]
+					var valor = data.features[i].properties[values_property][j][1]
 					if(!fecha) {
 						console.error("fecha no definida en elemento " + j + " de valores de feature " + i + ", salteando")
 						continue
@@ -5999,7 +6005,7 @@ internal.sihn = class {
 						continue
 					}
 					var timestamp = new Date(fecha) 
-					if(timestamp.toString() == "Invalid Date") {//$fecha !~ /^\d\d\d\d-\d\d-\d\dT\d\d\:\d\d\:\d\d$/) {
+					if(timestamp.toString() == "Invalid Date") { //$fecha !~ /^\d\d\d\d-\d\d-\d\dT\d\d\:\d\d\:\d\d$/) {
 						console.error("Fecha " + fecha + " no válida en elemento " + j + " de feature " + i + ", salteando")
 						continue
 					}
@@ -6007,12 +6013,13 @@ internal.sihn = class {
 						console.error("Valor " + valor  + " no válido en elemento " + j +  " de feature " + i + ", salteando")
 						continue
 					}
-					reg.push({series_id: ids[id], timestart:timestamp,timeend:timestamp,valor:parseFloat(valor)})
+					this_reg.push({series_id: ids[id], timestart:timestamp,timeend:timestamp,valor:parseFloat(valor)})
 				}
-				if(reg.length<=0) {
+				if(!this_reg.length) {
 					console.error("No se encontraron registros para unid " + ids[id] + ", salteando")
 					continue
 				}
+				reg.push(...this_reg)
 			}
 			return new CRUD.observaciones(reg)
 		})
