@@ -907,19 +907,21 @@
 			zIndex: 2
 		})
 
+		// defaults to argenmap
+		const base_layer = (default_config.base_layer == "osm") ? new ol.layer.Tile({
+				source: new ol.source.OSM()
+			}) : new ol.layer.Tile({
+				source: new ol.source.XYZ({
+					url: "https://wms.ign.gob.ar/geoserver/gwc/service/tms/1.0.0/capabaseargenmap@EPSG%3A3857@png/{z}/{x}/{-y}.png"
+				})
+			})
+
 			
 		// instantiate openlayers map object
 		var map = new ol.Map({
 			target: 'map',
 			layers: [
-			  //~ new ol.layer.Tile({
-				//~ source: new ol.source.OSM()
-			  //~ })
-			  new ol.layer.Tile({
-				  source: new ol.source.XYZ({
-					  url: "https://wms.ign.gob.ar/geoserver/gwc/service/tms/1.0.0/capabaseargenmap@EPSG%3A3857@png/{z}/{x}/{-y}.png"
-				  })
-			  }),
+			  base_layer,
 			  box_layer
 			],
 			overlays: [global.overlay],
