@@ -219,6 +219,7 @@ app.get('/metadatos',auth.isPublicView,(req,res)=>{
 			params.loggedAs = req.user.username
 		}
 	}
+	params.base_layer = config.secciones.base_layer
 	if(config.verbose) {
 		console.log({params:params})
 	}

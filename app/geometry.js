@@ -37,9 +37,6 @@ class Geometry {
 		if(!this.coordinates) {
 			throw new Error("Invalid geometry: missing coordinates")
 		}
-		if(!geojsonValidation.isGeometryObject({type: capitalize_initial(this.type), coordinates: this.coordinates})) {
-			throw new Error("Invalid geometry")
-		}
 		
 		if(this.type.toUpperCase() == "BOX") {
 			this.type = "Polygon"
@@ -61,6 +58,10 @@ class Geometry {
 			}
 			// console.log(JSON.stringify(this))
 		} 
+		if(!geojsonValidation.isGeometryObject({type: capitalize_initial(this.type), coordinates: this.coordinates})) {
+			throw new Error("Invalid geometry")
+		}
+
 	}
 	toString() {  // WKT
 		return wkt.fromObject(this).write()
