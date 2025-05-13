@@ -163,7 +163,7 @@ internal.red = class extends baseModel  {
 			const created = []
 			for(var red of redes) {
 				red = new this(red)
-				created.append(await red.create())
+				created.push(await red.create())
 			}
 			return created
 		}
@@ -1698,7 +1698,7 @@ internal.serie = class extends baseModel {
 					}
 				} else {
 					this.id = arguments[0].id
-					this.tipo = arguments[0].tipo;
+					this.tipo = (arguments[0].tipo) ? arguments[0].tipo : "puntual";
 					if (arguments[0].estacion) {
 						if(this.tipo == "areal") {
 							this.estacion = new internal.area(arguments[0].estacion)

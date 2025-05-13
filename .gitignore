@@ -43,3 +43,4 @@ procedures/outputs
 tasks
 procedures/results
 jsconfig.json
+.venv
