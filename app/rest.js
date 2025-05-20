@@ -4975,9 +4975,10 @@ async function upsertPronostico(req,res) {
 		var result = await CRUD.corrida.create(pronostico) // crud.upsertCorrida(pronostico)  // {cal_id:,forecast_date:,series:[]}
 	} catch(e) {
 		console.error(e)
-		res.status(400).send(e)
+		res.status(400).send(e.toString())
+		return
 	}	
-	if(!result.series) {
+	if(!result || !result.series) {
 		// await result.updateSeriesDateRange()
 		// console.log("upserted " + result.series.reduce((a,s)=>a+s.pronosticos.length,0) + " pronosticos")
 	// } else {
