@@ -97,7 +97,7 @@ internal.client = class {
     static _get_is_multiseries = false
     
     static default_config = {
-        "url": "https://whos.geodab.eu/gs-service/services/essi",
+        "url": "https://gs-service-preproduction.geodab.eu/gs-service/services/essi", // "https://whos.geodab.eu/gs-service/services/essi",
         "token": "YOUR_TOKEN_HERE",
         "monitoring_points_max": 6000,
         "monitoring_points_per_page": 200,
@@ -195,7 +195,7 @@ internal.client = class {
             }
         }
         params.outputProperties = "country,monitoringPointOriginalIdentifier"
-        var url = sprintf ("%s/token/%s/view/%s/timeseries-api/monitoring-points", this.config["url"], this.config["token"], view)
+        var url = sprintf ("%s/token/%s/view/%s/om-api/features", this.config["url"], this.config["token"], view)
         this.last_request = {
             url: url, // print("url: %s" % url)
             params: params
@@ -228,8 +228,9 @@ internal.client = class {
     * 
     * @param {string} view - WHOS view identifier
     * @param {object} filter
-    * @param {string} filter.monitoringPoint - Identifier of the monitoring point
-    * @param {string} filter.timeseriesIdentifier - Identifier of the time series
+    * @param {string} filter.feature - Identifier of the monitoring point
+    * @param {string} filter.observedProperty - Identifier of the time series
+    * @param {string} filter.observationIdentifier - Identifier of the time series
     * @param {string} filter.beginPosition - Temporal interval begin position (ISO8601 date)
     * @param {string} filter.endPosition - Temporal interval end position (ISO8601 date)
     * @param {integer} filter.offset - Start position of matched records
@@ -249,7 +250,7 @@ internal.client = class {
         if(useCache) {
             params.useCache = true
         }
-        var url = sprintf("%s/token/%s/view/%s/timeseries-api/timeseries", this.config["url"], this.config["token"], view)
+        var url = sprintf("%s/token/%s/view/%s/om-api/observations", this.config["url"], this.config["token"], view)
         console.log("url: " + url)
         // console.log("%s - %s?%s" % (str(datetime.now()), url, "&".join([ "%s=%s" % (key, params[key]) for key in params])))
         this.last_request = {

@@ -6,7 +6,7 @@ const { exec } = require('child_process')
 var sprintf = require('sprintf-js').sprintf, vsprintf = require('sprintf-js').vsprintf
 var path = require('path');
 
-internal.printGrassMap = function(input,output,parameters) {
+internal.printGrassMap = async function(input,output,parameters) {
 	//~ console.log({forecast_date:parameters.forecast_date.toISOString()})
 	if(!parameters) {
 		//~ throw new Error("parameters missing")
@@ -77,38 +77,33 @@ nv 255:255:255\n\
     }
 	var grid_size = (parameters) ? (parameters.grid_size) ? parameters.grid_size : 5 : 5
 	var title = (parameters) ? (parameters.title) ? parameters.title : input.substring(0,16) : input.substring(0,16)
-	return execShellCommand('gdalinfo -json ' + input)
-	.then(result=>{
-		if(!result) {
-			throw new Error("invalid GDAL file")
-			return
-		}
-		try {
-			var gdalinfo = JSON.parse(result)
-		} catch(e) {
-			throw new Error("invalid gdalinfo file")
-			return
-		}
-		//~ console.log(gdalinfo)
-		if(!gdalinfo.bands){
-			throw new Error("No bands found in GDAL file")
-			return
-		}
-		var band = (parameters.band) ? parameters.band : 1
-		var rescale_str = ""
-		if(gdalinfo.bands[band-1].offset) {
-			if(gdalinfo.bands[band-1].scale) {
-				rescale_str = 'r.mapcalc expression="rescaledcolormap=newcolormap*'+gdalinfo.bands[band-1].offset+'+'+gdalinfo.bands[band-1].scale+'" --o\n'
-				rescale_str += 'g.rename raster=rescaledcolormap,newcolormap --o\n'
-			} else {
-				rescale_str = 'r.mapcalc expression="rescaledcolormap=newcolormap+'+gdalinfo.bands[band-1].offset+'" --o\n'
-				rescale_str += 'g.rename raster=rescaledcolormap,newcolormap --o\n'
-			}
-		} else if(gdalinfo.bands[band-1].scale) {
-			rescale_str = 'r.mapcalc expression="rescaledcolormap=newcolormap*'+gdalinfo.bands[band-1].scale+'" --o\n'
+	const result = await execShellCommand('gdalinfo -json ' + input)
+	if(!result) {
+		throw new Error("invalid GDAL file: " + e.toString())
+	}
+	try {
+		var gdalinfo = JSON.parse(result)
+	} catch(e) {
+		throw new Error("invalid gdalinfo file: " + e.toString())
+	}
+	if(!gdalinfo.bands){
+		throw new Error("No bands found in GDAL file")
+	}
+	var band = (parameters.band) ? parameters.band : 1
+	var rescale_str = ""
+	if(gdalinfo.bands[band-1].offset) {
+		if(gdalinfo.bands[band-1].scale) {
+			rescale_str = 'r.mapcalc expression="rescaledcolormap=newcolormap*'+gdalinfo.bands[band-1].offset+'+'+gdalinfo.bands[band-1].scale+'" --o\n'
+			rescale_str += 'g.rename raster=rescaledcolormap,newcolormap --o\n'
+		} else {
+			rescale_str = 'r.mapcalc expression="rescaledcolormap=newcolormap+'+gdalinfo.bands[band-1].offset+'" --o\n'
 			rescale_str += 'g.rename raster=rescaledcolormap,newcolormap --o\n'
 		}
-		var batch_job = "#!/bin/bash\n\
+	} else if(gdalinfo.bands[band-1].scale) {
+		rescale_str = 'r.mapcalc expression="rescaledcolormap=newcolormap*'+gdalinfo.bands[band-1].scale+'" --o\n'
+		rescale_str += 'g.rename raster=rescaledcolormap,newcolormap --o\n'
+	}
+	var batch_job = "#!/bin/bash\n\
 \n\
 g.region res=" + res + " n=" + n + " s=" + s + " w=" + w + " e=" + e + "\n\
 if ! r.in.gdal " + input + " out=newcolormap band=" + band + " -o --o --q; then echo \"Error al cargar " + input + ". Verifique archivo\";exit 1;fi\n\
@@ -130,27 +125,22 @@ if d.mon stop=png\n\
 then\n\
   composite -gravity NorthEast " + logo_file + " " + render_file + " " + output + "\n\
 fi"
-		return fs.writeFile(grass_batch_job_file, batch_job)
-		.then(()=>{
-			fs.chmodSync(grass_batch_job_file, "755");
-			//~ process.env.GRASS_BATCH_JOB = grass_batch_job_file
-			return execShellCommand('grass -c ' + location + '/' + mapset + ' --exec ' + grass_batch_job_file)
-			.then(stdout=>{
-				console.log(stdout)
-				delete process.env.GRASS_BATCH_JOB
-				console.log("se escribió el archivo " + output)
-				return output
-			})
-		})
-		.catch(e=>{
-			delete process.env.GRASS_BATCH_JOB
-			console.error(e)
-		})
-	})
-	.catch(e=>{
-		console.error(e)
-		return // Promise.reject(e)
-	})
+	fs.writeFileSync(grass_batch_job_file, batch_job)
+	fs.chmodSync(grass_batch_job_file, "755");
+	//~ process.env.GRASS_BATCH_JOB = grass_batch_job_file
+	try {
+		const stdout = await execShellCommand(`
+			set -e
+			grass -c ${location}/${mapset} --exec ${grass_batch_job_file}
+		`)
+		console.log(stdout)
+		delete process.env.GRASS_BATCH_JOB
+		console.log("se escribió el archivo " + output)
+		return output
+	} catch(e) {
+		delete process.env.GRASS_BATCH_JOB
+		throw(e)
+	}
 }
 
 internal.printRastObsColorMap= function (input,output,observation,options={}) {
@@ -338,7 +328,7 @@ fi"
 	})
 }
 
-internal.print_pp_cdp_semanal = function (input,output,parameters,vect_input) {
+internal.print_pp_cdp_semanal = async function (input,output,parameters,vect_input) {
 	if(!parameters) {
 		return Promise.reject("parameters missing")
 	}
@@ -361,6 +351,14 @@ internal.print_pp_cdp_semanal = function (input,output,parameters,vect_input) {
 		vect_stmt = "if ! v.in.ogr " + vect_input + " output=pp_points --o; then exit 1;fi\n\
 		             d.vect pp_points;"
 	}
+	if(parameters.mask_cdp) {
+		var display_stmt = `r.mask cdp@principal
+		d.rast recl
+		r.mask -r`
+	} else {
+		var display_stmt = "d.rast recl"
+	}
+	var title = parameters.title || "Precipitaciones semanales campo interpolado [mm]"
 	var batch_job = "#!/bin/bash\n\
 	\n\
 g.region n=-12 s=-39 w=-68 e=-42 res=0.1\n\
@@ -370,7 +368,7 @@ export GRASS_RENDER_WIDTH=$width\n\
 export GRASS_RENDER_HEIGHT=$height\n\
 export GRASS_RENDER_TRUECOLOR=TRUE\n\
 export GRASS_RENDER_FILE=tmp/map" + rnum + ".png\n\
-if ! r.in.gdal " + input + " output=pp_surf --o; then echo \"archivo pp_surf no se pudo importar\"; exit 1;fi\n\
+if ! r.in.gdal " + input + " b=1 output=pp_surf --o; then echo \"archivo pp_surf no se pudo importar\"; exit 1;fi\n\
 if d.mon start=png --o width=$width height=$height bgcolor=200:200:200 output=" + render_file + "\n\
  then \n\
 echo \"0	255:255:255\n\
@@ -422,14 +420,14 @@ echo \"0	255:255:255\n\
 260     0:0:0 \n\
 1000 0:0:0 \n\
 nv 255:255:255\" | r.colors recl rules=-\n\
- d.rast recl\n\
+ " + display_stmt + "\n\
  d.vect CDP@principal color=red width=2\n\
  d.vect limites_internacionales@principal width=2 color=black\n\
  d.vect hidro_cdp@principal color=blue\n\
  d.grid size=5 textcolor=black fontsize=12\n\
  " + vect_stmt + "\
  d.legend recl use=0,1,8,15,25,40,60,80,100,120,140,160,180,200,260 at=3,43,3,9 -f\n\
- d.text text=\"Precipitaciones semanales campo interpolado [mm]\" line=1 size=2.5 color=black -b\n\
+ d.text text=\"" + title + "\" line=1 size=2.5 color=black -b\n\
  d.text text=\""+ timestart.toISOString().substring(0,16) + " UTC a " + timeend.toISOString().substring(0,16) + " UTC\" line=2 size=2.5 color=black -b \n\
  if  d.mon stop=png\n\
   then\n\
@@ -438,18 +436,19 @@ nv 255:255:255\" | r.colors recl rules=-\n\
  fi\n\
 else echo \"no se pudo abrir monitor png\"; exit 1\n\
 fi"
-    return fs.writeFile(grass_batch_job_file, batch_job)
-	.then(()=>{
-		fs.chmodSync(grass_batch_job_file, "755");
-		//~ process.env.GRASS_BATCH_JOB = grass_batch_job_file
-		return execShellCommand('grass -c ' + location + '/' + mapset + ' --exec ' + grass_batch_job_file)
-		.then(stdout=>{
-			console.log(stdout)
-			//~ delete process.env.GRASS_BATCH_JOB
-			console.log("se escribió el archivo " + output)
-			return output
-		})
-	})
+    await fs.writeFile(grass_batch_job_file, batch_job);
+	fs.chmodSync(grass_batch_job_file, "755");
+	try {
+		const stdout = await execShellCommand(`set -e
+			grass -c ${location}/${mapset} --exec ${grass_batch_job_file}`
+		);
+		console.log(stdout);
+		//~ delete process.env.GRASS_BATCH_JOB
+		console.log("se escribió el archivo " + output);
+	} catch (e) {
+		throw(e)
+	}
+	return output;
 }
 
 
