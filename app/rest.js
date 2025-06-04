@@ -82,6 +82,9 @@ const passport = auth.passport
 // //~ app.use(cookieParser());
 app.engine('handlebars', (exphbs.engine) ? exphbs.engine({defaultLayout: 'main'}) : exphbs({defaultLayout: 'main'}));// ({defaultLayout: 'main'})); //  <- CHANGE FOR NEWER express-handlebars versions
 app.set('view engine', 'handlebars');
+app.set('views', [
+  path.join(__dirname, '../views')
+]);
 app.use( bodyParser.json({limit: '50mb'}) );       // to support JSON-encoded bodies
 //~ app.use(bodyParser.urlencoded({     // to support URL-encoded bodies
   //~ extended: true
@@ -8163,10 +8166,18 @@ function guess_tipo (data) {
 	}
 }
 
-app.listen(port, (err) => {
-	if (err) {
-		return console.log('Err',err)
-	}
-	console.log(`server listening on port ${port}`)
-})
+(async ()=> {
+
+	const reportes = (await import ('../../../reportes/app/server.js')).default;
+
+	app.use('/reportes', reportes);
+
+	app.listen(port, (err) => {
+		if (err) {
+			return console.log('Err',err)
+		}
+		console.log(`server listening on port ${port}`)
+	})
+
+})()
 
