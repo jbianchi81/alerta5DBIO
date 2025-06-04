@@ -3248,11 +3248,12 @@ paths:
       - name: obsTipo
         description: tipo de observación
         required: true
-        schema: { "type": "string"} 
-        enum:
-        - puntual
-        - areal
-        - raster
+        schema: 
+          type: string
+          enum:
+          - puntual
+          - areal
+          - raster
         in: path
       - name: id
         description: id de la serie
