@@ -3280,15 +3280,17 @@ paths:
         schema: { "type": "boolean"} 
         in: query
       - name: format
-        description: formato (json, gmd)
+        description: formato (json, geojson, csv, gmd, string, waterml2)
         required: false
         schema:
-          oneOf:
+          type: string
+          enum:
            - json
            - geojson
            - csv
            - gmd
            - string
+           - waterml2
         in: query      
       responses:
         '200':
