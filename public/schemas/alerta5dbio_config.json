@@ -242,6 +242,13 @@
             "type": "object",
             "description": "Web application settings",
             "properties": {
+                "protocol": {
+                    "type": "string",
+                    "enum": [
+                        "http",
+                        "https"
+                    ]
+                },
                 "port": {
                     "type": "number",
                     "description": "Port number"
@@ -261,6 +268,10 @@
                 "max_delete_batch_size": {
                     "type": "number",
                     "description": "Limit of the observaciones delete batch size"
+                },
+                "secure": {
+                    "type": "boolean",
+                    "description": "sets cookie.secure of express session"
                 },
                 "child_apps": {
                     "type": "array",
