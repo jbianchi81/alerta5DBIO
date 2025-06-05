@@ -261,6 +261,38 @@
                 "max_delete_batch_size": {
                     "type": "number",
                     "description": "Limit of the observaciones delete batch size"
+                },
+                "child_apps": {
+                    "type": "array",
+                    "description": "Mount this subapps at the specified paths",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "source": {
+                                "type": "string",
+                                "description": "app module source file location"
+                            },
+                            "path": {
+                                "type": "string",
+                                "description": "mount path where to expose the child app"
+                            },
+                            "auth": {
+                                "type": "string",
+                                "description": "authentication level",
+                                "enum": [
+                                    "public",
+                                    "authenticated",
+                                    "writer",
+                                    "admin",
+                                    "public_view",
+                                    "authenticated_view",
+                                    "writer_view",
+                                    "admin_view"
+                                ]
+                            }
+                        },
+                        "required": ["source", "path"]
+                    }
                 }
             }      
         }

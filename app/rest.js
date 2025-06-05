@@ -76,7 +76,7 @@ if(config.enable_cors) {
 }
 
 // AUTHENTICATION
-const auth = require('../../appController/app/authentication.js')(app,config,global.pool)
+const auth = require(path.join(__dirname, config.rest.auth_source || '../../appController/app/authentication.js'))(app,config,global.pool)
 const passport = auth.passport
 //~ const passport = require('passport');
 // //~ app.use(cookieParser());
@@ -227,7 +227,7 @@ app.get('/metadatos',auth.isPublicView,(req,res)=>{
 		console.log({params:params})
 	}
 	if(!req.query.element) {
-		res.render('catalogo')
+		res.render('catalogo', params)
 	} else {
 		//~ res.status(400).send("Falta parámetro element")
 	//~ }
@@ -605,7 +605,18 @@ app.post('/login',passport.authenticate('local'),(req,res)=>{
 		var query_string = querystring.stringify(query) // (req.body.class) ? "?class="+req.body.class : ""
 		var redirect_url = path
 		redirect_url += (query_string != "") ? ("?" + query_string) : ""
-		res.redirect(redirect_url)
+		res.send(`
+			<html>
+				<head>
+				<meta http-equiv="refresh" content="3;url=${redirect_url}" />
+				<title>Logging in...</title>
+				</head>
+				<body>
+				<h1>Login exitoso!</h1>
+				<p>Redireccionando en 3 segundos...</p>
+				</body>
+			</html>
+		`);
 	} else {
 		res.send({message:"Auth success"})
 	}
@@ -8166,11 +8177,25 @@ function guess_tipo (data) {
 	}
 }
 
+const auth_levels = {
+	"public": auth.isPublic,
+	"authenticated": auth.isAuthenticated,
+	"writer": auth.isWriter,
+	"admin": auth.isAdmin,
+	"public_view": auth.isPublicView,
+	"authenticated_view": auth.isAuthenticatedView,
+	"writer_view": auth.isWriterView,
+	"admin_view": auth.isAdminView
+};
+
 (async ()=> {
 
-	const reportes = (await import ('../../../reportes/app/server.js')).default;
-
-	app.use('/reportes', reportes);
+	for(const child_app of config.rest.child_apps) {
+		console.debug(`loading child app source ${child_app.source}`)
+		const child_app_source = (await import (child_app.source)).default;
+		const auth_middleware = (child_app.auth && auth_levels.hasOwnProperty(child_app.auth)) ? auth_levels[child_app.auth] : auth.isPublic
+		app.use(child_app.path, auth_middleware, child_app_source);
+	}
 
 	app.listen(port, (err) => {
 		if (err) {

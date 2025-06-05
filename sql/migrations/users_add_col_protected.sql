@@ -1,0 +1,1 @@
+alter table users add column protected boolean default false;
