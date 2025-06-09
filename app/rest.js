@@ -5023,7 +5023,7 @@ function getCorridasGuardadas(req,res) {
 	})
 	.catch(e=>{
 		console.error(e)
-		res.status(400).send(e)
+		res.status(400).send(e.toString())
 	})
 }
 
@@ -8190,11 +8190,13 @@ const auth_levels = {
 
 (async ()=> {
 
-	for(const child_app of config.rest.child_apps) {
-		console.debug(`loading child app source ${child_app.source}`)
-		const child_app_source = (await import (child_app.source)).default;
-		const auth_middleware = (child_app.auth && auth_levels.hasOwnProperty(child_app.auth)) ? auth_levels[child_app.auth] : auth.isPublic
-		app.use(child_app.path, auth_middleware, child_app_source);
+	if(config.rest.child_apps) {
+		for(const child_app of config.rest.child_apps) {
+			console.debug(`loading child app source ${child_app.source}`)
+			const child_app_source = (await import (child_app.source)).default;
+			const auth_middleware = (child_app.auth && auth_levels.hasOwnProperty(child_app.auth)) ? auth_levels[child_app.auth] : auth.isPublic
+			app.use(child_app.path, auth_middleware, child_app_source);
+		}
 	}
 
 	app.listen(port, (err) => {

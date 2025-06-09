@@ -1066,4 +1066,28 @@ internal.assertValidDateTruncField = function(field) {
 	}
 }
 
+internal.sanitizeIdFilter = function (id, column) {
+	if (Array.isArray(id)) {
+		const sanitizedArray = id.map(Number);
+
+		if (!sanitizedArray.every(id_ => Number.isInteger(id_) && id_ > 0)) {
+			throw new Error("Invalid id: array must contain only positive integers");
+		}
+
+		if (sanitizedArray.length === 0) {
+			throw new Error("Invalid id: array cannot be empty");
+		}
+
+		return ` AND ${column} IN (${sanitizedArray.join(",")})`;
+	} else {
+		const id_ = Number(id);
+		if (!Number.isInteger(id_) || id_ <= 0) {
+			throw new Error("Invalid id: must be a positive integer");
+		}
+
+		return ` AND ${column}=${id_}`;
+	}
+}
+
+
 module.exports = internal

@@ -31,7 +31,7 @@ var pointsWithinPolygon = require("@turf/points-within-polygon")
 
 // const series2waterml2 = require('./series2waterml2');
 // const { relativeTimeThreshold } = require('moment-timezone');
-const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2, control_filter3, control_query_args, getCalStats, assertValidDateTruncField } = require('./utils');
+const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2, control_filter3, control_query_args, getCalStats, assertValidDateTruncField, sanitizeIdFilter } = require('./utils');
 const { DateFromDateOrInterval, Interval } = require('./timeSteps');
 // const { isContext } = require('vm');
 const logger = require('./logger');
@@ -18963,8 +18963,9 @@ ORDER BY cal.cal_id`
 		// console.log({includeProno:includeProno, isPublic: isPublic})
 		var public_filter = (isPublic) ? "AND calibrados.public=true" : ""
 		var grupo_filter = (cal_grupo_id) ? "AND calibrados.grupo_id=" + parseInt(cal_grupo_id) : ""
-		var cor_id_filter = (cor_id) ? (Array.isArray(cor_id)) ? " AND corridas_guardadas.id IN (" + cor_id.join(",") + ")" : " AND corridas_guardadas.id=" + cor_id : ""
-		var cor_id_filter2 = (cor_id) ? (Array.isArray(cor_id)) ? " AND pronosticos_guardados.cor_id IN (" + cor_id.join(",") + ")" : " AND pronosticos_guardados.cor_id=" + cor_id : ""
+		var cor_id_filter = (cor_id) ? sanitizeIdFilter(cor_id, "corridas_guardadas.id") : ""
+		// (cor_id) ? (Array.isArray(cor_id)) ? " AND corridas_guardadas.id IN (" + cor_id.join(",") + ")" : " AND corridas_guardadas.id=" + cor_id : ""
+		// var cor_id_filter2 = (cor_id) ? (Array.isArray(cor_id)) ? " AND pronosticos_guardados.cor_id IN (" + cor_id.join(",") + ")" : " AND pronosticos_guardados.cor_id=" + cor_id : ""
 		var pronosticos = []
 		return global.pool.query("SELECT corridas_guardadas.id,\
 		corridas_guardadas.date,\
