@@ -29,7 +29,17 @@
 				"path": "/childnodeapp",
 				"auth": "writer"
 			}
-		]
+		],
+		"auth_database": {
+			"user": "",
+			"host": "",
+			"database": "",
+			"password": "",
+			"port": 5432,
+			"connectionTimeoutMillis": 1000,
+			"idleTimeoutMillis": 1000,
+			"max": 50
+		}
 	},
 	"verbose": true,
 	"rast": {

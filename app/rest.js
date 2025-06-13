@@ -76,7 +76,13 @@ if(config.enable_cors) {
 }
 
 // AUTHENTICATION
-const auth = require(path.join(__dirname, config.rest.auth_source || '../../appController/app/authentication.js'))(app,config,global.pool)
+if(config.rest.auth_database) {
+	const {Pool} = require('pg')
+	var auth_pool = new Pool(config.rest.auth_database)
+} else {
+	auth_pool = global.pool
+}
+const auth = require(path.join(__dirname, config.rest.auth_source || '../../appController/app/authentication.js'))(app,config,auth_pool)
 const passport = auth.passport
 //~ const passport = require('passport');
 // //~ app.use(cookieParser());
