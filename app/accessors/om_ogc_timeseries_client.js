@@ -189,7 +189,10 @@ internal.client = class {
     */
     async getMonitoringPoints(view=this.config["view"],filter={},options={}) {
         const params = {}
-        for(var key of ["east","west","north","south","limit","offset","country","provider"]) {
+        if(filter.id_externo && !filter.feature) {
+            filter.feature = filter.id_externo
+        }
+        for(var key of ["east","west","north","south","limit","offset","country","provider","feature"]) {
             if(filter.hasOwnProperty(key)) {
                 params[key] = filter[key]
             }
@@ -242,7 +245,7 @@ internal.client = class {
     */
     async getTimeseries(view=this.config["view"], filter={}, options={}, useCache = false) {
         const params = {}
-        for(var key of ["monitoringPoint","timeseriesIdentifier","beginPosition","endPosition","limit","offset"]) {
+        for(var key of ["monitoringPoint","observationIdentifier","beginPosition","endPosition","limit","offset","includeData"]) {
             if(filter.hasOwnProperty(key)) {
                 params[key] = filter[key]
             }
@@ -522,7 +525,7 @@ internal.client = class {
     //             f.write(group.to_csv(index=False))
     //     return timeseries
 
-    // def makeFewsTables(self,output_dir="",save_geojson=False,has_data=True,timeseriesIdentifier=None,country=None,has_timestep=True,east=None,west=None,north=None,south=None):
+    // def makeFewsTables(self,output_dir="",save_geojson=False,has_data=True,observationIdentifier=None,country=None,has_timestep=True,east=None,west=None,north=None,south=None):
     //     """Retrieves WHOS metadata and writes out FEWS tables
         
     //     Parameters
@@ -531,7 +534,7 @@ internal.client = class {
     //         Write outputs in this directory. Defaults to current working directory
     //     save_geojson : bool
     //         Also writes out raw API responses (geoJSON files)
-    //     timeseriesIdentifier: list or str
+    //     observationIdentifier: list or str
     //     country: str - country code (ISO3)
     //     has_timestep: bool
     //         filter out series without timestep. Default True
@@ -542,11 +545,11 @@ internal.client = class {
     //         dict containing retrieved estaciones and timeseries in FEWS format
     //     """
     //     output_dir = Path(output_dir)
-    //     timeseriesIdentifier = timeseriesIdentifier if timeseriesIdentifier is not None else self.fews_observed_properties
+    //     observationIdentifier = observationIdentifier if observationIdentifier is not None else self.fews_observed_properties
     //     monitoringPoints = self.getMonitoringPointsWithPagination(json_output = output_dir / "monitoringPoints.json" if save_geojson else None,country = country,east=east,west=west,north=north,south=south)
     //     stations_fews = self.monitoringPointsToFEWS(monitoringPoints)
     //     # get all WHOS-Plata timeseries metadata (using pagination)
-    //     timeseries = self.getTimeseriesWithPagination(timeseriesIdentifier=timeseriesIdentifier, json_output = output_dir / "timeseries.json" if save_geojson else None, has_data = has_data)
+    //     timeseries = self.getTimeseriesWithPagination(observationIdentifier=observationIdentifier, json_output = output_dir / "timeseries.json" if save_geojson else None, has_data = has_data)
     //     # get unique variables dict
     //     var_map = self.getVariables(timeseries) # self.getVariableMapping()
     //     station_organization = self.getOrganization(timeseries,stations_fews)
@@ -599,7 +602,7 @@ internal.client = class {
         for(var i=1;i<=max;i=i+limit) {
             console.log("getMonitoringPoints offset: " + i)
             var output = (options.output_dir) ? path.resolve(options.output_dir,sprintf("monitoringPointsResponse_%i.json",i)) : undefined
-            const monitoringPoints = await this.getMonitoringPoints(view,{offset:i, limit:limit, west: filter.west, south: filter.south, east: filter.east, north: filter.north, country: filter.country, provider: filter.provider}, {output: output})
+            const monitoringPoints = await this.getMonitoringPoints(view,{offset:i, limit:limit, west: filter.west, south: filter.south, east: filter.east, north: filter.north, country: filter.country, provider: filter.provider, feature: filter.feature}, {output: output})
             if(!monitoringPoints.hasOwnProperty("results")) {
                 console.log("no monitoring points found")
                 break
@@ -645,7 +648,7 @@ internal.client = class {
     * @param {string} view
     * @param {object} filter
     * @param {string|string[]} filter.monitoringPoint
-    * @param {string|string[]} filter.timeseriesIdentifier
+    * @param {string|string[]} filter.observationIdentifier
     * @param {string} filter.beginPosition
     * @param {string} filter.endPosition
     * @param {integer} filter.offset=1
@@ -657,7 +660,7 @@ internal.client = class {
     */
     async getTimeseriesMulti(view=this.config["view"], filter={}, options={},useCache=false) {
         var monitoringPoint = filter.monitoringPoint
-        var timeseriesIdentifier = filter.timeseriesIdentifier
+        var observationIdentifier = filter.observationIdentifier
         var includeData = filter.includeData
         var beginPosition = filter.beginPosition
         var endPosition = filter.endPosition
@@ -672,21 +675,21 @@ internal.client = class {
         } else {
             monitoringPoint = []
         }
-        if(timeseriesIdentifier) {
-            if(typeof timeseriesIdentifier == "string") {
-                timeseriesIdentifier = [timeseriesIdentifier]
+        if(observationIdentifier) {
+            if(typeof observationIdentifier == "string") {
+                observationIdentifier = [observationIdentifier]
             }
         } else {
-            timeseriesIdentifier = []
+            observationIdentifier = []
         }
         if (!monitoringPoint.length) {
-            if (!timeseriesIdentifier.length) {
+            if (!observationIdentifier.length) {
                 return this.getTimeseries( view, {includeData: includeData, beginPosition: beginPosition, endPosition: endPosition, offset: offset, limit: limit},{output:output, has_data: has_data}, useCache)
             } else {
                 var members = []
-                for(var ti of timeseriesIdentifier) {
-                    console.log("timeseriesIdentifier: " + ti)
-                    const timeseries = await this.getTimeseries(view, {includeData: includeData, timeseriesIdentifier: ti, beginPosition: beginPosition, endPosition: endPosition, offset: offset, limit: limit}, {output: output, has_data:has_data}, useCache)
+                for(var ti of observationIdentifier) {
+                    console.log("observationIdentifier: " + ti)
+                    const timeseries = await this.getTimeseries(view, {includeData: includeData, observationIdentifier: ti, beginPosition: beginPosition, endPosition: endPosition, offset: offset, limit: limit}, {output: output, has_data:has_data}, useCache)
                     if(timeseries.hasOwnProperty("member")) {
                         members = members.concat(timeseries["member"])
                     }
@@ -700,15 +703,15 @@ internal.client = class {
             var members = []
             for(var mp of monitoringPoint) {
                 console.log("monitoringPoint: " + mp)
-                if (!timeseriesIdentifier.length) {
+                if (!observationIdentifier.length) {
                     const timeseries = await this.getTimeseries(view, {includeData: includeData, monitoringPoint: mp, beginPosition: beginPosition, endPosition: endPosition, offset: offset, limit: limit},{output: output, has_data: has_data},useCache)
                     if(timeseries.hasOwnProperty("member")){
                         members = members.concat(timeseries["member"])
                     }
                 } else {
-                    for(var ti of timeseriesIdentifier) {
+                    for(var ti of observationIdentifier) {
                         console.log("observedProperty: " + ti)
-                        const timeseries = await this.getTimeseries(view, {includeData: includeData, monitoringPoint: mp, timeseriesIdentifier: ti, beginPosition: beginPosition, endPosition: endPosition, offset: offset, limit: limit},{output: output, has_data:has_data},useCache)
+                        const timeseries = await this.getTimeseries(view, {includeData: includeData, monitoringPoint: mp, observationIdentifier: ti, beginPosition: beginPosition, endPosition: endPosition, offset: offset, limit: limit},{output: output, has_data:has_data},useCache)
                         if(timeseries.hasOwnProperty("member")) {
                             members = members.concat(timeseries["member"])
                         }
@@ -728,7 +731,7 @@ internal.client = class {
     * @param {string} view
     * @param {object} filter
     * @param {string|string[]} filter.monitoringPoint
-    * @param {string|string[]} filter.timeseriesIdentifier
+    * @param {string|string[]} filter.observationIdentifier
     * @param {string} filter.beginPosition
     * @param {string} filter.endPosition
     * @param {object} options
@@ -741,7 +744,7 @@ internal.client = class {
     */
     async getTimeseriesWithPagination(view=this.config["view"], filter={}, options={}, useCache=false) {
         var monitoringPoint = filter.monitoringPoint
-        var timeseriesIdentifier = filter.timeseriesIdentifier
+        var observationIdentifier = filter.observationIdentifier
         var beginPosition = filter.beginPosition
         var endPosition = filter.endPosition
         var includeData = filter.includeData
@@ -756,7 +759,7 @@ internal.client = class {
         for(var i=1;i<=this.config.timeseries_max;i=i+this.config.timeseries_per_page) {
             console.log("getTimeseriesMulti, offset: " + i)
             var output = (save_geojson) ? path.resolve(output_dir,sprintf("timeseriesResponse_%i.json", i)) : undefined
-            var timeseries = await this.getTimeseriesMulti(view, {monitoringPoint: monitoringPoint, timeseriesIdentifier: timeseriesIdentifier, includeData: includeData, beginPosition: beginPosition, endPosition: endPosition, offset: i, limit: this.config.timeseries_per_page},{output: output,has_data: has_data},useCache)
+            var timeseries = await this.getTimeseriesMulti(view, {monitoringPoint: monitoringPoint, observationIdentifier: observationIdentifier, includeData: includeData, beginPosition: beginPosition, endPosition: endPosition, offset: i, limit: this.config.timeseries_per_page},{output: output,has_data: has_data},useCache)
             if(!timeseries.hasOwnProperty("member")) {
                 console.error("No timeseries found")
                 break
@@ -844,6 +847,9 @@ internal.client = class {
         }
         if(filter.provider) {
             filter.provider = filter.provider.toString()
+        }
+        if(filter.id_externo) {
+            filter.feature = filter.id_externo
         }
         const result = await this.getMonitoringPointsWithPagination(view,filter,options)
         var foi = this.monitoringPointsToFeaturesOfInterest(result.features)
@@ -955,12 +961,12 @@ internal.client = class {
                 estaciones.push(foi.toEstacion())
             })
         }
-        if(filter.timeseriesIdentifier) {
-            ts_filter.timeseriesIdentifier = filter.timeseriesIdentifier
+        if(filter.observationIdentifier) {
+            ts_filter.observationIdentifier = filter.observationIdentifier
         } else if(filter.series_id) {
             // reads from accessor_timeseries_observation.series_puntual_id
             const timeseries_observations = await internal.timeseries_observation.read({series_puntual_id:filter.series_id})
-            ts_filter.timeseriesIdentifier = (timeseries_observations.length) ? timeseries_observations.map(tso=>tso.timeseries_id) : undefined
+            ts_filter.observationIdentifier = (timeseries_observations.length) ? timeseries_observations.map(tso=>tso.timeseries_id) : undefined
         } else if (filter.var_id || filter.proc_id || filter.unit_id || filter.fuentes_id || filter.tipo || filter.observed_property_id || filter.variable_name) {
             const read_filter = {
                 var_id: filter.var_id,
@@ -976,7 +982,7 @@ internal.client = class {
             if(!timeseries_observations.length) {
                 throw(new Error("No timeseries observations found in database matching the provided criteria. Run getSeries to update database."))
             }
-            ts_filter.timeseriesIdentifier = timeseries_observations.map(tso=>tso.timeseries_id)
+            ts_filter.observationIdentifier = timeseries_observations.map(tso=>tso.timeseries_id)
         }
         return
     }
@@ -1029,7 +1035,7 @@ internal.client = class {
         var estaciones = []
         await this.getSeriesFilters(filter,ts_filter,estaciones)
         console.log("monitoringPoint: " + ts_filter.monitoringPoint)
-        if(ts_filter.timeseriesIdentifier) {
+        if(ts_filter.observationIdentifier) {
             const series = await this.getSeriesOfIdentifier(ts_filter,options)
             return series
         }
@@ -1045,8 +1051,8 @@ internal.client = class {
         return series
     }
     async getSeriesOfIdentifier(filter={},options={}) {
-        if(!filter.timeseriesIdentifier) {
-            throw("Missing filter.timeseriesIdentifier")
+        if(!filter.observationIdentifier) {
+            throw("Missing filter.observationIdentifier")
         }
         const ts_filter = {}
         const ts_options = {}
@@ -1056,7 +1062,7 @@ internal.client = class {
         // removes date range filters because API doesn't take data availability filters
         ts_filter.beginPosition = undefined
         ts_filter.endPosition = undefined
-        ts_filter.timeseriesIdentifier = filter.timeseriesIdentifier
+        ts_filter.observationIdentifier = filter.observationIdentifier
         const result = await this.getTimeseriesWithPagination(view,ts_filter,ts_options)
         const timeseries_observations = result.member.map(m=>{
             return this.parseTimeseriesMember(m)
@@ -1246,7 +1252,7 @@ internal.client = class {
         }
         const ts_filter = {}
         Object.assign(ts_filter,filter)
-        ts_filter.timeseriesIdentifier = tso.timeseries_id
+        ts_filter.observationIdentifier = tso.timeseries_id
         const ts_options = {}
         Object.assign(ts_options,options)
         ts_options.a5 = false
