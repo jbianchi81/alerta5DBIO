@@ -1,13 +1,23 @@
 import { AbstractAccessorEngine, AccessorEngine, ObservacionesFilter, ObservacionesFilterWithArrays, SeriesFilter, SitesFilter, SitesFilterWithArrays, SeriesFilterWithArrays } from './abstract_accessor_engine'
-import get from 'axios'
+import axios, { AxiosInstance } from 'axios'
 import { Estacion, Observacion, Procedimiento, Serie, SerieOnlyIds, Unidades, Variable } from '../a5_types'
 import {estacion as crud_estacion, var as crud_var, procedimiento as crud_proc, unidades as crud_unidades, serie as crud_serie, serie, observaciones as crud_observaciones} from '../CRUD'
+
+type ProxyConfig = {
+    host: string,
+    port: number,
+    auth?: {
+      username: string,  // optional
+      password: string   // optional
+    }
+}
 
 type Config = {
     url: string,
     template_path : string,
     series_map : Record<number,number>,
-    estaciones_map : Record<number,Estacion>
+    estaciones_map : Record<number,Estacion>,
+    proxy? : ProxyConfig
 }
 
 export class Client extends AbstractAccessorEngine implements AccessorEngine {
@@ -16,9 +26,12 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
 
     config : Config
 
+    connection: AxiosInstance
+
     constructor(config : Config) {
         super(config)
         this.setConfig(config)
+        this.connection = axios.create({proxy: this.config.proxy})
     }
 
     default_config : Config = {
@@ -90,7 +103,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         }
         const url = `${this.config.url}/${this.config.template_path.replace("${0}",id.toString())}`
         console.debug(`descargando ${url}`)
-        const response = await get(url)
+        const response = await this.connection.get(url)
         const matches = response.data.match(/alturasJson\s*=\s*([\s\S]*?);/); //  response.data.match(/alturasJson\s*=(.+?);/)
         if(!matches.length) {
             throw new Error("Data not found in downloaded file")

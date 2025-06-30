@@ -76,6 +76,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             }
         };
         this.setConfig(config);
+        this.connection = axios_1.default.create({ proxy: this.config.proxy });
     }
     getValues(id, series_id) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -90,7 +91,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             }
             const url = `${this.config.url}/${this.config.template_path.replace("${0}", id.toString())}`;
             console.debug(`descargando ${url}`);
-            const response = yield (0, axios_1.default)(url);
+            const response = yield this.connection.get(url);
             const matches = response.data.match(/alturasJson\s*=\s*([\s\S]*?);/); //  response.data.match(/alturasJson\s*=(.+?);/)
             if (!matches.length) {
                 throw new Error("Data not found in downloaded file");
