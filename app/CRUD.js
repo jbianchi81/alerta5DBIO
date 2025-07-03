@@ -479,6 +479,50 @@ internal.estacion = class extends baseModel {
 		})
 		return result
 	}
+
+	static fromGeoJSON(
+		geojson_file,
+		nombre_property = "nombre",
+		id_property = "id",
+		tabla
+		) {
+		const geojson_data = JSON.parse(fs.readFileSync(geojson_file,'utf-8'))
+		const estaciones = []
+		if(geojson_data.type == "Feature") {
+			const estacion = this.parseGeoJsonFeatureEstacion(geojson_data, nombre_property, id_property, tabla)
+			estaciones.push(estacion)
+		} else {
+			// assumes featureCollection type
+			for(const item of geojson_data.features) {
+				const estacion = this.parseGeoJsonFeatureEstacion(item, nombre_property, id_property, tabla)
+				estaciones.push(estacion)
+			}
+		}
+		return estaciones 
+	}
+
+	static parseGeoJsonFeatureEstacion(feature, nombre_property="nombre", id_property="id", tabla) {
+		const estacion = {
+			nombre: feature.properties[nombre_property],
+			id: feature.properties[id_property],
+			geom: feature.geometry,
+			tabla: tabla || feature.properties["tabla"],
+			id_externo: feature.properties["id_externo"] || feature.properties[nombre_property]
+		}
+		if(!estacion.tabla) {
+			throw new Error("Missing 'tabla' property")
+		}
+		if(!estacion.id_externo) {
+			throw new Error("Missing 'id_externo' or 'nombre' property")
+		}
+		Object.keys(this._fields).forEach(key => {
+			if(!(key in estacion) && key in feature.properties) {
+				estacion[key] = feature.properties[key] 
+			}
+		})
+		return new this(estacion)
+	}
+
 	isWithinPolygon(polygon) {
 		if(polygon instanceof internal.geometry) {
 			if(polygon.type.toLowerCase() != "polygon") {
@@ -7811,6 +7855,9 @@ internal.CRUD = class {
 	static async upsertAreas(areas) {
 		const created_areas = []
 		for(const area of areas) {
+			if(!area.geom) {
+				throw new Error("Invalid area: missing geom")
+			}
 			const created_area = await this.upsertArea(area)
 			if(created_area) {
 				created_areas.push(created_area)
