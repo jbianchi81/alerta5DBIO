@@ -206,6 +206,7 @@ app.get('/secciones',auth.isPublicView, (req,res)=>{
 	} else {
 		params.config = "{}"
 	}
+	params.tools = config.tools || []
 	if(config.verbose) {
 		console.log({params:params})
 	}
@@ -219,6 +220,7 @@ app.get('/visor',auth.isAuthenticatedView, (req,res)=>{
 		}
 	}
 	//~ console.log({params:params})
+	params.tools = config.tools || []
 	res.render("visor",params)
 })
 app.get('/metadatos',auth.isPublicView,(req,res)=>{
@@ -232,6 +234,7 @@ app.get('/metadatos',auth.isPublicView,(req,res)=>{
 	if(config.verbose) {
 		console.log({params:params})
 	}
+	params.tools = config.tools || []
 	if(!req.query.element) {
 		res.render('catalogo', params)
 	} else {
@@ -307,6 +310,7 @@ app.get('/cargarPlanillas',auth.isWriterView,(req,res)=> {
 			params.loggedAs = req.user.username
 		}
 	}
+	params.tools = config.tools || []
 	//~ console.log({params:params})
 	res.render('cargarPlanillas',params)
 })
@@ -344,6 +348,7 @@ app.get('/apiUI',auth.isPublicView,(req,res)=>{
 			params.loggedAs = req.user.username
 		}
 	}
+	params.tools = config.tools || []
 	res.render('apiUI',params)
 })
 // SIM
@@ -563,6 +568,7 @@ app.get('/pp_cdp_view',auth.isAuthenticatedView,(req,res)=> {
 			params.loggedAs = req.user.username
 		}
 	}
+	params.tools = config.tools || []
 	res.render('pp_cdp_view',params)
 })
 app.post('/obs/:tipo/series/:series_id/thin',auth.isAdmin,thinObs)
