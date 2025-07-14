@@ -3786,6 +3786,20 @@
 						"required": false,
 						"type": "number",
 						"in": "query"
+					},
+                    {
+						"name": "activar",
+						"description": "El área está activada para generación de series areales",
+						"required": false,
+						"type": "boolean",
+						"in": "query"
+					},
+                    {
+						"name": "mostrar",
+						"description": "El área está activada para visualización en los mapas web",
+						"required": false,
+						"type": "boolean",
+						"in": "query"
 					}
                 ],
                 "responses": {

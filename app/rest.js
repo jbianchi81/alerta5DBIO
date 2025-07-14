@@ -7747,7 +7747,7 @@ function getFilter(req) {
 		if(req.query.orden) {
 			filter.orden = req.query.orden
 		}
-		["source_tipo","source_series_id","dest_tipo","dest_series_id","source_var_id","dest_var_id","source_proc_id","dest_proc_id","provider_id","var","abrev","type", "datatype", "valuetype", "GeneralCategory", "VariableName", "SampleMedium","def_unit_id","timeSupport","no_metadata","id_grupo","habilitar","provincia","pais","rio","has_obs","automatica","propietario","abreviatura","url","localidad","real","nivel_alerta","nivel_evacuacion","nivel_aguas_bajas","altitud","distrito","escena_id","accessor","asociacion","exutorio_id","cal_grupo_id","has_prono","data_availability","col_id","date_range_before","date_range_after","limit","offset","search"].forEach(k=>{
+		["source_tipo","source_series_id","dest_tipo","dest_series_id","source_var_id","dest_var_id","source_proc_id","dest_proc_id","provider_id","var","abrev","type", "datatype", "valuetype", "GeneralCategory", "VariableName", "SampleMedium","def_unit_id","timeSupport","no_metadata","id_grupo","habilitar","provincia","pais","rio","has_obs","automatica","propietario","abreviatura","url","localidad","real","nivel_alerta","nivel_evacuacion","nivel_aguas_bajas","altitud","distrito","escena_id","accessor","asociacion","exutorio_id","cal_grupo_id","has_prono","data_availability","col_id","date_range_before","date_range_after","limit","offset","search","activar","mostrar"].forEach(k=>{
 			if(req.query[k]) {
 				filter[k] = req.query[k]
 			}
