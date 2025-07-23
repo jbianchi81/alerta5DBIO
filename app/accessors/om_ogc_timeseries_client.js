@@ -180,9 +180,20 @@ internal.client = class {
     * @param {float} filter.west - Bounding box western longitude coordinate
     * @param {float} filter.north - Bounding box northern latitude coordinate
     * @param {float} filter.south - Bounding box southern latitude coordinate
-    * @param {float} filter.offset - Start position of matched records
     * @param {integer} filter.limit - Maximum number of matched records
+    * @param {string} filter.resumptionToken - Resumption token
+    * @param {integer} filter.observationIdentifier - Identifier of the observation
+    * @param {integer} filter.beginPosition - Temporal interval begin position
+    * @param {integer} filter.endPosition - Temporal interval end position
+    * @param {integer} filter.spatialRelation
+    * @param {integer} filter.predefinedLayer
+    * @param {integer} filter.observedProperty - observed property name or URI
+    * @param {integer} filter.ontology - The ontology to be used to expand the observed property search term (or URI) with additional terms from the ontology that are synonyms and associated to narrower concepts. Two ontologies are available: whos or his-central
+    * @param {integer} filter.timeInterpolation - The interpolation used on the time axis (for example, MAX, MIN, TOTAL, AVERAGE, MAX_PREC, MAX_SUCC, CONTINUOUS, ...)
+    * @param {integer} filter.intendedObservationSpacing - The expected duration between individual observations, expressed as ISO8601 duration (e.g., P1D)
+    * @param {integer} filter.aggregationDuration - Time aggregation that has occurred to the value in the timeseries, expressed as ISO8601 duration (e.g., P1D) 
     * @param {string} filter.country - Country code (ISO3)
+    * @param {string} filter.provider - Data provider identifier
     * @param {object} options
     * @param {string} options.output - Write JSON output into this file
     * @returns {object} OM OGC API monitoringPoints response
@@ -192,7 +203,7 @@ internal.client = class {
         if(filter.id_externo && !filter.feature) {
             filter.feature = filter.id_externo
         }
-        for(var key of ["east","west","north","south","limit","offset","country","provider","feature"]) {
+        for(var key of ["east","west","north","south","limit","feature","resumptionToken","observationIdentifier","beginPosition","endPosition","spatialRelation","predefinedLayer","observedProperty","ontology","timeInterpolation","intendedObservationSpacing","aggregationDuration","country","provider"]) {
             if(filter.hasOwnProperty(key)) {
                 params[key] = filter[key]
             }
@@ -236,8 +247,18 @@ internal.client = class {
     * @param {string} filter.observationIdentifier - Identifier of the time series
     * @param {string} filter.beginPosition - Temporal interval begin position (ISO8601 date)
     * @param {string} filter.endPosition - Temporal interval end position (ISO8601 date)
-    * @param {integer} filter.offset - Start position of matched records
+    * @param {float} filter.east - Bounding box eastern longitude coordinate
+    * @param {float} filter.west - Bounding box western longitude coordinate
+    * @param {float} filter.north - Bounding box northern latitude coordinate
+    * @param {float} filter.south - Bounding box southern latitude coordinate
     * @param {integer} filter.limit - Maximum number of matched records
+    * @param {string} filter.resumptionToken - Resumption token
+    * @param {integer} filter.ontology - The ontology to be used to expand the observed property search term (or URI) with additional terms from the ontology that are synonyms and associated to narrower concepts. Two ontologies are available: whos or his-central
+    * @param {integer} filter.timeInterpolation - The interpolation used on the time axis (for example, MAX, MIN, TOTAL, AVERAGE, MAX_PREC, MAX_SUCC, CONTINUOUS, ...)
+    * @param {integer} filter.intendedObservationSpacing - The expected duration between individual observations, expressed as ISO8601 duration (e.g., P1D)
+    * @param {integer} filter.aggregationDuration - Time aggregation that has occurred to the value in the timeseries, expressed as ISO8601 duration (e.g., P1D) 
+    * @param {string} filter.country - Country code (ISO3)
+    * @param {string} filter.provider - Data provider identifier 
     * @param {object} options
     * @param {boolean} options.has_data - filter out timeseries without data
     * @param {string} options.output - Write JSON output into this file
@@ -245,7 +266,7 @@ internal.client = class {
     */
     async getTimeseries(view=this.config["view"], filter={}, options={}, useCache = false) {
         const params = {}
-        for(var key of ["monitoringPoint","observationIdentifier","beginPosition","endPosition","limit","offset","includeData"]) {
+        for(var key of ["feature","observationIdentifier","east","west","north","south","beginPosition","endPosition","limit","offset","includeData","observedProperty","ontology","timeInterpolation","intendedObservationSpacing","aggregationDuration","country","provider","resumptionToken"]) {
             if(filter.hasOwnProperty(key)) {
                 params[key] = filter[key]
             }
@@ -587,6 +608,17 @@ internal.client = class {
     * @param {float} filter.south - Bounding box southern latitude coordinate
     * @param {float} filter.offset - Start position of matched records
     * @param {integer} filter.limit - Maximum number of matched records
+    * @param {string} filter.resumptionToken - Resumption token
+    * @param {integer} filter.observationIdentifier - Identifier of the observation
+    * @param {integer} filter.beginPosition - Temporal interval begin position
+    * @param {integer} filter.endPosition - Temporal interval end position
+    * @param {integer} filter.spatialRelation
+    * @param {integer} filter.predefinedLayer
+    * @param {integer} filter.observedProperty - observed property name or URI
+    * @param {integer} filter.ontology - The ontology to be used to expand the observed property search term (or URI) with additional terms from the ontology that are synonyms and associated to narrower concepts. Two ontologies are available: whos or his-central
+    * @param {integer} filter.timeInterpolation - The interpolation used on the time axis (for example, MAX, MIN, TOTAL, AVERAGE, MAX_PREC, MAX_SUCC, CONTINUOUS, ...)
+    * @param {integer} filter.intendedObservationSpacing - The expected duration between individual observations, expressed as ISO8601 duration (e.g., P1D)
+    * @param {integer} filter.aggregationDuration - Time aggregation that has occurred to the value in the timeseries, expressed as ISO8601 duration (e.g., P1D) 
     * @param {string} filter.country - Country code (ISO3)
     * @param {object} options
     * @param {string} options.output - Write JSON output into this file
@@ -599,10 +631,12 @@ internal.client = class {
         var results = []
         var limit = (filter.limit) ? filter.limit : this.config.monitoring_points_per_page
         var max = (filter.max) ? filter.max : this.config.monitoring_points_max 
+        var resumptionToken = (filter.resumptionToken) ? filter.resumptionToken : undefined
         for(var i=1;i<=max;i=i+limit) {
             console.log("getMonitoringPoints offset: " + i)
             var output = (options.output_dir) ? path.resolve(options.output_dir,sprintf("monitoringPointsResponse_%i.json",i)) : undefined
-            const monitoringPoints = await this.getMonitoringPoints(view,{offset:i, limit:limit, west: filter.west, south: filter.south, east: filter.east, north: filter.north, country: filter.country, provider: filter.provider, feature: filter.feature}, {output: output})
+            const params = {...filter, limit: limit, resumptionToken: resumptionToken}
+            const monitoringPoints = await this.getMonitoringPoints(view, params, {output: output})
             if(!monitoringPoints.hasOwnProperty("results")) {
                 console.log("no monitoring points found")
                 break
@@ -612,9 +646,13 @@ internal.client = class {
                 const stations_i = internal.client.monitoringPointsToA5(monitoringPoints,undefined,this.config.tabla)
                 estaciones = estaciones.concat(...stations_i)
             }
-            if(monitoringPoints.results.length < limit) {
+            if(monitoringPoints.completed) {
                 break
             }
+            resumptionToken = monitoringPoints.resumptionToken
+            // if(monitoringPoints.results.length < limit) {
+            //     break
+            // }
         }
         const result = {
             "type": "featureCollection",
@@ -647,33 +685,40 @@ internal.client = class {
     *
     * @param {string} view
     * @param {object} filter
-    * @param {string|string[]} filter.monitoringPoint
-    * @param {string|string[]} filter.observationIdentifier
-    * @param {string} filter.beginPosition
-    * @param {string} filter.endPosition
-    * @param {integer} filter.offset=1
-    * @param {integer} filter.limit=10
+    * @param {string|string[]} filter.feature - Identifier of the monitoring point
+    * @param {string|string[]} filter.monitoringPoint - alias for feature
+    * @param {string} filter.observedProperty - Identifier of the time series
+    * @param {string|string[]} filter.observationIdentifier - Identifier of the time series
+    * @param {string} filter.beginPosition - Temporal interval begin position (ISO8601 date)
+    * @param {string} filter.endPosition - Temporal interval end position (ISO8601 date)
+    * @param {float} filter.east - Bounding box eastern longitude coordinate
+    * @param {float} filter.west - Bounding box western longitude coordinate
+    * @param {float} filter.north - Bounding box northern latitude coordinate
+    * @param {float} filter.south - Bounding box southern latitude coordinate
+    * @param {integer} filter.limit - Maximum number of matched records
+    * @param {string} filter.resumptionToken - Resumption token
+    * @param {integer} filter.ontology - The ontology to be used to expand the observed property search term (or URI) with additional terms from the ontology that are synonyms and associated to narrower concepts. Two ontologies are available: whos or his-central
+    * @param {integer} filter.timeInterpolation - The interpolation used on the time axis (for example, MAX, MIN, TOTAL, AVERAGE, MAX_PREC, MAX_SUCC, CONTINUOUS, ...)
+    * @param {integer} filter.intendedObservationSpacing - The expected duration between individual observations, expressed as ISO8601 duration (e.g., P1D)
+    * @param {integer} filter.aggregationDuration - Time aggregation that has occurred to the value in the timeseries, expressed as ISO8601 duration (e.g., P1D) 
+    * @param {string} filter.country - Country code (ISO3)
+    * @param {string} filter.provider - Data provider identifier 
     * @param {object} options
     * @param {string} options.output
     * @param {boolean} options.has_data=false
     * @returns {object}
     */
     async getTimeseriesMulti(view=this.config["view"], filter={}, options={},useCache=false) {
-        var monitoringPoint = filter.monitoringPoint
+        var feature = filter.feature || filter.monitoringPoint
         var observationIdentifier = filter.observationIdentifier
-        var includeData = filter.includeData
-        var beginPosition = filter.beginPosition
-        var endPosition = filter.endPosition
-        var offset = (filter.offset) ? filter.offset : 1
-        var limit = (filter.limit) ? filter.limit : 10
         var output = options.output
         var has_data= (options.has_data) ? options.has_data : false
-        if(monitoringPoint) {
-            if(typeof monitoringPoint == "string"){
-                monitoringPoint = [monitoringPoint]
+        if(feature) {
+            if(typeof feature == "string"){
+                feature = [feature]
             }
         } else {
-            monitoringPoint = []
+            feature = []
         }
         if(observationIdentifier) {
             if(typeof observationIdentifier == "string") {
@@ -682,36 +727,41 @@ internal.client = class {
         } else {
             observationIdentifier = []
         }
-        if (!monitoringPoint.length) {
+        if (!feature.length) {
             if (!observationIdentifier.length) {
-                return this.getTimeseries( view, {includeData: includeData, beginPosition: beginPosition, endPosition: endPosition, offset: offset, limit: limit},{output:output, has_data: has_data}, useCache)
+                const params = {...filter }
+                return this.getTimeseries( view, params,{output:output, has_data: has_data}, useCache)
             } else {
                 var members = []
                 for(var ti of observationIdentifier) {
                     console.log("observationIdentifier: " + ti)
-                    const timeseries = await this.getTimeseries(view, {includeData: includeData, observationIdentifier: ti, beginPosition: beginPosition, endPosition: endPosition, offset: offset, limit: limit}, {output: output, has_data:has_data}, useCache)
+                    const params = {...filter, observationIdentifier: ti }
+                    const timeseries = await this.getTimeseries(view, params, {output: output, has_data:has_data}, useCache)
                     if(timeseries.hasOwnProperty("member")) {
                         members = members.concat(timeseries["member"])
                     }
                 }
                 return {
                     "type": "featureCollection",
-                    "member": members
+                    "member": members,
+                    "completed": true
                 }
             }
         } else {
             var members = []
-            for(var mp of monitoringPoint) {
-                console.log("monitoringPoint: " + mp)
+            for(var mp of feature) {
+                console.log("feature: " + mp)
                 if (!observationIdentifier.length) {
-                    const timeseries = await this.getTimeseries(view, {includeData: includeData, monitoringPoint: mp, beginPosition: beginPosition, endPosition: endPosition, offset: offset, limit: limit},{output: output, has_data: has_data},useCache)
+                    const params = {...filter, feature: mp}
+                    const timeseries = await this.getTimeseries(view, params, {output: output, has_data: has_data},useCache)
                     if(timeseries.hasOwnProperty("member")){
                         members = members.concat(timeseries["member"])
                     }
                 } else {
                     for(var ti of observationIdentifier) {
                         console.log("observedProperty: " + ti)
-                        const timeseries = await this.getTimeseries(view, {includeData: includeData, monitoringPoint: mp, observationIdentifier: ti, beginPosition: beginPosition, endPosition: endPosition, offset: offset, limit: limit},{output: output, has_data:has_data},useCache)
+                        const params = {...filter , feature: mp, observationIdentifier: ti}
+                        const timeseries = await this.getTimeseries(view, params, {output: output, has_data:has_data},useCache)
                         if(timeseries.hasOwnProperty("member")) {
                             members = members.concat(timeseries["member"])
                         }
@@ -720,7 +770,8 @@ internal.client = class {
             }
             return {
                 "id": "observation collection",
-                "member": members
+                "member": members,
+                "completed": true
             }
         }
     }
@@ -730,10 +781,24 @@ internal.client = class {
     *
     * @param {string} view
     * @param {object} filter
-    * @param {string|string[]} filter.monitoringPoint
-    * @param {string|string[]} filter.observationIdentifier
-    * @param {string} filter.beginPosition
-    * @param {string} filter.endPosition
+    * @param {string|string[]} filter.feature - Identifier of the monitoring point
+    * @param {string|string[]} filter.monitoringPoint - alias for feature
+    * @param {string} filter.observedProperty - Identifier of the time series
+    * @param {string|string[]} filter.observationIdentifier - Identifier of the time series
+    * @param {string} filter.beginPosition - Temporal interval begin position (ISO8601 date)
+    * @param {string} filter.endPosition - Temporal interval end position (ISO8601 date)
+    * @param {float} filter.east - Bounding box eastern longitude coordinate
+    * @param {float} filter.west - Bounding box western longitude coordinate
+    * @param {float} filter.north - Bounding box northern latitude coordinate
+    * @param {float} filter.south - Bounding box southern latitude coordinate
+    * @param {integer} filter.limit - Maximum number of matched records
+    * @param {string} filter.resumptionToken - Resumption token
+    * @param {integer} filter.ontology - The ontology to be used to expand the observed property search term (or URI) with additional terms from the ontology that are synonyms and associated to narrower concepts. Two ontologies are available: whos or his-central
+    * @param {integer} filter.timeInterpolation - The interpolation used on the time axis (for example, MAX, MIN, TOTAL, AVERAGE, MAX_PREC, MAX_SUCC, CONTINUOUS, ...)
+    * @param {integer} filter.intendedObservationSpacing - The expected duration between individual observations, expressed as ISO8601 duration (e.g., P1D)
+    * @param {integer} filter.aggregationDuration - Time aggregation that has occurred to the value in the timeseries, expressed as ISO8601 duration (e.g., P1D) 
+    * @param {string} filter.country - Country code (ISO3)
+    * @param {string} filter.provider - Data provider identifier 
     * @param {object} options
     * @param {string} options.output
     * @param {boolean} options.a5=false
@@ -743,11 +808,8 @@ internal.client = class {
     * @returns {object}
     */
     async getTimeseriesWithPagination(view=this.config["view"], filter={}, options={}, useCache=false) {
-        var monitoringPoint = filter.monitoringPoint
+        var feature = filter.feature || filter.monitoringPoint
         var observationIdentifier = filter.observationIdentifier
-        var beginPosition = filter.beginPosition
-        var endPosition = filter.endPosition
-        var includeData = filter.includeData
         var output = options.output
         var a5= (options.a5) ? options.a5 : false
         var save_geojson = (options.save_geojson) ? options.save_geojson : false
@@ -756,10 +818,14 @@ internal.client = class {
         var members = []
         // var_map = self.getVariableMapping()
         var timeseries_a5 = []
+        var page = 0
+        var resumptionToken = filter.resumptionToken
         for(var i=1;i<=this.config.timeseries_max;i=i+this.config.timeseries_per_page) {
-            console.log("getTimeseriesMulti, offset: " + i)
+            page = page + 1
+            console.log("getTimeseriesMulti, page: " + page)
             var output = (save_geojson) ? path.resolve(output_dir,sprintf("timeseriesResponse_%i.json", i)) : undefined
-            var timeseries = await this.getTimeseriesMulti(view, {monitoringPoint: monitoringPoint, observationIdentifier: observationIdentifier, includeData: includeData, beginPosition: beginPosition, endPosition: endPosition, offset: i, limit: this.config.timeseries_per_page},{output: output,has_data: has_data},useCache)
+            const params = {...filter, feature: feature, resumptionToken: resumptionToken}
+            var timeseries = await this.getTimeseriesMulti(view, params,{output: output,has_data: has_data},useCache)
             if(!timeseries.hasOwnProperty("member")) {
                 console.error("No timeseries found")
                 break
@@ -769,15 +835,22 @@ internal.client = class {
             if(has_data) {
                 timeseries["member"] = this.filterByAvailability(timeseries["member"],this.config.threshold_begin_date)
             }
-            console.log(sprintf("Offset: %i, length: %i, got %i timeseries after filtering", i,this.config["timeseries_per_page"],timeseries["member"].length))
+            console.log(sprintf("Page: %i, length: %i, got %i timeseries after filtering", page, this.config["timeseries_per_page"],timeseries["member"].length))
             if(a5) {
                 timeseries_a5 = timeseries_a5.concat(internal.client.timeseriesToA5(timeseries))
             }
             members = members.concat(timeseries["member"])
-            if(timeseries_length < this.config.timeseries_per_page) {
-                console.log("last page, breaking")
+            if(timeseries.completed) {
                 break
             }
+            if(!timeseries.resumptionToken) {
+                throw new Error("Missing resumption token")
+            }
+            resumptionToken = timeseries.resumptionToken
+            // if(timeseries_length < this.config.timeseries_per_page) {
+            //     console.log("last page, breaking")
+            //     break
+            // }
         }
         const result = {
             "id": "observation collection",
@@ -1100,12 +1173,12 @@ internal.client = class {
     }
     async getSeriesOfSite(estacion,filter={},options={}) {
         var view = (filter.view) ? filter.view : this.config.view
-        const ts_filter = {}
+        const ts_filter = {...filter}
         ts_filter.includeData = false
         // removes date range filters because API doesn't take data availability filters
         ts_filter.beginPosition = undefined
         ts_filter.endPosition = undefined
-        ts_filter.monitoringPoint = estacion.id_externo
+        ts_filter.feature = estacion.id_externo
         const result = await this.getTimeseriesWithPagination(view,ts_filter)
         const timeseries_observations = result.member.map(m=>{
             return this.parseTimeseriesMember(m)
