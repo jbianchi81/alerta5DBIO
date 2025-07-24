@@ -43,7 +43,8 @@ CREATE TABLE public.users (
     pass_enc bytea,
     role character varying,
     password character varying,
-    token bytea
+    token bytea,
+    protected boolean DEFAULT false
 );
 
 

@@ -439,16 +439,20 @@ internal.baseModel = class {
 			params: params
 		}
 	}
-	static getColumns() {
+	static getColumns(add_table_name=false) {
 		return Object.keys(this._fields).map(key=>{
 			if(this._fields[key].child) {
 				return
-			} else if(this._fields[key].column) {
-				return `"${this._fields[key].column}"`
-			} else if(this._fields[key].type && this._fields[key].type == "geometry") {
-				return `ST_AsGeoJSON("${key}") AS "${key}"`
 			} else {
-				return `"${key}"`
+				var table_name = (add_table_name) ? (this._fields[key].table) ? this._fields[key].table : this._table_name : undefined 
+				table_name = (table_name) ? `"${table_name}".` : ""
+				if(this._fields[key].column) {
+					return `${table_name}"${this._fields[key].column}"`
+				} else if(this._fields[key].type && this._fields[key].type == "geometry") {
+					return `ST_AsGeoJSON(${table_name}"${key}") AS "${key}"`
+				} else {
+					return `${table_name}"${key}"`
+				}
 			}
 		}).filter(c=>c)
 	}

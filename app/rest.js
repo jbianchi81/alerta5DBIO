@@ -76,12 +76,21 @@ if(config.enable_cors) {
 }
 
 // AUTHENTICATION
-const auth = require('../../appController/app/authentication.js')(app,config,global.pool)
+if(config.rest.auth_database) {
+	const {Pool} = require('pg')
+	var auth_pool = new Pool(config.rest.auth_database)
+} else {
+	auth_pool = global.pool
+}
+const auth = require(path.join(__dirname, config.rest.auth_source || '../../appController/app/authentication.js'))(app,config,auth_pool)
 const passport = auth.passport
 //~ const passport = require('passport');
 // //~ app.use(cookieParser());
 app.engine('handlebars', (exphbs.engine) ? exphbs.engine({defaultLayout: 'main'}) : exphbs({defaultLayout: 'main'}));// ({defaultLayout: 'main'})); //  <- CHANGE FOR NEWER express-handlebars versions
 app.set('view engine', 'handlebars');
+app.set('views', [
+  path.join(__dirname, '../views')
+]);
 app.use( bodyParser.json({limit: '50mb'}) );       // to support JSON-encoded bodies
 //~ app.use(bodyParser.urlencoded({     // to support URL-encoded bodies
   //~ extended: true
@@ -197,6 +206,7 @@ app.get('/secciones',auth.isPublicView, (req,res)=>{
 	} else {
 		params.config = "{}"
 	}
+	params.tools = config.tools || []
 	if(config.verbose) {
 		console.log({params:params})
 	}
@@ -210,6 +220,7 @@ app.get('/visor',auth.isAuthenticatedView, (req,res)=>{
 		}
 	}
 	//~ console.log({params:params})
+	params.tools = config.tools || []
 	res.render("visor",params)
 })
 app.get('/metadatos',auth.isPublicView,(req,res)=>{
@@ -223,8 +234,9 @@ app.get('/metadatos',auth.isPublicView,(req,res)=>{
 	if(config.verbose) {
 		console.log({params:params})
 	}
+	params.tools = config.tools || []
 	if(!req.query.element) {
-		res.render('catalogo')
+		res.render('catalogo', params)
 	} else {
 		//~ res.status(400).send("Falta parámetro element")
 	//~ }
@@ -298,6 +310,7 @@ app.get('/cargarPlanillas',auth.isWriterView,(req,res)=> {
 			params.loggedAs = req.user.username
 		}
 	}
+	params.tools = config.tools || []
 	//~ console.log({params:params})
 	res.render('cargarPlanillas',params)
 })
@@ -335,6 +348,7 @@ app.get('/apiUI',auth.isPublicView,(req,res)=>{
 			params.loggedAs = req.user.username
 		}
 	}
+	params.tools = config.tools || []
 	res.render('apiUI',params)
 })
 // SIM
@@ -554,6 +568,7 @@ app.get('/pp_cdp_view',auth.isAuthenticatedView,(req,res)=> {
 			params.loggedAs = req.user.username
 		}
 	}
+	params.tools = config.tools || []
 	res.render('pp_cdp_view',params)
 })
 app.post('/obs/:tipo/series/:series_id/thin',auth.isAdmin,thinObs)
@@ -602,7 +617,18 @@ app.post('/login',passport.authenticate('local'),(req,res)=>{
 		var query_string = querystring.stringify(query) // (req.body.class) ? "?class="+req.body.class : ""
 		var redirect_url = path
 		redirect_url += (query_string != "") ? ("?" + query_string) : ""
-		res.redirect(redirect_url)
+		res.send(`
+			<html>
+				<head>
+				<meta http-equiv="refresh" content="3;url=${redirect_url}" />
+				<title>Logging in...</title>
+				</head>
+				<body>
+				<h1>Login exitoso!</h1>
+				<p>Redireccionando en 3 segundos...</p>
+				</body>
+			</html>
+		`);
 	} else {
 		res.send({message:"Auth success"})
 	}
@@ -5009,7 +5035,7 @@ function getCorridasGuardadas(req,res) {
 	})
 	.catch(e=>{
 		console.error(e)
-		res.status(400).send(e)
+		res.status(400).send(e.toString())
 	})
 }
 
@@ -7721,7 +7747,7 @@ function getFilter(req) {
 		if(req.query.orden) {
 			filter.orden = req.query.orden
 		}
-		["source_tipo","source_series_id","dest_tipo","dest_series_id","source_var_id","dest_var_id","source_proc_id","dest_proc_id","provider_id","var","abrev","type", "datatype", "valuetype", "GeneralCategory", "VariableName", "SampleMedium","def_unit_id","timeSupport","no_metadata","id_grupo","habilitar","provincia","pais","rio","has_obs","automatica","propietario","abreviatura","url","localidad","real","nivel_alerta","nivel_evacuacion","nivel_aguas_bajas","altitud","distrito","escena_id","accessor","asociacion","exutorio_id","cal_grupo_id","has_prono","data_availability","col_id","date_range_before","date_range_after","limit","offset","search"].forEach(k=>{
+		["source_tipo","source_series_id","dest_tipo","dest_series_id","source_var_id","dest_var_id","source_proc_id","dest_proc_id","provider_id","var","abrev","type", "datatype", "valuetype", "GeneralCategory", "VariableName", "SampleMedium","def_unit_id","timeSupport","no_metadata","id_grupo","habilitar","provincia","pais","rio","has_obs","automatica","propietario","abreviatura","url","localidad","real","nivel_alerta","nivel_evacuacion","nivel_aguas_bajas","altitud","distrito","escena_id","accessor","asociacion","exutorio_id","cal_grupo_id","has_prono","data_availability","col_id","date_range_before","date_range_after","limit","offset","search","activar","mostrar"].forEach(k=>{
 			if(req.query[k]) {
 				filter[k] = req.query[k]
 			}
@@ -8163,10 +8189,34 @@ function guess_tipo (data) {
 	}
 }
 
-app.listen(port, (err) => {
-	if (err) {
-		return console.log('Err',err)
+const auth_levels = {
+	"public": auth.isPublic,
+	"authenticated": auth.isAuthenticated,
+	"writer": auth.isWriter,
+	"admin": auth.isAdmin,
+	"public_view": auth.isPublicView,
+	"authenticated_view": auth.isAuthenticatedView,
+	"writer_view": auth.isWriterView,
+	"admin_view": auth.isAdminView
+};
+
+(async ()=> {
+
+	if(config.rest.child_apps) {
+		for(const child_app of config.rest.child_apps) {
+			console.debug(`loading child app source ${child_app.source}`)
+			const child_app_source = (await import (child_app.source)).default;
+			const auth_middleware = (child_app.auth && auth_levels.hasOwnProperty(child_app.auth)) ? auth_levels[child_app.auth] : auth.isPublic
+			app.use(child_app.path, auth_middleware, child_app_source);
+		}
 	}
-	console.log(`server listening on port ${port}`)
-})
+
+	app.listen(port, (err) => {
+		if (err) {
+			return console.log('Err',err)
+		}
+		console.log(`server listening on port ${port}`)
+	})
+
+})()
 

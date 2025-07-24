@@ -242,6 +242,13 @@
             "type": "object",
             "description": "Web application settings",
             "properties": {
+                "protocol": {
+                    "type": "string",
+                    "enum": [
+                        "http",
+                        "https"
+                    ]
+                },
                 "port": {
                     "type": "number",
                     "description": "Port number"
@@ -261,8 +268,58 @@
                 "max_delete_batch_size": {
                     "type": "number",
                     "description": "Limit of the observaciones delete batch size"
+                },
+                "secure": {
+                    "type": "boolean",
+                    "description": "sets cookie.secure of express session"
+                },
+                "child_apps": {
+                    "type": "array",
+                    "description": "Mount this subapps at the specified paths",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "source": {
+                                "type": "string",
+                                "description": "app module source file location"
+                            },
+                            "path": {
+                                "type": "string",
+                                "description": "mount path where to expose the child app"
+                            },
+                            "auth": {
+                                "type": "string",
+                                "description": "authentication level",
+                                "enum": [
+                                    "public",
+                                    "authenticated",
+                                    "writer",
+                                    "admin",
+                                    "public_view",
+                                    "authenticated_view",
+                                    "writer_view",
+                                    "admin_view"
+                                ]
+                            }
+                        },
+                        "required": ["source", "path"]
+                    }
                 }
             }      
+        },
+        "tools": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string"
+                    },
+                    "href": {
+                        "type": "string"
+                    }
+                }
+            }
         }
     },
     "required": [],
