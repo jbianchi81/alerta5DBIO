@@ -24,7 +24,27 @@ internal.accessor_feature_of_interest = class extends baseModel {
 		escena_id: {type: "integer"},
         network_id: {type: "string"}
 	}
+	static _additional_filters = {
+		pais: {
+			type: "string",
+			table: "estaciones",
+			case_insensitive: true
+		},
+		propietario: {
+			type: "string",
+			table: "estaciones",
+			case_insensitive: true
+		}
+
+	}
 	static _table_name = "accessor_feature_of_interest"
+	static async read(filter) {
+		const filters = utils.control_filter2({...this._fields,...this._additional_filters},filter,this._table_name)
+		const columns = this.getColumns(true)
+		const statement = `SELECT ${columns.join(",")} FROM "${this._table_name}" LEFT OUTER JOIN  "estaciones" ON "${this._table_name}"."estacion_id"="estaciones"."unid" WHERE 1=1 ${filters}`
+		const result = await global.pool.query(statement)
+		return result.rows.map(r=>new this(r))
+	}
 	async create() {
 		if(!this.accessor_id || !this.feature_id) {
 			throw("Missing accessor_id and/or feature_id")

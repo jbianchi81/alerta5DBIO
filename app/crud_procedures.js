@@ -1921,11 +1921,19 @@ internal.GetSitesFromAccessorProcedure = class extends internal.CrudProcedure {
     async run() {
         if(config.accessors && config.accessors[this.accessor_id]) {
             var accessor = await Accessors.new(this.accessor_id,config.accessors[this.accessor_id].class,config.accessors[this.accessor_id].config)
-            this.result = await accessor.getSites(this.filter,this.options)
+            if(this.options.update) {
+                this.result = await accessor.updateSites(this.filter, this.options)
+            } else {
+                this.result = await accessor.getSites(this.filter,this.options)
+            }
             return this.result
         } else {
             var accessor = await Accessors.new(this.accessor_id)
-            this.result = await accessor.getSites(this.filter,this.options)
+            if(this.options.update) {
+                this.result = await accessor.updateSites(this.filter, this.options)
+            } else {
+                this.result = await accessor.getSites(this.filter,this.options)
+            }
             return this.result
         }
     }
@@ -4244,6 +4252,7 @@ if(1==1) {
             process.exit(1)
         }
         const get_options = getOutputOptions(options)
+        get_options.update = options.update
         const output = (options.output) ? path.resolve(options.output) : undefined
         try {
             // console.debug("Update from accessor")
@@ -4257,9 +4266,9 @@ if(1==1) {
         }
         try {
             var result = await procedure.run()
-            if(options.update) {
-                result = await CRUD.estacion.create(result)
-            }
+            // if(options.update) {
+            //     result = await CRUD.estacion.create(result)
+            // }
         } catch(e) {
             logger.error(e)
             process.exit(1)

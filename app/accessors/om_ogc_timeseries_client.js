@@ -55,6 +55,7 @@ internal.feature_of_interest = class extends accessor_feature_of_interest {
         for(var i of this.result.parameter) {
             monitoring_point_parameters[i.name] = i.value
         }
+        const propietario = (this.result.hasOwnProperty("relatedParty") && this.result.relatedParty.length) ? this.result.relatedParty[0].organisationName : (monitoring_point_parameters.hasOwnProperty("sourceId")) ? monitoring_point_parameters.sourceId : undefined
         return new Estacion({
             id: this.estacion_id,
             tabla: this.network_id,
@@ -62,7 +63,7 @@ internal.feature_of_interest = class extends accessor_feature_of_interest {
             nombre: this.result.name,
             geom: this.result.shape, // { "type": "Point", coordinates: [item.shape.coordinates[0], item.shape.coordinates[1]]},
             pais: (monitoring_point_parameters.hasOwnProperty("country")) ?  monitoring_point_parameters.country : undefined,
-            propietario: (this.result.hasOwnProperty("relatedParty") && this.result.relatedParty.length) ? this.result.relatedParty[0].organisationName : undefined,
+            propietario: propietario,
             ubicacion: (monitoring_point_parameters.hasOwnProperty("identifier")) ? monitoring_point_parameters.identifier: undefined, 
             real: true, 
             has_obs: true
@@ -170,7 +171,18 @@ internal.client = class {
         }
         return
     }
+
+    static getCountryNameFromIsoCode(iso) {
+        for(var c of this.country_map) {
+            if(c.iso.toLowerCase() == iso.toLowerCase()) {
+                return c.name
+            }
+        }
+        return
+    }
+
     
+
     /**
     * getMonitoringPoints Retrieves monitoring points as a geoJSON document from the timeseries API
     *
@@ -824,7 +836,7 @@ internal.client = class {
             page = page + 1
             console.log("getTimeseriesMulti, page: " + page)
             var output = (save_geojson) ? path.resolve(output_dir,sprintf("timeseriesResponse_%i.json", i)) : undefined
-            const params = {...filter, feature: feature, resumptionToken: resumptionToken}
+            const params = {...filter, observationIdentifier: observationIdentifier, feature: feature, resumptionToken: resumptionToken}
             var timeseries = await this.getTimeseriesMulti(view, params,{output: output,has_data: has_data},useCache)
             if(!timeseries.hasOwnProperty("member")) {
                 console.error("No timeseries found")
@@ -920,10 +932,12 @@ internal.client = class {
         }
         if(filter.provider) {
             filter.provider = filter.provider.toString()
+        } else if(filter.propietario) {
+            filter.provider = filter.propietario.toString()  
         }
         if(filter.id_externo) {
             filter.feature = filter.id_externo
-        }
+        } 
         const result = await this.getMonitoringPointsWithPagination(view,filter,options)
         var foi = this.monitoringPointsToFeaturesOfInterest(result.features)
         if(filter.id_externo) {
@@ -1014,23 +1028,29 @@ internal.client = class {
     }
 
     async getSeriesFilters(filter={},ts_filter={},estaciones=[]) {
-        if(filter.monitoringPoint) {
-            ts_filter.monitoringPoint = filter.monitoringPoint
-        } else if(filter.estacion_id || filter.pais || filter.propietario || filter.feature_of_interest_id || filter.id_externo || filter.tabla_id || filter.tabla) {
+        if(filter.feature || filter.monitoringPoint) {
+            ts_filter.feature = filter.feature || filter.monitoringPoint
+        } else if(filter.estacion_id || filter.pais || filter.propietario || filter.feature_of_interest_id || filter.id_externo || filter.tabla_id || filter.tabla || filter.provider || filter.country || filter.feature || filter.name || filter.estacion_nombre || filter.geom || filter.area_id || filter.escena_id || filter.network_id || filter.red_id) {
             // reads from accessor_feature_of_interest.estacion_id
             const features_of_interest = await internal.feature_of_interest.read({
-                estacion_id:filter.estacion_id,
-                pais:filter.pais,
-                propietario:filter.propietario,
-                feature_id: filter.id_externo,
-                network_id: filter.tabla ?? filter.tabla_id
+
+                accessor_id: this.config.accessor_id,
+        		feature_id: filter.id_externo || filter.feature,
+        		name: filter.name || filter.estacion_nombre,
+		        geometry: filter.geom,
+                estacion_id: filter.estacion_id,
+                area_id: filter.area_id,
+                escena_id: filter.escena_id,
+                network_id: filter.network_id || filter.tabla || filter.tabla_id || filter.red_id,
+                pais: filter.pais || (filter.country) ? this.constructor.getCountryNameFromIsoCode(filter.country) : undefined,
+                propietario:filter.propietario || filter.provider
             })
             if(!features_of_interest.length) {
                 throw(new Error("No features of interest found in database matching the provided criteria. Run getSites to update database."))
             }
-            ts_filter.monitoringPoint = []
+            ts_filter.feature = []
             features_of_interest.forEach(foi=>{
-                ts_filter.monitoringPoint.push(foi.feature_id)
+                ts_filter.feature.push(foi.feature_id)
                 estaciones.push(foi.toEstacion())
             })
         }
@@ -1057,8 +1077,16 @@ internal.client = class {
             }
             ts_filter.observationIdentifier = timeseries_observations.map(tso=>tso.timeseries_id)
         }
+        for(const key of this.om_api_filter_keys) {
+            if(key in filter) {
+                ts_filter[key] = filter[key]
+            }
+        }
         return
     }
+
+    om_api_filter_keys = ["feature", "observedProperty", "observationIdentifier", "beginPosition", "endPosition", "east", "west", "north", "south", "limit", "resumptionToken", "ontology", "timeInterpolation", "intendedObservationSpacing", "aggregationDuration", "country", "provider"]
+
 
     async updateSeries (filter={},options={}) {
         const estaciones = await this.updateSites(filter)
@@ -1107,7 +1135,7 @@ internal.client = class {
         const ts_filter = {}
         var estaciones = []
         await this.getSeriesFilters(filter,ts_filter,estaciones)
-        console.log("monitoringPoint: " + ts_filter.monitoringPoint)
+        console.log("feature: " + ts_filter.feature)
         if(ts_filter.observationIdentifier) {
             const series = await this.getSeriesOfIdentifier(ts_filter,options)
             return series
