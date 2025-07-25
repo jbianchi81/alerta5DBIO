@@ -131,9 +131,14 @@ internal.new = async function(name,classname,config) {
 	return global.pool.query("SELECT * from accessors where name=$1",[name])
 	.then(result=>{
 		if(result.rows.length==0) {
-			throw new Error("accessor not found")
+			if(name in global.config.accessors) {
+				return new internal.Accessor(global.config.accessors[name])
+			} else {
+				throw new Error("accessor not found")
+			}
+		} else {
+			return new internal.Accessor({"class":result.rows[0].class, "url": result.rows[0].url, "series_tipo": result.rows[0].series_tipo, "series_source_id": result.rows[0].series_source_id, "config": result.rows[0].config, title: result.rows[0].title, upload_fields: result.rows[0].upload_fields, name: result.rows[0].name})
 		}
-		return new internal.Accessor({"class":result.rows[0].class, "url": result.rows[0].url, "series_tipo": result.rows[0].series_tipo, "series_source_id": result.rows[0].series_source_id, "config": result.rows[0].config, title: result.rows[0].title, upload_fields: result.rows[0].upload_fields, name: result.rows[0].name})
 	})
 }
 

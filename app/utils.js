@@ -14,6 +14,7 @@ for(var key in schemas) {
 }
 const CSV = require('csv-string');
 const PostgresInterval = require('postgres-interval');
+const {Geometry: a5_geometry} = require('./geometry')
 
 // var geom =  new Geometry("POINT(-53 -32)")
 // console.log("util: geom instanceof Geometry: " + geom instanceof Geometry)
@@ -57,7 +58,7 @@ internal.control_filter = function (valid_filters, filter, tablename, crud) {
 					filter_string += " AND "+ fullkey + "=false"
 				} 
 			} else if (valid_filters[key] == "geometry") {
-				if(! filter[key] instanceof crud.geometry) {
+				if(! filter[key] instanceof a5_geometry) {
 					console.error("Invalid geometry object")
 					control_flag++
 				} else {
@@ -189,7 +190,7 @@ internal.isIterable = function(obj) {
 internal.not_null = class extends Object {
 }
 
-internal.control_filter2 = function (valid_filters, filter, default_table, crud,throw_on_error=false) {
+internal.control_filter2 = function (valid_filters, filter, default_table, crud, throw_on_error=false) {
 	// valid_filters = { column1: { table: "table_name", type: "data_type", required: bool, column: "column_name"}, ... }  
 	// filter = { column1: "value1", column2: "value2", ....}
 	// default_table = "table"
@@ -241,7 +242,7 @@ internal.control_filter2 = function (valid_filters, filter, default_table, crud,
 					filter_string += " AND "+ fullkey + "=false"
 				} 
 			} else if (valid_filters[key].type == "geometry") {
-				if(! filter[key] instanceof crud.geometry) {
+				if(! filter[key] instanceof a5_geometry) {
 					errors.push("Invalid geometry object")
 					console.error(errors[errors.length-1])
 				} else {
@@ -343,6 +344,12 @@ internal.control_filter2 = function (valid_filters, filter, default_table, crud,
 					throw("invalid interval filter: " + filter[key])
 				}
 				filter_string += ` AND ${fullkey}='${value.toPostgres()}'::interval` 
+			} else if (valid_filters[key].type == "jsonpath") {
+				if (!valid_filters[key].expression) {
+					throw new Error("Missing expression for valid_filter " + key)
+				}
+				const jsonpath_expression = valid_filters[key].expression.replace("$0",filter[key])
+				filter_string += ` AND jsonb_path_exists(${fullkey}, '${jsonpath_expression}')` 
 			} else {
 				if(Array.isArray(filter[key])) {
 					filter_string += " AND "+ fullkey + " IN (" + filter[key].join(",") + ")"
@@ -650,8 +657,8 @@ internal.control_filter3 = function (model, filter, default_table, crud) {
 		} else if (property["$ref"]) {
 			if(property["$ref"] == "#/components/schemas/Geometry") {
 				let geometry 
-				if(!value instanceof crud.geometry) { // value.constructor && value.constructor.name == "geometry") {
-					geometry = new crud.geometry(value)
+				if(!value instanceof a5_geometry) { // value.constructor && value.constructor.name == "geometry") {
+					geometry = new a5_geometry(value)
 				} else {
 					geometry = value
 				}

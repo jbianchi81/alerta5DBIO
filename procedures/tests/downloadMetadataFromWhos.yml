@@ -4,7 +4,14 @@ sequence:
   arguments:
     class_name: accessor
     elements:
-    - {"class":"om_ogc_timeseries_client","url":"https://whos.geodab.eu/gs-service/services/essi","series_tipo":null,"series_source_id":null,"name":"whos_om_ogc_timeseries_api","config":{"url":"https://whos.geodab.eu/gs-service/services/essi","token":"whos-847fb03e-72c3-47c2-ab32-bcba77150912","view":"whos-plata","tabla":"whos_plata","accessor_id":"whos_om_ogc_timeseries_api"},"series_id":null,"upload_fields":null,"title":null} 
+    - class: om_ogc_timeseries_client
+      name: whos_om_ogc_timeseries_api
+      config: 
+        url: https://gs-service-preproduction.geodab.eu/gs-service/services/essi
+        token: whos-847fb03e-72c3-47c2-ab32-bcba77150912
+        view: whos-plata
+        tabla: whos_plata
+        accessor_id: whos_om_ogc_timeseries_api
 - procedureName: GetSitesFromAccessorProcedure
   arguments:
     accessor_id: whos_om_ogc_timeseries_api

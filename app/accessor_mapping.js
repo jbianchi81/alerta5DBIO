@@ -2,6 +2,7 @@
 
 const {baseModel} = require('./baseModel')
 const { estacion, escena, serie, VariableName, unidades, "var": Variable, observacion } = require('./CRUD')
+const {Geometry} = require('./geometry')
 const utils = require('./utils')
 const {isoDurationToHours, interval2string, advanceInterval, retreatInterval} = require('./timeSteps')
 const { control_filter2 } = require('./utils')
@@ -22,24 +23,36 @@ internal.accessor_feature_of_interest = class extends baseModel {
 		estacion_id: {type: "integer"},
 		area_id: {type: "integer"},
 		escena_id: {type: "integer"},
-        network_id: {type: "string"}
-	}
-	static _additional_filters = {
+        network_id: {type: "string"},
 		pais: {
-			type: "string",
-			table: "estaciones",
-			case_insensitive: true
+			type: "jsonpath",
+			column: "result",
+			expression: `$.parameter[*] ? (@.name == "country" && @.value == "$0")`,
+			alias: "country"
 		},
 		propietario: {
-			type: "string",
-			table: "estaciones",
-			case_insensitive: true
+			type: "jsonpath",
+			column: "result",
+			expression: `$.parameter[*] ? (@.name == "sourceId" && @.value == "$0")`,
+			alias: "provider"
 		}
-
 	}
+	// static _additional_filters = {
+	// 	pais: {
+	// 		type: "string",
+	// 		table: "estaciones",
+	// 		case_insensitive: true
+	// 	},
+	// 	propietario: {
+	// 		type: "string",
+	// 		table: "estaciones",
+	// 		case_insensitive: true
+	// 	}
+	// }
 	static _table_name = "accessor_feature_of_interest"
 	static async read(filter) {
-		const filters = utils.control_filter2({...this._fields,...this._additional_filters},filter,this._table_name)
+		filter.geometry = (filter.geometry) ? new Geometry(filter.geometry) : undefined
+		const filters = utils.control_filter2({...this._fields},filter,this._table_name)
 		const columns = this.getColumns(true)
 		const statement = `SELECT ${columns.join(",")} FROM "${this._table_name}" LEFT OUTER JOIN  "estaciones" ON "${this._table_name}"."estacion_id"="estaciones"."unid" WHERE 1=1 ${filters}`
 		const result = await global.pool.query(statement)

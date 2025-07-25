@@ -103,7 +103,7 @@ sequence:
   - testName: PropertyEqualsTest
     arguments:
       property_name: series.0.count
-      property_value: 3
+      property_value: "3"
   - testName: PropertyEqualsTest
     arguments:
       property_name: series.0.series_table

@@ -156,10 +156,10 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                         "VariableName": "Precipitation",
                         "SampleMedium": "Precipitation",
                         "def_unit_id": 9,
-                        "timeSupport": new timeSteps_1.Interval_pg({
+                        "timeSupport": new timeSteps_1.Interval({
                             "hours": 3
                         }),
-                        "def_hora_corte": new timeSteps_1.Interval_pg({})
+                        "def_hora_corte": new timeSteps_1.Interval({})
                     },
                     "procedimiento": {
                         "id": 5,
@@ -181,10 +181,10 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                         "data_column": "rast",
                         "tipo": "QPE",
                         "def_proc_id": 5,
-                        "def_dt": new timeSteps_1.Interval_pg({
+                        "def_dt": new timeSteps_1.Interval({
                             "hours": 3
                         }),
-                        "hora_corte": new timeSteps_1.Interval_pg({}),
+                        "hora_corte": new timeSteps_1.Interval({}),
                         "def_unit_id": 9,
                         "def_var_id": 34,
                         "fd_column": null,
@@ -279,10 +279,10 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                         "VariableName": "Precipitation",
                         "SampleMedium": "Precipitation",
                         "def_unit_id": 22,
-                        "timeSupport": new timeSteps_1.Interval_pg({
+                        "timeSupport": new timeSteps_1.Interval({
                             "days": 1
                         }),
-                        "def_hora_corte": new timeSteps_1.Interval_pg({
+                        "def_hora_corte": new timeSteps_1.Interval({
                             "hours": 9
                         })
                     },
@@ -306,10 +306,10 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                         "data_column": "rast",
                         "tipo": "QPE",
                         "def_proc_id": 5,
-                        "def_dt": new timeSteps_1.Interval_pg({
+                        "def_dt": new timeSteps_1.Interval({
                             "days": 1
                         }),
-                        "hora_corte": new timeSteps_1.Interval_pg({
+                        "hora_corte": new timeSteps_1.Interval({
                             "hours": 9
                         }),
                         "def_unit_id": 22,
@@ -428,7 +428,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 return path_1.default.resolve(local_path, id);
             });
             const downloaded_files = yield this.downloadFiles(product_urls, local_filenames);
-            const dt = (this.config.search_params.q == "precip_1d") ? new timeSteps_1.Interval_pg({ days: 1 }) : new timeSteps_1.Interval_pg({ hours: 3 });
+            const dt = (this.config.search_params.q == "precip_1d") ? new timeSteps_1.Interval({ days: 1 }) : new timeSteps_1.Interval({ hours: 3 });
             const observaciones = yield this.rast2obsList(downloaded_files, dt);
             for (const file of downloaded_files) {
                 (0, fs_1.unlinkSync)(file);
@@ -488,7 +488,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return downloaded_files;
         });
     }
-    rast2obsList(filenames, dt = new timeSteps_1.Interval_pg({ hours: 3 })) {
+    rast2obsList(filenames, dt = new timeSteps_1.Interval({ hours: 3 })) {
         return __awaiter(this, void 0, void 0, function* () {
             // console.log(JSON.stringify(filenames))
             var observaciones = [];

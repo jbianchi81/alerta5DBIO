@@ -644,9 +644,11 @@ internal.client = class {
         var limit = (filter.limit) ? filter.limit : this.config.monitoring_points_per_page
         var max = (filter.max) ? filter.max : this.config.monitoring_points_max 
         var resumptionToken = (filter.resumptionToken) ? filter.resumptionToken : undefined
+        var page = 0
         for(var i=1;i<=max;i=i+limit) {
-            console.log("getMonitoringPoints offset: " + i)
-            var output = (options.output_dir) ? path.resolve(options.output_dir,sprintf("monitoringPointsResponse_%i.json",i)) : undefined
+            page = page + 1
+            console.log("getMonitoringPoints page " + page)
+            var output = (options.output_dir) ? path.resolve(options.output_dir,sprintf("monitoringPointsResponse_%i.json",page)) : undefined
             const params = {...filter, limit: limit, resumptionToken: resumptionToken}
             const monitoringPoints = await this.getMonitoringPoints(view, params, {output: output})
             if(!monitoringPoints.hasOwnProperty("results")) {
@@ -938,7 +940,15 @@ internal.client = class {
         if(filter.id_externo) {
             filter.feature = filter.id_externo
         } 
-        const result = await this.getMonitoringPointsWithPagination(view,filter,options)
+        if(filter.feature && Array.isArray(filter.feature)) {
+            var result = {features: []}
+            for(const feature of filter.feature) {
+                const result_ = await this.getMonitoringPointsWithPagination(view,{...filter, feature: feature},options)
+                result.features.push(...result_.features)
+            }
+        } else {
+            var result = await this.getMonitoringPointsWithPagination(view,filter,options)
+        }
         var foi = this.monitoringPointsToFeaturesOfInterest(result.features)
         if(filter.id_externo) {
             if(Array.isArray(filter.id_externo)) {

@@ -489,12 +489,16 @@ internal.EmptyArrayTest = class extends internal.CrudProcedureTest {
                     }
                 }
             } else {
+                if(!result[0]) {
+                    value = false
+                    reason = "Result item 0 undefined"
+                }
                 if(!result[0].hasOwnProperty(this.property_name)) {
                     value = false
                     reason = "Result item 0 must have property " + this.property
                 } else if(!Array.isArray(result[0][this.property_name])) {
                     value = false
-                    reason = "Result itemo 0 property " + this.property_name + " must be an array"
+                    reason = "Result item 0 property " + this.property_name + " must be an array"
                 } else if(result[0][this.property_name].length) {
                     value = false
                     reason = "Result array length must be == 0"
@@ -1653,11 +1657,7 @@ internal.TestAccessorProcedure = class extends internal.CrudProcedure {
         }
     }
     async run() {
-        if(config.accessors && config.accessors[this.accessor_id]) {
-            var accessor = await Accessors.new(this.accessor_id,config.accessors[this.accessor_id].class,config.accessors[this.accessor_id].config)
-        } else {
-            var accessor = await Accessors.new(this.accessor_id)
-        }
+        var accessor = await Accessors.new(this.accessor_id)
         this.result = await accessor.engine.test()
         console.log("Accessor test result: " + this.result)
         return this.result
@@ -1701,11 +1701,7 @@ internal.UpdateFromAccessorProcedure = class extends internal.CrudProcedure {
         // this.output = arguments[0].output
     }
     async run() {
-        if(config.accessors && config.accessors[this.accessor_id]) {
-            var accessor = await Accessors.new(this.accessor_id,config.accessors[this.accessor_id].class,config.accessors[this.accessor_id].config)
-        } else {
-            var accessor = await Accessors.new(this.accessor_id)
-        }
+        var accessor = await Accessors.new(this.accessor_id)
         this.result = await accessor.updateSeries(this.filter,this.options)
         return this.result
     }
@@ -1747,11 +1743,7 @@ internal.DeleteFromAccessorProcedure = class extends internal.CrudProcedure {
         // this.output = arguments[0].output
     }
     async run() {
-        if(config.accessors && config.accessors[this.accessor_id]) {
-            var accessor = await Accessors.new(this.accessor_id,config.accessors[this.accessor_id].class,config.accessors[this.accessor_id].config)
-        } else {
-            var accessor = await Accessors.new(this.accessor_id)
-        }
+        var accessor = await Accessors.new(this.accessor_id)
         this.result = await accessor.deleteSeries(this.filter,this.options)
         return this.result
     }
@@ -1772,21 +1764,12 @@ internal.DeleteMetadataFromAccessorProcedure = class extends internal.CrudProced
         this.filter = arguments[0].filter
     }
     async run() {
-        if(config.accessors && config.accessors[this.accessor_id]) {
-            var accessor = await Accessors.new(this.accessor_id,config.accessors[this.accessor_id].class,config.accessors[this.accessor_id].config)
-            this.result = await accessor.deleteMetadata(this.filter,this.options)
-                    // if(this.output) {
-                    //     fs.writeFileSync(this.output,JSON.stringify(series,undefined,2))
-                    // }
-            return this.result
-        } else {
-            var accessor = await Accessors.new(this.accessor_id)
-            this.result = await accessor.deleteMetadata(this.filter,this.options)
-                    // if(this.output) {
-                    //     fs.writeFileSync(this.output,JSON.stringify(series,undefined,2))
-                    // }
-            return this.result
-        }
+        var accessor = await Accessors.new(this.accessor_id)
+        this.result = await accessor.deleteMetadata(this.filter,this.options)
+                // if(this.output) {
+                //     fs.writeFileSync(this.output,JSON.stringify(series,undefined,2))
+                // }
+        return this.result
     }
 }
 
@@ -1804,21 +1787,12 @@ internal.DeleteSitesFromAccessorProcedure = class extends internal.CrudProcedure
         this.filter = arguments[0].filter
     }
     async run() {
-        if(config.accessors && config.accessors[this.accessor_id]) {
-            var accessor = await Accessors.new(this.accessor_id,config.accessors[this.accessor_id].class,config.accessors[this.accessor_id].config)
-            this.result = await accessor.deleteSites(this.filter)
-                    // if(this.output) {
-                    //     fs.writeFileSync(this.output,JSON.stringify(series,undefined,2))
-                    // }
-            return this.result
-        } else {
-            var accessor = await Accessors.new(this.accessor_id)
-            this.result = await accessor.deleteSites(this.filter,this.options)
-                    // if(this.output) {
-                    //     fs.writeFileSync(this.output,JSON.stringify(series,undefined,2))
-                    // }
-            return this.result
-        }
+        var accessor = await Accessors.new(this.accessor_id)
+        this.result = await accessor.deleteSites(this.filter,this.options)
+                // if(this.output) {
+                //     fs.writeFileSync(this.output,JSON.stringify(series,undefined,2))
+                // }
+        return this.result
     }
 }
 
@@ -1835,34 +1809,11 @@ internal.UpdateMetadataFromAccessorProcedure = class extends internal.CrudProced
         }
         this.accessor_id = arguments[0].accessor_id
         this.filter = arguments[0].filter
-        // if(this.filter && this.filter.timestart) {
-        //     this.filter.timestart = timeSteps.DateFromDateOrInterval(this.filter.timestart)
-        // }
-        // if(this.filter && this.filter.timeend) {
-        //     this.filter.timeend = timeSteps.DateFromDateOrInterval(this.filter.timeend)
-        // }
-        // if(this.filter && this.filter.forecast_date) {
-        //     this.filter.forecast_date = timeSteps.DateFromDateOrInterval(this.filter.forecast_date)
-        // }
-        // this.options = arguments[0].options
-        // this.output = (arguments[0].output) ? arguments[0].output : undefined
     }
     async run() {
-        if(config.accessors && config.accessors[this.accessor_id]) {
-            var accessor = await Accessors.new(this.accessor_id,config.accessors[this.accessor_id].class,config.accessors[this.accessor_id].config)
-            this.result = await accessor.updateMetadata(this.filter,this.options)
-                    // if(this.output) {
-                    //     fs.writeFileSync(this.output,JSON.stringify(series,undefined,2))
-                    // }
-            return this.result
-        } else {
-            var accessor = await Accessors.new(this.accessor_id)
-            this.result = await accessor.updateMetadata(this.filter,this.options)
-                    // if(this.output) {
-                    //     fs.writeFileSync(this.output,JSON.stringify(series,undefined,2))
-                    // }
-            return this.result
-        }
+        var accessor = await Accessors.new(this.accessor_id)
+        this.result = await accessor.updateMetadata(this.filter,this.options)
+        return this.result
     }
 }
 
@@ -1891,15 +1842,9 @@ internal.GetMetadataFromAccessorProcedure = class extends internal.CrudProcedure
         // this.output = (arguments[0].output) ? arguments[0].output : undefined
     }
     async run() {
-        if(config.accessors && config.accessors[this.accessor_id]) {
-            var accessor = await Accessors.new(this.accessor_id,config.accessors[this.accessor_id].class,config.accessors[this.accessor_id].config)
-            this.result = await accessor.getMetadata(this.filter,this.options)
-            return this.result
-        } else {
-            var accessor = await Accessors.new(this.accessor_id)
-            this.result = await accessor.getMetadata(this.filter,this.options)
-            return this.result
-        }
+        var accessor = await Accessors.new(this.accessor_id)
+        this.result = await accessor.getMetadata(this.filter,this.options)
+        return this.result
     }
 }
 
@@ -1919,23 +1864,13 @@ internal.GetSitesFromAccessorProcedure = class extends internal.CrudProcedure {
         this.class_name = "estacion"
     }
     async run() {
-        if(config.accessors && config.accessors[this.accessor_id]) {
-            var accessor = await Accessors.new(this.accessor_id,config.accessors[this.accessor_id].class,config.accessors[this.accessor_id].config)
-            if(this.options.update) {
-                this.result = await accessor.updateSites(this.filter, this.options)
-            } else {
-                this.result = await accessor.getSites(this.filter,this.options)
-            }
-            return this.result
+        var accessor = await Accessors.new(this.accessor_id)
+        if(this.options.update) {
+            this.result = await accessor.updateSites(this.filter, this.options)
         } else {
-            var accessor = await Accessors.new(this.accessor_id)
-            if(this.options.update) {
-                this.result = await accessor.updateSites(this.filter, this.options)
-            } else {
-                this.result = await accessor.getSites(this.filter,this.options)
-            }
-            return this.result
+            this.result = await accessor.getSites(this.filter,this.options)
         }
+        return this.result
     }
 }
 
