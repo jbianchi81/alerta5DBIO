@@ -131,7 +131,7 @@ internal.new = async function(name,classname,config) {
 	return global.pool.query("SELECT * from accessors where name=$1",[name])
 	.then(result=>{
 		if(result.rows.length==0) {
-			if(name in global.config.accessors) {
+			if("accessors" in global.config && name in global.config.accessors) {
 				return new internal.Accessor(global.config.accessors[name])
 			} else {
 				throw new Error("accessor not found")

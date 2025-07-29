@@ -492,8 +492,7 @@ internal.EmptyArrayTest = class extends internal.CrudProcedureTest {
                 if(!result[0]) {
                     value = false
                     reason = "Result item 0 undefined"
-                }
-                if(!result[0].hasOwnProperty(this.property_name)) {
+                } else if(!result[0].hasOwnProperty(this.property_name)) {
                     value = false
                     reason = "Result item 0 must have property " + this.property
                 } else if(!Array.isArray(result[0][this.property_name])) {

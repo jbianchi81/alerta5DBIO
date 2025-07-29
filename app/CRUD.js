@@ -1585,7 +1585,7 @@ internal.fuente = class extends baseModel {
 		const results = []
 		if(Array.isArray(fuentes)) {
 			for(var f of fuentes) {
-				const fuente = this(f) 
+				const fuente = new this(f) 
 				results.push(await fuente.create())
 			}
 		} else {
@@ -7661,7 +7661,7 @@ internal.CRUD = class {
 			pagination_clause = (filter.limit) ? `LIMIT ${filter.limit}` : ""
 			pagination_clause += (filter.offset) ? ` OFFSET ${filter.offset}`: ""
 		}
-		var res = await client.query(`
+		const stmt = `
 			SELECT
 				estaciones.nombre, 
 				estaciones.id_externo, 
@@ -7694,13 +7694,14 @@ internal.CRUD = class {
 					'public', redes.public,
 					'public_his_plata', redes.public_his_plata
 				) as red
-		FROM estaciones
-		JOIN (SELECT id AS fuentes_id, tabla_id, public, public_his_plata, nombre AS red_nombre FROM redes) redes ON (estaciones.tabla=redes.tabla_id)
-		LEFT OUTER JOIN alturas_alerta nivel_alerta ON (estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado='a') 
-		LEFT OUTER JOIN alturas_alerta nivel_evacuacion ON (estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado='e') 
-		LEFT OUTER JOIN alturas_alerta nivel_aguas_bajas ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b') 
-		WHERE estaciones.geom IS NOT NULL ${filter_string} ORDER BY unid
-		${pagination_clause}`)
+			FROM estaciones
+			JOIN (SELECT id AS fuentes_id, tabla_id, public, public_his_plata, nombre AS red_nombre FROM redes) redes ON (estaciones.tabla=redes.tabla_id)
+			LEFT OUTER JOIN alturas_alerta nivel_alerta ON (estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado='a') 
+			LEFT OUTER JOIN alturas_alerta nivel_evacuacion ON (estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado='e') 
+			LEFT OUTER JOIN alturas_alerta nivel_aguas_bajas ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b') 
+			WHERE estaciones.geom IS NOT NULL ${filter_string} ORDER BY unid
+		${pagination_clause}`
+		var res = await client.query(stmt)
 		var estaciones = []
 		for(var row of res.rows) {
 			// row.geom = new internal.geometry("Point", [row.geom_x, row.geom_y])
@@ -13272,7 +13273,8 @@ internal.CRUD = class {
 		options.width = (!options.width) ? 300 : options.width
 		var rescale_band = (serie.fuente.scale_factor && serie.fuente.data_offset) ? "ST_mapAlgebra(rast,1,'32BF','[rast]*" + series.fuente.scale_factor + "+" + serie.fuente.data_offset + "')" : (serie.fuente.data_offset) ? "ST_MapAlgebra(rast,1,'32BF','[rast]+"  + serie.fuente.data_offset + "')" : "rast";
 		if(cor_id || cal_id && forecast_date) {
-			var data_table = "pronosticos_rast JOIN corridas ON pronosticos_rast.cor_id=corridas.id"
+			var data_table = "pronosticos_rast"
+			var join_data_table = "JOIN corridas ON data_table.cor_id=corridas.id"
 			var timeupdate_column = "corridas.date"
 			if(cor_id) {
 				var prono_filter = control_filter2(
@@ -13319,13 +13321,14 @@ internal.CRUD = class {
 			}
 		} else {
 			var data_table = "observaciones_rast"
+			var join_data_table = ""
 			var prono_filter = ""
 			var timeupdate_column = "observaciones_rast.timeupdate"
 		}
 		if(options.source_time_support) {
-			var timeend_column = pasteIntoSQLQuery(`${data_table}.timestart + $1::interval`, [options.source_time_support])
+			var timeend_column = pasteIntoSQLQuery(`data_table.timestart + $1::interval`, [options.source_time_support])
 		} else {
-			var timeend_column = `${data_table}.timeend`
+			var timeend_column = `data_table.timeend`
 		}
 		var stmt
 		var args
@@ -13337,7 +13340,7 @@ internal.CRUD = class {
 						max(${timeend_column}) timeend, 
 						max(${timeupdate_column}) timeupdate, 
 						st_union(ST_Clip(st_rescale(valor,$1),'{1}',st_geomfromtext($2,$3)),$4) as rast
-				FROM ${data_table}
+				FROM ${data_table} AS data_table ${join_data_table}
 				WHERE series_id=$5 AND timestart>=$6 AND timeend<=$7
 				${prono_filter}
 				GROUP by series_id),
@@ -13366,26 +13369,26 @@ internal.CRUD = class {
 			),
 			  rasts as (
 				SELECT 
-						${data_table}.series_id, 
-						${data_table}.timestart as source_timestart, 
+						data_table.series_id, 
+						data_table.timestart as source_timestart, 
 						${timeend_column} as source_timeend, 
 						dest_interval.timestart, 
 						dest_interval.timeend, 
-						greatest(extract( epoch from ${data_table}.timestart ), extract( epoch from dest_interval.timestart)) AS inter_timestart,
+						greatest(extract( epoch from data_table.timestart ), extract( epoch from dest_interval.timestart)) AS inter_timestart,
 						least(extract(epoch from ${timeend_column}), extract( epoch from dest_interval.timeend)) AS inter_timeend,
 						${timeupdate_column} AS timeupdate, 
 						ST_Clip(
-								${data_table}.valor,
+								data_table.valor,
 								'{1}',
 								ST_GeomFromText($1, $2)
 						) AS rast
 				FROM 
-					${data_table},
+					${data_table} AS data_table ${join_data_table},
 					dest_interval
 				WHERE
-					${data_table}.series_id = $3 
+					data_table.series_id = $3 
 					AND ${timeend_column} >= dest_interval.timestart
-					AND ${data_table}.timestart < dest_interval.timeend
+					AND data_table.timestart < dest_interval.timeend
 				    ${prono_filter}
 				),
 				agg AS (
@@ -20737,6 +20740,13 @@ internal.utils = {
 			} else {
 				if(Array.isArray(filter[key])) {
 					if(filter[key].length) {
+						var i = 0
+						for(const item of filter[key]) {
+							if(!item) {
+								throw new Error(`Invalid numeric filter: ${key}: ${filter[key]}. Item ${i} is null`)
+							}
+							i = i + 1
+						}
 						filter_string += " AND "+ fullkey + " IN (" + filter[key].join(",") + ")"
 					} else if(filter_def.required) {
 						internal.utils.alert_error(

@@ -27,3 +27,4 @@ observed_property_id,variable_name
 "Pressure reduced to mean sea level","Sea-level pressure"
 "Temperature, dew point","Temperature, dew point"
 "Relative humidity","Relative humidity"
+"Precipitation","Precipitation"

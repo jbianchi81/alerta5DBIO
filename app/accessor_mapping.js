@@ -52,9 +52,20 @@ internal.accessor_feature_of_interest = class extends baseModel {
 	static _table_name = "accessor_feature_of_interest"
 	static async read(filter) {
 		filter.geometry = (filter.geometry) ? new Geometry(filter.geometry) : undefined
-		const filters = utils.control_filter2({...this._fields},filter,this._table_name)
+		const filters = utils.control_filter2(
+			{
+				...this._fields, 
+				estacion_id: {
+					table: "estaciones", 
+					column:"unid",
+					type: "integer"
+				}
+			},
+			filter,
+			this._table_name
+		)
 		const columns = this.getColumns(true)
-		const statement = `SELECT ${columns.join(",")} FROM "${this._table_name}" LEFT OUTER JOIN  "estaciones" ON "${this._table_name}"."estacion_id"="estaciones"."unid" WHERE 1=1 ${filters}`
+		const statement = `SELECT ${columns.join(",")} FROM "${this._table_name}" LEFT OUTER JOIN  "estaciones" ON ("${this._table_name}"."estacion_id"="estaciones"."unid" OR ("${this._table_name}"."network_id"="estaciones"."tabla" AND "${this._table_name}"."feature_id"="estaciones"."id_externo" )) WHERE 1=1 ${filters}`
 		const result = await global.pool.query(statement)
 		return result.rows.map(r=>new this(r))
 	}

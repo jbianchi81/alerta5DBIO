@@ -2,8 +2,8 @@
     "class": "om_ogc_timeseries_client",
     "name": "whos_om_ogc_timeseries_api",
     "config": {
-        "url": "https://whos.geodab.eu/gs-service/services/essi",
-        "token":"my_token",
+        "url": "https://gs-service-preproduction.geodab.eu/gs-service/services/essi",
+        "token":"whos-847fb03e-72c3-47c2-ab32-bcba77150912",
         "view":"whos-plata",
         "tabla":"whos_plata",
         "accessor_id":"whos_om_ogc_timeseries_api"

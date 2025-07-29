@@ -18,12 +18,16 @@ sequence:
     filter:
       provider: brazil-inmet
       limit: 500
+      north: -23.00
+      south: -24.00
+      east: -48.00
+      west: -49.00
     output: outputs/whos_inmet_sites.json
   tests:
   - testName: ArrayLengthTest
     arguments:
-      min_length: 2000
-      max_length: 3000
+      min_length: 8
+      max_length: 20
 - procedureName: CreateProcedure
   arguments:
     class_name: estacion
@@ -31,8 +35,8 @@ sequence:
   tests:
   - testName: ArrayLengthTest
     arguments:
-      min_length: 2000
-      max_length: 3000
+      min_length: 8
+      max_length: 20
 - procedureName: GetMetadataFromAccessorProcedure
   arguments:
     accessor_id: whos_om_ogc_timeseries_api
@@ -60,7 +64,7 @@ sequence:
   - testName: ArrayLengthTest
     arguments:
       min_length: 22
-      max_length: 24
+      max_length: 30
 - procedureName: MapAccessorTableFromCSVProcedure
   arguments:
     accessor_id: whos_om_ogc_timeseries_api
@@ -83,12 +87,14 @@ sequence:
               -23.95
           ]
       }
+      observedProperty: Precipitation
+      ontology: whos
     output: outputs/whos_series_upd.json
   tests:
   - testName: ArrayLengthTest
     arguments:
-      min_length: 11
-      max_length: 38
+      min_length: 3
+      max_length: 3
 - procedureName: UpdateMetadataFromAccessorProcedure
   arguments:
     accessor_id: whos_om_ogc_timeseries_api
@@ -114,6 +120,8 @@ sequence:
       provider: brazil-inmet
       id_externo: [9E22A6A3687B37984DBC9F468AFEAF7615D53520]
       var_id: [1,31,41]
+      observedProperty: Precipitation
+      ontology: whos
     output: outputs/whos_series_upd_w_mp.json
   tests:
   - testName: ArrayLengthTest
@@ -133,6 +141,21 @@ sequence:
     arguments:
       property_name: id
       property_value: 16000    
+- procedureName: UpdateMetadataFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      id_externo: 0DD7D7C187D990CA4D7038E704051F15E086F3B6
+      observedProperty: Precipitation
+      ontology: whos
+      timeInterpolation: TOTAL
+      aggregationDuration: P1D
+    output: outputs/whos_ts.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
 - procedureName: GetMetadataFromAccessorProcedure
   arguments:
     accessor_id: whos_om_ogc_timeseries_api
@@ -215,6 +238,21 @@ sequence:
   - testName: ArrayLengthTest
     arguments:
       min_length: 1
+- procedureName: UpdateMetadataFromAccessorProcedure
+  arguments:
+    accessor_id: whos_om_ogc_timeseries_api
+    filter:
+      id_externo: 0DD7D7C187D990CA4D7038E704051F15E086F3B6
+      observedProperty: Precipitation
+      ontology: whos
+      timeInterpolation: TOTAL
+      aggregationDuration: PT1H
+    output: outputs/whos_ts.json
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 1
+      max_length: 1
 - procedureName: DownloadFromAccessorProcedure
   arguments:
     accessor_id: whos_om_ogc_timeseries_api
@@ -222,8 +260,7 @@ sequence:
       id_externo: [0DD7D7C187D990CA4D7038E704051F15E086F3B6, 16A422256C2D7B8A38B3809501D6B6ABB6A49ED2]
       var_id: 31
       timestart: 2022-01-01T03:00:00.000Z
-      timeend:
-        hours: 0
+      timeend: 2022-02-01T03:00:00.000Z
     output: outputs/whos_arr_estacion_var_id_41_data.json
     options:
       output_format: json
@@ -257,8 +294,7 @@ sequence:
       estacion_id: [16000]
       var_id: 31
       timestart: 2022-01-01T03:00:00.000Z
-      timeend:
-        hours: 0
+      timeend: 2022-02-01T03:00:00.000Z
     output: outputs/whos_arr_estacion_id_var_id_data.json
     options:
       output_format: json
@@ -274,8 +310,7 @@ sequence:
       id_externo: [16A422256C2D7B8A38B3809501D6B6ABB6A49ED2]
       var_id: 31
       timestart: 2022-01-01T03:00:00.000Z
-      timeend:
-        hours: 0
+      timeend: 2022-02-01T03:00:00.000Z
     output: outputs/deleted_obs_from_accessor.json
     options:
       pretty: true
@@ -293,8 +328,7 @@ sequence:
       tabla: whos_plata
       var_id: 31
       timestart: 2022-01-01T03:00:00.000Z
-      timeend:
-        hours: 0
+      timeend: 2022-02-01T03:00:00.000Z
     output: outputs/serie_must_be_empty.json
   tests:
   - testName: EmptyArrayTest

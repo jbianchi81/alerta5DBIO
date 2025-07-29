@@ -825,7 +825,7 @@ internal.client = class {
         var feature = filter.feature || filter.monitoringPoint
         var observationIdentifier = filter.observationIdentifier
         var output = options.output
-        var a5= (options.a5) ? options.a5 : false
+        var a5 = (options.a5) ? options.a5 : false
         var save_geojson = (options.save_geojson) ? options.save_geojson : false
         var output_dir = (options.output_dir) ? path.resolve(options.output_dir) : ""
         var has_data = (options.has_data) ? options.has_data : true
@@ -834,11 +834,12 @@ internal.client = class {
         var timeseries_a5 = []
         var page = 0
         var resumptionToken = filter.resumptionToken
-        for(var i=1;i<=this.config.timeseries_max;i=i+this.config.timeseries_per_page) {
+        const limit = (filter.limit) ? filter.limit : this.config.timeseries_per_page
+        for(var i = 1; i <= this.config.timeseries_max; i = i + limit) {
             page = page + 1
             console.log("getTimeseriesMulti, page: " + page)
             var output = (save_geojson) ? path.resolve(output_dir,sprintf("timeseriesResponse_%i.json", i)) : undefined
-            const params = {...filter, observationIdentifier: observationIdentifier, feature: feature, resumptionToken: resumptionToken}
+            const params = {...filter, observationIdentifier: observationIdentifier, feature: feature, resumptionToken: resumptionToken, limit: limit}
             var timeseries = await this.getTimeseriesMulti(view, params,{output: output,has_data: has_data},useCache)
             if(!timeseries.hasOwnProperty("member")) {
                 console.error("No timeseries found")
@@ -1007,7 +1008,7 @@ internal.client = class {
         const estaciones_filter = {}
         Object.assign(estaciones_filter,filter)
         estaciones_filter.tabla = this.config.tabla
-        estaciones_filter.id = features.map(f=>f.estacion_id)
+        estaciones_filter.id_externo = features.map(f=>f.feature_id)
         return Estacion.read(estaciones_filter)
     }
 
@@ -1463,13 +1464,13 @@ internal.client = class {
 
 }    
 
-function geom2bbox(geom) {
+function geom2bbox(geom, point_tolerance=0.01) {
     if(geom.type.toLowerCase() == "point") {
         return {
-            north: geom.coordinates[1],
-            south: geom.coordinates[1],
-            east: geom.coordinates[0],
-            west: geom.coordinates[0]
+            north: geom.coordinates[1] + point_tolerance / 2,
+            south: geom.coordinates[1] - point_tolerance / 2,
+            east: geom.coordinates[0] + point_tolerance / 2,
+            west: geom.coordinates[0] - point_tolerance / 2
         }
     } else if (geom.type.toLowerCase() == "polygon") {
         var north = geom.coordinates.reduce((max,point)=>(point[1]>max) ? point[1] : max, -90)
