@@ -2512,6 +2512,45 @@ internal.SaveObservacionesProcedure = class extends internal.CrudProcedure {
     }
 }
 
+internal.UpdateSerieFromPronoProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "UpdateSerieFromPronoProcedure"
+        if(!arguments[0]) {
+            throw("Missing arguments")
+        }
+        if(!arguments[0].cal_id) {
+            throw("Missing cal_id")
+        }
+        if(!arguments[0].source_series_id) {
+            throw("Missing source_series_id")
+        }
+        if(!arguments[0].dest_series_id) {
+            throw("Missing dest_series_id")
+        }
+        if(arguments[0].filter && arguments[0].filter.timestart) {
+            arguments[0].filter.timestart = timeSteps.DateFromDateOrInterval(arguments[0].filter.timestart)
+        }
+        if(arguments[0].filter && arguments[0].filter.timeend) {
+            arguments[0].filter.timeend = timeSteps.DateFromDateOrInterval(arguments[0].filter.timeend)
+        }
+        this.cal_id = arguments[0].cal_id
+        this.source_series_id = arguments[0].source_series_id
+        this.source_tipo = arguments[0].source_tipo ?? "puntual"
+        this.dest_series_id = arguments[0].dest_series_id
+        this.dest_tipo = arguments[0].dest_tipo ?? "puntual"
+        if(arguments[0].filter && arguments[0].filter.forecast_date) {
+            arguments[0].filter.forecast_date = timeSteps.DateFromDateOrInterval(arguments[0].filter.forecast_date)
+        }
+        this.filter = arguments[0].filter
+    }
+    async run() {
+        this.result = await crud.updateSerieFromProno(this.cal_id, this.source_series_id, this.source_tipo, this.dest_series_id, this.dest_tipo, this.filter,this.options)
+        return this.result
+    }
+}
+
+
 function eval_template(s, params) {
     return Function(...Object.keys(params), "return " + s)(...Object.values(params));
 }
@@ -3375,7 +3414,8 @@ const availableCrudProcedures = {
     "RastExtractProcedure": internal.RastExtractProcedure,
     "RastExtractByAreaProcedure": internal.RastExtractByAreaProcedure,
     "RastExtractByPointProcedure": internal.RastExtractByPointProcedure,
-    "GetDerivedSerieProcedure": internal.GetDerivedSerieProcedure
+    "GetDerivedSerieProcedure": internal.GetDerivedSerieProcedure,
+    "UpdateSerieFromPronoProcedure": internal.UpdateSerieFromPronoProcedure
 }
 
 internal.availableTests = {

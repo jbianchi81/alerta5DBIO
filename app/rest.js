@@ -4886,7 +4886,8 @@ function getPronosticos(req,res) {
 		return
 	}
 	//~ console.log({filter:filter,options:options})
-	crud.getPronosticos(filter.cor_id,filter.cal_id,filter.forecast_timestart,filter.forecast_timeend,filter.forecast_date,filter.timestart,filter.timeend,filter.qualifier,filter.estacion_id,filter.var_id,options.includeProno,filter.public,filter.series_id,options.series_metadata,filter.cal_grupo_id,options.group_by_qualifier,filter.model_id,filter.tipo)
+	CRUD.corrida.read(filter, options)
+	// crud.getPronosticos(filter.cor_id,filter.cal_id,filter.forecast_timestart,filter.forecast_timeend,filter.forecast_date,filter.timestart,filter.timeend,filter.qualifier,filter.estacion_id,filter.var_id,options.includeProno,filter.public,filter.series_id,options.series_metadata,filter.cal_grupo_id,options.group_by_qualifier,filter.model_id,filter.tipo)
 	.then(result=>{
 		res.send(result)
 	})
@@ -4914,7 +4915,24 @@ function getPronostico(req,res) {   // requiere id de corrida, devuelve objeto C
 		res.status(400).send({message:"missing id or cor_id",error:"missing id or cor_id"})
 		return
 	}
-	if(filter.cor_id.toString() == 'last') {
+	if(filter.cor_id.toString() == 'concat') {
+		if(!filter.cal_id) {
+			res.status(400).send({message:"missing cal_id",error:"missing cal_id"})
+			return
+		}
+		CRUD.corrida.read({...filter, cor_id: undefined, id: undefined}, {...options, concat: true})
+		.then(result=>{
+			if(!result) {
+				res.status(404).send({message:"No runs found to concatenate",error:"No runs found to concatenate"})
+				return
+			}		
+			res.send(result)
+		})
+		.catch(e=>{
+			console.error(e)
+			res.status(400).send(e)
+		})
+	} else if(filter.cor_id.toString() == 'last') {
 		console.log("GET LAST CORRIDA")
 		if(!filter.cal_id) {
 			res.status(400).send({message:"missing cal_id",error:"missing cal_id"})
@@ -7938,7 +7956,7 @@ function getOptions(req) {
 		if(req.body.inverted) {
 			options.inverted = (req.body.inverted.toString().toLowerCase() == 'true')
 		}
-		["agg_func","dt","t_offset","id_grupo","get_raster","min_count","group_by_cal","interval","stats","pivot","group_by_qualifier","sort","order","from_view","get_cal_stats","batch_size"].forEach(k=>{
+		["agg_func","dt","t_offset","id_grupo","get_raster","min_count","group_by_cal","interval","stats","pivot","group_by_qualifier","sort","order","from_view","get_cal_stats","batch_size","concat"].forEach(k=>{
 			if(req.body[k]) {
 				options[k] = req.body[k]
 			}
@@ -8081,7 +8099,7 @@ function getOptions(req) {
 		if(req.query.inverted) {
 			options.inverted = (req.query.inverted.toString().toLowerCase() == 'true')
 		}
-		["agg_func","dt","t_offset","get_raster","min_count","group_by_cal","interval","stats","pivot","sort","order","from_view","get_cal_stats","batch_size"].forEach(k=>{
+		["agg_func","dt","t_offset","get_raster","min_count","group_by_cal","interval","stats","pivot","sort","order","from_view","get_cal_stats","batch_size","concat"].forEach(k=>{
 			if(req.query[k]) {
 				options[k] = req.query[k]
 			}

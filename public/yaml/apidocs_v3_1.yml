@@ -338,6 +338,11 @@ paths:
         schema: { "type": "string"} 
         required: false
         in: query
+      - name: concat
+        description: "Concatenar las corridas encontradas en una única serie simulada (o una serie por qualifier si qualifier no es nulo o group_by_qualifier es true)"
+        schema: { "type": "boolean"}
+        required: false
+        in: query
       responses:
         '200':
           description: OK
@@ -518,6 +523,67 @@ paths:
       summary: Da la última corrida del calibrado correspondiente al cal_id dado,
         opcionalmente filtrado por estacion_id y/o var_id del output y/o filtrando
         las series temporales con las fechas dadas por timestart y timeend
+      # nickname: getLastCorrida
+      security:
+      - cookieAuth: []
+      parameters:
+      - name: cal_id
+        description: identificador único del calibrado
+        schema: { "type": "integer"} 
+        required: true
+        in: path
+      - name: estacion_id
+        description: id de estación del output
+        schema: { "type": "integer"} 
+        required: false
+        in: query
+      - name: var_id
+        description: id de variable del output
+        schema: { "type": "integer"} 
+        required: false
+        in: query
+      - name: timestart
+        description: fecha inicial de series temporales
+        schema: { "type": "string"} 
+        required: false
+        in: query
+      - name: timeend
+        description: fecha final de series temporales
+        schema: { "type": "string"} 
+        required: false
+        in: query
+      - name: qualifier
+        description: calificador opcional para diferenciar subseries
+        schema: { "type": "string"} 
+        required: false
+        in: query
+      - name: includeProno
+        description: si debe incluir series temporales simuladas
+        schema: { "type": "boolean"} 
+        required: false
+        in: query
+        example: true
+      - name: series_metadata
+        description: si debe incluir metadatos de las series
+        schema: { "type": "boolean"} 
+        required: false
+        in: query
+        example: false
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Corrida"
+        '400':
+          description: Bad request
+        '404':
+          description: No se encontró última Corrida para el cal_id indicado
+  "/sim/calibrados/{cal_id}/corridas/concat":
+    get:
+      summary: Concatena las corridas del calibrado correspondiente al cal_id dado,
+        devuelve una única serie (o una serie por qualifier si group_by_qualifier=true).
       # nickname: getLastCorrida
       security:
       - cookieAuth: []

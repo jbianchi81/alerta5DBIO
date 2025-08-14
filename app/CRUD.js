@@ -6145,7 +6145,30 @@ internal.corrida = class extends baseModel {
 		return
 	}
 	static async read(filter={},options={}) {
-		const corridas = await internal.CRUD.getPronosticos(filter.cor_id ?? filter.id,filter.cal_id,filter.forecast_timestart,filter.forecast_timeend,filter.forecast_date,filter.timestart,filter.timeend,filter.qualifier,filter.estacion_id,filter.var_id,options.includeProno,filter.isPublic,filter.series_id,options.series_metadata,filter.cal_grupo_id,options.group_by_qualifier,filter.model_id,filter.tipo)
+		const corridas = await internal.CRUD.getPronosticos(
+			filter.cor_id ?? filter.id,
+			filter.cal_id,
+			filter.forecast_timestart,
+			filter.forecast_timeend,
+			filter.forecast_date,
+			filter.timestart,
+			filter.timeend,
+			filter.qualifier,
+			filter.estacion_id,
+			filter.var_id,
+			(options.concat) ? true : options.includeProno,
+			filter.isPublic,
+			filter.series_id,
+			options.series_metadata,
+			filter.cal_grupo_id,
+			(filter.qualifier) ? true : options.group_by_qualifier,
+			filter.model_id,filter.tipo,
+			undefined,
+			(options.concat) ? 1 : undefined
+		)
+		if(options.concat) {
+			return this.concat(corridas, filter.series_id, filter.tipo, filter.qualifier, filter.forecast_timestart, filter.forecast_timeend, options.group_by_qualifier)
+		}
 		return corridas
 	}
 	static async delete(filter={},options={}) {
@@ -6153,7 +6176,12 @@ internal.corrida = class extends baseModel {
 	}
 	async getSeries(filter={},options={}) {
 		filter.cor_id = this.id
-		return internal.CRUD.getCorridaSeries(filter,options.series_metadata,options.group_by_qualifier)
+		return internal.CRUD.getCorridaSeries(
+			filter,
+			options.series_metadata,
+			options.group_by_qualifier,
+			options.limit
+		)
 	}
 	async setSeries(series,filter={},options={}) {
 		if(series) {
@@ -6408,6 +6436,117 @@ internal.corrida = class extends baseModel {
 		)
 		return 
 	}
+
+	/**
+	 * Devuelve una corrida con una única serie (o una serie por qualifier si group_by_qualifier=true) concatenando las corridas suministradas. Filtros opcionales: series_id, tipo, qualifier, forecast_timestart, forecast_timeend. Opciones: group_by_qualifier. Si series_id es nulo, toma la primera serie de la primera corrida. Toma el cal_id, id (=cor_id) y forecast_date de la última de las corridas (la más reciente)
+	 */
+
+	static concat(corridas, series_id, tipo, qualifier, forecast_timestart, forecast_timeend, group_by_qualifier) {
+		if(!corridas.length) {
+			throw new Error("Can't concatenate: length=0")
+		}
+		// const concat_corridas = new this(corridas[0])
+
+		// Sort corridas by forecast_date
+		const sortedCorridas = [...corridas].sort((a, b) => {
+			return new Date(a.forecast_date) - new Date(b.forecast_date);
+		});
+			
+		let lastForecastDate = sortedCorridas[sortedCorridas.length - 1].forecast_date;
+
+		let cal_id = sortedCorridas[sortedCorridas.length - 1].cal_id
+
+		let id = sortedCorridas[sortedCorridas.length - 1].id
+
+		const qualifiers = {}
+
+		const series_tipo_mapping = {
+			"series": "puntual",
+			"series_areal": "areal",
+			"series_rast": "raster"
+		}
+
+		for (const corrida of sortedCorridas) {
+			if(forecast_timestart && corrida.forecast_date < forecast_timestart) {
+				continue
+			} 
+			if(forecast_timeend && corrida.forecast_date < forecast_timeend) {
+				continue
+			}
+
+			for (const serie of corrida.series) {
+				if(!series_id) {
+					series_id = serie.series_id
+				}
+				if(!tipo) {
+					tipo = series_tipo_mapping[serie.series_table]
+				}
+				if(serie.series_id != series_id) {
+					continue
+				}
+				if(series_tipo_mapping[serie.series_table] != tipo) {
+					continue
+				}
+				const qualifier_ = "qualifier" in serie ? serie.qualifier : "no_qualifier";
+
+				if(qualifier && qualifier != qualifier_) {
+					continue
+				}
+
+				if (!qualifiers[qualifier_]) {
+					qualifiers[qualifier_] = {};
+				}
+
+				for (const pronostico of serie.pronosticos) {
+					const ts = pronostico.timestart;
+					const prono = {
+						...pronostico,
+						cor_id: corrida.id ?? corrida.cor_id,
+						forecast_date: corrida.forecast_date
+					};
+					qualifiers[qualifier_][ts] = prono;
+				}
+			}
+		}
+
+		if (group_by_qualifier) {
+			return new this({
+				id,
+				cal_id,
+				series: Object.entries(qualifiers).map(([q, serie]) => ({
+					series_id,
+					tipo,
+					qualifier: q,
+					pronosticos: Object.values(serie)
+				})),				
+				forecast_date: lastForecastDate
+			});
+		}
+
+		const pronosticos = [];
+		for (const [qualifier, pronos] of Object.entries(qualifiers)) {
+			for (const [timestart, prono] of Object.entries(pronos)) {
+				pronosticos.push({
+					...prono,
+					qualifier: qualifier !== "no_qualifier" ? qualifier : null
+				});
+			}
+		}
+
+		return new this({
+			id,
+			cal_id,
+			series: [
+				{
+					series_id,
+					tipo,
+					qualifier,
+					pronosticos
+				}
+			],
+			forecast_date: lastForecastDate
+		});
+	}
 }
 
 internal.SerieTemporalSim = class extends baseModel {
@@ -6566,6 +6705,26 @@ internal.pronostico = class extends baseModel {
 		this.series_id = m.series_id
 		this.series_table = m.series_table
 	}
+	getTipo() {
+		return (this.series_table) ? (this.series_table.toUpperCase() == "SERIES_AREAL") ? "areal" : (this.series_table.toUpperCase() == "SERIES_RAST") ? "raster" : "puntual" : "puntual"
+	}
+
+	static 	getTipo(series_table="series") {
+		return (series_table.toUpperCase() == "SERIES_AREAL") ? "areal" : (series_table.toUpperCase() == "SERIES_RAST") ? "raster" : "puntual"
+	}
+
+	toObservacion(series_id, tipo) {
+		tipo = tipo ?? this.getTipo
+		series_id = series_id ?? this.series_id
+		return new internal.observacion({
+			tipo: tipo,
+			series_id: series_id,
+			timestart: this.timestart,
+			timeend: this.timeend,
+			valor: this.valor
+		})
+	}
+
 	toString() {
 		return JSON.stringify(this)
 	} 
@@ -17702,7 +17861,7 @@ ORDER BY cal.cal_id`
 		})
 	}
 
-	static async getPronosticos(cor_id,cal_id,forecast_timestart,forecast_timeend,forecast_date,timestart,timeend,qualifier,estacion_id,var_id,includeProno=false,isPublic,series_id,series_metadata,cal_grupo_id,group_by_qualifier,model_id,tipo,tabla) {
+	static async getPronosticos(cor_id,cal_id,forecast_timestart,forecast_timeend,forecast_date,timestart,timeend,qualifier,estacion_id,var_id,includeProno=false,isPublic,series_id,series_metadata,cal_grupo_id,group_by_qualifier,model_id,tipo,tabla,series_limit,corridas_limit) {
 		const filter_string = control_filter2(
 			{
 				"cal_id": {"type": "integer", "table": "corridas"},
@@ -17728,18 +17887,28 @@ ORDER BY cal.cal_id`
 			undefined,
 			true
 		)
+		if(corridas_limit) {
+			var c_limit = parseInt(corridas_limit)
+			if(c_limit.toString() == "NaN") {
+				throw new Error("Bad option value for corridas_limit")
+			}
+			var limit_block = `LIMIT ${c_limit}` 
+		} else {
+			var limit_block = ""
+		}
 
-		var query = "SELECT \
-			corridas.id, \
-			corridas.date AS forecast_date, \
-			corridas.cal_id \
-		FROM corridas \
-		JOIN calibrados \
-			ON corridas.cal_id=calibrados.id \
-		WHERE 1=1 \
-		" + filter_string + "\
-		ORDER BY corridas.cal_id, corridas.date"
-		// console.debug(query)
+		var query = `SELECT 
+			corridas.id, 
+			corridas.date AS forecast_date, 
+			corridas.cal_id 
+		FROM corridas 
+		JOIN calibrados 
+			ON corridas.cal_id=calibrados.id 
+		WHERE 1=1 
+		${filter_string}
+		ORDER BY corridas.cal_id, corridas.date
+		${limit_block}`
+		console.debug(query)
 		const result = await global.pool.query(query)
 		if(!result.rows) {
 			return
@@ -17784,7 +17953,7 @@ ORDER BY cal.cal_id`
 				tipo: tipo,
 				tabla: tabla
 			}
-			promise_array.push(corrida.setSeries(undefined,filter,{series_metadata:series_metadata,group_by_qualifier:group_by_qualifier}))
+			promise_array.push(corrida.setSeries(undefined,filter,{series_metadata:series_metadata,group_by_qualifier:group_by_qualifier,limit:series_limit}))
 		}
 		await Promise.all(promise_array)
 		return corridas
@@ -18145,7 +18314,7 @@ ORDER BY cal.cal_id`
 	static async getPronosticosArray(filter={},options={},client) {
 		var result = []
 		if((!filter.series_id && !filter.tipo) || (filter.tipo=="puntual") || (filter.series_id && !filter.tipo)) {
-			var pronos_puntual = await this.getPronosticosPuntual(filter,client)
+			var pronos_puntual = await this.getPronosticosPuntual(filter,client,options.series_limit)
 			result.push(...pronos_puntual)
 		}
 		if((!filter.tipo && !filter.series_id) || filter.tipo == "areal") {
@@ -18159,7 +18328,7 @@ ORDER BY cal.cal_id`
 		return result
 	}
 
-	static async getPronosticosPuntual(filter={},client) {
+	static async getPronosticosPuntual(filter={},client,series_limit) {
 		var release_client = false
 		if(!client) {
 			release_client = true
@@ -18193,24 +18362,48 @@ ORDER BY cal.cal_id`
 		} catch (e) {
 			throw(new Error("getPronosticosPuntual: Invalid filter values: " + JSON.stringify(filter_values) + ". " + e.toString()))
 		}
-		const stmt = "SELECT \
-		    corridas.id AS cor_id,\
-			series.id series_id,\
-			'series' AS series_table,\
-			series.estacion_id,\
-			estaciones.tabla,\
-			series.var_id,\
-			pronosticos.timestart::timestamptz  timestart, \
-			pronosticos.timeend::timestamptz timeend, \
-			valores_prono_num.valor,\
-			pronosticos.qualifier\
-		FROM pronosticos\
-		JOIN valores_prono_num ON pronosticos.id = valores_prono_num.prono_id\
-		JOIN series ON pronosticos.series_id = series.id\
-		JOIN corridas ON pronosticos.cor_id = corridas.id\
-		JOIN estaciones ON series.estacion_id = estaciones.unid  \
-		WHERE 1=1 " + filter_string + "\
-		ORDER BY pronosticos.series_id,pronosticos.timestart"
+		if(series_limit) {
+			var s_limit = parseInt(series_limit)
+			if(s_limit.toString() == "NaN") {
+				throw new Error("Invalid value for option series_limit")
+			}
+			var distinct_block = `WITH first_series AS (
+				SELECT DISTINCT series.id
+				FROM pronosticos
+				JOIN valores_prono_num ON pronosticos.id = valores_prono_num.prono_id
+				JOIN series ON pronosticos.series_id = series.id
+				JOIN corridas ON pronosticos.cor_id = corridas.id
+				JOIN estaciones ON series.estacion_id = estaciones.unid  
+				WHERE 1=1 ${filter_string}
+				ORDER BY series.id
+				LIMIT ${s_limit}
+			)`
+			var first_series_join_line = "JOIN first_series ON first_series.id=series.id"
+		} else {
+			var distinct_block = ""
+			var first_series_join_line = ""
+		}
+		const stmt = `
+		    ${distinct_block}
+			SELECT 
+				corridas.id AS cor_id,
+				series.id series_id,
+				'series' AS series_table,
+				series.estacion_id,
+				estaciones.tabla,
+				series.var_id,
+				pronosticos.timestart::timestamptz  timestart, 
+				pronosticos.timeend::timestamptz timeend, 
+				valores_prono_num.valor,
+				pronosticos.qualifier
+			FROM pronosticos
+			JOIN valores_prono_num ON pronosticos.id = valores_prono_num.prono_id
+			JOIN series ON pronosticos.series_id = series.id
+			JOIN corridas ON pronosticos.cor_id = corridas.id
+			JOIN estaciones ON series.estacion_id = estaciones.unid  
+			${first_series_join_line}
+			WHERE 1=1 ${filter_string}
+			ORDER BY pronosticos.series_id,pronosticos.timestart`
 		// to_char(pronosticos.timestart::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timestart,\
 		//	to_char(pronosticos.timeend::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timeend,\
 		// console.debug(stmt)
@@ -18223,9 +18416,9 @@ ORDER BY cal.cal_id`
 		})
 	}
 
-	static async getCorridaSeries(filter={},series_metadata=false,group_by_qualifier=false) {
+	static async getCorridaSeries(filter={},series_metadata=false,group_by_qualifier=false,series_limit) {
 		const series = {}
-		const pronos = await this.getPronosticosArray(filter)
+		const pronos = await this.getPronosticosArray(filter,{series_limit:series_limit})
 		if(pronos) {
 			if(group_by_qualifier) {   // one series element for each series_id+qualifier combination
 				internal.CRUD.groupByQualifier(series,pronos)
@@ -20244,6 +20437,41 @@ ORDER BY cal.cal_id`
 		.then(result=>{
 			return result.rows
 		})
+	}
+
+	static async updateSerieFromProno(
+		cal_id, 
+		source_series_id, 
+		source_tipo, 
+		dest_series_id, 
+		dest_tipo, 
+		filter = {},
+		options = {}) {
+		const corrida = await internal.corrida.read({
+				...filter,
+				cal_id,
+				series_id: source_series_id,
+				tipo: source_tipo
+			},
+			{
+				...options,
+				concat: true
+			})
+		if(!corrida) {
+			throw new Error("Pronóstico no encontrado")
+		}
+		if(!corrida.series.length) {
+			throw new Error("Pronóstico no encontrado")
+		}
+		if(!corrida.series[0].pronosticos) {
+			throw new Error("Pronóstico no encontrado")
+		}
+		if(!corrida.series[0].pronosticos.length) {
+			throw new Error("Pronóstico no encontrado")
+		}
+		const observaciones = new internal.observaciones(corrida.series[0].pronosticos.map(p=> p.toObservacion(dest_series_id, dest_tipo)))
+		return observaciones.create()
+
 	}
 }
 
