@@ -13482,7 +13482,7 @@ internal.CRUD = class {
 			var data_table = "observaciones_rast"
 			var join_data_table = ""
 			var prono_filter = ""
-			var timeupdate_column = "observaciones_rast.timeupdate"
+			var timeupdate_column = "data_table.timeupdate"
 		}
 		if(options.source_time_support) {
 			var timeend_column = pasteIntoSQLQuery(`data_table.timestart + $1::interval`, [options.source_time_support])
