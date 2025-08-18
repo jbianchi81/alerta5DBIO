@@ -280,4 +280,14 @@ ALTER TABLE ONLY public.redes_accessors
 ALTER TABLE ONLY public.redes_accessors
     ADD CONSTRAINT redes_accessors_var_id_fkey FOREIGN KEY (var_id) REFERENCES public.var(id);
 
-
+CREATE TABLE aforos (
+    id serial primary key,
+    geom geometry(Point, 4326) not null,
+    rio varchar,
+    caudal real not null,
+    fecha timestamp not null,
+    proyecto varchar,
+    externo varchar,
+    posgar_x real,
+    posgar_y real
+);
