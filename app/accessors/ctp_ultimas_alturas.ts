@@ -46,29 +46,18 @@ function parseValue(value_string: string): number {
   return parseFloat(value_string.replace(/^\s+/, "").replace(/\s+/, ""));
 }
 
-const series_id_map: SeriesIdMap = {
-  "Misión La Paz DE CTN": 42292,
-  "Villa Montes": 42291,
-  "Puente Aruma": 42294,
-  "Viña Quemada": 42295,
-  "Talula": 42296,
-  "Tarapaya": 42297,
-  "Palca Grande": 42298,
-  "San Josecito": 42299,
-};
-
-function getSeriesId(nombre_estacion: string): number | undefined {
+function getSeriesId(nombre_estacion: string, series_id_map : SeriesIdMap): number | undefined {
   const n = nombre_estacion.replace(/\-.*$/, "").replace(/\s+$/, "");
   return series_id_map[n];
 }
 
-function parseObs(o: UltimaAltura): ObservacionType {
+function parseObs(o: UltimaAltura, series_id_map : SeriesIdMap): ObservacionType {
   return new Observacion({
     tipo: "puntual",
     valor: parseValue(o.valor),
     timestart: parseDate(o.date, o.time),
     timeend: parseDate(o.date, o.time),
-    series_id: getSeriesId(o.nombre_estacion),
+    series_id: getSeriesId(o.nombre_estacion, series_id_map),
   });
 }
 
@@ -138,12 +127,22 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
     }
 
     default_config : Config = {
-        url : "https://www.pilcomayo.net"  
+        url : "https://www.pilcomayo.net",
+        series_id_map: {
+          "Misión La Paz DE CTN": 42293,
+          "Villa Montes": 42291,
+          "Puente Aruma": 42294,
+          "Viña Quemada": 42295,
+          "Talula": 42296,
+          "Tarapaya": 42297,
+          "Palca Grande": 42298,
+          "San Josecito": 42299
+        }
     }
 
     async get(filter: FilterOptions = {}, options: FilterOptions = {}): Promise<any[]> {
         const ultimas_alturas = await getUltimasAlturas(this.config.url);
-        return ultimas_alturas.map(o => parseObs(o));
+        return ultimas_alturas.map(o => parseObs(o, this.config.series_id_map as SeriesIdMap));
     }
 
     async update(filter: FilterOptions = {}, options: FilterOptions = {}): Promise<any[]> {

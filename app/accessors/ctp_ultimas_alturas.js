@@ -37,27 +37,17 @@ function parseDate(date_part, time_part) {
 function parseValue(value_string) {
     return parseFloat(value_string.replace(/^\s+/, "").replace(/\s+/, ""));
 }
-const series_id_map = {
-    "Misión La Paz DE CTN": 42292,
-    "Villa Montes": 42291,
-    "Puente Aruma": 42294,
-    "Viña Quemada": 42295,
-    "Talula": 42296,
-    "Tarapaya": 42297,
-    "Palca Grande": 42298,
-    "San Josecito": 42299,
-};
-function getSeriesId(nombre_estacion) {
+function getSeriesId(nombre_estacion, series_id_map) {
     const n = nombre_estacion.replace(/\-.*$/, "").replace(/\s+$/, "");
     return series_id_map[n];
 }
-function parseObs(o) {
+function parseObs(o, series_id_map) {
     return new CRUD_1.observacion({
         tipo: "puntual",
         valor: parseValue(o.valor),
         timestart: parseDate(o.date, o.time),
         timeend: parseDate(o.date, o.time),
-        series_id: getSeriesId(o.nombre_estacion),
+        series_id: getSeriesId(o.nombre_estacion, series_id_map),
     });
 }
 function getUltimasAlturas(url) {
@@ -109,14 +99,24 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     constructor(config) {
         super(config);
         this.default_config = {
-            url: "https://www.pilcomayo.net"
+            url: "https://www.pilcomayo.net",
+            series_id_map: {
+                "Misión La Paz DE CTN": 42293,
+                "Villa Montes": 42291,
+                "Puente Aruma": 42294,
+                "Viña Quemada": 42295,
+                "Talula": 42296,
+                "Tarapaya": 42297,
+                "Palca Grande": 42298,
+                "San Josecito": 42299
+            }
         };
         this.setConfig(config);
     }
     get(filter = {}, options = {}) {
         return __awaiter(this, void 0, void 0, function* () {
             const ultimas_alturas = yield getUltimasAlturas(this.config.url);
-            return ultimas_alturas.map(o => parseObs(o));
+            return ultimas_alturas.map(o => parseObs(o, this.config.series_id_map));
         });
     }
     update(filter = {}, options = {}) {
