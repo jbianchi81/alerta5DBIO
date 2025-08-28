@@ -52,6 +52,7 @@ internal.dinac_convencional = require('./accessors/dinac_convencional').Client
 internal.hidroinformatica = require('./accessors/hidroinformatica').Client
 internal.hidroestimador = require('./accessors/hidroestimador').Client
 internal.caru = require('./accessors/caru').Client
+internal.ctp_ultimas_alturas = require('./accessors/ctp_ultimas_alturas').Client
 
 // Promise.allSettled polyfill
 
