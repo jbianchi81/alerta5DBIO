@@ -1756,6 +1756,8 @@
 										$("<li>fecha de emisión: <b>" + p.forecast_date + "</b></li>"),
 										$("<li>cantidad de registros: <b>" + p.count + "</b></li>"),
 										$("<li>fecha final: <b>" + p.fecha_fin + "</b></li>"),
+										$((p.series_id) ? `<li>ids de series: <b>${Array.from(p.series_id).join(", ")}</b></li>` : ""),
+										$((p.qualifiers) ? `<li>qualifiers: <b>${Array.from(p.qualifiers).join(", ")}</b></li>` : ""),
 										cal_stats_li
 								))
 							})							

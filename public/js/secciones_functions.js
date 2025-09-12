@@ -184,6 +184,8 @@ function getPronoResumen(series) {
 				if(series.pronosticos[i].corrida.series.length>0) {
 					prono_resumen[index].count = series.pronosticos[i].corrida.series.map(s=>s.pronosticos.length).reduce((total,l)=>total+l)
 					prono_resumen[index].fecha_fin = new Date(Math.min(series.pronosticos[i].corrida.series.map(s=>new Date(s.pronosticos[s.pronosticos.length-1][0]).getTime())))
+					prono_resumen[index].series_id = new Set(series.pronosticos[i].corrida.series.map(s=>s.series_id))
+					prono_resumen[index].qualifiers = new Set(series.pronosticos[i].corrida.series.map(s=>s.qualifier))
 				}
 			}
 			if(series.pronosticos[i].cal_stats) {
