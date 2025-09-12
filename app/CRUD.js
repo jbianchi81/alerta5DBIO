@@ -13768,18 +13768,65 @@ internal.CRUD = class {
 				ORDER BY timestart;"
 			var args = [area.geom.toString(),series_id,timestart,timeend, cal_id, forecast_date]
 		} else {
-			var stmt = "WITH s as (\
-				SELECT timestart timestart,\
-							timeend timeend,\
-							(st_summarystats(st_clip(st_resample(st_clip(valor,1,st_buffer(st_envelope(st_geomfromtext($1,st_srid(valor))),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,st_srid(valor)),-9999,true)))." + options.funcion.toLowerCase() + " valor\
-						FROM observaciones_rast \
-						WHERE series_id=$2\
-						AND timestart::timestamptz>=$3::timestamptz\
-						AND timeend::timestamptz<=$4::timestamptz)\
-					SELECT timestart, timeend, to_char(valor,'S99990.99')::numeric valor\
-						FROM s\
-						WHERE valor IS NOT NULL\
-					ORDER BY timestart;"
+			var stmt = `WITH geom AS (
+				SELECT ST_GeomFromText($1, ST_SRID(valor)) AS g
+				FROM observaciones_rast 
+				WHERE series_id=$2
+				AND timestart::timestamptz>=$3::timestamptz
+				LIMIT 1				
+			),
+			s as (
+				SELECT 
+					timestart AS timestart,
+					timeend AS timeend,
+					(
+						ST_SummaryStats(
+							ST_Clip(
+								CASE 
+									WHEN abs(ST_PixelWidth(valor)) >= 0.04999
+									THEN valor
+									ELSE 
+										CASE 
+											WHEN abs(ST_PixelWidth(valor)) >= 0.00999
+											THEN ST_Resample(valor, 0.05, 0.05)
+											ELSE st_resample(
+												st_clip(
+													valor,
+													1,
+													st_buffer(
+														st_envelope(
+															geom.g
+														),
+														0.5
+													),
+													-9999,
+													true
+												),
+												0.05,
+												0.05
+											)
+										END
+								END,
+								1,
+								geom.g,
+								-9999,
+								TRUE
+							)
+						)
+					).${options.funcion.toLowerCase()} AS valor
+				FROM observaciones_rast, geom
+				WHERE series_id=$2
+				AND timestart::timestamptz>=$3::timestamptz
+				AND timeend::timestamptz<=$4::timestamptz
+				AND ST_Intersects(valor, geom.g)
+			)
+			SELECT 
+				timestart, 
+				timeend, 
+				to_char(valor,'S99990.99')::numeric valor
+			FROM s
+			WHERE valor IS NOT NULL
+			ORDER BY timestart;`
 			var args = [area.geom.toString(),series_id,timestart,timeend] // [serie.fuente.hora_corte,serie.fuente.def_dt, area.geom.toString(),serie.fuente.def_srid,timestart,timeend]
 				// console.log(internal.utils.pasteIntoSQLQuery(stmt,args))
 		}
@@ -13914,7 +13961,7 @@ internal.CRUD = class {
 				const serie_areal = result.rows[i]
 				//~ console.log([series_id,timestart,timeend,serie_areal.area_id])
 				try {
-					var serie = await this.rastExtractByArea(series_id,timestart,timeend,serie_areal.area_id,options,client,cor_id,cal_id,forecast_date)
+					var serie = await this. rastExtractByArea(series_id,timestart,timeend,serie_areal.area_id,options,client,cor_id,cal_id,forecast_date)
 				} catch(e) {
 					console.error(e)
 					continue
