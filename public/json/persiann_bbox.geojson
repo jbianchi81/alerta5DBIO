@@ -1,0 +1,13 @@
+{
+  "$schema": "https://geojson.org/schema/FeatureCollection.json",
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1
+      },
+      "geometry": { "type": "Polygon", "coordinates": [[[-67, -14], [-43.5, -14], [-43.5, -38.25], [-67, -38.25], [-67, -14]]] }   
+    }
+  ]
+}

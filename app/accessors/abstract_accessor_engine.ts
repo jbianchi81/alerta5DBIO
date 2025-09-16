@@ -56,6 +56,7 @@ export interface ObservacionesFilterWithArrays extends TimePeriodFilter {
 export interface ObservacionesOptions {
     return_series?: boolean,
     update?: boolean
+    print_maps?: boolean
 }
 
 export interface AccessorEngine {

@@ -19,11 +19,14 @@ const fs_1 = require("fs");
 const promises_1 = require("fs/promises");
 const accessor_utils_1 = require("../accessor_utils");
 const timeSteps_1 = require("../timeSteps");
+const child_process_promise_1 = require("child-process-promise");
 const CRUD_1 = require("../CRUD");
-const promise_ftp_1 = require("promise-ftp");
+const sprintf_js_1 = require("sprintf-js");
+const axios_1 = __importDefault(require("axios"));
 const util_1 = require("util");
 const zlib_1 = __importDefault(require("zlib"));
 const child_process_1 = require("child_process");
+const dateutils_1 = require("./dateutils");
 // import * as gdal from "@gdal/warp"; // Node-GDAL bindings
 class FileItem {
 }
@@ -33,23 +36,19 @@ class Escena_ extends CRUD_1.escena {
     }
 }
 /**
- * Docs: https://pmmpublisher.pps.eosdis.nasa.gov/docs
+ * The current operational PERSIANN (Precipitation Estimation from Remotely Sensed Information using Artificial Neural Networks) system developed by the Center for Hydrometeorology and Remote Sensing (CHRS) at the University of California, Irvine (UCI) uses neural network function classification/approximation procedures to compute an estimate of rainfall rate at each 0.25° x 0.25° pixel of the infrared brightness temperature image provided by geostationary satellites. An adaptive training feature facilitates updating of the network parameters whenever independent estimates of rainfall are available. The PERSIANN system was based on geostationary infrared imagery and later extended to include the use of both infrared and daytime visible imagery. The PERSIANN algorithm used here is based on the geostationary longwave infrared imagery to generate global rainfall. Rainfall product covers 60°S to 60°N globally.
  *
- * Available date range for daily product: last 2 months
+ * source: https://chrsdata.eng.uci.edu/
  *
- * Time offset of daily product: 00Z
- *
- * Latency approx. 12 hours
  */
 class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     constructor(config) {
         super(config);
         this.default_config = {
-            url: "http://persiann.eng.uci.edu/CHRSdata/PERSIANN/daily/ms6s4_d{code}.bin.gz",
-            file_pattern: "ms6s4_d{year_code:02d}{julian_day:03d}.bin.gz",
-            input_dir: "descargas_persiann",
-            output_dir: "persiann_cdp",
-            geojson_path: "cca_CDP.geojson",
+            url: "https://persiann.eng.uci.edu/CHRSdata/PERSIANN/daily",
+            input_dir: "data/persiann/downloads",
+            output_dir: "data/persiann/processed",
+            bbox: { "type": "Polygon", "coordinates": [[[-67, -14], [-43.5, -14], [-43.5, -38.25], [-67, -38.25], [-67, -14]]] },
             pixelsize: 0.25,
             xs: 1440,
             ys: 400,
@@ -60,7 +59,6 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             series_id: 21
         };
         this.setConfig(config);
-        this.ftp = new promise_ftp_1.PromiseFTP();
     }
     getSites(filter) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -68,7 +66,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 new Escena_({
                     "id": this.config.escena_id,
                     "nombre": "persiann",
-                    "geom": { "type": "Polygon", "coordinates": [[[-67, -14], [-43.5, -14], [-43.5, -38.25], [-67, -38.25], [-67, -14]]] }
+                    "geom": this.config.bbox
                 })
             ];
             return escenas;
@@ -150,20 +148,23 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return (0, accessor_utils_1.filterSeries)(series.map(s => new CRUD_1.serie(s)), filter);
         });
     }
-    getFilesList() {
-        return __awaiter(this, void 0, void 0, function* () {
-            const files_list = yield this.ftp.list(this.config.url);
-            return files_list.map(f => f.name).filter(name => (name.match(/^file_(\d+)\.bin\.gz$/)));
+    getFilesList(timestart, timeend) {
+        const dates = (0, dateutils_1.generateDailyDates)(timestart, timeend);
+        return dates.map(d => {
+            const year = d.getUTCFullYear();
+            const doy = (0, dateutils_1.getDayOfYear)(d);
+            return (0, sprintf_js_1.sprintf)("ms6s4_d%02d%03d.bin.gz", year - 2000, doy);
         });
     }
     getFile(filename, local_copy) {
         return __awaiter(this, void 0, void 0, function* () {
-            const stream = yield this.ftp.get(filename);
-            return new Promise(function (resolve, reject) {
-                stream.once('close', resolve);
-                stream.once('error', reject);
-                stream.pipe((0, fs_1.createWriteStream)(local_copy));
-            });
+            yield (0, dateutils_1.downloadFile)(filename, local_copy);
+            // const stream = await this.ftp.get(filename)
+            // return new Promise(function (resolve, reject) {
+            //     stream.once('close', resolve);
+            //     stream.once('error', reject);
+            //     stream.pipe(createWriteStream(local_copy));
+            // })        
         });
     }
     parseDateFromFilename(filename) {
@@ -208,7 +209,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                     throw new Error("Invalid timeend");
                 }
             }
-            const filenames = yield this.getFilesList();
+            const filenames = this.getFilesList(filter.timestart, filter.timeend);
             // filter by date
             const filtered_filenames = filenames.filter(f => this.filterByDate(f, filter.timestart, filter.timeend));
             console.debug({ filtered_filenames });
@@ -218,8 +219,11 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             }
             const downloaded_files = yield this.downloadFiles(filtered_filenames);
             const observaciones = yield this.rast2obsList(downloaded_files, options.update);
-            for (const file of downloaded_files) {
-                (0, fs_1.unlinkSync)(file);
+            // for (const file of downloaded_files) {
+            //     unlinkSync(file)
+            // }
+            if (options.print_maps) {
+                yield this.printMaps(filter.timestart, filter.timeend);
             }
             return observaciones;
         });
@@ -228,7 +232,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         return __awaiter(this, void 0, void 0, function* () {
             const observaciones = yield this.get(filter, Object.assign(Object.assign({}, options), { update: true }));
             if (!observaciones || observaciones.length == 0) {
-                console.error("accessors/gpm/update: Nothing retrieved");
+                console.error("accessors/persiann/update: Nothing retrieved");
                 return [];
             }
             return observaciones;
@@ -236,8 +240,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     }
     test() {
         return __awaiter(this, void 0, void 0, function* () {
-            const fileslist = yield this.getFilesList();
-            if (fileslist.length) {
+            const response = yield axios_1.default.get(this.config.url);
+            if (response.status == 200) {
                 return true;
             }
             else {
@@ -250,7 +254,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             const downloaded_files = [];
             this.downloaded_files = downloaded_files;
             for (var filename of filenames) {
-                const local_filename = path_1.default.resolve(this.config.output_dir, filename);
+                const local_filename = path_1.default.resolve(this.config.input_dir, filename);
                 const remote_filename = `${this.config.url}/${filename}`;
                 console.debug("accessors/persiann: downloading: " + remote_filename + " into: " + local_filename);
                 try {
@@ -305,7 +309,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 flipped.set(data.subarray(srcStart, srcStart + this.config.xs), dstStart);
             }
             // Write raw float32 binary file for gdal_translate
-            const rawPath = binPath + ".float32";
+            const rawPath = binPath + ".float32.bin";
             yield (0, promises_1.writeFile)(rawPath, Buffer.from(flipped.buffer));
             const translateArgs = [
                 "-of", "GTiff",
@@ -343,12 +347,10 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     procesarArchivo(filename, output_filename) {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
-            if (!(filename.endsWith(".gz") && filename.startsWith("persiann_")))
-                return;
-            const datecode = filename.substring(9, 17);
+            const datecode = filename.substring(7, 12);
             const gzPath = path_1.default.join(this.config.input_dir, filename);
-            const binPath = path_1.default.join(this.config.input_dir, `${datecode}.bin`);
-            const tifPath = path_1.default.join(this.config.input_dir, `${datecode}.tif`);
+            const binPath = path_1.default.join(this.config.output_dir, `${datecode}.bin`);
+            const tifPath = path_1.default.join(this.config.output_dir, `${datecode}.tif`);
             const recortadoPath = path_1.default.join(this.config.output_dir, output_filename);
             console.log(`\nProcesando ${filename}...`);
             try {
@@ -375,24 +377,31 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 var timestart = this.parseDateFromFilename(filename);
                 var timeend = new Date(timestart);
                 timeend.setDate(timestart.getDate() + 1);
-                const output_filename = filename.replace(/\.bin\.gz$/, "_cdp.tif");
+                const output_filename = `persiann.${timestart.toISOString().substring(0, 10).replace(/-/g, "")}.${timestart.toISOString().substring(11, 19).replace(/:/g, "")}.cdp.tif`; // persiann.YYYYMMDD.HHMMSS.cdp.tif
+                const input_file_path = path_1.default.join(this.config.input_dir, filename);
+                const output_file_path = path_1.default.join(this.config.output_dir, output_filename);
                 try {
-                    yield this.procesarArchivo(filename, output_filename);
+                    yield this.runCommand(`${global.config.python_bin}/persiann-process`, ["-f", input_file_path, "-o", output_file_path, "-b", "public/json/persiann_bbox.geojson"]);
+                    // await this.procesarArchivo(filename, output_filename) 
                 }
                 catch (e) {
                     console.error(e);
                     continue;
                 }
-                this.subset_files.push(output_filename);
+                this.subset_files.push({
+                    filename: output_filename,
+                    timestart: timestart,
+                    timeend: timeend
+                });
             }
             var observaciones = [];
             for (const file of this.subset_files) {
-                const data = (0, fs_1.readFileSync)(path_1.default.join(this.config.output_dir, file), 'hex');
+                const data = (0, fs_1.readFileSync)(path_1.default.join(this.config.output_dir, file.filename), 'hex');
                 const obs = new CRUD_1.observacion({
                     tipo: "raster",
                     series_id: this.config.series_id,
-                    timestart: timestart,
-                    timeend: timeend,
+                    timestart: file.timestart,
+                    timeend: file.timeend,
                     valor: '\\x' + data
                 });
                 if (update_) {
@@ -404,6 +413,44 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 }
             }
             return observaciones;
+        });
+    }
+    printMaps(timestart, timeend) {
+        return this.callPrintMaps(timestart, timeend, false);
+    }
+    callPrintMaps(timestart, timeend, skip_print) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var mapset = (0, sprintf_js_1.sprintf)("%04d", Math.floor(Math.random() * 10000));
+            var location = (0, sprintf_js_1.sprintf)("%s/%s", global.config.grass.location, mapset); // sprintf("%s/GISDATABASE/WGS84/%s",process.env.HOME,mapset)
+            var batchjob = path_1.default.resolve(__dirname, "../py/print_precip_map.py");
+            if (timestart) {
+                // console.log("callPrintMaps: timestart: " + timestart.toISOString().replace("Z",""))
+                process.env.timestart = timestart.toISOString().replace("Z", "");
+            }
+            if (timeend) {
+                // console.log("callPrintMaps: timeend: " + timeend.toISOString().replace("Z",""))
+                process.env.timeend = timeend.toISOString().replace("Z", "");
+            }
+            if (skip_print) {
+                process.env.skip_print = "True";
+            }
+            process.env.maptitle = "PERSIANN (HCRS)";
+            process.env.base_path = path_1.default.join(__dirname, "..", "..", this.config.output_dir);
+            process.env.file_pattern = "^persiann\.\d{8}\.\d{6}\.cdp\.tif$";
+            var command = (0, sprintf_js_1.sprintf)("grass %s -c --exec %s", location, batchjob);
+            const result = yield (0, child_process_promise_1.exec)(command);
+            // console.log("batch job called")
+            var stdout = result.stdout;
+            var stderr = result.stderr;
+            if (stdout) {
+                console.log(stdout);
+            }
+            if (stderr) {
+                console.error(stderr);
+            }
+            process.env.timestart = undefined;
+            process.env.timeend = undefined;
+            process.env.skip_print = undefined;
         });
     }
 }

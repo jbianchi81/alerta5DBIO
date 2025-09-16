@@ -320,6 +320,10 @@
                     }
                 }
             }
+        },
+        "python_bin": {
+            "type": "string",
+            "description": "location of python bin directory"
         }
     },
     "required": [],
