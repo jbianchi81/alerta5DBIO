@@ -10,13 +10,14 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     software-properties-common \
     git \
-    gdal-bin \
+    gdal-bin=3.8.4+dfsg-3ubuntu3 \
     libgdal-dev \
     python3.12 \
     python3-setuptools \
     python3.12-dev \
     python3.12-venv \
     python3-pip \
+    python3-gdal \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
@@ -36,19 +37,24 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
 ENV C_INCLUDE_PATH=/usr/include/gdal
 
-# 5. Create app directory
-WORKDIR /app
 
-# 6. Copy your project (optional — adjust for your project structure)
-COPY package*.json ./
+
+# 5. Create app directory
+
+COPY app ./app
+
+WORKDIR /app
+COPY install_dependencies.sh ./
+RUN bash install_dependencies.sh
 # RUN npm install
 
-COPY app/* ./
+# 6. Copy your project (optional — adjust for your project structure)
 
 WORKDIR /py
 COPY py/requirements.txt  ./
 RUN python3 -m pip install --upgrade pip setuptools wheel
 RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir --force-reinstall 'GDAL[numpy]==3.8.4'
 ADD py/*.py ./
 
 WORKDIR /
@@ -65,7 +71,19 @@ WORKDIR /config
 COPY config ./
 
 WORKDIR /logs
+RUN touch memUsage.log
+
+WORKDIR /data
+
+WORKDIR /data/persiann
+
+WORKDIR /data/persiann/downloads
+
+WORKDIR /data/persiann/processed
 
 WORKDIR /
+
+EXPOSE 3005
+
 # Default command (can override with `docker run ... <cmd>`)
 # CMD [ "node", "rest" ]
