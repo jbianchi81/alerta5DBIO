@@ -81,9 +81,13 @@ WORKDIR /data/persiann/downloads
 
 WORKDIR /data/persiann/processed
 
+WORKDIR /sessions
+
 WORKDIR /
 
-EXPOSE 3005
+ENV PORT=3000
+
+EXPOSE 3000
 
 # Default command (can override with `docker run ... <cmd>`)
-# CMD [ "node", "rest" ]
+CMD [ "node", "app/rest.mjs" ]
