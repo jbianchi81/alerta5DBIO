@@ -4,6 +4,12 @@ FROM ubuntu:24.04
 # Avoid interactive prompts during apt installs
 ENV DEBIAN_FRONTEND=noninteractive
 
+ENV TZ=America/Argentina/Buenos_Aires
+
+RUN apt-get update && apt-get install -y tzdata \
+ && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+ && echo $TZ > /etc/timezone
+
 # 1. Install system dependencies (GDAL, Python, Node prerequisites)
 RUN apt-get update && apt-get install -y \
     curl \
@@ -73,19 +79,15 @@ COPY config ./
 WORKDIR /logs
 RUN touch memUsage.log
 
-WORKDIR /data
-
-WORKDIR /data/persiann
-
-WORKDIR /data/persiann/downloads
-
-WORKDIR /data/persiann/processed
+VOLUME /data
 
 WORKDIR /sessions
 
 WORKDIR /
 
 ENV PORT=3000
+
+ENV NODE_ENV=production
 
 EXPOSE 3000
 

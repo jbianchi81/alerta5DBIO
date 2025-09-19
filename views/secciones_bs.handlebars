@@ -1097,11 +1097,11 @@
 			// get monitored points 	
 			getMonitoredPoints(get_monitored_url,monitoredpointsparams,estaciones_feature_type)
 		}
-		global.isWriter = {{writer}}
+		global.isWriter = {{#if writer}}{{writer}}{{else}}false{{/if}}
 		
 		global.monitoredpointsparams = monitoredpointsparams
 			
-		makeSeriesEditTable($("div.tabcontent#tabla_series"),undefined,{{writer}},monitoredpointsparams.tipo,global.default_config.series_page_size)
+		makeSeriesEditTable($("div.tabcontent#tabla_series"),undefined,global.isWriter,monitoredpointsparams.tipo,global.default_config.series_page_size)
 
 		if(search_filters.seriesId) {
 			loadSerie(search_filters) // ,matched_point)
@@ -1769,7 +1769,7 @@
 				))
 			}
 
-			if({{writer}}) {  // habilita edición de metadatos
+			if(global.isWriter) {  // habilita edición de metadatos
 				$("button.metadata-edit-button").show().click(metadataEdit)
 				$("div#myModalMetadata form#confirm").submit(onSubmitMetadataEdit)
 				$("div#myModalMetadata").on('hide.bs.modal', function (e) {
@@ -1862,7 +1862,7 @@
 				})
 			}
 			global.series = gSeries
-			makeObsEditTable($("div.tabcontent#tabla"),gSeries,{{writer}}) //series_def)
+			makeObsEditTable($("div.tabcontent#tabla"),gSeries,global.isWriter) //series_def)
 
 			// write REST API endpoints for data download (Descargas tab)
 			var getRequestUrl = "getSeriesBySiteAndVar?series_id=" + series.id + "&tipo=" + series.tipo + "&timestart=" + timestart.toISOString().substring(0,10) + "&timeend=" + timeend.toISOString().substring(0,10) + "&includeProno=true"; // "obs/puntual/series/" + series.id + "?timestart=" + timestart.toISOString().substring(0,10) + "&timeend=" timeend.toISOString().substring(0,10)
