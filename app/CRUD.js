@@ -31,7 +31,7 @@ var pointsWithinPolygon = require("@turf/points-within-polygon")
 
 // const series2waterml2 = require('./series2waterml2');
 // const { relativeTimeThreshold } = require('moment-timezone');
-const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2, control_filter3, control_query_args, getCalStats, assertValidDateTruncField, sanitizeIdFilter } = require('./utils');
+const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2, control_filter3, control_query_args, getCalStats, assertValidDateTruncField, sanitizeIdFilter, ensureDirForFile } = require('./utils');
 const { DateFromDateOrInterval, Interval } = require('./timeSteps');
 // const { isContext } = require('vm');
 const logger = require('./logger');
@@ -3897,32 +3897,46 @@ internal.campo = class extends baseModel {
 			}
 		}
 	}
-	toGrid(params={}) {
+	/**
+	 * 
+	 * @param {Object} params 
+	 * @param {string?} params.geojson_file - defaults to /tmp/campo_{somerandnumber}.geojson
+	 * @param {string?} params.grid_file - defaults to /tmp/campo_{somerandnumber}.tif
+	 * @param {number?} params.series_id
+	 * @param {Object} gdalgridparams
+	 * @param {string?} gdalgridparams.zfield - defaults to valor
+	 * @param {string?} gdalgridparams.layername - defaults to campo
+	 * @param {number?} gdalgridparams.outsize_x - defaults to 300
+	 * @param {number?} gdalgridparams.outsize_y - defaults to 300
+	 * @param {number?} gdalgridparams.txe_l - defaults to -70
+	 * @param {number?} gdalgridparams.txe_r  - defaults to -40
+	 * @param {number?} gdalgridparams.tye_u - defaults to -40
+	 * @param {number?} gdalgridparams.tye_l - defaults to -10
+	 * @param {number?} gdalgridparams.radius1 - defaults to 2.0
+	 * @param {number?} gdalgridparams.radius2 - defaults to 2.0
+	 * @param {number?} gdalgridparams.nodata - defaults to 9999.0
+	*/
+	async toGrid(params={},gdalgridparams={}) {
 		var rand = Math.random().toString().substring(2,8)
-		var geojson_file = (params.geojson_file) ? params.geojson_file : "/tmp/campo_" + rand + ".geojson" 
-		var grid_file = (params.grid_file) ? params.grid_file : "/tmp/campo_" + rand + ".tif" 
-		return fs.writeFile(geojson_file,JSON.stringify(this.toGeoJSON()))
-		.then(()=> {
-			var sys_call
-			sys_call = "gdal_grid -zfield valor -l campo -outsize 300 300 -txe -70.0 -40.0 -tye -10.0 -40.0 -a nearest:radius1=2.0:radius2=2.0:angle=0.0:nodata=9999.0 -of GTiff " + geojson_file + " " + grid_file
-			return new Promise( (resolve,reject) =>{
-				exec(sys_call, (err, stdout, stderr)=>{
-					if(err) {
-						reject(err)
-					}
-					resolve(stdout)
-				})
-			})
-			.then(result=>{
-				console.log(result)
-				return fs.readFile(grid_file,{encoding:'hex'})
-			}).then(data=>{
-				if (params.series_id) {
-					return new internal.observacion({tipo:"raster",series_id:params.series_id,timestart:this.timestart,timeend:this.timeend,valor: '\\x' + data})
-				}					
-				return new internal.observacion({tipo:"raster",timestart:this.timestart,timeend:this.timeend,valor:'\\x' + data})
+		geojson_file = (geojson_file) ? params.geojson_file : "/tmp/campo_" + rand + ".geojson" 
+		grid_file = (params.grid_file) ? params.grid_file : "/tmp/campo_" + rand + ".tif" 
+		await fs.writeFile(geojson_file,JSON.stringify(this.toGeoJSON()))
+		var sys_call
+		sys_call = `gdal_grid -zfield ${gdalgridparams.zfield || "valor"} -l ${gdalgridparams.layername || "campo"} -outsize ${gdalgridparams.outsize_x || 300} ${gdalgridparams.outsize_y || 300} -txe ${gdalgridparams.txe_l || -70.0} ${gdalgridparams.txe_r || -40.0} -tye ${gdalgridparams.tye_u || -10.0} ${gdalgridparams.tye_l || -40.0} -a nearest:radius1=${gdalgridparams.radius1 || 2.0}:radius2=${gdalgridparams.radius2 || 2.0}:angle=0.0:nodata=${gdalgridparams.nodata || 9999.0} -of GTiff ${geojson_file} ${grid_file}`
+		const result = await new Promise( (resolve,reject) =>{
+			exec(sys_call, (err, stdout, stderr)=>{
+				if(err) {
+					reject(err)
+				}
+				resolve(stdout)
 			})
 		})
+		console.log(result)
+		const data = await fs.readFile(grid_file,{encoding:'hex'})
+		if (params.series_id) {
+			return new internal.observacion({tipo:"raster",series_id:params.series_id,timestart:this.timestart,timeend:this.timeend,valor: '\\x' + data})
+		}					
+		return new internal.observacion({tipo:"raster",timestart:this.timestart,timeend:this.timeend,valor:'\\x' + data})
 	}
 }
 
@@ -19762,19 +19776,48 @@ ORDER BY cal.cal_id`
 	}
 	
 	// tools
-	
+
+	/**
+	 * @param {Observacion[]} points
+	 * @param {*} metadata
+	 * @param {number?} metadata.series_id
+	 * @param {Date?} metadata.timestart
+	 * @param {Date?} metadata.timeend
+	 * @param {Date?} metadata.timeupdate
+	 * @param {*} options
+	 * @param {string?} options.outputdir
+	 * @param {number?} options.nmin
+	 * @param {number?} options.radius1
+	 * @param {number?} options.radius2
+	 * @param {number?} options.out_x
+	 * @param {number?} options.out_y
+	 * @param {number?} options.nullvalue
+	 * @param {string?} options.method
+	 * @param {[[number,number],[number,number]]} options.target_extent
+	 * @param {string?} options.roifile
+	 * @param {string?} options.srs
+	 * @param {boolean?} options.makepng
+	 * @param {string?} options.geojson_file
+	 * @param {"diario"|"semanal"?} options.tipo
+	 * @param {string?} options.zfield
+	 * @param {string?} options.output
+	 */
 	static async points2rast(points,metadata={},options={},upsert) {
-		var outputdir = (options.outputdir) ? path.resolve(options.outputdir) : path.resolve(global.config.pp_cdp.outputdir)
-		var nmin=(options.nmin) ? options.nmin : global.config.pp_cdp.nmin;
-		var radius1= (options.radius1) ? options.radius1 : global.config.pp_cdp.radius1;
-		var radius2= (options.radius2) ? options.radius2 : global.config.pp_cdp.radius2;
-		var out_x =  (options.out_x) ? options.out_x : global.config.pp_cdp.out_x;
-		var out_y =  (options.out_y) ? options.out_y : global.config.pp_cdp.out_y;
-		var nullvalue = (options.nullvalue) ? options.nullvalue : global.config.pp_cdp.nullvalue;
+		const defaults = global.config.points2rast || {}
+		var outputdir = (options.outputdir) ? path.resolve(options.outputdir) : (defaults.outputdir) ? path.resolve(defaults.outputdir) : "data/campo"
+		var nmin=(options.nmin) ? options.nmin : defaults.nmin || 1;
+		var radius1= (options.radius1) ? options.radius1 : defaults.radius1 || 2.0;
+		var radius2= (options.radius2) ? options.radius2 : defaults.radius2 || 2.0;
+		var out_x =  (options.out_x) ? options.out_x : defaults.out_x || 300;
+		var out_y =  (options.out_y) ? options.out_y : defaults.out_y || 300;
+		var nullvalue = (options.nullvalue) ? options.nullvalue : defaults.nullvalue || 9999.0;
 		if(!metadata.series_id) {
-			metadata.series_id = global.config.pp_cdp.series_id
+			if(!defaults.series_id) {
+				throw new Error("Falta series_id")
+			}
+			metadata.series_id = defaults.series_id 
 		}
-		var method_ = (options.method) ? options.method : global.config.pp_cdp.method;
+		var method_ = (options.method) ? options.method : defaults.method || "nearest";
 		var method
 		{
 			switch (method_.toLowerCase()) {
@@ -19787,114 +19830,98 @@ ORDER BY cal.cal_id`
 				case "linear":
 					method = "linear:radius=" + radius1 + ":nodata=" + nullvalue;
 					break;
-				deafult:
+				default:
 					return Promise.reject("Método incorrecto. Válidos: invdist, nearest, linear");
 			}
 		}
-		var target_extent = (options.target_extent) ? options.target_extent : global.config.pp_cdp.target_extent
-		var roifile = (options.roifile) ? options.roifile : path.resolve(global.config.pp_cdp.roifile)
-		var srs = (options.srs) ? parseInt(srs) : global.config.pp_cdp.srs
-		var makepng = (options.makepng) ? options.makepng : global.config.pp_cdp.makepng 
+		var target_extent = (options.target_extent) ? options.target_extent : defaults.target_extent || [[-70,-40],[-40,-10]]
+		var roifile = (options.roifile) ? options.roifile : (defaults.roifile) ? path.resolve(defaults.roifile) : path.resolve("data/vect/CDP_polygon.shp")
+		var srs = (options.srs) ? parseInt(srs) : defaults.srs || 4326
+		var makepng = (options.makepng) ? options.makepng : defaults.makepng || true 
 		var rand = sprintf("%08d",Math.random()*100000000)
 		var geojsonfile= (options.geojsonfile) ? path.resolve(options.geojsonfile) : "/tmp/points_"+rand+".geojson"
 		var rasterfile="/tmp/grid_"+rand+".tif";
 		var rasternonull="/tmp/grid_nonull_"+rand+".tif";
 		var tempresultfile="/tmp/grid_nonull_crop_"+rand+".tif";
 		var warpedfile= "/tmp/grid_nonull_crop_warped_"+rand+".tif";
-		var rules_file = path.resolve( (options.tipo) ? (options.tipo == "diario") ? global.config.pp_cdp.rules_file_diario : global.config.pp_cdp.rules_file_semanal : global.config.pp_cdp.rules_file )
-		var zfield = (options.zfield) ? options.zfield : global.config.pp_cdp.zfield
+		var rules_file = path.resolve( (options.tipo) ? (options.tipo == "diario") ? defaults.rules_file_diario || "data/rast/rules_rgba_diario" : defaults.rules_file_semanal || "data/rast/rules_rgba_semanal" : defaults.rules_file || "data/rast/rules_rgba" )
+		var zfield = (options.zfield) ? options.zfield : defaults.zfield || "valor"
 		if(options.output) {
 			if(!validFilename(options.output)) {
 				return Promise.reject("invalid output filename")
 			}
 		}
-		var resultfile= (options.output) ? outputdir + "/" + options.output : path.resolve(global.config.pp_cdp.outputdir) + "/rast_" + method_ + "_" + radius1 + "_" + radius2 + "_" + out_x + "_" + out_y + ".tif" 
+		var resultfile= (options.output) ? outputdir + "/" + options.output : path.resolve(defaults.outputdir) + "/rast_" + method_ + "_" + radius1 + "_" + radius2 + "_" + out_x + "_" + out_y + ".tif" 
 		var pngfile= resultfile.replace(/\.tif$/,".png"); // "/home/alerta5/13-SYNOP/mapas_semanales_gdal/pp_semanal_idw_$label_date.png";
 
-		return global.pool.query("with p as (\
+		const extent_result = await global.pool.query("with p as (\
 			select st_transform(st_setsrid(st_point($1, $2),4326),$5::int) bl,\
 			       st_transform(st_setsrid(st_point($3, $4),4326),$5::int) tr )\
 			select st_x(p.bl),st_y(p.bl),st_x(p.tr),st_y(p.tr) from p",[target_extent[0][0],target_extent[0][1],target_extent[1][0],target_extent[1][1],srs])
-		.then(result=>{
-			if(result.rows.length==0) {
-				throw "extent reprojection error"
+		if(extent_result.rows.length==0) {
+			throw new Error("extent reprojection error")
+		}
+		const ogr = await ogr2ogr(points,{format: "GeoJSON",'-t_srs':`EPSG:${srs}`})
+		await fs.writeFile(geojsonfile,JSON.stringify(ogr.data))
+		const gdal_result = await pexec("gdal_grid -txe " + target_extent[0][0] + " " + target_extent[1][0] + " -tye " + target_extent[0][1] + " " + target_extent[1][1] + " -outsize " + out_x + " " + out_y + " -zfield " + zfield + " -ot Float32 -a " + method + " " + geojsonfile + " " + rasterfile)
+		if(gdal_result.stdout && config.verbose) {
+			console.log("crud.points2rast: stdout: " + gdal_result.stdout)	
+		}
+		const translate_result = await pexec("gdal_translate -a_nodata " + nullvalue + " " + rasterfile + " " + rasternonull)
+		if(translate_result.stdout && config.verbose) {
+			console.log("crud.points2rast: stdout: " + translate_result.stdout)
+		}
+		if(translate_result.stderr && config.verbose) {
+			console.error(translate_result.stderr)
+		}
+		const warp_result = await pexec("gdalwarp -dstnodata " + nullvalue + " -cutline " + roifile + " " + rasternonull + " " + tempresultfile) //("gdal_calc.py --overwrite  -A " + rasternonull + " -B " + roifile + " --outfile=" + tempresultfile + " --NoDataValue=-9999 --calc=\"A*B\"")
+		if(warp_result.stdout && config.verbose) {
+			console.log("crud.points2rast: stdout: " + warp_result.stdout)
+		}
+		if(warp_result.stderr && config.verbose) {
+			console.error("crud.points2rast: stderr: " + warp_result.stderr)
+		}
+		const nodata_result = await pexec("gdal_translate -a_nodata NAN " + tempresultfile + " " + resultfile)
+		if(nodata_result.stdout  && config.verbose) {
+			console.log("crud.points2rast: stdout: " + nodata_result.stdout)
+		}
+		if(nodata_result.stderr  && config.verbose) {
+			console.error(nodata_result.stderr)
+		}
+		const warp2_result = await pexec("gdalwarp -t_srs EPSG:" + srs + " -srcnodata -9999 -dstnodata nan -ot Float32 -overwrite " + tempresultfile + " " + resultfile);
+		if(warp2_result.stdout  && config.verbose) {
+			console.log("crud.points2rast: stdout: " + warp2_result.stdout)
+		}
+		if(warp2_result.stderr  && config.verbose) {
+			console.error(warp2_result.stderr)
+		}
+		const warp3_result = await pexec("gdalwarp -t_srs EPSG:4326 -dstnodata -9999 -overwrite " + tempresultfile + " " + warpedfile)
+		if(warp3_result.stdout  && config.verbose) {
+			console.log("crud.points2rast: stdout: " + warp3_result.stdout)
+		}
+		if(warp3_result.stderr  && config.verbose) {
+			console.error(warp3_result.stderr)
+		}
+		if(makepng) {
+			const gdaldem_result = await pexec("gdaldem color-relief " + tempresultfile + " " + rules_file + " " + pngfile + " -of PNG -alpha")
+			if(gdaldem_result.stdout && config.verbose) {
+				console.log("crud.points2rast: stdout: " + gdaldem_result.stdout)
 			}
-			return ogr2ogr(points,{format: "GeoJSON",'-t_srs':`EPSG:${srs}`})
-		}).then(ogr=>{
-			return fs.writeFile(geojsonfile,JSON.stringify(ogr.data))
-		}).then(()=> {
-			return pexec("gdal_grid -txe " + target_extent[0][0] + " " + target_extent[1][0] + " -tye " + target_extent[0][1] + " " + target_extent[1][1] + " -outsize " + out_x + " " + out_y + " -zfield " + zfield + " -ot Float32 -a " + method + " " + geojsonfile + " " + rasterfile)
-		}).then(result=>{
-			if(result.stdout && config.verbose) {
-				console.log("crud.points2rast: stdout: " + result.stdout)	
+			if(gdaldem_result.stderr && config.verbose) {
+				console.error("crud.points2rast: stderr: " + gdaldem_result.stderr)
 			}
-			return pexec("gdal_translate -a_nodata " + nullvalue + " " + rasterfile + " " + rasternonull)
-		}).then(result=>{
-			if(result.stdout && config.verbose) {
-				console.log("crud.points2rast: stdout: " + result.stdout)
-			}
-			if(result.stderr && config.verbose) {
-				console.error(result.stderr)
-			}
-			return pexec("gdalwarp -dstnodata " + nullvalue + " -cutline " + roifile + " " + rasternonull + " " + tempresultfile) //("gdal_calc.py --overwrite  -A " + rasternonull + " -B " + roifile + " --outfile=" + tempresultfile + " --NoDataValue=-9999 --calc=\"A*B\"")
-		}).then(result=>{
-			if(result.stdout && config.verbose) {
-				console.log("crud.points2rast: stdout: " + result.stdout)
-			}
-			if(result.stderr && config.verbose) {
-				console.error("crud.points2rast: stderr: " + result.stderr)
-			}
-			return pexec("gdal_translate -a_nodata NAN " + tempresultfile + " " + resultfile)
-		}).then(result=>{
-			if(result.stdout  && config.verbose) {
-				console.log("crud.points2rast: stdout: " + result.stdout)
-			}
-			if(result.stderr  && config.verbose) {
-				console.error(result.stderr)
-			}
-			return pexec("gdalwarp -t_srs EPSG:" + srs + " -srcnodata -9999 -dstnodata nan -ot Float32 -overwrite " + tempresultfile + " " + resultfile);
-		}).then(result=>{
-			if(result.stdout  && config.verbose) {
-				console.log("crud.points2rast: stdout: " + result.stdout)
-			}
-			if(result.stderr  && config.verbose) {
-				console.error(result.stderr)
-			}
-			return pexec("gdalwarp -t_srs EPSG:4326 -dstnodata -9999 -overwrite " + tempresultfile + " " + warpedfile)
-		}).then(result=>{
-			if(result.stdout  && config.verbose) {
-				console.log("crud.points2rast: stdout: " + result.stdout)
-			}
-			if(result.stderr  && config.verbose) {
-				console.error(result.stderr)
-			}
-			if(makepng) {
-				return pexec("gdaldem color-relief " + tempresultfile + " " + rules_file + " " + pngfile + " -of PNG -alpha")
+		}
+		const data = await fs.readFile(warpedfile)
+		const obs = {tipo:"rast",series_id:metadata.series_id,timeupdate:metadata.timeupdate,timestart: metadata.timestart, timeend: metadata.timeend, valor: data} 
+		if(upsert) {
+			if(!metadata.series_id) {
+				throw new Error("Falta series_id")
 			} else {
-				return Promise.resolve()
+				return this.upsertObservacion(obs)
 			}
-		}).then(result=>{
-			if(result.stdout && config.verbose) {
-				console.log("crud.points2rast: stdout: " + result.stdout)
-			}
-			if(result.stderr && config.verbose) {
-				console.error("crud.points2rast: stderr: " + result.stderr)
-			}
-			return fs.readFile(warpedfile)
-		}).then(data=>{
-			return {tipo:"rast",series_id:metadata.series_id,timeupdate:metadata.timeupdate,timestart: metadata.timestart, timeend: metadata.timeend, valor: data} 
-		}).then(obs=>{
-			if(upsert) {
-				if(!metadata.series_id) {
-					throw("Falta series_id")
-				} else {
-					//~ console.log("to_update: ts:" + obs.timestart + ", te:" + obs.timeend + ", series_id:" + obs.series_id)
-					return this.upsertObservacion(obs)
-				}
-			} else {
-				return obs
-			}
-		})
+		} else {
+			return obs
+		}
 	} 
 	
 	static async getObservacionesPuntuales2Rast(filter={},options={}) {
@@ -19915,6 +19942,192 @@ ORDER BY cal.cal_id`
 		})
 	}
 	
+	/**
+	 * @param {Date} timestart
+	 * @param {Date?} timeend
+	 * @param {number} var_id
+	 * @param {Object} filter
+	 * @param {number[]?} filter.estacion_id
+	 * @param {number?} filter.proc_id
+	 * @param {number?} filter.unit_id
+	 * @param {Object} options
+	 * @param {number?} options.min_count
+	 * @param {number?} options.min_count_synop
+	 * @param {number?} options.min_count_synop_cdp
+	 * @param {string?} options.output - defaults to campo_{var_id}_{YYYYMMDD}_nearest.tif
+	 * @param {boolean?} options.update_areales
+	 * @param {boolean?} options.no_send_data
+	 * @param {string?} options.outputdir
+	 * @param {number?} options.nmin
+	 * @param {number?} options.radius1
+	 * @param {number?} options.radius2
+	 * @param {number?} options.out_x
+	 * @param {number?} options.out_y
+	 * @param {number?} options.nullvalue
+	 * @param {string?} options.method
+	 * @param {[[number,number],[number,number]]} options.target_extent
+	 * @param {string?} options.roifile
+	 * @param {string?} options.srs
+	 * @param {boolean?} options.makepng
+	 * @param {string?} options.geojson_file
+	 * @param {"diario"|"semanal"?} options.tipo
+	 * @param {string?} options.zfield
+	 * @param {string?} options.output
+  	 * @param {number?} series_id - raster series id para guardar el producto en base de datos
+	 * @param {number|number[]|"all"?} area_id - ids de area para generar series areales
+	 */
+	static async campo2rast(timestart, timeend,var_id,filter={},options={},series_id, area_id) {
+		const used = process.memoryUsage();
+		for (let key in used) {
+		  console.debug(`${key} ${Math.round(used[key] / 1024 / 1024 * 100) / 100} MB`);
+		}
+
+		if(timestart.toString() == "Invalid Date") {
+			return Promise.reject("timestart: Invalid Date")
+		}
+		timeend = timeend || new Date(timestart) 
+		if(timeend.toString() == "Invalid Date") {
+			return Promise.reject("timeend: Invalid Date")
+		}
+		console.debug({ts:timestart,te:timeend})
+		const campo = await this.getCampo(var_id,timestart,timeend,filter,options)
+		if(options.min_count && campo.series.length < options.min_count) {
+			throw new Error("Faltan registros. Mínimo: " + options.min_count)
+		}
+		if(options.min_count_synop) {
+			const count = campo.series.reduce((count,s)=> count + ((s.estacion.tabla == 'stations') ? 1 : 0),0)
+			if(count < options.min_count_synop) {
+				throw new Error("Faltan registros synop. Mínimo: " + options.min_count_synop)
+			}
+		}
+		if(options.min_count_synop_cdp) {
+			const count = campo.series.reduce((count,s)=> count + ((s.estacion.tabla == 'stations_cdp') ? 1 : 0),0)
+			if(count < options.min_count_synop_cdp) {
+				throw new Error("Faltan registros synop cdp. Mínimo: " + options.min_count_synop_cdp)
+			}
+		}
+		const output_file = options.output || `data/campos/campo_${var_id}_${timestart.toISOString().substring(0,10).replace(/-/g,"")}_nearest.tif`
+		ensureDirForFile(output_file)
+		const csv_file = output_file.replace(/\.tif$/,".csv")
+		// escribe archivo CSV
+		await fs.writeFile(csv_file,campo.toCSV())
+		const png_file =  output_file.replace(/\.tif$/,"_surf.png")
+		const geojson_file = output_file.replace(/\.tif$/,".json")
+		const nearest_file = output_file
+		// genera raster x vecino más próximo y escribe archivo geojson
+		const result = await this.points2rast(
+			campo.toGeoJSON(),
+			{
+				series_id: series_id,
+				timestart: timestart,
+				timeend: timeend
+			},
+			{
+				...options,
+				geojsonfile: geojson_file
+			},
+			(series_id) ? true : false)
+		if(series_id && (area_id || options.update_areales)) {
+			// calcula medias areales
+			const result_areal = await this.rast2areal(series_id,timestart,timeend,area_id || "all")
+			console.log("upserted " + result_areal.length + " into series_areal, series_id:" + series_id)
+		}
+		if(options.no_send_data) {
+			return {
+				type: "campo",
+				var_id: var_id,
+				series_id: series_id,
+				timestart: result.timestart,
+				timeend: result.timeend,
+				area_id: area_id,
+				files: {
+					points_geojson: geojson_file,
+					points_csv: csv_file,
+					nearest_tif: nearest_file,
+					nearest_png: png_file
+				}
+			}
+		} else {
+			return result
+		}		
+	}
+
+		/**
+	 * @param {Date} timestart
+	 * @param {Date} timeend
+	 * @param {number} var_id
+	 * @param {Object} filter
+	 * @param {number[]?} filter.estacion_id
+	 * @param {number?} filter.proc_id
+	 * @param {number?} filter.unit_id
+	 * @param {Object} options
+	 * @param {number?} options.min_count
+	 * @param {number?} options.min_count_synop
+	 * @param {number?} options.min_count_synop_cdp
+	 * @param {string?} options.output - defaults to campo_{var_id}_{YYYYMMDD}_nearest.tif
+	 * @param {boolean?} options.update_areales
+	 * @param {boolean?} options.no_send_data
+	 * @param {string?} options.outputdir
+	 * @param {number?} options.nmin
+	 * @param {number?} options.radius1
+	 * @param {number?} options.radius2
+	 * @param {number?} options.out_x
+	 * @param {number?} options.out_y
+	 * @param {number?} options.nullvalue
+	 * @param {string?} options.method
+	 * @param {[[number,number],[number,number]]} options.target_extent
+	 * @param {string?} options.roifile
+	 * @param {string?} options.srs
+	 * @param {boolean?} options.makepng
+	 * @param {string?} options.geojson_file
+	 * @param {"diario"|"semanal"?} options.tipo
+	 * @param {string?} options.zfield
+	 * @param {string?} options.output
+ 	 * @param {number?} series_id - raster series id para guardar el producto en base de datos
+	 * @param {number|number[]|"all"?} area_id - ids de area para generar series areales
+	 * @param {Interval?} dt - defaults to 1 day
+	 * @param {Interval?} t_offset
+	 */
+	static async seriescampo2rast(timestart,timeend,var_id,filter={},options={},series_id,area_id, dt={days:1}, t_offset) {
+		var timestart_seq = timeSteps.DateFromDateOrInterval(timestart)
+		if(t_offset) {
+			timestart_seq.setHours(0,0,0,0)
+			timestart_seq = timeSteps.advanceInterval(timestart_seq, t_offset)
+		}
+		if(timestart_diario.toString() == "Invalid Date") {
+			throw new Error("timestart: Invalid Date")
+		}
+		var timeend_seq = timeSteps.DateFromDateOrInterval(timeend)
+		var fechas_seq = []
+		var fecha = new Date(timestart_seq)
+		while(fecha < timeend_seq) {
+			fechas_seq.push(new Date(fecha))
+			fecha = timeSteps.advanceInterval(dt)
+		}
+		if(fechas_seq.length == 0) {
+			throw new Error("intervalo de fechas nulo")
+		}
+		var all_results = []
+		var all_errors = []
+		for(const ts of fechas_seq) {
+			const te = timeSteps.advanceInterval(ts,dt)
+			try {
+				const result = await this.campo2rast(ts,te,var_id,filter,{...options, no_send_data:true},series_id,area_id)
+			} catch(e) {
+				console.error(e)
+				all_errors.push(e)
+				continue
+			}
+			all_results.push(result.value)
+		}
+		if(all_results.length == 0) {
+			throw(all_errors)
+		} else {
+			return all_results
+		}
+	}
+	
+
 	static async get_pp_cdp_diario(fecha,filter={},options={},upsert) {
 		const used = process.memoryUsage();
 		for (let key in used) {
@@ -19928,7 +20141,7 @@ ORDER BY cal.cal_id`
 		timestart = new Date(timestart.getUTCFullYear(),timestart.getUTCMonth(),timestart.getUTCDate(),9)
 		var timeend = new Date(timestart.getTime() + 24*3600*1000)
 		console.log({ts:timestart,te:timeend})
-		filter.estacion_id = (filter.estacion_id) ? filter.estacion_id : global.config.pp_cdp.estacion_ids
+		filter.estacion_id = (filter.estacion_id) ? filter.estacion_id : defaults.estacion_ids
 		return this.getCampo(1,timestart,timeend,filter,options)
 		.then(campo=>{
 			if(!options.skip_count_control) {

@@ -1096,5 +1096,9 @@ internal.sanitizeIdFilter = function (id, column) {
 	}
 }
 
+internal.ensureDirForFile = function(filePath) {
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true }); // won't throw if exists
+}
 
 module.exports = internal
