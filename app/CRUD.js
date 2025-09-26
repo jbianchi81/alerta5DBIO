@@ -19836,7 +19836,7 @@ ORDER BY cal.cal_id`
 		}
 		var target_extent = (options.target_extent) ? options.target_extent : defaults.target_extent || [[-70,-40],[-40,-10]]
 		var roifile = (options.roifile) ? options.roifile : (defaults.roifile) ? path.resolve(defaults.roifile) : path.resolve("data/vect/CDP_polygon.shp")
-		var srs = (options.srs) ? parseInt(srs) : defaults.srs || 4326
+		var srs = (options.srs) ? parseInt(options.srs) : defaults.srs || 4326
 		var makepng = (options.makepng) ? options.makepng : defaults.makepng || true 
 		var rand = sprintf("%08d",Math.random()*100000000)
 		var geojsonfile= (options.geojsonfile) ? path.resolve(options.geojsonfile) : "/tmp/points_"+rand+".geojson"
@@ -19851,7 +19851,7 @@ ORDER BY cal.cal_id`
 				return Promise.reject("invalid output filename")
 			}
 		}
-		var resultfile= (options.output) ? outputdir + "/" + options.output : path.resolve(defaults.outputdir) + "/rast_" + method_ + "_" + radius1 + "_" + radius2 + "_" + out_x + "_" + out_y + ".tif" 
+		var resultfile= (options.output) ? outputdir + "/" + options.output : path.resolve(outputdir) + "/rast_" + method_ + "_" + radius1 + "_" + radius2 + "_" + out_x + "_" + out_y + "_" + metadata.timestart.toISOString().substring(0,10).replace(/-/g,"") + ".tif" 
 		var pngfile= resultfile.replace(/\.tif$/,".png"); // "/home/alerta5/13-SYNOP/mapas_semanales_gdal/pp_semanal_idw_$label_date.png";
 
 		const extent_result = await global.pool.query("with p as (\
@@ -19888,7 +19888,7 @@ ORDER BY cal.cal_id`
 		if(nodata_result.stderr  && config.verbose) {
 			console.error(nodata_result.stderr)
 		}
-		const warp2_result = await pexec("gdalwarp -t_srs EPSG:" + srs + " -srcnodata -9999 -dstnodata nan -ot Float32 -overwrite " + tempresultfile + " " + resultfile);
+		const warp2_result = await pexec("gdalwarp -t_srs EPSG:" + srs + " -srcnodata " + nullvalue + " -dstnodata nan -ot Float32 -overwrite " + tempresultfile + " " + resultfile);
 		if(warp2_result.stdout  && config.verbose) {
 			console.log("crud.points2rast: stdout: " + warp2_result.stdout)
 		}
@@ -20029,8 +20029,20 @@ ORDER BY cal.cal_id`
 			(series_id) ? true : false)
 		if(series_id && (area_id || options.update_areales)) {
 			// calcula medias areales
-			const result_areal = await this.rast2areal(series_id,timestart,timeend,area_id || "all")
-			console.log("upserted " + result_areal.length + " into series_areal, series_id:" + series_id)
+			if(Array.isArray(area_id)) {
+				var result_areal = []
+				for(const a_id of area_id) {
+					const result_areal_ = await this.rast2areal(series_id,timestart,timeend, a_id)
+					if(result_areal_) {
+						result_areal.push(...result_areal_)
+					} else {
+						console.error("No se pudo calcular el valor areal del área " + a_id + ", fecha " + timestart.toISOString())
+					}
+				}
+			} else {
+				var result_areal = await this.rast2areal(series_id,timestart,timeend,area_id || "all")
+			}
+			console.log("upserted " + result_areal.length + " observaciones areales")
 		}
 		if(options.no_send_data) {
 			return {
@@ -20094,15 +20106,15 @@ ORDER BY cal.cal_id`
 			timestart_seq.setHours(0,0,0,0)
 			timestart_seq = timeSteps.advanceInterval(timestart_seq, t_offset)
 		}
-		if(timestart_diario.toString() == "Invalid Date") {
+		if(timestart_seq.toString() == "Invalid Date") {
 			throw new Error("timestart: Invalid Date")
 		}
 		var timeend_seq = timeSteps.DateFromDateOrInterval(timeend)
 		var fechas_seq = []
 		var fecha = new Date(timestart_seq)
-		while(fecha < timeend_seq) {
+		while(fecha.getTime() < timeend_seq.getTime()) {
 			fechas_seq.push(new Date(fecha))
-			fecha = timeSteps.advanceInterval(dt)
+			fecha = timeSteps.advanceInterval(fecha,dt)
 		}
 		if(fechas_seq.length == 0) {
 			throw new Error("intervalo de fechas nulo")
@@ -20112,13 +20124,13 @@ ORDER BY cal.cal_id`
 		for(const ts of fechas_seq) {
 			const te = timeSteps.advanceInterval(ts,dt)
 			try {
-				const result = await this.campo2rast(ts,te,var_id,filter,{...options, no_send_data:true},series_id,area_id)
+				var result = await this.campo2rast(ts,te,var_id,filter,options,series_id,area_id)
 			} catch(e) {
 				console.error(e)
 				all_errors.push(e)
 				continue
 			}
-			all_results.push(result.value)
+			all_results.push(result)
 		}
 		if(all_results.length == 0) {
 			throw(all_errors)
