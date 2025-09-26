@@ -1,7 +1,7 @@
 const test = require('node:test')
 const assert = require('assert')
 // process.env.NODE_ENV = "test"
-const {CRUD: Crud, serie: Serie, observacion: Observacion, observaciones: Observaciones, escena: Escena, fuente: Fuente} = require('../app/CRUD')
+const {CRUD: Crud} = require('../app/CRUD')
 
 test('getCampo test', async(t) => {
 

@@ -20153,7 +20153,7 @@ ORDER BY cal.cal_id`
 		timestart = new Date(timestart.getUTCFullYear(),timestart.getUTCMonth(),timestart.getUTCDate(),9)
 		var timeend = new Date(timestart.getTime() + 24*3600*1000)
 		console.log({ts:timestart,te:timeend})
-		filter.estacion_id = (filter.estacion_id) ? filter.estacion_id : defaults.estacion_ids
+		filter.estacion_id = (filter.estacion_id) ? filter.estacion_id : global.config.pp_cdp.estacion_ids
 		return this.getCampo(1,timestart,timeend,filter,options)
 		.then(campo=>{
 			if(!options.skip_count_control) {
