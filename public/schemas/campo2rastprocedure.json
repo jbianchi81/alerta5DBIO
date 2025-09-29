@@ -1,0 +1,167 @@
+{
+    "$id": "campo2rastprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Campo2RastProcedure",
+    "type": "object",
+    "allOf": [
+        {
+            "$ref": "crudprocedure.json"
+        }
+    ],
+    "properties": {
+        "procedureName": {
+            "const": "Campo2RastProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "timestart": {
+                    "$ref": "dateorinterval.json"
+                },
+                "timeend": {
+                    "$ref": "dateorinterval.json"
+                },
+                "var_id": {
+                    "type": "integer"
+                },
+                "filter": {
+                    "type": "object",
+                    "properties": {
+                        "estacion_id": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            },
+                            "minItems": 1
+                        },
+                        "proc_id": {
+                            "type": "integer"
+                        },
+                        "unit_id": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "options": {
+                    "type": "object",
+                    "properties": {
+                        "properties": {
+                            "min_count": {
+                                "type": "integer"
+                            },
+                            "min_count_synop": {
+                                "type": "integer"
+                            },
+                            "min_count_synop_cdp": {
+                                "type": "integer"
+                            },
+                            "output": {
+                                "type": "string",
+                                "description": "Defaults to campo_{var_id}_{YYYYMMDD}_nearest.tif"
+                            },
+                            "update_areales": {
+                                "type": "boolean"
+                            },
+                            "no_send_data": {
+                                "type": "boolean"
+                            },
+                            "outputdir": {
+                                "type": "string"
+                            },
+                            "nmin": {
+                                "type": "integer"
+                            },
+                            "radius1": {
+                                "type": "number"
+                            },
+                            "radius2": {
+                                "type": "number"
+                            },
+                            "out_x": {
+                                "type": "integer"
+                            },
+                            "out_y": {
+                                "type": "integer"
+                            },
+                            "nullvalue": {
+                                "type": "number"
+                            },
+                            "method": {
+                                "type": "string"
+                            },
+                            "target_extent": {
+                                "type": "array",
+                                "description": "Array of two coordinate pairs [[x1, y1], [x2, y2]]",
+                                "items": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "number"
+                                    },
+                                    "minItems": 2,
+                                    "maxItems": 2
+                                },
+                                "minItems": 2,
+                                "maxItems": 2
+                            },
+                            "roifile": {
+                                "type": "string"
+                            },
+                            "srs": {
+                                "type": "string"
+                            },
+                            "makepng": {
+                                "type": "boolean"
+                            },
+                            "geojson_file": {
+                                "type": "string"
+                            },
+                            "tipo": {
+                                "type": "string",
+                                "enum": [
+                                    "diario",
+                                    "semanal"
+                                ]
+                            },
+                            "zfield": {
+                                "type": "string"
+                            }
+                        },
+                        "additionalProperties": false
+                    }
+                },
+                "series_id": {
+                    "type": "integer"
+                },
+                "area_id": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            },
+                            "minItems": 1
+                        },
+                        {
+                            "type": "string",
+                            "enum": ["all"]
+                        }
+                    ] 
+                },
+                "dt": {
+                    "$ref": "timeinterval.json"
+                },
+                "t_offset": {
+                    "$ref": "timeinterval.json"
+                }
+            },
+            "required": [
+                "timestart", "timeend", "var_id"
+            ],
+            "additionalProperties": false
+        }
+    }
+}

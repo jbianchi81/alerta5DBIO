@@ -21,6 +21,9 @@
                         "$ref": "getppcdpbatchprocedure.json"
                     },
                     {
+                        "$ref": "campo2rastprocedure.json"
+                    },
+                    {
                         "$ref": "saveobservacionesprocedure.json"
                     },
                     {

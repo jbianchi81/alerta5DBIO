@@ -19835,7 +19835,7 @@ ORDER BY cal.cal_id`
 			}
 		}
 		var target_extent = (options.target_extent) ? options.target_extent : defaults.target_extent || [[-70,-40],[-40,-10]]
-		var roifile = (options.roifile) ? options.roifile : (defaults.roifile) ? path.resolve(defaults.roifile) : path.resolve("data/vect/CDP_polygon.shp")
+		var roifile = (options.roifile) ? options.roifile : (defaults.roifile) ? path.resolve(defaults.roifile) : undefined // path.resolve("data/vect/CDP_polygon.shp")
 		var srs = (options.srs) ? parseInt(options.srs) : defaults.srs || 4326
 		var makepng = (options.makepng) ? options.makepng : defaults.makepng || true 
 		var rand = sprintf("%08d",Math.random()*100000000)
@@ -19874,7 +19874,7 @@ ORDER BY cal.cal_id`
 		if(translate_result.stderr && config.verbose) {
 			console.error(translate_result.stderr)
 		}
-		const warp_result = await pexec("gdalwarp -dstnodata " + nullvalue + " -cutline " + roifile + " " + rasternonull + " " + tempresultfile) //("gdal_calc.py --overwrite  -A " + rasternonull + " -B " + roifile + " --outfile=" + tempresultfile + " --NoDataValue=-9999 --calc=\"A*B\"")
+		const warp_result = await pexec(`gdalwarp -dstnodata ${nullvalue} ${(roifile) ? `-cutline ${roifile}` : ""} ${rasternonull} ${tempresultfile}`) //("gdal_calc.py --overwrite  -A " + rasternonull + " -B " + roifile + " --outfile=" + tempresultfile + " --NoDataValue=-9999 --calc=\"A*B\"")
 		if(warp_result.stdout && config.verbose) {
 			console.log("crud.points2rast: stdout: " + warp_result.stdout)
 		}
@@ -19972,7 +19972,6 @@ ORDER BY cal.cal_id`
 	 * @param {string?} options.geojson_file
 	 * @param {"diario"|"semanal"?} options.tipo
 	 * @param {string?} options.zfield
-	 * @param {string?} options.output
   	 * @param {number?} series_id - raster series id para guardar el producto en base de datos
 	 * @param {number|number[]|"all"?} area_id - ids de area para generar series areales
 	 */
@@ -20006,7 +20005,7 @@ ORDER BY cal.cal_id`
 				throw new Error("Faltan registros synop cdp. Mínimo: " + options.min_count_synop_cdp)
 			}
 		}
-		const output_file = options.output || `data/campos/campo_${var_id}_${timestart.toISOString().substring(0,10).replace(/-/g,"")}_nearest.tif`
+		const output_file = (options.output) ? options.output : `${(options.outputdir) ? options.outputdir : "data/campos"}/campo_${var_id}_${timestart.toISOString().substring(0,10).replace(/-/g,"")}_nearest.tif`
 		ensureDirForFile(output_file)
 		const csv_file = output_file.replace(/\.tif$/,".csv")
 		// escribe archivo CSV

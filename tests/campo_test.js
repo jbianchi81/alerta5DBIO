@@ -69,8 +69,8 @@ test('getCampo test', async(t) => {
             {
                 outputdir: "/tmp",
                 nmin: 9,
-                radius1: 1.0,
-                radius2: 1.0,
+                radius1: 2.0,
+                radius2: 2.0,
                 out_x: 208,
                 out_y: 192,
                 nullvalue: -9999.0,
@@ -161,8 +161,8 @@ test('campo2rast test', async(t) => {
             {
                 outputdir: "/tmp",
                 nmin: 9,
-                radius1: 1.0,
-                radius2: 1.0,
+                radius1: 2.0,
+                radius2: 2.0,
                 out_x: 208,
                 out_y: 192,
                 nullvalue: -9999.0,
@@ -206,8 +206,8 @@ test('seriescampo2rast test', async(t) => {
             {
                 outputdir: "/tmp",
                 nmin: 9,
-                radius1: 1.0,
-                radius2: 1.0,
+                radius1: 2.0,
+                radius2: 2.0,
                 out_x: 208,
                 out_y: 192,
                 nullvalue: -9999.0,
@@ -249,8 +249,8 @@ test('seriescampo2rast con areales test', async(t) => {
             {
                 outputdir: "/tmp",
                 nmin: 9,
-                radius1: 1.0,
-                radius2: 1.0,
+                radius1: 2.0,
+                radius2: 2.0,
                 out_x: 208,
                 out_y: 192,
                 nullvalue: -9999.0,

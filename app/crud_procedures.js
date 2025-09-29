@@ -1646,6 +1646,60 @@ internal.GetPpCdpDiario = class extends internal.CrudProcedure {
    
 }
 
+internal.Campo2RastProcedure = class extends internal.CrudProcedure {
+    procedureClass = "Campo2RastProcedure"
+    timestart
+    timeend
+    var_id
+    filter
+    options
+    series_id
+    area_id
+    dt
+    t_offset
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "Campo2RastProcedure"
+        if(!arguments[0].timestart) {
+            throw("Missing timestart")
+        }
+        this.timestart = timeSteps.DateFromDateOrInterval(arguments[0].timestart)
+        if(!arguments[0].timeend) {
+            throw("Missing timeend")
+        }
+        this.timeend = timeSteps.DateFromDateOrInterval(arguments[0].timeend)
+        if(!arguments[0].var_id) {
+            throw("Missing var_id")
+        }
+        this.var_id = parseInt(arguments[0].var_id)
+        if(!arguments[0].series_id) {
+            throw("Missing series_id")
+        }
+        this.filter = arguments[0].filter
+        this.options = arguments[0].options
+        this.series_id = (arguments[0].series_id) ? parseInt(arguments[0].series_id) : undefined
+        this.area_id = (arguments[0].area_id) ? arguments[0].area_id : undefined
+        this.dt = (arguments[0].dt) ? new timeSteps.Interval(arguments[0].dt) : undefined
+        this.t_offset = (arguments[0].t_offset) ? new timeSteps.Interval(arguments[0].t_offset) : undefined
+    }
+
+
+    async run () {
+        this.result = await crud.seriescampo2rast(
+            this.timestart,
+            this.timeend,
+            this.var_id,
+            this.filter,
+            this.options,
+            this.series_id,
+            this.area_id,
+            this.dt,
+            this.t_offset
+        )
+        return this.result
+    }
+}
+
 internal.TestAccessorProcedure = class extends internal.CrudProcedure {
     constructor() {
         super(...arguments)
@@ -3390,6 +3444,7 @@ const availableCrudProcedures = {
     "RunAsociacionesProcedure": internal.RunAsociacionesProcedure,
     "RunAsociacionProcedure": internal.RunAsociacionProcedure,
     "GetPpCdpDiario": internal.GetPpCdpDiario,
+    "Campo2RastProcedure": internal.Campo2RastProcedure,
     "PruneObservacionesProcedure": internal.PruneObservacionesProcedure,
     "ThinObservacionesProcedure": internal.ThinObservacionesProcedure,
     "SaveObservacionesProcedure": internal.SaveObservacionesProcedure,
