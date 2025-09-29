@@ -20121,7 +20121,7 @@ ORDER BY cal.cal_id`
 		var all_results = []
 		var all_errors = []
 		for(const ts of fechas_seq) {
-			const te = timeSteps.advanceInterval(ts,dt)
+			const te = timeSteps.advanceTimeStep(ts,dt)
 			try {
 				var result = await this.campo2rast(ts,te,var_id,filter,options,series_id,area_id)
 			} catch(e) {
