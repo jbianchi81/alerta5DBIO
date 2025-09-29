@@ -20113,7 +20113,7 @@ ORDER BY cal.cal_id`
 		var fecha = new Date(timestart_seq)
 		while(fecha.getTime() < timeend_seq.getTime()) {
 			fechas_seq.push(new Date(fecha))
-			fecha = timeSteps.advanceInterval(fecha,dt)
+			fecha = timeSteps.advanceTimeStep(fecha,dt)
 		}
 		if(fechas_seq.length == 0) {
 			throw new Error("intervalo de fechas nulo")
