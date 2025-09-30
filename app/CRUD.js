@@ -19812,9 +19812,9 @@ ORDER BY cal.cal_id`
 		var out_y =  (options.out_y) ? options.out_y : defaults.out_y || 300;
 		var nullvalue = (options.nullvalue) ? options.nullvalue : defaults.nullvalue || 9999.0;
 		if(!metadata.series_id) {
-			if(!defaults.series_id) {
-				throw new Error("Falta series_id")
-			}
+			// if(!defaults.series_id) {
+			// 	throw new Error("Falta series_id")
+			// }
 			metadata.series_id = defaults.series_id 
 		}
 		var method_ = (options.method) ? options.method : defaults.method || "nearest";
