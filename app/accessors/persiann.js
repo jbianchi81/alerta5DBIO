@@ -345,8 +345,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         });
     }
     procesarArchivo(filename, output_filename) {
-        var _a;
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const datecode = filename.substring(7, 12);
             const gzPath = path_1.default.join(this.config.input_dir, filename);
             const binPath = path_1.default.join(this.config.output_dir, `${datecode}.bin`);
@@ -369,8 +369,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             }
         });
     }
-    rast2obsList(filenames, update_ = false) {
-        return __awaiter(this, void 0, void 0, function* () {
+    rast2obsList(filenames_1) {
+        return __awaiter(this, arguments, void 0, function* (filenames, update_ = false) {
             // console.log(JSON.stringify(filenames))
             this.subset_files = [];
             for (var filename of filenames) {

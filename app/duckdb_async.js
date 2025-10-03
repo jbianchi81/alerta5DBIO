@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.queryAsync = void 0;
+exports.queryAsync = queryAsync;
 const duckdb_lambda_x86_1 = require("duckdb-lambda-x86");
 function queryAsync(stmt) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -25,4 +25,3 @@ function queryAsync(stmt) {
         });
     });
 }
-exports.queryAsync = queryAsync;

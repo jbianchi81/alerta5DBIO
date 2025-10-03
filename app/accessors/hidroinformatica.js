@@ -170,8 +170,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             }
         });
     }
-    getSeries(filter = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    getSeries() {
+        return __awaiter(this, arguments, void 0, function* (filter = {}) {
             if (!this.series_map.length) {
                 yield this.loadSeriesMap();
             }
@@ -191,8 +191,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             };
         });
     }
-    get(filter, options = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    get(filter_1) {
+        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
             if (!filter) {
                 throw new Error("Missing filter");
             }
@@ -279,8 +279,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         };
     }
 }
-Client._get_is_multiseries = false;
 exports.Client = Client;
+Client._get_is_multiseries = false;
 function formatLocalDate(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0'); // 0-indexed

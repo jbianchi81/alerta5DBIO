@@ -1,6 +1,6 @@
 'use strict'
 
-const {baseModel} = require('a5base').baseModel
+const {baseModel} = require('a5base/baseModel')
 const { estacion, escena, serie, VariableName, unidades, "var": Variable, observacion } = require('./CRUD')
 const {Geometry} = require('./geometry')
 const utils = require('./utils')
