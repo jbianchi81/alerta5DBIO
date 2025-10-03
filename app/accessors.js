@@ -54,6 +54,7 @@ internal.hidroestimador = require('./accessors/hidroestimador').Client
 internal.caru = require('./accessors/caru').Client
 internal.ctp_ultimas_alturas = require('./accessors/ctp_ultimas_alturas').Client
 internal.persiann = require('./accessors/persiann').Client
+internal.pilcomayo = require('./accessors/pilcomayo').Client
 
 // Promise.allSettled polyfill
 
