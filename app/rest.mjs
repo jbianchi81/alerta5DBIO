@@ -71,8 +71,8 @@ if(config.rest.auth_database) {
 } else {
 	auth_pool = global.pool
 }
-import Authorization from 'a5auth'
-const auth = new Authorization(app,config,auth_pool)
+import {Authentication} from 'a5base/auth'
+const auth = new Authentication(app,config,auth_pool)
 const passport = auth.passport
 
 app.engine('handlebars', (exphbs.engine) ? exphbs.engine({defaultLayout: 'main'}) : exphbs({defaultLayout: 'main'}));// ({defaultLayout: 'main'})); //  <- CHANGE FOR NEWER express-handlebars versions

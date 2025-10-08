@@ -104,8 +104,8 @@ class AbstractAccessorEngine {
             throw new Error("Method 'get()' must be implemented in child class");
         });
     }
-    update(filter, options = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    update(filter_1) {
+        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
             const series = yield this.get(filter, Object.assign(Object.assign({}, options), { return_series: true }));
             const updated = [];
             for (var serie of series) {

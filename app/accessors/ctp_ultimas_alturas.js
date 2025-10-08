@@ -51,8 +51,8 @@ function parseObs(o, series_id_map) {
     });
 }
 function getUltimasAlturas(url) {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
     return __awaiter(this, void 0, void 0, function* () {
+        var _a, _b, _c, _d, _e, _f, _g, _h;
         const html = yield fetchLatin1(url);
         const dom = new jsdom_1.JSDOM(html);
         const container = dom.window.document.querySelector("div.pt-md-3:nth-child(3)");
@@ -113,18 +113,18 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         };
         this.setConfig(config);
     }
-    get(filter = {}, options = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    get() {
+        return __awaiter(this, arguments, void 0, function* (filter = {}, options = {}) {
             const ultimas_alturas = yield getUltimasAlturas(this.config.url);
             return ultimas_alturas.map(o => parseObs(o, this.config.series_id_map));
         });
     }
-    update(filter = {}, options = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    update() {
+        return __awaiter(this, arguments, void 0, function* (filter = {}, options = {}) {
             const observaciones = yield this.get(filter, options);
             return Promise.all(observaciones.map((o) => o.create()));
         });
     }
 }
-Client._get_is_multiseries = true;
 exports.Client = Client;
+Client._get_is_multiseries = true;

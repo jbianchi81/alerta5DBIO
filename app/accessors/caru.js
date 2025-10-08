@@ -124,23 +124,23 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     }
     getSeries(filter) {
         return __awaiter(this, void 0, void 0, function* () {
-            const variable = yield CRUD_1.var.read({ id: 2 });
+            const variable = yield CRUD_1.var.read(2);
             const proc = yield CRUD_1.procedimiento.read({ id: 1 });
             const unidades = yield CRUD_1.unidades.read({ id: 11 });
             return Object.keys(this.config.estaciones_map).map(series_id => {
                 return new CRUD_1.serie({
                     tipo: "puntual",
                     id: parseInt(series_id),
-                    var: variable,
-                    unidades: unidades,
+                    var: variable, //{id: 2},
+                    unidades: unidades, // {id: 11},
                     estacion: this.config.estaciones_map[series_id],
                     procedimiento: proc // {id: 1}
                 });
             });
         });
     }
-    get(filter, options = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    get(filter_1) {
+        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
             if (!filter.series_id) {
                 throw new Error("Missing series_id");
             }
@@ -177,12 +177,12 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return observaciones;
         });
     }
-    update(filter, options = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    update(filter_1) {
+        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
             var observaciones = yield this.get(filter, options);
             return CRUD_1.observaciones.create(observaciones);
         });
     }
 }
-Client._get_is_multiseries = false;
 exports.Client = Client;
+Client._get_is_multiseries = false;

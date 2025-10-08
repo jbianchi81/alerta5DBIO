@@ -61,5 +61,5 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         });
     }
 }
-Client._get_is_multiseries = false;
 exports.Client = Client;
+Client._get_is_multiseries = false;

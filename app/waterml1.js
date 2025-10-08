@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.serieToWaterML1TimeSeriesResponseObject = void 0;
+exports.serieToWaterML1TimeSeriesResponseObject = serieToWaterML1TimeSeriesResponseObject;
 const time_units_map = {
     days: {
         UnitsID: "104",
@@ -120,7 +120,6 @@ function serieToWaterML1TimeSeriesResponseObject(serie, query_url) {
         }
     };
 }
-exports.serieToWaterML1TimeSeriesResponseObject = serieToWaterML1TimeSeriesResponseObject;
 ;
 function getTimeOffset(date) {
     const offsetMinutes = date.getTimezoneOffset(); // Offset in minutes
