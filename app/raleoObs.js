@@ -5,7 +5,7 @@
 const CRUD = require('./CRUD')
 // const global.pool = new Pool(global.config.database)
 const crud = CRUD.CRUD // new CRUD.CRUD(global.pool,global.config)
-const program = require('commander')
+const {program} = require('commander')
 const fs = require('fs')
 
 //  PROGRAM //////////////////////////////////////////////////////////////

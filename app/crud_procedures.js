@@ -9,7 +9,7 @@ CRUD.accessor_observed_property = accessor_mapping.accessor_observed_property
 CRUD.accessor_unit_of_measurement = accessor_mapping.accessor_unit_of_measurement
 CRUD.accessor_timeseries_observation = accessor_mapping.accessor_timeseries_observation
 CRUD.accessor_time_value_pair = accessor_mapping.accessor_time_value_pair
-const program = require('commander');
+const {program} = require('commander');
 const fs = require('fs')
 const {writeFile} = require('fs/promises')
 const timeSteps = require('./timeSteps');
@@ -4308,7 +4308,7 @@ if(1==1) {
 
     program
     .command('get-series accessor_class [filter...]')
-    .alias('s')
+    .alias('S')
     .description('Run series metadata download procedure for given accessor class and output in selected format. Accepts zero to many filters as "key1=value1 key2=value2 ..."')
     .option("-v, --validate",'validate only (don\'t run)')
     .option("-o, --output <value>",'save output to file. If -o nor -i are set, output is printed to STDOUT')
