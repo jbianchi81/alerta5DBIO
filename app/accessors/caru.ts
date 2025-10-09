@@ -135,7 +135,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
     }
 
     async getSeries(filter : SeriesFilter) : Promise<Serie[]> {
-        const variable = await crud_var.read({id:2})
+        const variable = await crud_var.read(2)
         const proc = await crud_proc.read({id:1})
         const unidades = await crud_unidades.read({id:11})
         return Object.keys(this.config.estaciones_map).map(series_id => {

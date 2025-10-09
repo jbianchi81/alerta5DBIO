@@ -1,0 +1,29 @@
+{
+    "$id": "updateflowcatseriesprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "UpdateFlowcatSeriesProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "UpdateFlowcatSeriesProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "filter": {
+                    "type": "object",
+                    "properties": {
+                        "timestart": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "timeend": {
+                            "$ref": "dateorinterval.json"
+                        }
+                    }
+                }
+            },
+            "additionalProperties": false
+        }
+    }
+}

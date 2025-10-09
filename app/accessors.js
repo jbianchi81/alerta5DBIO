@@ -3045,9 +3045,9 @@ internal.ana = class {
 	async getSeries(filter={},options={}) {
 		const estaciones = await this.getSitesANA(this.config.sites_local_file,true,0,0,undefined)
 		const variables = [
-			{var: await CRUD.var.read({id:2}), unidades: await CRUD.unidades.read({id:11}), procedimiento: await CRUD.procedimiento.read({id:1})},
-			{var: await CRUD.var.read({id:4}), unidades: await CRUD.unidades.read({id:10}), procedimiento: await CRUD.procedimiento.read({id:1})},
-			{var: await CRUD.var.read({id:27}), unidades: await CRUD.unidades.read({id:9}), procedimiento: await CRUD.procedimiento.read({id:1})}
+			{var: await CRUD.var.read(2), unidades: await CRUD.unidades.read({id:11}), procedimiento: await CRUD.procedimiento.read({id:1})},
+			{var: await CRUD.var.read(4), unidades: await CRUD.unidades.read({id:10}), procedimiento: await CRUD.procedimiento.read({id:1})},
+			{var: await CRUD.var.read(27), unidades: await CRUD.unidades.read({id:9}), procedimiento: await CRUD.procedimiento.read({id:1})}
 		]
 		const series = []
 		for(var e of estaciones) {

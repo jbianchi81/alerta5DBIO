@@ -103,6 +103,9 @@
                     },
                     {
                         "$ref": "testaccessorprocedure.json"
+                    },
+                    {
+                        "$ref": "updateflowcatseriesprocedure.json"
                     }
                 ]
             }

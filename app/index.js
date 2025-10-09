@@ -1,7 +1,7 @@
 'use strict'
 
 require('./setGlobal')
-const program = require('commander')
+const {program} = require('commander')
 const fs = require('fs')
 var sprintf = require('sprintf-js').sprintf, vsprintf = require('sprintf-js').vsprintf
 // const { Pool, Client } = require('pg')

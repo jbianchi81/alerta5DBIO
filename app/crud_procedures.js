@@ -9,7 +9,7 @@ CRUD.accessor_observed_property = accessor_mapping.accessor_observed_property
 CRUD.accessor_unit_of_measurement = accessor_mapping.accessor_unit_of_measurement
 CRUD.accessor_timeseries_observation = accessor_mapping.accessor_timeseries_observation
 CRUD.accessor_time_value_pair = accessor_mapping.accessor_time_value_pair
-const program = require('commander');
+const {program} = require('commander');
 const fs = require('fs')
 const {writeFile} = require('fs/promises')
 const timeSteps = require('./timeSteps');
@@ -20,11 +20,12 @@ const logger = require('./logger');
 const { DateFromDateOrInterval } = require('./timeSteps');
 const path = require('path');
 const { exit } = require('process');
-const userAdmin = require('../../appController/app/userAdmin')
-CRUD.user = userAdmin.user
+// const userAdmin = require('../../appController/app/userAdmin')
+CRUD.user = require('a5base/userAdmin').User
 const CSV = require('csv-string')
 const {getDeepValue, delay} = require('./utils')
 const { accessor_feature_of_interest } = require('./accessor_mapping')
+const { updateFlowcatSeries } = require('./update_flowcat_series')
 const internal = {}
 
 /**
@@ -2690,6 +2691,34 @@ internal.GrassBatchJobProcedure = class extends internal.CrudProcedure {
     }    
 }
 
+internal.UpdateFlowcatSeriesProcedure = class extends internal.CrudProcedure {
+    /**
+     * Updates hydrological status series (categorical) from observed series
+     * @param filter {}
+     * @param filter.timestart - defaults to 1990-01-01
+     * @param filter.timeend - defaults to now
+     */
+    constructor() {
+        super(...arguments)
+        this.filter = (arguments[0].filter) ? arguments[0].filter : {}
+        if(this.filter.timestart) {
+            this.filter.timestart = DateFromDateOrInterval(this.filter.timestart)
+        } else {
+            this.filter.timestart = new Date(1990,0,1)
+        }
+        if(this.filter.timeend) {
+            this.filter.timeend = DateFromDateOrInterval(this.filter.timeend)
+        } else {
+            this.filter.timeend = new Date()
+        }
+    }
+    async run() {
+        const result = await updateFlowcatSeries(this.filter.timestart, this.filter.timeend)
+        this.result = result
+        return this.result
+    }
+}
+
 internal.ValidateProcedure = class extends internal.CrudProcedure {
     /**
      * Instantiates procedure to validate data
@@ -3449,6 +3478,7 @@ const availableCrudProcedures = {
     "ThinObservacionesProcedure": internal.ThinObservacionesProcedure,
     "SaveObservacionesProcedure": internal.SaveObservacionesProcedure,
     "GrassBatchJobProcedure": internal.GrassBatchJobProcedure,
+    "UpdateFlowcatSeriesProcedure": internal.UpdateFlowcatSeriesProcedure,
     "CreateProcedure": internal.CreateProcedure,
     "ReadProcedure": internal.ReadProcedure,
     "UpdateProcedure": internal.UpdateProcedure,
@@ -4308,7 +4338,7 @@ if(1==1) {
 
     program
     .command('get-series accessor_class [filter...]')
-    .alias('s')
+    .alias('S')
     .description('Run series metadata download procedure for given accessor class and output in selected format. Accepts zero to many filters as "key1=value1 key2=value2 ..."')
     .option("-v, --validate",'validate only (don\'t run)')
     .option("-o, --output <value>",'save output to file. If -o nor -i are set, output is printed to STDOUT')

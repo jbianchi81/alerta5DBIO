@@ -81,8 +81,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         this.series_map = [];
         this.setConfig(config);
     }
-    static readParquetFile(filename, limit = 1000000, offset = 0, output = undefined) {
-        return __awaiter(this, void 0, void 0, function* () {
+    static readParquetFile(filename_1) {
+        return __awaiter(this, arguments, void 0, function* (filename, limit = 1000000, offset = 0, output = undefined) {
             // const db : Database = await Database.create(":memory:");
             // const rows : Array<RowData> = await db.all(`SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}`)
             const rows = yield (0, duckdb_async_1.queryAsync)(`SELECT * FROM READ_PARQUET('${filename}') LIMIT ${limit} OFFSET ${offset}`);
@@ -144,8 +144,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         }
         throw (new Error("Series id " + series_id + " not found in series_map"));
     }
-    get(filter, options = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    get(filter_1) {
+        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
             if (!filter || !filter.timestart || !filter.timeend) {
                 throw ("Missing timestart and/or timeend");
             }
@@ -222,8 +222,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return observaciones;
         });
     }
-    update(filter, options = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    update(filter_1) {
+        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
             const series = yield this.get(filter, Object.assign(Object.assign({}, options), { return_series: true }));
             const updated = [];
             for (var serie of series) {
@@ -383,8 +383,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             }
         });
     }
-    getSeries(filter = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    getSeries() {
+        return __awaiter(this, arguments, void 0, function* (filter = {}) {
             yield this.loadSitesMap();
             yield this.loadVarMap();
             yield this.loadProc();
@@ -413,5 +413,5 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         });
     }
 }
-Client._get_is_multiseries = true;
 exports.Client = Client;
+Client._get_is_multiseries = true;

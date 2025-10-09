@@ -488,8 +488,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return downloaded_files;
         });
     }
-    rast2obsList(filenames, dt = new timeSteps_1.Interval({ hours: 3 })) {
-        return __awaiter(this, void 0, void 0, function* () {
+    rast2obsList(filenames_1) {
+        return __awaiter(this, arguments, void 0, function* (filenames, dt = new timeSteps_1.Interval({ hours: 3 })) {
             // console.log(JSON.stringify(filenames))
             var observaciones = [];
             this.subset_files = [];
@@ -538,8 +538,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return observaciones;
         });
     }
-    getDiario(filter, options = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    getDiario(filter_1) {
+        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
             // console.log({config:this.config})
             options["insertSeriesId"] = this.config.dia_series_id;
             options["t_offset"] = "12:00:00";

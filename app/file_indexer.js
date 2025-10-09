@@ -2,7 +2,7 @@
 
 require('./setGlobal')
 // var fs =require("promise-fs")
-const program = require('commander')
+const {program} = require('commander')
 var sprintf = require('sprintf-js').sprintf
 const { runInNewContext } = require("vm")
 const { promisify } = require('util');

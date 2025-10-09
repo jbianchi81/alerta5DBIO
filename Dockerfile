@@ -73,13 +73,11 @@ COPY public ./
 WORKDIR /views
 COPY views ./
 
-WORKDIR /config
-COPY config ./
+# WORKDIR /config
+# COPY config ./
 
 WORKDIR /logs
 RUN touch memUsage.log
-
-VOLUME /data
 
 WORKDIR /sessions
 

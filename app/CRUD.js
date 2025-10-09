@@ -21,7 +21,8 @@ const JSONStream = require('JSONStream')
 const CSV = require('csv-string')
 // const gdal = require('gdal')
 const tmp = require('tmp')
-const { baseModel, BaseArray } = require('./baseModel')
+const {baseModel, BaseArray} = require('a5base/baseModel')
+// const { baseModel, BaseArray } = require('./baseModel')
 const querystring = require('node:querystring'); 
 var Validator = require('jsonschema').Validator;
 // const { errorMonitor } = require('events');
@@ -1048,199 +1049,162 @@ internal.VariableName = class extends baseModel {
 	}
 }
 
-internal["var"] = class extends baseModel  {
-	constructor(args) {
-        super(args)
-		// console.log("time support: " + ((this.timeSupport) ? JSON.stringify(this.timeSupport) : "undefined"))
-		// variable,nombre,abrev,type,datatype,valuetype,GeneralCategory,VariableName,SampleMedium,def_unit_id,timeSupport
-		// switch(arguments.length) {
-		// 	case 1:
-		// 		if(typeof(arguments[0]) === "string") {
-		// 			var arg_arr = arguments[0].split(",")
-		// 			this.id =arg_arr[0]
-		// 			this["var"] = arg_arr[1]
-		// 			this.nombre = arg_arr[2]
-		// 			this.abrev =arg_arr[3]
-		// 			this.type= arg_arr[4]
-		// 			this.datatype= arg_arr[5]
-		// 			this.valuetype=arg_arr[6]
-		// 			this.GeneralCategory = arg_arr[7]
-		// 			this.VariableName =  arg_arr[8]
-		// 			this.SampleMedium = arg_arr[9]
-		// 			this.def_unit_id = arg_arr[10]
-		// 			this.timeSupport = arg_arr[11]
-		// 			this.def_hora_corte = arg_arr[12]
-		// 		} else {
-		// 			this.id =arguments[0].id
-		// 			this["var"] = arguments[0]["var"]
-		// 			this.nombre = arguments[0].nombre
-		// 			this.abrev =arguments[0].abrev
-		// 			this.type= arguments[0].type
-		// 			this.datatype= arguments[0].datatype
-		// 			this.valuetype=arguments[0].valuetype
-		// 			this.GeneralCategory = arguments[0].GeneralCategory
-		// 			this.VariableName =  arguments[0].VariableName
-		// 			this.SampleMedium = arguments[0].SampleMedium
-		// 			this.def_unit_id = arguments[0].def_unit_id
-		// 			this.timeSupport = arguments[0].timeSupport
-		// 			this.def_hora_corte = arguments[0].def_hora_corte
-		// 		}
-		// 		break;
-		// 	default:
-		// 		this["var"] = arguments[0]
-		// 		this.nombre = arguments[1]
-		// 		this.abrev =arguments[2]
-		// 		this.type= arguments[3]
-		// 		this.datatype= arguments[4]
-		// 		this.valuetype=arguments[5]
-		// 		this.GeneralCategory = arguments[6]
-		// 		this.VariableName =  arguments[7]
-		// 		this.SampleMedium = arguments[8]
-		// 		this.def_unit_id = arguments[9]
-		// 		this.timeSupport = arguments[10]
-		// 		this.def_hora_corte = arguments[11]
-		// 		break;
-		// }
-	}
-	async getId() {
-		var result = await global.pool.query("\
-			SELECT id FROM var WHERE var=$1 AND \"GeneralCategory\"=$2\
-		",[this["var"], this.GeneralCategory])
-		if(result.rows.length) {
-			if(this.id) {
-				if(result.rows[0].id == this.id) {
-					return
-				} else {
-					throw("var already exists with different id")
-				}
-			} else {
-				this.id = result.rows[0].id
-			}
-		} else {
-			if(this.id) {
-				return
-			} else {
-				const new_id = await global.pool.query("\
-				SELECT max(id)+1 AS id\
-				FROM var\
-				")
-				this.id = new_id.rows[0].id
-			}
-		}
-	}
-	toString() {
-		return "{id:" + this.id + ",var:" + this["var"]+ ", nombre:" + this.nombre + ",abrev:" + this.abrev + ",type:" + this.type + ",datatype: " + this.datatype + ",valuetype:" + this.valuetype + ",GeneralCategory:" + this.GeneralCategory + ",VariableName:" + this.VariableName + ",SampleMedium:" + this.SampleMedium + ",def_unit_id:" + this.def_unit_id + ",timeSupport:" + JSON.stringify(this.timeSupport) + "}"
-	}
-	toCSV() {
-		return this.id + "," + this["var"]+ "," + this.nombre + "," + this.abrev + "," + this.type + "," + this.datatype + "," + this.valuetype + "," + this.GeneralCategory + "," + this.VariableName + "," + this.SampleMedium + "," + this.def_unit_id + "," + JSON.stringify(this.timeSupport)
-	}
-	static _fields = {
-		id: {type: "integer", primary_key: true},
-		var: {type: "string"},
-		nombre: {type: "string"},
-		abrev: {type: "string"},
-		type: {type: "string"},
-		datatype: {type: "string"},
-		valuetype: {type: "string"},
-		GeneralCategory: {type: "string"},
-		VariableName: {type: "string"},
-		SampleMedium: {type: "string"},
-		def_unit_id: {type: "string"},
-		timeSupport: {type: "interval"},
-		def_hora_corte: {type: "interval"}
-	}
-	static _table_name = "var"
-	toCSVless() {
-		return this.id + "," + this["var"]+ "," + this.nombre
-	}
-	toJSON() {
-		return {
-			"id": this.id,
-			"var": this["var"],
-			"nombre": this.nombre,
-			"abrev": this.abrev,
-			"type": this.type,
-			"datatype": this.datatype,
-			"valuetype": this.valuetype,
-			"GeneralCategory": this.GeneralCategory,
-			"VariableName": this.VariableName,
-			"SampleMedium": this.SampleMedium,
-			"def_unit_id": this.def_unit_id,
-			"timeSupport": this.timeSupport,
-			"def_hora_corte": this.def_hora_corte
-		}
-	}
-	// static settable_parameters = ["var","nombre","abrev","type","datatype","valuetype","GeneralCategory","VariableName","SampleMedium","def_unit_id","timeSupport","def_hora_corte"]
-	// set(changes={}) {
-	// 	for(var key of Object.keys(changes)) {
-	// 		if(this.constructor.settable_parameters.indexOf(key) < 0) {
-	// 			// console.error(`Can't update parameter ${key}`)
-	// 			continue
-	// 		} 
-	// 		this[key] = changes[key]
-	// 	}
-	// }
-	async create() {
-		return internal.CRUD.upsertVar(this)
-	}
-	static async read(filter={},options) {
-		if(filter.id && !Array.isArray(filter.id)) {
-			return internal.CRUD.getVar(filter.id)
-		}
-		return internal.CRUD.getVars(filter)
-	}
-	async find() {
-		if(this.id) {
-			var result = await internal.var.read({id:this.id})
-		} else if(this.VariableName) {
-			var result = await internal.var.read({VariableName:this.VariableName,timeSupport:this.timeSupport ?? null,datatype:this.datatype ?? 'Continuous'})
-			if(result != null && result.length) {
-				result = result[0]
-			} else {
-				result = undefined
-			}
-		} else {
-			console.error("id or VariableName required to find var")
-			return
-		}
-		if(!result) {
-			console.error("Var not found")
-			return
-		} else {
-			return result
-		}
-	}
-	async update(changes={}) {
-		this.set(changes)
-		return internal.CRUD.upsertVar(this)
-	}
-	static async delete(filter={},options={}) {
-		var matches = await this.read(filter)
-		if(!matches.length) {
-			console.log("Nothing to delete")
-			return []
-		}
-		const deleted = []
-		for(var i in matches) {
-			deleted.push(await matches[i].delete()) // internal.CRUD.deleteVar(matches[i].id))
-		}
-		return deleted.filter(r=>r)
-	}
-	async delete() {
-		if(!this.id) {
-			console.error("Can't delete this instance since it was not yet created")
-			return
-		}
-		try {
-			var result = await internal.CRUD.deleteVar(this.id)
-		} catch(e) {
-			console.error(e)
-			return
-		}
-		return result
+internal["var"] = require('a5base/variable').Variable
+// class extends baseModel  {
+	
+// 	constructor(args) {
+// 		this["var"] = args.var
+// 		this.nombre = args.nombre
+// 		this.abrev =args.abrev
+// 		this.type= args.type
+// 		this.datatype= args.datatype
+// 		this.valuetype=args.valuetype
+// 		this.GeneralCategory = args.GeneralCategory
+// 		this.VariableName =  args.VariableName
+// 		this.SampleMedium = args.SampleMedium
+// 		this.def_unit_id = args.def_unit_id
+// 		this.timeSupport = args.timeSupport
+// 		this.def_hora_corte = args.def_hora_corte
+// 	}
+// 	async getId() {
+// 		var result = await global.pool.query("\
+// 			SELECT id FROM var WHERE var=$1 AND \"GeneralCategory\"=$2\
+// 		",[this["var"], this.GeneralCategory])
+// 		if(result.rows.length) {
+// 			if(this.id) {
+// 				if(result.rows[0].id == this.id) {
+// 					return
+// 				} else {
+// 					throw("var already exists with different id")
+// 				}
+// 			} else {
+// 				this.id = result.rows[0].id
+// 			}
+// 		} else {
+// 			if(this.id) {
+// 				return
+// 			} else {
+// 				const new_id = await global.pool.query("\
+// 				SELECT max(id)+1 AS id\
+// 				FROM var\
+// 				")
+// 				this.id = new_id.rows[0].id
+// 			}
+// 		}
+// 	}
+// 	toString() {
+// 		return "{id:" + this.id + ",var:" + this["var"]+ ", nombre:" + this.nombre + ",abrev:" + this.abrev + ",type:" + this.type + ",datatype: " + this.datatype + ",valuetype:" + this.valuetype + ",GeneralCategory:" + this.GeneralCategory + ",VariableName:" + this.VariableName + ",SampleMedium:" + this.SampleMedium + ",def_unit_id:" + this.def_unit_id + ",timeSupport:" + JSON.stringify(this.timeSupport) + "}"
+// 	}
+// 	toCSV() {
+// 		return this.id + "," + this["var"]+ "," + this.nombre + "," + this.abrev + "," + this.type + "," + this.datatype + "," + this.valuetype + "," + this.GeneralCategory + "," + this.VariableName + "," + this.SampleMedium + "," + this.def_unit_id + "," + JSON.stringify(this.timeSupport)
+// 	}
+// 	static _fields = {
+// 		id: {type: "integer", primary_key: true},
+// 		var: {type: "string"},
+// 		nombre: {type: "string"},
+// 		abrev: {type: "string"},
+// 		type: {type: "string"},
+// 		datatype: {type: "string"},
+// 		valuetype: {type: "string"},
+// 		GeneralCategory: {type: "string"},
+// 		VariableName: {type: "string"},
+// 		SampleMedium: {type: "string"},
+// 		def_unit_id: {type: "string"},
+// 		timeSupport: {type: "interval"},
+// 		def_hora_corte: {type: "interval"}
+// 	}
+// 	static _table_name = "var"
+// 	toCSVless() {
+// 		return this.id + "," + this["var"]+ "," + this.nombre
+// 	}
+// 	toJSON() {
+// 		return {
+// 			"id": this.id,
+// 			"var": this["var"],
+// 			"nombre": this.nombre,
+// 			"abrev": this.abrev,
+// 			"type": this.type,
+// 			"datatype": this.datatype,
+// 			"valuetype": this.valuetype,
+// 			"GeneralCategory": this.GeneralCategory,
+// 			"VariableName": this.VariableName,
+// 			"SampleMedium": this.SampleMedium,
+// 			"def_unit_id": this.def_unit_id,
+// 			"timeSupport": this.timeSupport,
+// 			"def_hora_corte": this.def_hora_corte
+// 		}
+// 	}
+// 	// static settable_parameters = ["var","nombre","abrev","type","datatype","valuetype","GeneralCategory","VariableName","SampleMedium","def_unit_id","timeSupport","def_hora_corte"]
+// 	// set(changes={}) {
+// 	// 	for(var key of Object.keys(changes)) {
+// 	// 		if(this.constructor.settable_parameters.indexOf(key) < 0) {
+// 	// 			// console.error(`Can't update parameter ${key}`)
+// 	// 			continue
+// 	// 		} 
+// 	// 		this[key] = changes[key]
+// 	// 	}
+// 	// }
+// 	async create() {
+// 		return internal.CRUD.upsertVar(this)
+// 	}
+// 	static async read(filter={},options) {
+// 		if(filter.id && !Array.isArray(filter.id)) {
+// 			return internal.CRUD.getVar(filter.id)
+// 		}
+// 		return internal.CRUD.getVars(filter)
+// 	}
+// 	async find() {
+// 		if(this.id) {
+// 			var result = await internal.var.read({id:this.id})
+// 		} else if(this.VariableName) {
+// 			var result = await internal.var.read({VariableName:this.VariableName,timeSupport:this.timeSupport ?? null,datatype:this.datatype ?? 'Continuous'})
+// 			if(result != null && result.length) {
+// 				result = result[0]
+// 			} else {
+// 				result = undefined
+// 			}
+// 		} else {
+// 			console.error("id or VariableName required to find var")
+// 			return
+// 		}
+// 		if(!result) {
+// 			console.error("Var not found")
+// 			return
+// 		} else {
+// 			return result
+// 		}
+// 	}
+// 	async update(changes={}) {
+// 		this.set(changes)
+// 		return internal.CRUD.upsertVar(this)
+// 	}
+// 	static async delete(filter={},options={}) {
+// 		var matches = await this.read(filter)
+// 		if(!matches.length) {
+// 			console.log("Nothing to delete")
+// 			return []
+// 		}
+// 		const deleted = []
+// 		for(var i in matches) {
+// 			deleted.push(await matches[i].delete()) // internal.CRUD.deleteVar(matches[i].id))
+// 		}
+// 		return deleted.filter(r=>r)
+// 	}
+// 	async delete() {
+// 		if(!this.id) {
+// 			console.error("Can't delete this instance since it was not yet created")
+// 			return
+// 		}
+// 		try {
+// 			var result = await internal.CRUD.deleteVar(this.id)
+// 		} catch(e) {
+// 			console.error(e)
+// 			return
+// 		}
+// 		return result
 
-	}
-}
+// 	}
+// }
 
 internal.procedimiento = class extends baseModel  {
 	constructor() {
@@ -9152,7 +9116,7 @@ internal.CRUD = class {
 					if(!serie.var.id) {
 						throw(new Error("var.id missing"))
 					}
-					serie_props["var"] = await internal.var.read({id:serie.var.id})
+					serie_props["var"] = await internal.var.read(serie.var.id)
 					if(!serie_props["var"]) {
 						throw(new Error("var " + serie.var.id + " not found"))
 					}

@@ -380,8 +380,11 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 const output_filename = `persiann.${timestart.toISOString().substring(0, 10).replace(/-/g, "")}.${timestart.toISOString().substring(11, 19).replace(/:/g, "")}.cdp.tif`; // persiann.YYYYMMDD.HHMMSS.cdp.tif
                 const input_file_path = path_1.default.join(this.config.input_dir, filename);
                 const output_file_path = path_1.default.join(this.config.output_dir, output_filename);
+                if (!("python_bin" in global.config)) {
+                    throw new Error("Missing config.python_bin");
+                }
                 try {
-                    yield this.runCommand(`${global.config.python_bin}/persiann-process`, ["-f", input_file_path, "-o", output_file_path, "-b", "public/json/persiann_bbox.geojson"]);
+                    yield this.runCommand(`${global.config.python_bin}persiann-process`, ["-f", input_file_path, "-o", output_file_path, "-b", "public/json/persiann_bbox.geojson"]);
                     // await this.procesarArchivo(filename, output_filename) 
                 }
                 catch (e) {
