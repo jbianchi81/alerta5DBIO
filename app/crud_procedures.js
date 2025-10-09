@@ -25,6 +25,7 @@ CRUD.user = require('a5base/userAdmin').User
 const CSV = require('csv-string')
 const {getDeepValue, delay} = require('./utils')
 const { accessor_feature_of_interest } = require('./accessor_mapping')
+const { updateFlowcatSeries } = require('./update_flowcat_series')
 const internal = {}
 
 /**
@@ -2690,6 +2691,34 @@ internal.GrassBatchJobProcedure = class extends internal.CrudProcedure {
     }    
 }
 
+internal.UpdateFlowcatSeriesProcedure = class extends internal.CrudProcedure {
+    /**
+     * Updates hydrological status series (categorical) from observed series
+     * @param filter {}
+     * @param filter.timestart - defaults to 1990-01-01
+     * @param filter.timeend - defaults to now
+     */
+    constructor() {
+        super(...arguments)
+        this.filter = (arguments[0].filter) ? arguments[0].filter : {}
+        if(this.filter.timestart) {
+            this.filter.timestart = DateFromDateOrInterval(this.filter.timestart)
+        } else {
+            this.filter.timestart = new Date(1990,0,1)
+        }
+        if(this.filter.timeend) {
+            this.filter.timeend = DateFromDateOrInterval(this.filter.timeend)
+        } else {
+            this.filter.timeend = new Date()
+        }
+    }
+    async run() {
+        const result = await updateFlowcatSeries(this.filter.timestart, this.filter.timeend)
+        this.result = result
+        return this.result
+    }
+}
+
 internal.ValidateProcedure = class extends internal.CrudProcedure {
     /**
      * Instantiates procedure to validate data
@@ -3449,6 +3478,7 @@ const availableCrudProcedures = {
     "ThinObservacionesProcedure": internal.ThinObservacionesProcedure,
     "SaveObservacionesProcedure": internal.SaveObservacionesProcedure,
     "GrassBatchJobProcedure": internal.GrassBatchJobProcedure,
+    "UpdateFlowcatSeriesProcedure": internal.UpdateFlowcatSeriesProcedure,
     "CreateProcedure": internal.CreateProcedure,
     "ReadProcedure": internal.ReadProcedure,
     "UpdateProcedure": internal.UpdateProcedure,
