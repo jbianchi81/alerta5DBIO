@@ -84,7 +84,7 @@ RUN pip install --no-cache-dir --force-reinstall 'GDAL[numpy]==3.8.4'
 ADD py/*.py ./
 
 WORKDIR /
-COPY rest.js stop.js index.js crud_procedures.js ./
+COPY rest.mjs stop.js index.js crud_procedures.js ./
 # COPY . .
 
 WORKDIR /public
@@ -103,11 +103,5 @@ WORKDIR /sessions
 
 WORKDIR /
 
-ENV PORT=3000
-
-ENV NODE_ENV=production
-
-EXPOSE 3000
-
 # Default command (can override with `docker run ... <cmd>`)
-CMD [ "node", "app/rest.mjs" ]
+CMD [ "node", "rest.mjs" ]
