@@ -9,5 +9,5 @@ services:
       - /config:/config:ro
       - /data:/data
 # docker run -it -v $(pwd)/config:/config:ro -v $(pwd)/data:/data a5-dev-env bash
-# docker run -v $(pwd)/config:/config:ro -v $(pwd)/data:/data a5-dev-env node crud_procedures.js get persiann timestart=2025-10-01 timeend=2025-10-02 -u -o tmp/persiann.json
+# docker run -v $(pwd)/config:/config:ro -v $(pwd)/data:/data a5-dev-env node crud_procedures.js get persiann timestart=2025-10-10 timeend=2025-10-11 -u -o tmp/persiann.json
 # docker run -v $(pwd)/config:/config:ro -v $(pwd)/data:/data -p 3000:3000 a5-dev-env node app/rest.mjs

@@ -11,20 +11,32 @@ RUN apt-get update && apt-get install -y tzdata \
  && echo $TZ > /etc/timezone
 
 # 1. Install system dependencies (GDAL, Python, Node prerequisites)
-RUN apt-get update && apt-get install -y \
-    curl \
-    build-essential \
-    software-properties-common \
-    git \
-    gdal-bin=3.8.4+dfsg-3ubuntu3 \
-    libgdal-dev \
-    python3.12 \
-    python3-setuptools \
-    python3.12-dev \
-    python3.12-venv \
-    python3-pip \
-    python3-gdal \
-    pkg-config \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        apt-transport-https \
+        ca-certificates \
+        curl && \
+    \
+    # Replace all http:// with https:// in apt sources
+    sed -i 's|http://|https://|g' /etc/apt/sources.list && \
+    \
+    # Update securely over HTTPS
+    apt-get update && \
+    \
+    # Install your desired packages
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        software-properties-common \
+        git \
+        gdal-bin=3.8.4+dfsg-3ubuntu3 \
+        libgdal-dev \
+        python3.12 \
+        python3-setuptools \
+        python3.12-dev \
+        python3.12-venv \
+        python3-pip \
+        python3-gdal \
+        pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/venv
