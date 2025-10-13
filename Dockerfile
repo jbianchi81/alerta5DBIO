@@ -6,15 +6,15 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 ENV TZ=America/Argentina/Buenos_Aires
 
-RUN apt-get update && \
+# 1. Install system dependencies (GDAL, Python, Node prerequisites)
+    # Replace http with https in new-style sources file
+RUN sed -i 's|http://|https://|g' /etc/apt/sources.list.d/ubuntu.sources && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
         apt-transport-https \
         ca-certificates \
         curl
 
-# 1. Install system dependencies (GDAL, Python, Node prerequisites)
-    # Replace http with https in new-style sources file
-RUN sed -i 's|http://|https://|g' /etc/apt/sources.list.d/ubuntu.sources
     # Update securely over HTTPS
 RUN apt-get update && apt-get install -y --no-install-recommends tzdata \
  && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
