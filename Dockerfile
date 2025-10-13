@@ -15,7 +15,9 @@ RUN sed -i 's|http://|https://|g' /etc/apt/sources.list.d/ubuntu.sources && \
             update && \
     \
     # Install CA certificates securely
-    apt-get install -y --no-install-recommends ca-certificates && \
+    apt-get -o Acquire::https::Verify-Peer=false \
+            -o Acquire::https::Verify-Host=false \
+        install -y --no-install-recommends ca-certificates && \
     \
     # Re-enable verification and do a clean update
     apt-get -o Acquire::https::Verify-Peer=true \
