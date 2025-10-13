@@ -17,8 +17,8 @@ RUN apt-get update && \
         ca-certificates \
         curl && \
     \
-    # Replace all http:// with https:// in apt sources
-    sed -i 's|http://|https://|g' /etc/apt/sources.list && \
+    # Replace http with https in new-style sources file
+    sed -i 's|http://|https://|g' /etc/apt/sources.list.d/ubuntu.sources && \
     \
     # Update securely over HTTPS
     apt-get update && \
