@@ -9,10 +9,20 @@ ENV TZ=America/Argentina/Buenos_Aires
 # 1. Install system dependencies (GDAL, Python, Node prerequisites)
     # Replace http with https in new-style sources file
 RUN sed -i 's|http://|https://|g' /etc/apt/sources.list.d/ubuntu.sources && \
-    apt-get update && \
+    # Temporarily disable certificate verification just for this step
+    apt-get -o Acquire::https::Verify-Peer=false \
+            -o Acquire::https::Verify-Host=false \
+            update && \
+    \
+    # Install CA certificates securely
+    apt-get install -y --no-install-recommends ca-certificates && \
+    \
+    # Re-enable verification and do a clean update
+    apt-get -o Acquire::https::Verify-Peer=true \
+            -o Acquire::https::Verify-Host=true \
+            update && \
     apt-get install -y --no-install-recommends \
         apt-transport-https \
-        ca-certificates \
         curl
 
     # Update securely over HTTPS
