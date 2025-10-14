@@ -376,9 +376,9 @@ app.get('/obs/:tipo/fuentes/:id',auth.isPublic,((req,res)=>{
 }))
 app.put('/obs/:tipo/fuentes/:id',auth.isWriter,((req,res)=>{
 	if(req.params.tipo.toLowerCase()=="puntual") {
-		upsertRed(req,res)
+		updateRed(req,res)
 	} else if(req.params.tipo.toLowerCase()=="areal" || req.params.tipo.toLowerCase()=="raster" || req.params.tipo.toLowerCase()=="rast") {
-		upsertFuente(req,res)
+		updateFuente(req,res)
 	} else {
 		res.status(400).send({message:"tipo incorrecto"})
 	}
@@ -939,7 +939,7 @@ function upsertRedes(req,res) {
 	})
 }
 
-function upsertRed(req,res) { 
+async function updateRed(req, res) {
 	try {
 		var filter = getFilter(req)
 		var options = getOptions(req)
@@ -948,31 +948,33 @@ function upsertRed(req,res) {
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	}
+	if(!filter.id) {
+		res.status(400).send({message:"query error",error:"Falta atributo id"})
+		return
+	}
+	const red = await CRUD.red.read({id:filter.id})
+	if(!red) {
+		res.status(400).send({message:"query error",error:"No se encontró red con id=" + filter.id})
+		return
+	}
+
 	if(!req.body.fuente) {
 		res.status(400).send({message:"query error",error:"Falta atributo 'fuente'"})
 		return
 	}
-	var fuente
-	if(typeof req.body.red == "string") {
-		fuente = JSON.parse(req.body.fuente.trim())
-	} else {
-		fuente = req.body.fuente
-	}
-	
-	//~ var observaciones = observaciones
-	crud.upsertRed(new CRUD.red(fuente))
-	.then(result=>{
-		if(!result) {
-			res.status(400).send("bad request")
-			return
+	var updated
+	try {
+		if(typeof req.body.red == "string") {
+			updated = await red.update(JSON.parse(req.body.fuente.trim()))
+		} else {
+			updated = await red.update(req.body.fuente)
 		}
-		console.log("Upserted: 1 fuente")
-		send_output(options,result,res)
-	})
-	.catch(e=>{
+	} catch(e) {
 		console.error(e)
 		res.status(500).send({message:"Server error",error:e.toString()})
-	})
+		return
+	}
+	send_output(options,updated,res)
 }
 
 
@@ -1094,7 +1096,7 @@ function getFuente(req,res) {
 	})
 }
 
-function upsertFuente(req,res) { 
+async function updateFuente(req,res) {
 	try {
 		var filter = getFilter(req)
 		var options = getOptions(req)
@@ -1103,32 +1105,37 @@ function upsertFuente(req,res) {
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	}
+	if(!filter.id) {
+		res.status(400).send({message:"Falta id de fuente"})
+		return
+	}
+	const fuente = await CRUD.fuente.read({id:filter.id})
+	if(!fuente) {
+		res.status(400).send({message:"query error",error:"Fuente con id=" + filter.id + " no existe."})
+		return
+	}
 	if(!req.body.fuente) {
 		res.status(400).send({message:"query error",error:"Falta atributo 'fuente'"})
 		return
 	}
-	var fuente
-	if(typeof req.body.fuente == "string") {
-		fuente = JSON.parse(req.body.fuente.trim())
-	} else {
-		fuente = req.body.fuente
-	}
-	
-	//~ var observaciones = observaciones
-	crud.upsertFuente(new CRUD.fuente(fuente))
-	.then(result=>{
-		if(!result) {
-			res.status(400).send("bad request")
-			return
+	var result
+	try {
+		if(typeof req.body.fuente == "string") {
+			result = await fuente.update(JSON.parse(req.body.fuente.trim()))
+		} else {
+			result = await fuente.update(req.body.fuente)
 		}
-		console.log("Upserted: 1 fuente")
-		res.status(201)
-		send_output(options,result,res)
-	})
-	.catch(e=>{
+	} catch(e) {
 		console.error(e)
 		res.status(500).send({message:"Server error",error:e.toString()})
-	})
+		return
+	}
+	if(!result) {
+		res.status(400).send("bad request")
+		return
+	}
+	res.status(201)
+	send_output(options,result,res)
 }
 
 
