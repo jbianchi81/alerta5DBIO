@@ -8,9 +8,19 @@ Hydrological data management system of the INA-SSIyAH (Argentina) ([web page](ht
 
 nodejs, postgresql
 
-## Installation
+## Create database
 
-    sudo bash setup.sh
+    bash sql/createdb_meteorology.sh
+
+## deploy using docker
+
+    docker compose build
+    docker compose up
+
+## Or install directly
+
+    bash install_dependencies.sh
+    node rest.mjs
 
 ## Configuration
 
@@ -35,7 +45,7 @@ Setup database connection parameters and the port where to serve the web applica
 
 Start:
 
-    node rest
+    node rest.mjs
 
 Navigate:
 

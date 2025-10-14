@@ -3,6 +3,6 @@
         "port": 3000,
         "skip_authentication": false,
         "restricted": false,
-        "session_file_store": ".a5_sessions"
+        "session_file_store": "/sessions"
     }
 }

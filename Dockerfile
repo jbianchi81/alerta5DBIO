@@ -93,7 +93,7 @@ COPY public ./
 WORKDIR /views
 COPY views ./
 
-RUN touch DONTREADME.md
+RUN touch MMREADME.md
 WORKDIR /reportes
 RUN git clone https://github.com/jbianchi81/editor_de_reportes.git .
 RUN npm install && npm run build
