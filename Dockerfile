@@ -93,8 +93,10 @@ COPY public ./
 WORKDIR /views
 COPY views ./
 
-# WORKDIR /config
-# COPY config ./
+RUN touch DONTREADME.md
+WORKDIR /reportes
+RUN git clone https://github.com/jbianchi81/editor_de_reportes.git .
+RUN npm install && npm run build
 
 WORKDIR /logs
 RUN touch memUsage.log

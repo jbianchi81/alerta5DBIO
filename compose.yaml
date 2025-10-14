@@ -4,15 +4,15 @@ services:
     image: a5-dev-env:latest
     container_name: a5
     environment:
-     - PORT=3000
+     - PORT=4005
      - NODE_ENV=production
     ports:
-      - "3000:3000"
+      - "4005:4005"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - /config:/config:ro
-      - /data:/data
+      - ./config:/config:ro
+      - ./data:/data
 # docker run -it -v $(pwd)/config:/config:ro -v $(pwd)/data:/data -p 4005:4005 --add-host=host.docker.internal:host-gateway -e PORT=4005 a5-dev-env bash
 # docker run -v $(pwd)/config:/config:ro -v $(pwd)/data:/data a5-dev-env node crud_procedures.js get persiann timestart=2025-10-10 timeend=2025-10-11 -u -o tmp/persiann.json
 # docker run -v $(pwd)/config:/config:ro -v $(pwd)/data:/data -p 3000:3000 --add-host=host.docker.internal:host-gateway a5-dev-env node app/rest.mjs
