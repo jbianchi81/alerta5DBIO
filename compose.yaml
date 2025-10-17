@@ -7,12 +7,12 @@ services:
      - PORT=3000
      - NODE_ENV=docker
     ports:
-      - "3000:3000"
+      - "4005:4005"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - /config:/config:ro
-      - /data:/data
+      - ./config:/config:ro
+      - ./data:/data
       - ${HOME}/.a5_sessions:/sessions
       - ./procedures:/procedures:ro
 # docker run -it -v $(pwd)/config:/config:ro -v $(pwd)/data:/data -p 4005:4005 --add-host=host.docker.internal:host-gateway -e PORT=4005 a5-dev-env bash

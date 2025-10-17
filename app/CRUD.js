@@ -147,7 +147,15 @@ internal.red = class extends baseModel  {
 		.catch(e=>{
 			console.error(e)
 		})
-	}	
+	}
+	
+	async update(params={}) {
+		if(!this.id) {
+			throw new Error("Missing id, can't update")
+		}
+		Object.assign(this,params)
+		return internal.CRUD.upsertRed(this)
+	}
 	async create() {
 		const created = await internal.CRUD.upsertRed(this)
 		if(!created) {
@@ -171,7 +179,8 @@ internal.red = class extends baseModel  {
 	} 
 	static async read(filter) {
 		if(filter.id) {
-			return internal.CRUD.getRed(filter.id)
+			const red = await internal.CRUD.getRed(filter.id)
+			return new internal.red(red)
 		}
 		return internal.CRUD.getRedes(filter)
 	}
@@ -1557,6 +1566,20 @@ internal.fuente = class extends baseModel {
 			results.push(await fuente.create())
 		}
 		return results
+	}
+
+	async update(params={}) {
+		Object.assign(this,params)
+		if(!this.id) {
+			throw new Error("Missing fuente id. Can't update")
+		}
+		var query = internal.CRUD.upsertFuenteQuery(this)
+		const result = await global.pool.query(query)
+		if(result.rows.length<=0) {
+			throw("Update failed")
+		}
+		console.log("Updated fuentes.id=" + result.rows[0].id)
+		return new internal.fuente(result.rows[0])
 	}
 
 	async create(options={}) {
@@ -8806,7 +8829,7 @@ internal.CRUD = class {
 				def_pixeltype=excluded.def_pixeltype,\
 				abstract=excluded.abstract,\
 				source=excluded.source\
-			RETURNING id,nombre,data_table,data_column,tipo,def_proc_id,def_dt,hora_corte,def_unit_id,def_var_id,fd_column,mad_table,scale_factor,data_offset,def_pixel_height,def_pixel_width,def_srid,ST_AsGeoJson(def_extent)::json AS def_extent,date_column,def_pixeltype,abstract,source"
+			RETURNING id,nombre,data_table,data_column,tipo,def_proc_id,def_dt,hora_corte,def_unit_id,def_var_id,fd_column,mad_table,scale_factor,data_offset,def_pixel_height,def_pixel_width,def_srid,ST_AsGeoJson(def_extent)::json AS def_extent,date_column,def_pixeltype,abstract,source,public"
 		var params = [fuente.id, fuente.nombre, fuente.data_table, fuente.data_column, fuente.tipo, fuente.def_proc_id, fuente.def_dt, fuente.hora_corte, fuente.def_unit_id, fuente.def_var_id, fuente.fd_column, fuente.mad_table, fuente.scale_factor, fuente.data_offset, fuente.def_pixel_height, fuente.def_pixel_width, fuente.def_srid, (fuente.def_extent) ? fuente.def_extent.toString() : null, fuente.date_column, fuente.def_pixeltype, fuente.abstract, fuente.source]
 		return internal.utils.pasteIntoSQLQuery(query,params)
 	}
