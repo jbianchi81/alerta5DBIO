@@ -33,6 +33,12 @@ var default_tar_location = (config.rast) ? (config.rast.tar_location) ? config.r
 import path from 'path';
 import * as tar from 'tar';
 
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 global.pool.on('connect', client=>{
 	client.notifications = []
 	client.on('notice', msg=>{
