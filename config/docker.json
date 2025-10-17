@@ -1,9 +1,7 @@
 {
     "database": {
-        "user": "actualiza",
         "host": "host.docker.internal",
         "database": "meteorology",
-        "password": "alturas",
         "idleTimeoutMillis": 1000,
         "port": 5432
     },
