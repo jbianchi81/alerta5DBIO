@@ -1,0 +1,24 @@
+{
+    "database": {
+        "user": "actualiza",
+        "host": "host.docker.internal",
+        "database": "meteorology",
+        "password": "alturas",
+        "idleTimeoutMillis": 1000,
+        "port": 5432
+    },
+    "rest": {
+        "port": 5007,
+        "skip_authentication": false,
+        "restricted": true,
+        "session_file_store": "/sessions",
+	"child_apps": [
+                {
+                        "source": "/reportes/app/server.js",
+                        "path": "/reportes",
+                        "auth": "writer"
+                }
+        ]
+    },
+    "python_bin": ""
+}
