@@ -417,8 +417,20 @@ internal.accessor_unit_of_measurement = class extends baseModel {
 }
 
 internal.accessor_time_value_pair = class extends baseModel {
+
+	
 	constructor(fields={}) {
 		super(fields)
+		this.accessor_id = this.constructor.sanitizeValue(fields.accessor_id, this.constructor._fields["accessor_id"])  || null
+		this.timeseries_id  = this.constructor.sanitizeValue(fields.timeseries_id, this.constructor._fields["timeseries_id"])  || null
+		this.timestamp  = this.constructor.sanitizeValue(fields.timestamp, this.constructor._fields["timestamp"]) || null
+		this.numeric_value  = this.constructor.sanitizeValue(fields.numeric_value, this.constructor._fields["numeric_value"]) || null
+		this.json_value = this.constructor.sanitizeValue(fields.json_value, this.constructor._fields["json_value"]) || null
+		this.raster_value = this.constructor.sanitizeValue(fields.raster_value, this.constructor._fields["raster_value"]) || null
+		this.result = this.constructor.sanitizeValue(fields.result, this.constructor._fields["result"]) || null
+		this.observaciones_puntual_id = this.constructor.sanitizeValue(fields.observaciones_puntual_id, this.constructor._fields["observaciones_puntual_id"]) || null
+		this.observaciones_areal_id = this.constructor.sanitizeValue(fields.observaciones_areal_id, this.constructor._fields["observaciones_areal_id"]) || null
+		this.observaciones_rast_id = this.constructor.sanitizeValue(fields.observaciones_rast_id, this.constructor._fields["observaciones_rast_id"]) || null
 	}
 	static _fields = {
 		accessor_id: {type: "string", primary_key:true}, 
