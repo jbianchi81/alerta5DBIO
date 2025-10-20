@@ -7948,7 +7948,7 @@ function getOptions(req) {
 		if(req.body.inverted) {
 			options.inverted = (req.body.inverted.toString().toLowerCase() == 'true')
 		}
-		["agg_func","dt","t_offset","id_grupo","get_raster","min_count","group_by_cal","interval","stats","pivot","group_by_qualifier","sort","order","from_view","get_cal_stats","batch_size","concat"].forEach(k=>{
+		["agg_func","dt","t_offset","id_grupo","get_raster","min_count","group_by_cal","interval","stats","pivot","group_by_qualifier","sort","order","from_view","get_cal_stats","batch_size","concat","include_partial_time_intersection"].forEach(k=>{
 			if(req.body[k]) {
 				options[k] = req.body[k]
 			}
@@ -8091,7 +8091,7 @@ function getOptions(req) {
 		if(req.query.inverted) {
 			options.inverted = (req.query.inverted.toString().toLowerCase() == 'true')
 		}
-		["agg_func","dt","t_offset","get_raster","min_count","group_by_cal","interval","stats","pivot","sort","order","from_view","get_cal_stats","batch_size","concat"].forEach(k=>{
+		["agg_func","dt","t_offset","get_raster","min_count","group_by_cal","interval","stats","pivot","sort","order","from_view","get_cal_stats","batch_size","concat","include_partial_time_intersection"].forEach(k=>{
 			if(req.query[k]) {
 				options[k] = req.query[k]
 			}

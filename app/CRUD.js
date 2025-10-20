@@ -12432,7 +12432,7 @@ internal.CRUD = class {
 			return this.getObservaciones(tipo,getObsFilter)
 		} 
 		try {
-			var dateRange = await this.getObservacionesDateRange(tipo,{series_id:serie.id,timestart:filter.timestart,timeend:filter.timeend})
+			var dateRange = await this.getObservacionesDateRange(tipo,{series_id:serie.id,timestart:filter.timestart,timeend:filter.timeend},{include_partial_time_intersection: options.include_partial_time_intersection})
 		} catch(e) {
 			throw(e)
 		}
