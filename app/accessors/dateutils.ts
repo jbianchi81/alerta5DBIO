@@ -28,12 +28,12 @@ import axios from "axios"
 import { createWriteStream } from "fs"
 import { basename } from "path"
 
-export async function downloadFile(url: string, outputPath?: string): Promise<void> {
+export async function downloadFile(url: string, outputPath?: string, params?: any): Promise<void> {
     const filename = outputPath ?? basename(url)
 
     console.debug(`Downloading ${url} -> ${filename}`)
 
-    const response = await axios.get(url, { responseType: "stream" })
+    const response = await axios.get(url, { responseType: "stream" , params: params})
     const writer = createWriteStream(filename)
 
     return new Promise((resolve, reject) => {
