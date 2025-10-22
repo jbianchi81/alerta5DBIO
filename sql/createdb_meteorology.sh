@@ -133,7 +133,7 @@ then
     else
         echo "user matviews already exists"
     fi
-    psql --host $a5host --port $a5port $a5database -c "create type observacion_num as (id integer, series_id integer, timestart timestamptz, timeend timestamptz, timeupdate timestamptz, unit_id integer, nombre varchar, descripcion varchar, valor double precision)"
+    psql --host $a5host --port $a5port $a5database -c "create type observacion_num as (id bigint, series_id integer, timestart timestamptz, timeend timestamptz, timeupdate timestamptz, unit_id integer, nombre varchar, descripcion varchar, valor double precision)"
     if [[ "$?" != "0" ]]
     then
         echo "$a5database database creation and initialization failed"
