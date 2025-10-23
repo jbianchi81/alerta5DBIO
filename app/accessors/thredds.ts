@@ -82,7 +82,8 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         column_name : string = "rast",
         filename_column : string = "filename",
         return_values : boolean = false,
-        interval? : string
+        interval? : string,
+        conversion_factor? : number
         // variable_name : string = this.config.var
     ) : Promise<Observacion[]> {
         const nc_files : string[] = listFilesSync(dir_path)
@@ -92,7 +93,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                 console.debug("Skipping file " + nc_file)
                 continue
             }
-            const obs = await this.nc2ObservacionesRaster(series_id, nc_file, schema, table_name, column_name, filename_column, return_values, interval)
+            const obs = await this.nc2ObservacionesRaster(series_id, nc_file, schema, table_name, column_name, filename_column, return_values, interval, conversion_factor)
             observaciones.push(...obs)
         }
         return observaciones
@@ -117,7 +118,8 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         column_name : string = "rast",
         filename_column : string = "filename",
         return_values : boolean = false,
-        interval? : string
+        interval? : string,
+        conversion_factor? : number
         // variable_name : string = this.config.var
     ) : Promise<Observacion[]> {
         await ncToPostgisRaster(
@@ -139,7 +141,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         const filename = path.basename(nc_file);
         // const begin_date = this.getBeginDate(filename)
         const dates = await parseDatesFromNc(nc_file)
-        return this.multibandToObservacionesRast(series_id, filename, dates, schema, table_name, column_name, filename_column, interval ?? this.config.interval, return_values)
+        return this.multibandToObservacionesRast(series_id, filename, dates, schema, table_name, column_name, filename_column, interval ?? this.config.interval, return_values, conversion_factor)
     }
 
     getBeginDate(filename : string) {
@@ -157,7 +159,8 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         column_name : string = "rast",
         filename_column : string = "filename",
         interval : string = "1 day",
-        return_values : boolean = false
+        return_values : boolean = false,
+        conversion_factor? : number
     ) : Promise<Observacion[]> {
         const dates_dict = {}
         for(const d of dates) {
@@ -172,7 +175,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                 $2 AS series_id,
                 dates.value::varchar::timestamptz AS timestart,
                 dates.value::varchar::timestamptz + $3::interval AS timeend,
-                ST_Band(${table_name}.${column_name}, dates.key) AS valor
+                ${(conversion_factor) ? `ST_MapAlgebra(${table_name}.${column_name}, dates.key::integer, '32BF'::text, '[rast]*${conversion_factor}')` : `ST_Band(${table_name}.${column_name}, dates.key)`} AS valor
             FROM ${schema}.${table_name}, dates 
             WHERE ${table_name}.${filename_column}=$4
             ON CONFLICT (series_id,timestart, timeend) DO UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate

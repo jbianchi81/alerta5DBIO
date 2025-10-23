@@ -16,6 +16,9 @@
                 },
                 "dir_path": {
                     "type": "string"
+                },
+                "conversion_factor": {
+                    "type": "number"
                 }
             },
             "required": ["series_id", "dir_path"],

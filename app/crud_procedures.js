@@ -2732,15 +2732,24 @@ internal.ImportNetcdfProcedure = class extends internal.CrudProcedure {
         }
         this.series_id = arguments[0].series_id
         this.dir_path = arguments[0].dir_path
+        this.conversion_factor = arguments[0].conversion_factor
     }
 
     async run() {
         const client = new ThreddsClient({})
         const observaciones = await client.importFromDir(
             this.series_id,
-            this.dir_path
+            this.dir_path,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            this.conversion_factor
         )
         this.result = observaciones
+        return this.result
     }
 }
 

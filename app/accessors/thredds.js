@@ -48,7 +48,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         });
     }
     importFromDir(series_id_1, dir_path_1) {
-        return __awaiter(this, arguments, void 0, function* (series_id, dir_path, schema = "public", table_name = "thredds_rasters", column_name = "rast", filename_column = "filename", return_values = false, interval
+        return __awaiter(this, arguments, void 0, function* (series_id, dir_path, schema = "public", table_name = "thredds_rasters", column_name = "rast", filename_column = "filename", return_values = false, interval, conversion_factor
         // variable_name : string = this.config.var
         ) {
             const nc_files = (0, utils2_1.listFilesSync)(dir_path);
@@ -58,7 +58,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                     console.debug("Skipping file " + nc_file);
                     continue;
                 }
-                const obs = yield this.nc2ObservacionesRaster(series_id, nc_file, schema, table_name, column_name, filename_column, return_values, interval);
+                const obs = yield this.nc2ObservacionesRaster(series_id, nc_file, schema, table_name, column_name, filename_column, return_values, interval, conversion_factor);
                 observaciones.push(...obs);
             }
             return observaciones;
@@ -76,7 +76,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
      * @param interval?
      */
     nc2ObservacionesRaster(series_id_1, nc_file_1) {
-        return __awaiter(this, arguments, void 0, function* (series_id, nc_file, schema = "public", table_name = "thredds_rasters", column_name = "rast", filename_column = "filename", return_values = false, interval
+        return __awaiter(this, arguments, void 0, function* (series_id, nc_file, schema = "public", table_name = "thredds_rasters", column_name = "rast", filename_column = "filename", return_values = false, interval, conversion_factor
         // variable_name : string = this.config.var
         ) {
             yield ncToPostgisRaster(nc_file, 
@@ -91,7 +91,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             const filename = path_1.default.basename(nc_file);
             // const begin_date = this.getBeginDate(filename)
             const dates = yield parseDatesFromNc(nc_file);
-            return this.multibandToObservacionesRast(series_id, filename, dates, schema, table_name, column_name, filename_column, interval !== null && interval !== void 0 ? interval : this.config.interval, return_values);
+            return this.multibandToObservacionesRast(series_id, filename, dates, schema, table_name, column_name, filename_column, interval !== null && interval !== void 0 ? interval : this.config.interval, return_values, conversion_factor);
         });
     }
     getBeginDate(filename) {
@@ -100,7 +100,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         return new Date(y, 0, 1);
     }
     multibandToObservacionesRast(series_id_1, filename_1, dates_1) {
-        return __awaiter(this, arguments, void 0, function* (series_id, filename, dates, schema = "public", table_name = "thredds_rasters", column_name = "rast", filename_column = "filename", interval = "1 day", return_values = false) {
+        return __awaiter(this, arguments, void 0, function* (series_id, filename, dates, schema = "public", table_name = "thredds_rasters", column_name = "rast", filename_column = "filename", interval = "1 day", return_values = false, conversion_factor) {
             const dates_dict = {};
             for (const d of dates) {
                 dates_dict[d.band] = d.date.toISOString();
@@ -114,7 +114,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 $2 AS series_id,
                 dates.value::varchar::timestamptz AS timestart,
                 dates.value::varchar::timestamptz + $3::interval AS timeend,
-                ST_Band(${table_name}.${column_name}, dates.key) AS valor
+                ${(conversion_factor) ? `ST_MapAlgebra(${table_name}.${column_name}, dates.key::integer, '32BF'::text, '[rast]*${conversion_factor}')` : `ST_Band(${table_name}.${column_name}, dates.key)`} AS valor
             FROM ${schema}.${table_name}, dates 
             WHERE ${table_name}.${filename_column}=$4
             ON CONFLICT (series_id,timestart, timeend) DO UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate

@@ -126,7 +126,14 @@ test("dir2obs", async(t) => {
     })
     const observaciones = await client.importFromDir(
         23,
-        "data/thredds/historical"
+        "data/thredds/historical",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        60 * 60 * 24 
     )
     assert.equal(observaciones.length,4 * 365 + 366)
 })

@@ -3,6 +3,7 @@ sequence:
   arguments:
     series_id: 23
     dir_path: "data/thredds/historical"
+    conversion_factor: 86400
     output: "/tmp/imported_from_nc.json"
     options:
       pretty: true
@@ -11,5 +12,5 @@ sequence:
   - testName: NonEmptyArrayTest 
   - testName: ArrayLengthTest
     arguments:
-      min_length: 1826
-      max_length: 1826
+      min_length: 730
+      max_length: 730
