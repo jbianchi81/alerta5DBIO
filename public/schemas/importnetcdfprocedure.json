@@ -1,0 +1,25 @@
+{
+    "$id": "importnetcdfprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ImportNetcdfProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "ImportNetcdfProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "series_id": {
+                    "type": "number"
+                },
+                "dir_path": {
+                    "type": "string"
+                }
+            },
+            "required": ["series_id", "dir_path"],
+            "additionalProperties": false
+        }
+    }
+}

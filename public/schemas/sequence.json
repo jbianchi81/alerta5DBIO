@@ -106,6 +106,9 @@
                     },
                     {
                         "$ref": "updateflowcatseriesprocedure.json"
+                    },
+                    {
+                        "$ref": "importnetcdfprocedure.json"
                     }
                 ]
             }

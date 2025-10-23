@@ -26,6 +26,7 @@ const CSV = require('csv-string')
 const {getDeepValue, delay} = require('./utils')
 const { accessor_feature_of_interest } = require('./accessor_mapping')
 const { updateFlowcatSeries } = require('./update_flowcat_series')
+const { Client: ThreddsClient} = require('./accessors/thredds')
 const internal = {}
 
 /**
@@ -2719,6 +2720,30 @@ internal.UpdateFlowcatSeriesProcedure = class extends internal.CrudProcedure {
     }
 }
 
+internal.ImportNetcdfProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "ImportNetcdfProcedure"
+        if(!arguments[0].series_id) {
+            throw "missing series_id"
+        }
+        if(!arguments[0].dir_path) {
+            throw "missing dir_path"
+        }
+        this.series_id = arguments[0].series_id
+        this.dir_path = arguments[0].dir_path
+    }
+
+    async run() {
+        const client = new ThreddsClient({})
+        const observaciones = await client.importFromDir(
+            this.series_id,
+            this.dir_path
+        )
+        this.result = observaciones
+    }
+}
+
 internal.ValidateProcedure = class extends internal.CrudProcedure {
     /**
      * Instantiates procedure to validate data
@@ -3500,7 +3525,8 @@ const availableCrudProcedures = {
     "RastExtractByAreaProcedure": internal.RastExtractByAreaProcedure,
     "RastExtractByPointProcedure": internal.RastExtractByPointProcedure,
     "GetDerivedSerieProcedure": internal.GetDerivedSerieProcedure,
-    "UpdateSerieFromPronoProcedure": internal.UpdateSerieFromPronoProcedure
+    "UpdateSerieFromPronoProcedure": internal.UpdateSerieFromPronoProcedure,
+    "ImportNetcdfProcedure": internal.ImportNetcdfProcedure
 }
 
 internal.availableTests = {

@@ -5,6 +5,7 @@ var fs =require("promise-fs")
 const { exec } = require('child_process')
 var sprintf = require('sprintf-js').sprintf, vsprintf = require('sprintf-js').vsprintf
 var path = require('path');
+const { runCommandAndParseJSON } = require('./utils2')
 
 internal.printGrassMap = async function(input,output,parameters) {
 	//~ console.log({forecast_date:parameters.forecast_date.toISOString()})
@@ -77,14 +78,10 @@ nv 255:255:255\n\
     }
 	var grid_size = (parameters) ? (parameters.grid_size) ? parameters.grid_size : 5 : 5
 	var title = (parameters) ? (parameters.title) ? parameters.title : input.substring(0,16) : input.substring(0,16)
-	const result = await execShellCommand('gdalinfo -json ' + input)
-	if(!result) {
-		throw new Error("invalid GDAL file: " + e.toString())
-	}
 	try {
-		var gdalinfo = JSON.parse(result)
+		var gdalinfo = await runCommandAndParseJSON(`gdalinfo -json ${input}`) // execShellCommand('gdalinfo -json ' + input)
 	} catch(e) {
-		throw new Error("invalid gdalinfo file: " + e.toString())
+		throw new Error(`invalid gdalinfo file: ${input}. Message: ${e.toString()}`)
 	}
 	if(!gdalinfo.bands){
 		throw new Error("No bands found in GDAL file")

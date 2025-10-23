@@ -1,8 +1,9 @@
 import { AbstractAccessorEngine, AccessorEngine } from "./abstract_accessor_engine";
-import axios from 'axios'
 import { downloadFile } from "./dateutils";
 import { exec } from 'child-process-promise'
 import path from 'path';
+import { listFilesSync, runCommandAndParseJSON } from '../utils2'
+import { Observacion } from "../a5_types";
 
 export interface DbConnectionParams {
     host : string
@@ -17,6 +18,7 @@ export interface ThreddsConfig {
     bbox: [number, number, number, number] // ULX ULY LRX LRY
     var: string
     horizStride : boolean
+    interval : string
     [x : string] : any
 }
 
@@ -32,55 +34,92 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         this.api_url = this.config.url
     }
 
+    async createThreddsRastersTable(
+        schema : string = "public",
+        table_name : string = "thredds_rasters",
+        column_name : string = "rast",
+        filename_column : string = "filename") {
+        await global.pool.query(`CREATE TABLE "${schema}"."${table_name}" (
+            "${filename_column}" varchar UNIQUE,
+            "${column_name}" raster,
+            gid serial
+            );`)
+    }
+
     async downloadNC(
         product : string,
-        var_ : string,
-        north : number,
-        west : number,
-        east : number,
-        south : number,
-        horizStride : boolean,
         timestart : Date,
         timeend : Date,
-        accept : string = "netcdf3",
-        addLatLon : boolean,
-        output : string
+        output : string,
+        bbox? : number[], // W N E S
+        var_? : string
     ) : Promise<void> {
     // https://ds.nccs.nasa.gov/thredds/ncss/grid/AMES/NEX/GDDP-CMIP6/ACCESS-CM2/historical/r1i1p1f1/pr/pr_day_ACCESS-CM2_historical_r1i1p1f1_gn_1950_v2.0.nc?var=pr&north=-10&west=-70&east=-40&south=-40&horizStride=1&time_start=1950-01-01T12:00:00Z&time_end=1950-12-31T12:00:00Z&&&accept=netcdf3&addLatLon=true
-        const url = `${this.api_url}/${product}`
-        const params = {
-            var: var_,
-            north : north,
-            west : west,
-            east : east,
-            south : south,
-            horizStride: (horizStride) ? 1 : 0,
-            timestart: timestart.toISOString(),
-            timeend : timeend.toISOString(),
-            accept : accept,
-            addLatLon : (addLatLon) ? "true" : "false"
+        var_ = var_ ?? this.config.var
+        bbox = bbox ?? this.config.bbox
+        await downloadNC(
+            this.api_url,
+            product,
+            var_,
+            (bbox) ? bbox[1] : undefined,
+            (bbox) ? bbox[0] : undefined,
+            (bbox) ? bbox[2] : undefined,
+            (bbox) ? bbox[3] : undefined,
+            true,
+            timestart,
+            timeend,
+            "netcdf3",
+            true,
+            output
+        )
+    }
+
+    async importFromDir(
+        series_id : number,
+        dir_path : string,
+        schema : string = "public",
+        table_name : string = "thredds_rasters",
+        column_name : string = "rast",
+        filename_column : string = "filename",
+        return_values : boolean = false,
+        interval? : string
+        // variable_name : string = this.config.var
+    ) : Promise<Observacion[]> {
+        const nc_files : string[] = listFilesSync(dir_path)
+        const observaciones : Observacion[] = []
+        for(const nc_file of nc_files) {
+            if(!/\.nc$/.test(nc_file)) {
+                console.debug("Skipping file " + nc_file)
+                continue
+            }
+            const obs = await this.nc2ObservacionesRaster(series_id, nc_file, schema, table_name, column_name, filename_column, return_values, interval)
+            observaciones.push(...obs)
         }
-        await downloadFile(url, output, params)
+        return observaciones
     }
 
     /**
-     * Parses yearly multiband netcdf file into daily observations and saves into observaciones_rast
+     * Parses yearly multiband netcdf file into daily observations and inserts into observaciones_rast
      * @param series_id 
      * @param nc_file 
      * @param schema 
      * @param table_name 
      * @param column_name 
      * @param filename_column 
+     * @param return_values
+     * @param interval?
      */
     async nc2ObservacionesRaster(
         series_id : number,
         nc_file : string,
         schema : string = "public",
-        table_name : string = "climate_rasters",
+        table_name : string = "thredds_rasters",
         column_name : string = "rast",
-        filename_column : string = "filename"
+        filename_column : string = "filename",
+        return_values : boolean = false,
+        interval? : string
         // variable_name : string = this.config.var
-    ) {
+    ) : Promise<Observacion[]> {
         await ncToPostgisRaster(
             nc_file,
             // variable_name,
@@ -98,8 +137,9 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
             filename_column
         )
         const filename = path.basename(nc_file);
-        const begin_date = this.getBeginDate(filename)
-        await this.multibandToObservacionesRast(series_id, filename, begin_date, schema, table_name, column_name, filename_column)
+        // const begin_date = this.getBeginDate(filename)
+        const dates = await parseDatesFromNc(nc_file)
+        return this.multibandToObservacionesRast(series_id, filename, dates, schema, table_name, column_name, filename_column, interval ?? this.config.interval, return_values)
     }
 
     getBeginDate(filename : string) {
@@ -109,6 +149,41 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
     }
 
     async multibandToObservacionesRast(
+        series_id : number,
+        filename : string,
+        dates : BandDate[],
+        schema : string = "public",
+        table_name : string = "thredds_rasters",
+        column_name : string = "rast",
+        filename_column : string = "filename",
+        interval : string = "1 day",
+        return_values : boolean = false
+    ) : Promise<Observacion[]> {
+        const dates_dict = {}
+        for(const d of dates) {
+            dates_dict[d.band] = d.date.toISOString()
+        }
+        const stmt = `WITH dates AS (
+            SELECT * from json_each($1)
+          )
+        
+          INSERT INTO observaciones_rast (series_id, timestart, timeend, valor)
+            SELECT
+                $2 AS series_id,
+                dates.value::varchar::timestamptz AS timestart,
+                dates.value::varchar::timestamptz + $3::interval AS timeend,
+                ST_Band(${table_name}.${column_name}, dates.key) AS valor
+            FROM ${schema}.${table_name}, dates 
+            WHERE ${table_name}.${filename_column}=$4
+            ON CONFLICT (series_id,timestart, timeend) DO UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate
+            RETURNING series_id, timestart, timeend, timeupdate${(return_values) ? ", valor" : ""};
+        `
+        const result = await global.pool.query(stmt, [JSON.stringify(dates_dict), series_id, interval, filename])
+        return result.rows
+
+    }
+
+    async multibandToObservacionesRast_(
         series_id : number,
         filename : string,
         begin_date : Date,
@@ -133,6 +208,31 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
     }
 }
 
+interface BandDate {
+    band: number
+    date: Date
+}
+
+export function parseMJD(mjd : number) : Date {
+    const origin = Date.UTC(1850,0,1)
+    const date = new Date(origin)
+    date.setUTCDate(date.getUTCDate() + mjd)
+    return date
+
+}
+
+export async function parseDatesFromNc(
+    nc_file : string
+) : Promise<BandDate[]> {
+    const md = await runCommandAndParseJSON(`gdalinfo ${nc_file} -json`)
+    return md.bands.map((b: any) => {
+        return {
+            band: b.band,
+            date: parseMJD(parseFloat(b.metadata[""].NETCDF_DIM_time))
+        }
+    })
+}
+
 export async function ncToPostgisRaster(
     nc_file : string,
     // variable_name : string,
@@ -155,4 +255,36 @@ export async function ncToPostgisRaster(
     } catch (e) {
         throw new Error(e);
     }
+}
+
+export async function downloadNC(
+    base_url : string,
+    product : string,
+    var_ : string,
+    north : number,
+    west : number,
+    east : number,
+    south : number,
+    horizStride : boolean,
+    timestart : Date,
+    timeend : Date,
+    accept : string = "netcdf3",
+    addLatLon : boolean,
+    output : string
+) : Promise<void> {
+// https://ds.nccs.nasa.gov/thredds/ncss/grid/AMES/NEX/GDDP-CMIP6/ACCESS-CM2/historical/r1i1p1f1/pr/pr_day_ACCESS-CM2_historical_r1i1p1f1_gn_1950_v2.0.nc?var=pr&north=-10&west=-70&east=-40&south=-40&horizStride=1&time_start=1950-01-01T12:00:00Z&time_end=1950-12-31T12:00:00Z&&&accept=netcdf3&addLatLon=true
+    const url = `${base_url}/${product}`
+    const params = {
+        var: var_,
+        north : north,
+        west : west,
+        east : east,
+        south : south,
+        horizStride: (horizStride) ? 1 : 0,
+        time_start: timestart.toISOString(),
+        time_end : timeend.toISOString(),
+        accept : accept,
+        addLatLon : (addLatLon) ? "true" : "false"
+    }
+    await downloadFile(url, output, params)
 }
