@@ -4,6 +4,7 @@ import { exec } from 'child-process-promise'
 import path from 'path';
 import { listFilesSync, runCommandAndParseJSON } from '../utils2'
 import { Observacion } from "../a5_types";
+import { observacion as A5_observacion} from "../CRUD"
 
 export interface DbConnectionParams {
     host : string
@@ -209,6 +210,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         const result = await global.pool.query(stmt, [series_id, begin_date, interval, filename])
 
     }
+
 }
 
 interface BandDate {
@@ -290,4 +292,85 @@ export async function downloadNC(
         addLatLon : (addLatLon) ? "true" : "false"
     }
     await downloadFile(url, output, params)
+}
+
+export async function readTifDate(
+    file : string
+) : Promise<Date> {
+    const gdalinfo = await runCommandAndParseJSON(`gdalinfo ${file} -json`)
+    const year = parseInt(gdalinfo.metadata[""].year)
+    const day = parseInt(gdalinfo.metadata[""].day)
+    return new Date(Date.UTC(year,0,day))
+}
+
+interface Interval {
+    days? : number
+    hours? : number
+}
+
+export async function setTifMetadata(
+    file : string,
+    timestart : Date, 
+    series_id : number, 
+    interval : Interval = {"days": 1}
+) : Promise<void> {
+    const timeend = new Date(timestart)
+    timeend.setDate(timeend.getDate() + (interval.days ?? 0))
+    timeend.setHours(timeend.getHours() + (interval.hours ?? 0))
+    const cmd = `gdal_edit.py ${file} -mo series_id=${series_id} -mo timestart=${timestart.toISOString()} -mo timeend=${timeend.toISOString()}`
+    try {
+        await exec(cmd)
+    } catch (e) {
+        throw new Error(e);
+    }          
+}
+
+export async function tifToObservacionRaster(
+    file : string,
+    series_id : number,
+    interval? : Interval,
+    create? : boolean
+) : Promise<Observacion> {
+    const timestart = await readTifDate(file)
+    await setTifMetadata(
+        file,
+        timestart, 
+        series_id, 
+        interval
+    )
+    const obs = A5_observacion.fromRaster(file)
+    if(create) {
+        return obs.create()
+    } else {
+        return obs
+    }
+}
+
+export async function tifDirToObservacionesRaster(
+    dir_path : string,
+    series_id : number,
+    interval? : Interval,
+    create? : boolean,
+    return_dates? : boolean 
+) {
+    const files : string[] = listFilesSync(dir_path)
+    const observaciones : Observacion[] = []
+    var dates : Date[] = []
+    for(const file of files) {
+        const observacion = await tifToObservacionRaster(
+            file,
+            series_id,
+            interval,
+            create
+        )
+        dates.push(observacion.timestart)
+        if(return_dates) {
+            continue
+        }
+        observaciones.push(observacion)
+    }
+    if(return_dates) {
+        return dates
+    }
+    return observaciones
 }

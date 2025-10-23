@@ -26,7 +26,7 @@ const CSV = require('csv-string')
 const {getDeepValue, delay} = require('./utils')
 const { accessor_feature_of_interest } = require('./accessor_mapping')
 const { updateFlowcatSeries } = require('./update_flowcat_series')
-const { Client: ThreddsClient} = require('./accessors/thredds')
+const { Client: ThreddsClient, tifDirToObservacionesRaster} = require('./accessors/thredds')
 const internal = {}
 
 /**
@@ -2753,6 +2753,37 @@ internal.ImportNetcdfProcedure = class extends internal.CrudProcedure {
     }
 }
 
+internal.ImportTifProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "ImportTifProcedure"
+        if(!arguments[0].series_id) {
+            throw "missing series_id"
+        }
+        if(!arguments[0].dir_path) {
+            throw "missing dir_path"
+        }
+        this.series_id = arguments[0].series_id
+        this.dir_path = arguments[0].dir_path
+        this.interval = arguments[0].interval
+        this.return_dates = arguments[0].return_dates
+        this.create = arguments[0].create
+    }
+
+    async run() {
+        const observaciones = await tifDirToObservacionesRaster(
+            this.dir_path,
+            this.series_id,
+            this.interval,
+            this.create,
+            this.return_dates 
+        )
+        this.result = observaciones
+        return this.result
+    }
+}
+
+
 internal.ValidateProcedure = class extends internal.CrudProcedure {
     /**
      * Instantiates procedure to validate data
@@ -3535,7 +3566,8 @@ const availableCrudProcedures = {
     "RastExtractByPointProcedure": internal.RastExtractByPointProcedure,
     "GetDerivedSerieProcedure": internal.GetDerivedSerieProcedure,
     "UpdateSerieFromPronoProcedure": internal.UpdateSerieFromPronoProcedure,
-    "ImportNetcdfProcedure": internal.ImportNetcdfProcedure
+    "ImportNetcdfProcedure": internal.ImportNetcdfProcedure,
+    "ImportTifProcedure": internal.ImportTifProcedure
 }
 
 internal.availableTests = {

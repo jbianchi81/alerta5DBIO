@@ -109,6 +109,9 @@
                     },
                     {
                         "$ref": "importnetcdfprocedure.json"
+                    },
+                    {
+                        "$ref": "importtifprocedure.json"
                     }
                 ]
             }

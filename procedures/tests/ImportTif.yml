@@ -1,0 +1,18 @@
+sequence:
+- procedureName: ImportTifProcedure
+  arguments:
+    series_id: 24
+    dir_path: "data/thredds/bcc-csm2-mr-ssp126"
+    create: true
+    interval: {days: 1}
+    return_dates: true
+    output: "/tmp/imported_from_tif.json"
+    options:
+      pretty: true
+  tests:
+  - testName: TruthyTest
+  - testName: NonEmptyArrayTest 
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 5
+      max_length: 5

@@ -1,0 +1,42 @@
+{
+    "$id": "importtifprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "ImportTifProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "ImportTifProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "series_id": {
+                    "type": "number"
+                },
+                "dir_path": {
+                    "type": "string"
+                },
+                "interval": {
+                    "type": "object",
+                    "properties": {
+                        "days": {
+                            "type": "number"
+                        },
+                        "hours": {
+                            "type": "number"
+                        }
+                    }
+                },
+                "create": {
+                    "type": "boolean"
+                },
+                "return_dates": {
+                    "type": "boolean"
+                }
+            },
+            "required": ["series_id", "dir_path"],
+            "additionalProperties": false
+        }
+    }
+}

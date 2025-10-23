@@ -2,10 +2,11 @@ const test = require('node:test')
 const assert = require('assert')
 // process.env.NODE_ENV = "test"
 // const {serie: Serie, observacion: Observacion, observaciones: Observaciones, estacion: Estacion} = require('../app/CRUD')
-const {Client, ncToPostgisRaster, parseDatesFromNc} = require('../app/accessors/thredds.js')
+const {Client, ncToPostgisRaster, parseDatesFromNc, readTifDate, setTifMetadata, tifToObservacionRaster, tifDirToObservacionesRaster} = require('../app/accessors/thredds.js')
 const {Pool} = require('pg')
 const {fuente, serie, observacion}  = require('../app/CRUD.js')
 const fs = require('fs')
+const {runCommandAndParseJSON} = require('../app/utils2.js')
 
 test('create table', async(t) => {
     const client = new Client({
@@ -136,4 +137,62 @@ test("dir2obs", async(t) => {
         60 * 60 * 24 
     )
     assert.equal(observaciones.length,4 * 365 + 366)
+})
+
+test("read tif date", async (t) => {
+    const date = await readTifDate(
+        "data/thredds/bcc-csm2-mr-ssp126/BCC-CSM2-MR_ssp126_2015_001.tif"
+    )
+    assert.equal(date.toISOString(), new Date(Date.UTC(2015,0,1)).toISOString())
+})
+
+test("set tif metadata", async (t) => {
+    const timestart = await readTifDate(
+        "data/thredds/bcc-csm2-mr-ssp126/BCC-CSM2-MR_ssp126_2015_001.tif"
+    )
+    await setTifMetadata(
+        "data/thredds/bcc-csm2-mr-ssp126/BCC-CSM2-MR_ssp126_2015_001.tif",
+        timestart, 
+        24, 
+        {"days": 1})
+    const gdalinfo = await runCommandAndParseJSON(`gdalinfo data/thredds/bcc-csm2-mr-ssp126/BCC-CSM2-MR_ssp126_2015_001.tif -json`)
+    assert.equal(gdalinfo.metadata[""].timestart,new Date(Date.UTC(2015,0,1)).toISOString())
+    assert.equal(gdalinfo.metadata[""].timeend,new Date(Date.UTC(2015,0,2)).toISOString())
+    assert.equal(gdalinfo.metadata[""].series_id,24)
+})
+
+test("tif2obs", async(t) => {
+    const obs = await tifToObservacionRaster(
+        "data/thredds/bcc-csm2-mr-ssp126/BCC-CSM2-MR_ssp126_2015_001.tif",
+        24,
+        {days: 1}
+    )
+    assert.equal(obs.series_id,24)
+    assert.equal(obs.timestart.toISOString(),new Date(Date.UTC(2015,0,1)).toISOString())
+    assert.equal(obs.timeend.toISOString(), new Date(Date.UTC(2015,0,2)).toISOString())
+    assert(obs.valor instanceof Buffer)
+})
+
+test("tif2obs create", async(t) => {
+    const obs = await tifToObservacionRaster(
+        "data/thredds/bcc-csm2-mr-ssp126/BCC-CSM2-MR_ssp126_2015_001.tif",
+        24,
+        {days: 1},
+        true
+    )
+    assert.equal(obs.series_id,24)
+    assert.equal(obs.timestart.toISOString(),new Date(Date.UTC(2015,0,1)).toISOString())
+    assert.equal(obs.timeend.toISOString(), new Date(Date.UTC(2015,0,2)).toISOString())
+    assert(obs.valor instanceof Buffer)
+})
+
+test("tif2obs from dir", async (t) => {
+    const observaciones = await tifDirToObservacionesRaster(
+        "data/thredds/bcc-csm2-mr-ssp126",
+        24,
+        {days:1},
+        true,
+        false 
+    )
+    assert.equal(observaciones.length,5)
 })

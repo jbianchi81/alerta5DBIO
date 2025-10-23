@@ -17,11 +17,16 @@ exports.parseMJD = parseMJD;
 exports.parseDatesFromNc = parseDatesFromNc;
 exports.ncToPostgisRaster = ncToPostgisRaster;
 exports.downloadNC = downloadNC;
+exports.readTifDate = readTifDate;
+exports.setTifMetadata = setTifMetadata;
+exports.tifToObservacionRaster = tifToObservacionRaster;
+exports.tifDirToObservacionesRaster = tifDirToObservacionesRaster;
 const abstract_accessor_engine_1 = require("./abstract_accessor_engine");
 const dateutils_1 = require("./dateutils");
 const child_process_promise_1 = require("child-process-promise");
 const path_1 = __importDefault(require("path"));
 const utils2_1 = require("../utils2");
+const CRUD_1 = require("../CRUD");
 class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     constructor(config) {
         super(config);
@@ -193,5 +198,60 @@ function downloadNC(base_url_1, product_1, var_1, north_1, west_1, east_1, south
             addLatLon: (addLatLon) ? "true" : "false"
         };
         yield (0, dateutils_1.downloadFile)(url, output, params);
+    });
+}
+function readTifDate(file) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const gdalinfo = yield (0, utils2_1.runCommandAndParseJSON)(`gdalinfo ${file} -json`);
+        const year = parseInt(gdalinfo.metadata[""].year);
+        const day = parseInt(gdalinfo.metadata[""].day);
+        return new Date(Date.UTC(year, 0, day));
+    });
+}
+function setTifMetadata(file_1, timestart_1, series_id_1) {
+    return __awaiter(this, arguments, void 0, function* (file, timestart, series_id, interval = { "days": 1 }) {
+        var _a, _b;
+        const timeend = new Date(timestart);
+        timeend.setDate(timeend.getDate() + ((_a = interval.days) !== null && _a !== void 0 ? _a : 0));
+        timeend.setHours(timeend.getHours() + ((_b = interval.hours) !== null && _b !== void 0 ? _b : 0));
+        const cmd = `gdal_edit.py ${file} -mo series_id=${series_id} -mo timestart=${timestart.toISOString()} -mo timeend=${timeend.toISOString()}`;
+        try {
+            yield (0, child_process_promise_1.exec)(cmd);
+        }
+        catch (e) {
+            throw new Error(e);
+        }
+    });
+}
+function tifToObservacionRaster(file, series_id, interval, create) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const timestart = yield readTifDate(file);
+        yield setTifMetadata(file, timestart, series_id, interval);
+        const obs = CRUD_1.observacion.fromRaster(file);
+        if (create) {
+            return obs.create();
+        }
+        else {
+            return obs;
+        }
+    });
+}
+function tifDirToObservacionesRaster(dir_path, series_id, interval, create, return_dates) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const files = (0, utils2_1.listFilesSync)(dir_path);
+        const observaciones = [];
+        var dates = [];
+        for (const file of files) {
+            const observacion = yield tifToObservacionRaster(file, series_id, interval, create);
+            dates.push(observacion.timestart);
+            if (return_dates) {
+                continue;
+            }
+            observaciones.push(observacion);
+        }
+        if (return_dates) {
+            return dates;
+        }
+        return observaciones;
     });
 }
