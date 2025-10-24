@@ -149,7 +149,7 @@ CREATE TABLE public.modelos (
 --
 
 CREATE TABLE public.pronosticos (
-    id integer NOT NULL,
+    id bigint NOT NULL,
     cor_id integer NOT NULL,
     series_id integer NOT NULL,
     timestart timestamp without time zone NOT NULL,
@@ -163,7 +163,7 @@ CREATE TABLE public.pronosticos (
 --
 
 CREATE TABLE public.valores_prono_num (
-    prono_id integer NOT NULL,
+    prono_id bigint NOT NULL,
     valor real
 );
 
