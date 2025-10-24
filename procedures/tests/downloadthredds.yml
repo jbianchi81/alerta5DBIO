@@ -1,0 +1,18 @@
+sequence:
+- procedureName: DownloadThreddsProcedure
+  arguments:
+    product: "ncss/grid/AMES/NEX/GDDP-CMIP6/ACCESS-CM2/ssp126/r1i1p1f1/pr/pr_day_ACCESS-CM2_ssp126_r1i1p1f1_gn_{year}_v2.0.nc"
+    filter:
+      timestart: "2015-01-01T00:00:00.000Z"
+      timeend: "2016-12-31T12:00:00.000Z"
+    dir_path: "data/thredds/ACCESS-CM2_ssp126"
+    output: "/tmp/thredds_downloaded_files.json"
+    options:
+      pretty: true
+  tests:
+  - testName: TruthyTest
+  - testName: NonEmptyArrayTest 
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 2
+      max_length: 2

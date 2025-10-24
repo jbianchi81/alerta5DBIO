@@ -47,6 +47,46 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
             );`)
     }
 
+    /**
+     * Download yearly files
+     * @param product - string template for inserting year YYYY. I.e.: ncss/grid/AMES/NEX/GDDP-CMIP6/ACCESS-CM2/historical/r1i1p1f1/pr/pr_day_ACCESS-CM2_historical_r1i1p1f1_gn_{year}_v2.0.nc
+     * @param timestart 
+     * @param timeend 
+     * @param dir_path - output dir
+     * @param bbox 
+     * @param var_ 
+     */
+    async downloadNCYears(
+        product : string,
+        timestart : Date,
+        timeend : Date,
+        dir_path : string,
+        bbox? : number[], // W N E S
+        var_? : string
+    ) : Promise<string[]> {
+        const results : string[] = []
+        let error_count = 0
+        for(let date : Date = new Date(timestart); date < timeend; date.setUTCFullYear(date.getUTCFullYear() + 1)) {
+            const y = date.getUTCFullYear()
+            console.debug("Year: " + y)
+            const filename = product.replace("{year}", y.toString())
+            const ts = new Date(Date.UTC(y, 0, 1))
+            const te = new Date(Date.UTC(y, 11, 31, 23, 59, 59))
+            const output = path.join(dir_path, path.basename(filename))
+            try {
+                await this.downloadNC(filename, ts, te, output, bbox, var_)
+                results.push(output)
+            }
+            catch (e) {
+                console.error(e)
+                error_count = error_count + 1
+                continue
+            }
+        }
+        console.debug("Finished download with " + results.length + " downloaded files and " + error_count + " errors")
+        return results
+    }
+
     async downloadNC(
         product : string,
         timestart : Date,

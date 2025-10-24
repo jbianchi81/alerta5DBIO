@@ -112,6 +112,9 @@
                     },
                     {
                         "$ref": "importtifprocedure.json"
+                    },
+                    {
+                        "$ref": "downloadthreddsprocedure.json"
                     }
                 ]
             }

@@ -2720,6 +2720,52 @@ internal.UpdateFlowcatSeriesProcedure = class extends internal.CrudProcedure {
     }
 }
 
+internal.DownloadThreddsProcedure = class extends internal.CrudProcedure {
+
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "DownloadThreddsProcedure"
+        if(!arguments[0].product) {
+            throw "missing product"
+        }
+        if(!arguments[0].dir_path) {
+            throw "missing dir_path"
+        }
+        this.product = arguments[0].product
+        this.dir_path = arguments[0].dir_path
+        if(!arguments[0].filter) {
+            throw "missing filter"
+        }
+        this.filter = arguments[0].filter
+        if(!this.filter.timestart) {
+            throw "missing timestart"
+        } 
+        this.filter.timestart = DateFromDateOrInterval(this.filter.timestart)
+        if(!this.filter.timeend) {
+            throw "missing timeend"
+        }
+        this.filter.timeend = DateFromDateOrInterval(this.filter.timeend)
+        this.clientconfig = (arguments[0].clientconfig) ? arguments[0].clientconfig : {}
+    }
+
+    async run() {
+        const client = new ThreddsClient({
+            url: this.clientconfig.url ?? "https://ds.nccs.nasa.gov/thredds",
+            bbox: this.clientconfig.bbox ?? [-70, -10, -40, -40],
+            var: this.clientconfig.var ?? "pr",
+            horizStride: this.clientconfig.horizStride ?? true
+        })
+        const downloaded_files = await client.downloadNCYears(
+            this.product,
+            this.filter.timestart,
+            this.filter.timeend,
+            this.dir_path
+        )
+        this.result = downloaded_files
+        return this.result
+    }
+}
+
 internal.ImportNetcdfProcedure = class extends internal.CrudProcedure {
     constructor() {
         super(...arguments)
@@ -3580,7 +3626,8 @@ const availableCrudProcedures = {
     "GetDerivedSerieProcedure": internal.GetDerivedSerieProcedure,
     "UpdateSerieFromPronoProcedure": internal.UpdateSerieFromPronoProcedure,
     "ImportNetcdfProcedure": internal.ImportNetcdfProcedure,
-    "ImportTifProcedure": internal.ImportTifProcedure
+    "ImportTifProcedure": internal.ImportTifProcedure,
+    "DownloadThreddsProcedure": internal.DownloadThreddsProcedure
 }
 
 internal.availableTests = {

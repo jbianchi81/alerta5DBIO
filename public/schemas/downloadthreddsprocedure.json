@@ -1,0 +1,60 @@
+{
+    "$id": "downloadthreddsprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "DownloadThreddsProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "DownloadThreddsProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "product": {
+                    "type": "string",
+                    "description": "string template for inserting year YYYY. I.e.: ncss/grid/AMES/NEX/GDDP-CMIP6/ACCESS-CM2/historical/r1i1p1f1/pr/pr_day_ACCESS-CM2_historical_r1i1p1f1_gn_{year}_v2.0.nc"
+                },
+                "dir_path": {
+                    "type": "string"
+                },
+                "filter": {
+                    "type": "object",
+                    "properties": {
+                        "timestart": {
+                            "type": "string"
+                        },
+                        "timeend": {
+                            "type": "string"
+                        }
+                    },
+                    "required": ["timestart", "timeend"]                   
+                },
+                "clientconfig": {
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string"
+                        },
+                        "bbox": {
+                            "type": "array",
+                            "items": {
+                                "type": "number"
+                            },
+                            "minItems": 4,
+                            "maxItems": 4
+                        },
+                        "var": {
+                            "type": "string"
+                        },
+                        "horizStride": {
+                            "type": "boolean"
+                        }
+                    }
+                }                
+            },
+            "required": ["product", "dir_path", "filter"],
+            "additionalProperties": false
+        }
+    }
+}

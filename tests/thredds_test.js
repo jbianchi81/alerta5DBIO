@@ -146,6 +146,22 @@ test("download", async(t) => {
     assert(fs.existsSync("data/thredds/pr_day_ACCESS-CM2_ssp126_r1i1p1f1_gn_2015_v2.0.nc"))
 })
 
+test('download multiple years', async(t) => {
+    const client = new Client({
+        url: "https://ds.nccs.nasa.gov/thredds",
+        bbox: [-70, -10, -40, -40],
+        var: "pr",
+        horizStride: true
+    })
+    const downloaded_files = await client.downloadNCYears(
+        "ncss/grid/AMES/NEX/GDDP-CMIP6/ACCESS-CM2/ssp126/r1i1p1f1/pr/pr_day_ACCESS-CM2_ssp126_r1i1p1f1_gn_{year}_v2.0.nc",
+        new Date(Date.UTC(2015,0,1)),
+        new Date(Date.UTC(2019,11,31)),
+        "data/thredds/ACCESS-CM2_ssp126"
+    )
+    assert.equal(downloaded_files.length,5)
+})
+
 test("dir2obs", async(t) => {
     const client = new Client({
         url: "https://ds.nccs.nasa.gov/thredds",
