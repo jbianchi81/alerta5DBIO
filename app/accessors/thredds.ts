@@ -393,12 +393,15 @@ export async function tifDirToObservacionesRaster(
         if(timestart || timeend) {
             const date = await readTifDate(file)
             if(timestart && date.getTime() < timestart.getTime()) {
+                console.debug("Skipping file " + file)
                 continue
             }
             if(timeend && date.getTime() > timeend.getTime()) {
+                console.debug("Skipping file " + file)
                 continue
             }
         }
+        console.debug("Reading file " + file)
         const observacion = await tifToObservacionRaster(
             file,
             series_id,

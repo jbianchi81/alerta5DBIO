@@ -270,12 +270,15 @@ function tifDirToObservacionesRaster(dir_path, series_id, interval, create, retu
             if (timestart || timeend) {
                 const date = yield readTifDate(file);
                 if (timestart && date.getTime() < timestart.getTime()) {
+                    console.debug("Skipping file " + file);
                     continue;
                 }
                 if (timeend && date.getTime() > timeend.getTime()) {
+                    console.debug("Skipping file " + file);
                     continue;
                 }
             }
+            console.debug("Reading file " + file);
             const observacion = yield tifToObservacionRaster(file, series_id, interval, create);
             dates.push(observacion.timestart);
             if (return_dates) {
