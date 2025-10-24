@@ -159,9 +159,21 @@ function parseMJD(mjd, origin = new Date(Date.UTC(1850, 0, 1)), noleap) {
     }
 }
 exports.parseMJD = parseMJD;
+function parseOrigin(o) {
+    // "days since 1850-1-1"
+    const m = o.match(/\d{4}-\d{1,2}-\d{1,2}/);
+    if (!m) {
+        return;
+    }
+    const s = m[0].split("-").map(i => parseInt(i));
+    return new Date(Date.UTC(s[0], s[1] - 1, s[2]));
+}
 function parseDatesFromNc(nc_file, origin, noleap) {
     return __awaiter(this, void 0, void 0, function* () {
         const md = yield (0, utils2_1.runCommandAndParseJSON)(`gdalinfo ${nc_file} -json`);
+        const md_origin = (md.metadata[""]["time#units"]) ? parseOrigin(md.metadata[""]["time#units"]) : undefined;
+        origin = (origin) ? origin : md_origin;
+        noleap = (noleap) ? noleap : (md.metadata[""]["time#calendar"] && md.metadata[""]["time#calendar"] == "365_day") ? true : false;
         return md.bands.map((b) => {
             return {
                 band: b.band,

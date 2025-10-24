@@ -242,12 +242,25 @@ export function parseMJD(mjd : number, origin : Date = new Date(Date.UTC(1850,0,
     }
 }
 
+function parseOrigin(o : string) : Date {
+    // "days since 1850-1-1"
+    const m = o.match(/\d{4}-\d{1,2}-\d{1,2}/)
+    if(!m) {
+        return
+    }
+    const s = m[0].split("-").map(i => parseInt(i))
+    return new Date(Date.UTC(s[0], s[1] - 1, s[2]))
+}
+
 export async function parseDatesFromNc(
     nc_file : string,
     origin? : Date,
     noleap?: boolean
 ) : Promise<BandDate[]> {
     const md = await runCommandAndParseJSON(`gdalinfo ${nc_file} -json`)
+    const md_origin = (md.metadata[""]["time#units"]) ? parseOrigin(md.metadata[""]["time#units"]) : undefined
+    origin =  (origin) ? origin : md_origin
+    noleap = (noleap) ? noleap : (md.metadata[""]["time#calendar"] && md.metadata[""]["time#calendar"] == "365_day") ? true : false
     return md.bands.map((b: any) => {
         return {
             band: b.band,

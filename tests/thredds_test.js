@@ -41,6 +41,16 @@ test('parse dates w/ origin noleap', async(t) => {
     assert.equal(dates[364].date.toISOString(),new Date(Date.UTC(1990,11,31,12)).toISOString())
 })
 
+test('parse dates w/ origin noleap from md', async(t) => {
+    const dates = await parseDatesFromNc("data/thredds/pr_day_INM-CM5-0_historical_r1i1p1f1_gr1_1990_v2.0_recortado.nc")
+    assert.equal(dates.length, 365)
+    assert.equal(dates[0].band,1)
+    assert.equal(dates[0].date.toISOString(),new Date(Date.UTC(1990,0,1,12)).toISOString())
+    assert.equal(dates[364].band,365)
+    assert.equal(dates[364].date.toISOString(),new Date(Date.UTC(1990,11,31,12)).toISOString())
+})
+
+
 
 test('ncToPostgres', async(t) => {
 
