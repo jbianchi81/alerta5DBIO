@@ -55,6 +55,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                     console.debug("Skipping file " + nc_file);
                     continue;
                 }
+                console.debug("Reading file " + nc_file);
                 const obs = yield this.nc2ObservacionesRaster(series_id, nc_file, schema, table_name, column_name, filename_column, return_values, interval, conversion_factor, origin, noleap);
                 observaciones.push(...obs);
             }

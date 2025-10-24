@@ -96,6 +96,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                 console.debug("Skipping file " + nc_file)
                 continue
             }
+            console.debug("Reading file " + nc_file)
             const obs = await this.nc2ObservacionesRaster(series_id, nc_file, schema, table_name, column_name, filename_column, return_values, interval, conversion_factor, origin, noleap)
             observaciones.push(...obs)
         }
