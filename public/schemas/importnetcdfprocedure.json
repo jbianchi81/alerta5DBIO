@@ -19,6 +19,12 @@
                 },
                 "conversion_factor": {
                     "type": "number"
+                },
+                "origin": {
+                    "type": "string"
+                },
+                "noleap": {
+                    "type": "boolean"
                 }
             },
             "required": ["series_id", "dir_path"],

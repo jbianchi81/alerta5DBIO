@@ -84,7 +84,9 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         filename_column : string = "filename",
         return_values : boolean = false,
         interval? : string,
-        conversion_factor? : number
+        conversion_factor? : number,
+        origin?: Date,
+        noleap?: boolean
         // variable_name : string = this.config.var
     ) : Promise<Observacion[]> {
         const nc_files : string[] = listFilesSync(dir_path)
@@ -94,7 +96,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                 console.debug("Skipping file " + nc_file)
                 continue
             }
-            const obs = await this.nc2ObservacionesRaster(series_id, nc_file, schema, table_name, column_name, filename_column, return_values, interval, conversion_factor)
+            const obs = await this.nc2ObservacionesRaster(series_id, nc_file, schema, table_name, column_name, filename_column, return_values, interval, conversion_factor, origin, noleap)
             observaciones.push(...obs)
         }
         return observaciones
@@ -120,7 +122,9 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         filename_column : string = "filename",
         return_values : boolean = false,
         interval? : string,
-        conversion_factor? : number
+        conversion_factor? : number,
+        origin?: Date,
+        noleap?: boolean
         // variable_name : string = this.config.var
     ) : Promise<Observacion[]> {
         await ncToPostgisRaster(
@@ -141,7 +145,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         )
         const filename = path.basename(nc_file);
         // const begin_date = this.getBeginDate(filename)
-        const dates = await parseDatesFromNc(nc_file)
+        const dates = await parseDatesFromNc(nc_file, origin, noleap)
         return this.multibandToObservacionesRast(series_id, filename, dates, schema, table_name, column_name, filename_column, interval ?? this.config.interval, return_values, conversion_factor)
     }
 
@@ -218,22 +222,36 @@ interface BandDate {
     date: Date
 }
 
-export function parseMJD(mjd : number) : Date {
-    const origin = Date.UTC(1850,0,1)
-    const date = new Date(origin)
-    date.setUTCDate(date.getUTCDate() + mjd)
-    return date
+function countLeapDays(fromYear : number, toYear : number) : number {
+  let count = 0;
+  for (let y = fromYear; y < toYear; y++) {
+    if ((y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0)) count++;
+  }
+  return count;
+}
 
+export function parseMJD(mjd : number, origin : Date = new Date(Date.UTC(1850,0,1)), noleap? : boolean) : Date {
+    const msPerDay = 24 * 60 * 60 * 1000
+    const date = new Date(origin.getTime() + mjd * msPerDay)
+    if(noleap) {
+        const leapdays = countLeapDays(origin.getUTCFullYear(), date.getUTCFullYear())
+        const leapdate = new Date(origin.getTime() + (mjd + leapdays) * msPerDay)
+        return new Date(Date.UTC(leapdate.getUTCFullYear(),leapdate.getUTCMonth(),leapdate.getUTCDate(),date.getUTCHours()))
+    } else {
+        return date
+    }
 }
 
 export async function parseDatesFromNc(
-    nc_file : string
+    nc_file : string,
+    origin? : Date,
+    noleap?: boolean
 ) : Promise<BandDate[]> {
     const md = await runCommandAndParseJSON(`gdalinfo ${nc_file} -json`)
     return md.bands.map((b: any) => {
         return {
             band: b.band,
-            date: parseMJD(parseFloat(b.metadata[""].NETCDF_DIM_time))
+            date: parseMJD(parseFloat(b.metadata[""].NETCDF_DIM_time), origin, noleap)
         }
     })
 }
@@ -351,12 +369,23 @@ export async function tifDirToObservacionesRaster(
     series_id : number,
     interval? : Interval,
     create? : boolean,
-    return_dates? : boolean 
+    return_dates? : boolean,
+    timestart?: Date,
+    timeend?: Date 
 ) {
     const files : string[] = listFilesSync(dir_path)
     const observaciones : Observacion[] = []
     var dates : Date[] = []
     for(const file of files) {
+        if(timestart || timeend) {
+            const date = await readTifDate(file)
+            if(timestart && date.getTime() < timestart.getTime()) {
+                continue
+            }
+            if(timeend && date.getTime() > timeend.getTime()) {
+                continue
+            }
+        }
         const observacion = await tifToObservacionRaster(
             file,
             series_id,

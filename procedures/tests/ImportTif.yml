@@ -6,6 +6,9 @@ sequence:
     create: true
     interval: {days: 1}
     return_dates: true
+    filter:
+      timestart: "2015-01-01"
+      timeend: "2015-01-05"
     output: "/tmp/imported_from_tif.json"
     options:
       pretty: true

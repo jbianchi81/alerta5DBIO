@@ -2733,6 +2733,8 @@ internal.ImportNetcdfProcedure = class extends internal.CrudProcedure {
         this.series_id = arguments[0].series_id
         this.dir_path = arguments[0].dir_path
         this.conversion_factor = arguments[0].conversion_factor
+        this.origin = (arguments[0].origin) ? DateFromDateOrInterval(origin) : undefined
+        this.noleap = (arguments[0].noleap) ? arguments[0].noleap : undefined
     }
 
     async run() {
@@ -2746,7 +2748,9 @@ internal.ImportNetcdfProcedure = class extends internal.CrudProcedure {
             undefined,
             undefined,
             undefined,
-            this.conversion_factor
+            this.conversion_factor,
+            this.origin,
+            this.noleap
         )
         this.result = observaciones
         return this.result
@@ -2768,6 +2772,13 @@ internal.ImportTifProcedure = class extends internal.CrudProcedure {
         this.interval = arguments[0].interval
         this.return_dates = arguments[0].return_dates
         this.create = arguments[0].create
+        this.filter = (arguments[0].filter) ? arguments[0].filter : {}
+        if(this.filter.timestart) {
+            this.filter.timestart = DateFromDateOrInterval(this.filter.timestart)
+        } 
+        if(this.filter.timeend) {
+            this.filter.timeend = DateFromDateOrInterval(this.filter.timeend)
+        } 
     }
 
     async run() {
@@ -2776,7 +2787,9 @@ internal.ImportTifProcedure = class extends internal.CrudProcedure {
             this.series_id,
             this.interval,
             this.create,
-            this.return_dates 
+            this.return_dates,
+            this.filter.timestart,
+            this.filter.timeend
         )
         this.result = observaciones
         return this.result

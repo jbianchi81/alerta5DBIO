@@ -2,7 +2,7 @@ const test = require('node:test')
 const assert = require('assert')
 // process.env.NODE_ENV = "test"
 // const {serie: Serie, observacion: Observacion, observaciones: Observaciones, estacion: Estacion} = require('../app/CRUD')
-const {Client, ncToPostgisRaster, parseDatesFromNc, readTifDate, setTifMetadata, tifToObservacionRaster, tifDirToObservacionesRaster} = require('../app/accessors/thredds.js')
+const {Client, ncToPostgisRaster, parseDatesFromNc, readTifDate, setTifMetadata, tifToObservacionRaster, tifDirToObservacionesRaster, parseMJD} = require('../app/accessors/thredds.js')
 const {Pool} = require('pg')
 const {fuente, serie, observacion}  = require('../app/CRUD.js')
 const fs = require('fs')
@@ -18,6 +18,11 @@ test('create table', async(t) => {
     await client.createThreddsRastersTable() 
 })
 
+test('parse date noleap', async (t) => {
+    const date = parseMJD(5475.5, new Date(Date.UTC(1975,0,1)), true)
+    assert.equal(date.toISOString(),new Date(Date.UTC(1990,0,1,12)).toISOString())
+})
+
 test('parse dates', async(t) => {
     const dates = await parseDatesFromNc("data/thredds/pr_day_ACCESS-CM2_historical_r1i1p1f1_gn_1950_v2.0.nc")
     assert.equal(dates.length, 365)
@@ -26,6 +31,16 @@ test('parse dates', async(t) => {
     assert.equal(dates[364].band,365)
     assert.equal(dates[364].date.toISOString(),new Date(Date.UTC(1950,11,31)).toISOString())
 })
+
+test('parse dates w/ origin noleap', async(t) => {
+    const dates = await parseDatesFromNc("data/thredds/BCC-CSM2-MR_historical_1990_2014/pr_day_BCC-CSM2-MR_historical_r1i1p1f1_gn_1990_v2.0_recortado.nc", new Date(Date.UTC(1975,0,1)), true)
+    assert.equal(dates.length, 365)
+    assert.equal(dates[0].band,1)
+    assert.equal(dates[0].date.toISOString(),new Date(Date.UTC(1990,0,1,12)).toISOString())
+    assert.equal(dates[364].band,365)
+    assert.equal(dates[364].date.toISOString(),new Date(Date.UTC(1990,11,31,12)).toISOString())
+})
+
 
 test('ncToPostgres', async(t) => {
 
@@ -111,11 +126,14 @@ test("download", async(t) => {
         horizStride: true
     })
     await client.downloadNC(
-        "ncss/grid/AMES/NEX/GDDP-CMIP6/ACCESS-CM2/historical/r1i1p1f1/pr/pr_day_ACCESS-CM2_historical_r1i1p1f1_gn_1951_v2.0.nc",
-        new Date(Date.UTC(1951,0,1)),
-        new Date(Date.UTC(1951,11,31)),
-        "data/thredds/pr_day_ACCESS-CM2_historical_r1i1p1f1_gn_1951_v2.0.nc")
-    assert(fs.existsSync("data/thredds/pr_day_ACCESS-CM2_historical_r1i1p1f1_gn_1951_v2.0.nc"))
+        "ncss/grid/AMES/NEX/GDDP-CMIP6/ACCESS-CM2/ssp126/r1i1p1f1/pr/pr_day_ACCESS-CM2_ssp126_r1i1p1f1_gn_2015_v2.0.nc",
+        // "ncss/grid/AMES/NEX/GDDP-CMIP6/ACCESS-CM2/ssp126/r1i1p1f1/pr/pr_day_ACCESS-CM2_ssp126_r1i1p1f1_gn_2015.nc",
+        // "ncss/grid/AMES/NEX/GDDP-CMIP6/ACCESS-CM2/historical/r1i1p1f1/pr/pr_day_ACCESS-CM2_historical_r1i1p1f1_gn_1951_v2.0.nc",
+        new Date(Date.UTC(2015,0,1)),
+        new Date(Date.UTC(2015,11,31)),
+        "data/thredds/pr_day_ACCESS-CM2_ssp126_r1i1p1f1_gn_2015_v2.0.nc")
+        // "data/thredds/pr_day_ACCESS-CM2_historical_r1i1p1f1_gn_1951_v2.0.nc")
+    assert(fs.existsSync("data/thredds/pr_day_ACCESS-CM2_ssp126_r1i1p1f1_gn_2015_v2.0.nc"))
 })
 
 test("dir2obs", async(t) => {

@@ -33,6 +33,17 @@
                 },
                 "return_dates": {
                     "type": "boolean"
+                },
+                "filter": {
+                    "type": "object",
+                    "properties": {
+                        "timestart": {
+                            "type": "timestart"
+                        },
+                        "timeend": {
+                            "type": "timeend"
+                        }
+                    }
                 }
             },
             "required": ["series_id", "dir_path"],
