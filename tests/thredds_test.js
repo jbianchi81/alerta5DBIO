@@ -183,6 +183,32 @@ test("dir2obs", async(t) => {
     assert.equal(observaciones.length,4 * 365 + 366)
 })
 
+test("dir2obs con filtro ts te", async(t) => {
+    const client = new Client({
+        url: "https://ds.nccs.nasa.gov/thredds",
+        bbox: [-70, -10, -40, -40],
+        var: "pr",
+        horizStride: true
+    })
+    const observaciones = await client.importFromDir(
+        23,
+        "data/thredds/historical",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        60 * 60 * 24,
+        undefined,
+        undefined,
+        new Date(Date.UTC(1990,0,1)),
+        new Date(Date.UTC(1990,11,31))
+    )
+    assert.equal(observaciones.length,365)
+})
+
+
 test("read tif date", async (t) => {
     const date = await readTifDate(
         "data/thredds/bcc-csm2-mr-ssp126/BCC-CSM2-MR_ssp126_2015_001.tif"
