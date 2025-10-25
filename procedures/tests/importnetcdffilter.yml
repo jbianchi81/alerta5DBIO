@@ -1,0 +1,19 @@
+sequence:
+- procedureName: ImportNetcdfProcedure
+  arguments:
+    series_id: 23
+    dir_path: "data/thredds/historical"
+    conversion_factor: 86400
+    filter:
+      timestart: "1990-01-01"
+      timeend: "1990-12-31"
+    output: "/tmp/imported_from_nc.json"
+    options:
+      pretty: true
+  tests:
+  - testName: TruthyTest
+  - testName: NonEmptyArrayTest 
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 365
+      max_length: 365
