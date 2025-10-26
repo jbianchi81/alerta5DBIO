@@ -126,7 +126,9 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         interval? : string,
         conversion_factor? : number,
         origin?: Date,
-        noleap?: boolean
+        noleap?: boolean,
+        timestart?: Date,
+        timeend?: Date
         // variable_name : string = this.config.var
     ) : Promise<Observacion[]> {
         const nc_files : string[] = listFilesSync(dir_path)
@@ -136,8 +138,23 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                 console.debug("Skipping file " + nc_file)
                 continue
             }
+            const dates = await parseDatesFromNc(
+                nc_file,
+                origin,
+                noleap
+            )
+            if(timestart || timeend) {
+                if(timestart && dates[dates.length - 1].date.getTime() < timestart.getTime()) {
+                    console.debug("Skipping file " + nc_file)
+                    continue
+                }
+                if(timeend && dates[0].date.getTime() > timeend.getTime()) {
+                    console.debug("Skipping file " + nc_file)
+                    continue
+                }
+            }
             console.debug("Reading file " + nc_file)
-            const obs = await this.nc2ObservacionesRaster(series_id, nc_file, schema, table_name, column_name, filename_column, return_values, interval, conversion_factor, origin, noleap)
+            const obs = await this.nc2ObservacionesRaster(series_id, nc_file, schema, table_name, column_name, filename_column, return_values, interval, conversion_factor, origin, noleap, dates)
             observaciones.push(...obs)
         }
         return observaciones
@@ -165,7 +182,8 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         interval? : string,
         conversion_factor? : number,
         origin?: Date,
-        noleap?: boolean
+        noleap?: boolean,
+        dates? : BandDate[]
         // variable_name : string = this.config.var
     ) : Promise<Observacion[]> {
         await ncToPostgisRaster(
@@ -186,7 +204,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         )
         const filename = path.basename(nc_file);
         // const begin_date = this.getBeginDate(filename)
-        const dates = await parseDatesFromNc(nc_file, origin, noleap)
+        dates = (dates) ? dates : await parseDatesFromNc(nc_file, origin, noleap)
         return this.multibandToObservacionesRast(series_id, filename, dates, schema, table_name, column_name, filename_column, interval ?? this.config.interval, return_values, conversion_factor)
     }
 

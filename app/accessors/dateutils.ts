@@ -31,7 +31,8 @@ import { basename } from "path"
 export async function downloadFile(url: string, outputPath?: string, params?: any): Promise<void> {
     const filename = outputPath ?? basename(url)
 
-    console.debug(`Downloading ${url} -> ${filename}`)
+    const queryString = new URLSearchParams(params as any).toString()
+    console.debug(`Downloading ${url}?${queryString} -> ${filename}`)
 
     const response = await axios.get(url, { responseType: "stream" , params: params})
     const writer = createWriteStream(filename)

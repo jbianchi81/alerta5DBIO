@@ -12,7 +12,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.tifDirToObservacionesRaster = exports.tifToObservacionRaster = exports.setTifMetadata = exports.readTifDate = exports.downloadNC = exports.ncToPostgisRaster = exports.parseDatesFromNc = exports.parseMJD = exports.Client = void 0;
+exports.Client = void 0;
+exports.parseMJD = parseMJD;
+exports.parseDatesFromNc = parseDatesFromNc;
+exports.ncToPostgisRaster = ncToPostgisRaster;
+exports.downloadNC = downloadNC;
+exports.readTifDate = readTifDate;
+exports.setTifMetadata = setTifMetadata;
+exports.tifToObservacionRaster = tifToObservacionRaster;
+exports.tifDirToObservacionesRaster = tifDirToObservacionesRaster;
 const abstract_accessor_engine_1 = require("./abstract_accessor_engine");
 const dateutils_1 = require("./dateutils");
 const child_process_promise_1 = require("child-process-promise");
@@ -26,8 +34,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         this.setConfig(config);
         this.api_url = this.config.url;
     }
-    createThreddsRastersTable(schema = "public", table_name = "thredds_rasters", column_name = "rast", filename_column = "filename") {
-        return __awaiter(this, void 0, void 0, function* () {
+    createThreddsRastersTable() {
+        return __awaiter(this, arguments, void 0, function* (schema = "public", table_name = "thredds_rasters", column_name = "rast", filename_column = "filename") {
             yield global.pool.query(`CREATE TABLE "${schema}"."${table_name}" (
             "${filename_column}" varchar UNIQUE,
             "${column_name}" raster,
@@ -79,10 +87,10 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             yield downloadNC(this.api_url, product, var_, (bbox) ? bbox[1] : undefined, (bbox) ? bbox[0] : undefined, (bbox) ? bbox[2] : undefined, (bbox) ? bbox[3] : undefined, true, timestart, timeend, "netcdf3", true, output);
         });
     }
-    importFromDir(series_id, dir_path, schema = "public", table_name = "thredds_rasters", column_name = "rast", filename_column = "filename", return_values = false, interval, conversion_factor, origin, noleap
-    // variable_name : string = this.config.var
-    ) {
-        return __awaiter(this, void 0, void 0, function* () {
+    importFromDir(series_id_1, dir_path_1) {
+        return __awaiter(this, arguments, void 0, function* (series_id, dir_path, schema = "public", table_name = "thredds_rasters", column_name = "rast", filename_column = "filename", return_values = false, interval, conversion_factor, origin, noleap, timestart, timeend
+        // variable_name : string = this.config.var
+        ) {
             const nc_files = (0, utils2_1.listFilesSync)(dir_path);
             const observaciones = [];
             for (const nc_file of nc_files) {
@@ -90,8 +98,19 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                     console.debug("Skipping file " + nc_file);
                     continue;
                 }
+                const dates = yield parseDatesFromNc(nc_file, origin, noleap);
+                if (timestart || timeend) {
+                    if (timestart && dates[dates.length - 1].date.getTime() < timestart.getTime()) {
+                        console.debug("Skipping file " + nc_file);
+                        continue;
+                    }
+                    if (timeend && dates[0].date.getTime() > timeend.getTime()) {
+                        console.debug("Skipping file " + nc_file);
+                        continue;
+                    }
+                }
                 console.debug("Reading file " + nc_file);
-                const obs = yield this.nc2ObservacionesRaster(series_id, nc_file, schema, table_name, column_name, filename_column, return_values, interval, conversion_factor, origin, noleap);
+                const obs = yield this.nc2ObservacionesRaster(series_id, nc_file, schema, table_name, column_name, filename_column, return_values, interval, conversion_factor, origin, noleap, dates);
                 observaciones.push(...obs);
             }
             return observaciones;
@@ -108,10 +127,10 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
      * @param return_values
      * @param interval?
      */
-    nc2ObservacionesRaster(series_id, nc_file, schema = "public", table_name = "thredds_rasters", column_name = "rast", filename_column = "filename", return_values = false, interval, conversion_factor, origin, noleap
-    // variable_name : string = this.config.var
-    ) {
-        return __awaiter(this, void 0, void 0, function* () {
+    nc2ObservacionesRaster(series_id_1, nc_file_1) {
+        return __awaiter(this, arguments, void 0, function* (series_id, nc_file, schema = "public", table_name = "thredds_rasters", column_name = "rast", filename_column = "filename", return_values = false, interval, conversion_factor, origin, noleap, dates
+        // variable_name : string = this.config.var
+        ) {
             yield ncToPostgisRaster(nc_file, 
             // variable_name,
             schema, table_name, column_name, {
@@ -123,7 +142,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             }, 4326, filename_column);
             const filename = path_1.default.basename(nc_file);
             // const begin_date = this.getBeginDate(filename)
-            const dates = yield parseDatesFromNc(nc_file, origin, noleap);
+            dates = (dates) ? dates : yield parseDatesFromNc(nc_file, origin, noleap);
             return this.multibandToObservacionesRast(series_id, filename, dates, schema, table_name, column_name, filename_column, interval !== null && interval !== void 0 ? interval : this.config.interval, return_values, conversion_factor);
         });
     }
@@ -132,8 +151,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         const y = parseInt(filename.split("_")[6]);
         return new Date(y, 0, 1);
     }
-    multibandToObservacionesRast(series_id, filename, dates, schema = "public", table_name = "thredds_rasters", column_name = "rast", filename_column = "filename", interval = "1 day", return_values = false, conversion_factor) {
-        return __awaiter(this, void 0, void 0, function* () {
+    multibandToObservacionesRast(series_id_1, filename_1, dates_1) {
+        return __awaiter(this, arguments, void 0, function* (series_id, filename, dates, schema = "public", table_name = "thredds_rasters", column_name = "rast", filename_column = "filename", interval = "1 day", return_values = false, conversion_factor) {
             const dates_dict = {};
             for (const d of dates) {
                 dates_dict[d.band] = d.date.toISOString();
@@ -157,8 +176,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return result.rows;
         });
     }
-    multibandToObservacionesRast_(series_id, filename, begin_date, schema = "public", table_name = "climate_rasters", column_name = "rast", filename_column = "filename", interval = "1 day") {
-        return __awaiter(this, void 0, void 0, function* () {
+    multibandToObservacionesRast_(series_id_1, filename_1, begin_date_1) {
+        return __awaiter(this, arguments, void 0, function* (series_id, filename, begin_date, schema = "public", table_name = "climate_rasters", column_name = "rast", filename_column = "filename", interval = "1 day") {
             const stmt = `INSERT INTO observaciones_rast (series_id, timestart, valor)
             SELECT
             $1,
@@ -194,7 +213,6 @@ function parseMJD(mjd, origin = new Date(Date.UTC(1850, 0, 1)), noleap) {
         return date;
     }
 }
-exports.parseMJD = parseMJD;
 function parseOrigin(o) {
     // "days since 1850-1-1"
     const m = o.match(/\d{4}-\d{1,2}-\d{1,2}/);
@@ -218,11 +236,10 @@ function parseDatesFromNc(nc_file, origin, noleap) {
         });
     });
 }
-exports.parseDatesFromNc = parseDatesFromNc;
-function ncToPostgisRaster(nc_file, 
-// variable_name : string,
-schema = "public", table_name, column_name = "rast", dbconnectionparams, srid = 4326, file_id_column = "filename") {
-    return __awaiter(this, void 0, void 0, function* () {
+function ncToPostgisRaster(nc_file_1) {
+    return __awaiter(this, arguments, void 0, function* (nc_file, 
+    // variable_name : string,
+    schema = "public", table_name, column_name = "rast", dbconnectionparams, srid = 4326, file_id_column = "filename") {
         const cmd = `raster2pgsql -s ${srid} -a ${nc_file} -f ${column_name} -F -n ${file_id_column} ${schema}.${table_name} | PGPASSWORD=${dbconnectionparams.password} psql ${dbconnectionparams.dbname} ${dbconnectionparams.user} -p ${dbconnectionparams.port} -h ${dbconnectionparams.host}`;
         // const cmd = `gdal_translate \
         //     NETCDF:"${nc_file}":${variable_name} \
@@ -237,9 +254,8 @@ schema = "public", table_name, column_name = "rast", dbconnectionparams, srid = 
         }
     });
 }
-exports.ncToPostgisRaster = ncToPostgisRaster;
-function downloadNC(base_url, product, var_, north, west, east, south, horizStride, timestart, timeend, accept = "netcdf3", addLatLon, output) {
-    return __awaiter(this, void 0, void 0, function* () {
+function downloadNC(base_url_1, product_1, var_1, north_1, west_1, east_1, south_1, horizStride_1, timestart_1, timeend_1) {
+    return __awaiter(this, arguments, void 0, function* (base_url, product, var_, north, west, east, south, horizStride, timestart, timeend, accept = "netcdf3", addLatLon, output) {
         // https://ds.nccs.nasa.gov/thredds/ncss/grid/AMES/NEX/GDDP-CMIP6/ACCESS-CM2/historical/r1i1p1f1/pr/pr_day_ACCESS-CM2_historical_r1i1p1f1_gn_1950_v2.0.nc?var=pr&north=-10&west=-70&east=-40&south=-40&horizStride=1&time_start=1950-01-01T12:00:00Z&time_end=1950-12-31T12:00:00Z&&&accept=netcdf3&addLatLon=true
         const url = `${base_url}/${product}`;
         const params = {
@@ -257,7 +273,6 @@ function downloadNC(base_url, product, var_, north, west, east, south, horizStri
         yield (0, dateutils_1.downloadFile)(url, output, params);
     });
 }
-exports.downloadNC = downloadNC;
 function readTifDate(file) {
     return __awaiter(this, void 0, void 0, function* () {
         const gdalinfo = yield (0, utils2_1.runCommandAndParseJSON)(`gdalinfo ${file} -json`);
@@ -266,10 +281,9 @@ function readTifDate(file) {
         return new Date(Date.UTC(year, 0, day));
     });
 }
-exports.readTifDate = readTifDate;
-function setTifMetadata(file, timestart, series_id, interval = { "days": 1 }) {
-    var _a, _b;
-    return __awaiter(this, void 0, void 0, function* () {
+function setTifMetadata(file_1, timestart_1, series_id_1) {
+    return __awaiter(this, arguments, void 0, function* (file, timestart, series_id, interval = { "days": 1 }) {
+        var _a, _b;
         const timeend = new Date(timestart);
         timeend.setDate(timeend.getDate() + ((_a = interval.days) !== null && _a !== void 0 ? _a : 0));
         timeend.setHours(timeend.getHours() + ((_b = interval.hours) !== null && _b !== void 0 ? _b : 0));
@@ -282,7 +296,6 @@ function setTifMetadata(file, timestart, series_id, interval = { "days": 1 }) {
         }
     });
 }
-exports.setTifMetadata = setTifMetadata;
 function tifToObservacionRaster(file, series_id, interval, create) {
     return __awaiter(this, void 0, void 0, function* () {
         const timestart = yield readTifDate(file);
@@ -296,7 +309,6 @@ function tifToObservacionRaster(file, series_id, interval, create) {
         }
     });
 }
-exports.tifToObservacionRaster = tifToObservacionRaster;
 function tifDirToObservacionesRaster(dir_path, series_id, interval, create, return_dates, timestart, timeend) {
     return __awaiter(this, void 0, void 0, function* () {
         const files = (0, utils2_1.listFilesSync)(dir_path);
@@ -328,4 +340,3 @@ function tifDirToObservacionesRaster(dir_path, series_id, interval, create, retu
         return observaciones;
     });
 }
-exports.tifDirToObservacionesRaster = tifDirToObservacionesRaster;
