@@ -3400,7 +3400,7 @@ internal.RastToArealProcedure = class extends internal.CrudProcedure {
                 if(this.options.batch_by_year) {
                     console.debug("Batch by year")
                     for(let ts = new Date(this.timestart);ts < this.timeend;ts.setFullYear(ts.getFullYear() + 1)) {
-                        console.debug({"year": ts.getFUllYear()})
+                        console.debug({"year": ts.getFullYear()})
                         let te = new Date(ts)
                         te.setFullYear(te.getFullYear() + 1)
                         te = (te.getTime() > this.timeend.getTime()) ? this.timeend : te 
@@ -3415,7 +3415,7 @@ internal.RastToArealProcedure = class extends internal.CrudProcedure {
                 console.debug("Batch by year")
                 this.result = []
                 for(let ts = new Date(this.timestart);ts < this.timeend;ts.setFullYear(ts.getFullYear() + 1)) {
-                    console.debug({"year": ts.getFUllYear()})
+                    console.debug({"year": ts.getFullYear()})
                     let te = new Date(ts)
                     te.setFullYear(te.getFullYear() + 1)
                     te = (te.getTime() > this.timeend.getTime()) ? this.timeend : te
