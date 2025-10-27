@@ -3391,15 +3391,35 @@ internal.RastToArealProcedure = class extends internal.CrudProcedure {
         // - no_insert
         // - funcion
         // - only_obs
+        // - batch_by_year
     }
     async run() {
         if(Array.isArray(this.area_id)) {
             this.result = []
             for(var a of this.area_id) {
-                this.result.push(await crud.rast2areal(this.series_id,this.timestart,this.timeend,a,this.options, undefined, this.cor_id, this.cal_id, this.forecast_date))
+                if(this.options.batch_by_year) {
+                    for(let ts = new Date(this.timestart);ts < this.timeend;ts.setFullYear(ts.getFullYear() + 1)) {
+                        let te = new Date(ts)
+                        te.setFullYear(te.getFullYear() + 1)
+                        te = (te.getTime() > this.timeend.getTime()) ? this.timeend : te 
+                        this.result.push(await crud.rast2areal(this.series_id,ts,te,a,this.options, undefined, this.cor_id, this.cal_id, this.forecast_date))
+                    }                    
+                } else {
+                    this.result.push(await crud.rast2areal(this.series_id,this.timestart,this.timeend,a,this.options, undefined, this.cor_id, this.cal_id, this.forecast_date))
+                }
             }
         } else {
-            this.result = await crud.rast2areal(this.series_id,this.timestart,this.timeend,this.area_id,this.options, undefined, this.cor_id, this.cal_id, this.forecast_date)
+            if(this.options.batch_by_year) {
+                this.result = []
+                for(let ts = new Date(this.timestart);ts < this.timeend;ts.setFullYear(ts.getFullYear() + 1)) {
+                    let te = new Date(ts)
+                    te.setFullYear(te.getFullYear() + 1)
+                    te = (te.getTime() > this.timeend.getTime()) ? this.timeend : te
+                    this.result.push(await crud.rast2areal(this.series_id,ts,te,this.area_id,this.options, undefined, this.cor_id, this.cal_id, this.forecast_date))
+                }
+            } else {
+                this.result = await crud.rast2areal(this.series_id,this.timestart,this.timeend,this.area_id,this.options, undefined, this.cor_id, this.cal_id, this.forecast_date)
+            }
         }
         return this.result
     }
