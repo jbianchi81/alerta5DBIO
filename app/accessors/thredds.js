@@ -399,8 +399,7 @@ function rastToArealAll(series_rast_id, timestart, timeend, area_id, return_valu
 }
 function rastToAreal(series_areal_id, timestart, timeend, return_values) {
     return __awaiter(this, void 0, void 0, function* () {
-        const stmt = `begin; 
-        with areal_means AS ( 
+        const stmt = `with areal_means AS ( 
             select  series_areal.id AS series_areal_id,
                     observaciones_rast.timestart, 
                     observaciones_rast.timeend, 

@@ -530,8 +530,7 @@ export async function rastToArealAll(series_rast_id: number, timestart: Date, ti
 
 export async function rastToAreal(series_areal_id: number, timestart: Date, timeend: Date, return_values?: boolean) : Promise<Observacion[]|void> {
 
-    const stmt = `begin; 
-        with areal_means AS ( 
+    const stmt = `with areal_means AS ( 
             select  series_areal.id AS series_areal_id,
                     observaciones_rast.timestart, 
                     observaciones_rast.timeend, 
