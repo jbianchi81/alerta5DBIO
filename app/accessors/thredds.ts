@@ -3,8 +3,8 @@ import { downloadFile } from "./dateutils";
 import { exec } from 'child-process-promise'
 import path from 'path';
 import { listFilesSync, runCommandAndParseJSON } from '../utils2'
-import { Observacion } from "../a5_types";
-import { observacion as A5_observacion} from "../CRUD"
+import { Observacion, Serie } from "../a5_types";
+import { observacion as A5_observacion, serie as A5_serie} from "../CRUD"
 
 export interface DbConnectionParams {
     host : string
@@ -479,4 +479,22 @@ export async function tifDirToObservacionesRaster(
         return dates
     }
     return observaciones
+}
+
+export async function createSeriesAreal(series_id : number, area_id? : number | number[] | "all") : Promise<Serie[]>{
+    const areas_filter = (area_id) ? (Array.isArray(area_id)) ? ` AND areas_pluvio.unid IN (${area_id.map(id=>id.toString()).join(",")})` : (area_id == "all") ? "" : `AND areas_pluvio.unid=${area_id}` : ""
+    const result = await global.pool.query(`INSERT INTO series_areal (area_id, var_id, proc_id, unit_id, fuentes_id)
+        SELECT 
+            areas_pluvio.unid,
+            series_rast.var_id,
+            series_rast.proc_id,
+            series_rast.unit_id,
+            series_rast.fuentes_id
+        FROM areas_pluvio, series_rast
+        WHERE series_rast.id=$1
+        ${areas_filter}
+        AND areas_pluvio.activar=TRUE
+        ON CONFLICT (fuentes_id, proc_id, unit_id, var_id, area_id) DO NOTHING
+        RETURNING *`, [series_id])
+    return result.rows.map((s: any)  => new A5_serie(s))
 }

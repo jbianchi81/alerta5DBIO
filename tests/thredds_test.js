@@ -2,7 +2,7 @@ const test = require('node:test')
 const assert = require('assert')
 // process.env.NODE_ENV = "test"
 // const {serie: Serie, observacion: Observacion, observaciones: Observaciones, estacion: Estacion} = require('../app/CRUD')
-const {Client, ncToPostgisRaster, parseDatesFromNc, readTifDate, setTifMetadata, tifToObservacionRaster, tifDirToObservacionesRaster, parseMJD, parseOrigin} = require('../app/accessors/thredds.js')
+const {Client, ncToPostgisRaster, parseDatesFromNc, readTifDate, setTifMetadata, tifToObservacionRaster, tifDirToObservacionesRaster, parseMJD, parseOrigin, createSeriesAreal} = require('../app/accessors/thredds.js')
 const {Pool} = require('pg')
 const {fuente, serie, observacion}  = require('../app/CRUD.js')
 const fs = require('fs')
@@ -268,4 +268,11 @@ test("tif2obs from dir", async (t) => {
         false 
     )
     assert.equal(observaciones.length,5)
+})
+
+test('create series areales', async (t)=> {
+    const series_areales = await createSeriesAreal(24)
+    assert.equal(series_areales.length,2)
+    assert.equal(series_areales[0].fuente.id, 54)
+    assert.equal(series_areales[1].fuente.id, 54)
 })

@@ -22,6 +22,7 @@ exports.readTifDate = readTifDate;
 exports.setTifMetadata = setTifMetadata;
 exports.tifToObservacionRaster = tifToObservacionRaster;
 exports.tifDirToObservacionesRaster = tifDirToObservacionesRaster;
+exports.createSeriesAreal = createSeriesAreal;
 const abstract_accessor_engine_1 = require("./abstract_accessor_engine");
 const dateutils_1 = require("./dateutils");
 const child_process_promise_1 = require("child-process-promise");
@@ -341,5 +342,24 @@ function tifDirToObservacionesRaster(dir_path, series_id, interval, create, retu
             return dates;
         }
         return observaciones;
+    });
+}
+function createSeriesAreal(series_id, area_id) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const areas_filter = (area_id) ? (Array.isArray(area_id)) ? ` AND areas_pluvio.unid IN (${area_id.map(id => id.toString()).join(",")})` : (area_id == "all") ? "" : `AND areas_pluvio.unid=${area_id}` : "";
+        const result = yield global.pool.query(`INSERT INTO series_areal (area_id, var_id, proc_id, unit_id, fuentes_id)
+        SELECT 
+            areas_pluvio.unid,
+            series_rast.var_id,
+            series_rast.proc_id,
+            series_rast.unit_id,
+            series_rast.fuentes_id
+        FROM areas_pluvio, series_rast
+        WHERE series_rast.id=$1
+        ${areas_filter}
+        AND areas_pluvio.activar=TRUE
+        ON CONFLICT (fuentes_id, proc_id, unit_id, var_id, area_id) DO NOTHING
+        RETURNING *`, [series_id]);
+        return result.rows.map((s) => new CRUD_1.serie(s));
     });
 }
