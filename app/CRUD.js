@@ -13785,7 +13785,7 @@ internal.CRUD = class {
 							ST_Clip(
 								CASE 
 									WHEN abs(ST_PixelWidth(valor)) >= 0.04999
-									THEN valor
+									THEN ${(options.force_resample) ? "st_resample(0.05, 0.05)": "valor"}
 									ELSE 
 										CASE 
 											WHEN abs(ST_PixelWidth(valor)) >= 0.00999

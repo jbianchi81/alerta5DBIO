@@ -3394,6 +3394,7 @@ internal.RastToArealProcedure = class extends internal.CrudProcedure {
         // - batch_by_year
         // - simple
         // - return_values
+        // - force_resample
     }
     async run() {
         if(this.options.simple) {
