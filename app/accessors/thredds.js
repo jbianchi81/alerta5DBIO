@@ -436,7 +436,7 @@ function rastToAreal(series_areal_id, timestart, timeend, return_values) {
             obs.timeupdate,
             val.valor
         FROM obs JOIN val ON obs.id=val.obs_id
-        ORDER BY obs.timestart` : "SELECT count(val.id) FROM val"}
+        ORDER BY obs.timestart` : "SELECT count(val.obs_id) FROM val"}
         ;
     `;
         const result = yield global.pool.query(stmt, [series_areal_id, timestart, timeend]);
