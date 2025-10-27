@@ -499,30 +499,33 @@ export async function createSeriesAreal(series_id : number, area_id? : number | 
     return result.rows.map((s: any)  => new A5_serie(s))
 }
 
-export async function rastToArealAll(series_rast_id: number, timestart: Date, timeend: Date, series_areal_id?: number[]|number|"all", return_values?: boolean) : Promise<Observacion[]|void> {
-    if(!series_areal_id || series_areal_id == "all") {
-        const series_areal_result = await global.pool.query(`SELECT 
+export async function rastToArealAll(series_rast_id: number, timestart: Date, timeend: Date, area_id?: number[]|number|"all", return_values?: boolean) : Promise<Observacion[]|void> {
+    let areal_filter : string
+    if(!area_id || area_id == "all") {
+        areal_filter = ""
+    } else if(typeof area_id == "number") {
+        areal_filter = `AND area_id=${area_id}`
+    } else {
+        areal_filter = `AND area_id IN (${area_id.map(a=>a.toString()).join(",")})`
+    }    
+    const series_areal_result = await global.pool.query(`SELECT 
         series_areal.id series_id
         FROM series_areal 
         JOIN series_rast ON series_areal.fuentes_id = series_rast.fuentes_id
-        WHERE series_rast.id=$1`, [series_rast_id])
-        series_areal_id = series_areal_result.rows.map((r : any) => r.series_id)
-    }
-    if(typeof series_areal_id == "number") {
-        return rastToAreal(series_areal_id, timestart, timeend, return_values)
-    } else {
-        const observaciones = []
-        for(let series_id of series_areal_id as number[]) {
-            const results = await rastToAreal(series_id, timestart, timeend,return_values)
-            if(return_values) {
-                observaciones.push(...results as Observacion[])
-            }
-        }
+        WHERE series_rast.id=$1
+        ${areal_filter}`, [series_rast_id])
+    const series_areal_id = series_areal_result.rows.map((r : any) => r.series_id)
+    const observaciones = []
+    for(let series_id of series_areal_id as number[]) {
+        const results = await rastToAreal(series_id, timestart, timeend,return_values)
         if(return_values) {
-            return observaciones
+            observaciones.push(...results as Observacion[])
         }
-        return
     }
+    if(return_values) {
+        return observaciones
+    }
+    return
 }
 
 export async function rastToAreal(series_areal_id: number, timestart: Date, timeend: Date, return_values?: boolean) : Promise<Observacion[]|void> {

@@ -365,32 +365,36 @@ function createSeriesAreal(series_id, area_id) {
         return result.rows.map((s) => new CRUD_1.serie(s));
     });
 }
-function rastToArealAll(series_rast_id, timestart, timeend, series_areal_id, return_values) {
+function rastToArealAll(series_rast_id, timestart, timeend, area_id, return_values) {
     return __awaiter(this, void 0, void 0, function* () {
-        if (!series_areal_id || series_areal_id == "all") {
-            const series_areal_result = yield global.pool.query(`SELECT 
+        let areal_filter;
+        if (!area_id || area_id == "all") {
+            areal_filter = "";
+        }
+        else if (typeof area_id == "number") {
+            areal_filter = `AND area_id=${area_id}`;
+        }
+        else {
+            areal_filter = `AND area_id IN (${area_id.map(a => a.toString()).join(",")})`;
+        }
+        const series_areal_result = yield global.pool.query(`SELECT 
         series_areal.id series_id
         FROM series_areal 
         JOIN series_rast ON series_areal.fuentes_id = series_rast.fuentes_id
-        WHERE series_rast.id=$1`, [series_rast_id]);
-            series_areal_id = series_areal_result.rows.map((r) => r.series_id);
-        }
-        if (typeof series_areal_id == "number") {
-            return rastToAreal(series_areal_id, timestart, timeend, return_values);
-        }
-        else {
-            const observaciones = [];
-            for (let series_id of series_areal_id) {
-                const results = yield rastToAreal(series_id, timestart, timeend, return_values);
-                if (return_values) {
-                    observaciones.push(...results);
-                }
-            }
+        WHERE series_rast.id=$1
+        ${areal_filter}`, [series_rast_id]);
+        const series_areal_id = series_areal_result.rows.map((r) => r.series_id);
+        const observaciones = [];
+        for (let series_id of series_areal_id) {
+            const results = yield rastToAreal(series_id, timestart, timeend, return_values);
             if (return_values) {
-                return observaciones;
+                observaciones.push(...results);
             }
-            return;
         }
+        if (return_values) {
+            return observaciones;
+        }
+        return;
     });
 }
 function rastToAreal(series_areal_id, timestart, timeend, return_values) {
