@@ -498,3 +498,80 @@ export async function createSeriesAreal(series_id : number, area_id? : number | 
         RETURNING *`, [series_id])
     return result.rows.map((s: any)  => new A5_serie(s))
 }
+
+export async function rastToArealAll(series_rast_id: number, timestart: Date, timeend: Date, series_areal_id?: number[]|number|"all", return_values?: boolean) : Promise<Observacion[]|void> {
+    if(!series_areal_id || series_areal_id == "all") {
+        const series_areal_result = await global.pool.query(`SELECT 
+        series_areal.id series_id
+        FROM series_areal 
+        JOIN series_rast ON series_areal.fuentes_id = series_rast.fuentes_id
+        WHERE series_rast.id=$1`, [series_rast_id])
+        series_areal_id = series_areal_result.rows.map((r : any) => r.series_id)
+    }
+    if(typeof series_areal_id == "number") {
+        return rastToAreal(series_areal_id, timestart, timeend, return_values)
+    } else {
+        const observaciones = []
+        for(let series_id of series_areal_id as number[]) {
+            const results = await rastToAreal(series_id, timestart, timeend,return_values)
+            if(return_values) {
+                observaciones.push(...results as Observacion[])
+            }
+        }
+        if(return_values) {
+            return observaciones
+        }
+        return
+    }
+}
+
+export async function rastToAreal(series_areal_id: number, timestart: Date, timeend: Date, return_values?: boolean) : Promise<Observacion[]|void> {
+
+    const stmt = `begin; 
+        with areal_means AS ( 
+            select  series_areal.id AS series_areal_id,
+                    observaciones_rast.timestart, 
+                    observaciones_rast.timeend, 
+                    ( st_summarystats(st_clip(observaciones_rast.valor, 1, areas_pluvio.geom, -9999, TRUE))).mean::double precision AS valor
+            from observaciones_rast
+            JOIN series_rast ON series_rast.id=observaciones_rast.series_id
+            JOIN series_areal ON series_areal.fuentes_id=series_rast.fuentes_id
+            JOIN areas_pluvio ON areas_pluvio.unid=series_areal.area_id  
+            where series_areal.id=$1
+            AND areas_pluvio.activar=TRUE
+            and observaciones_rast.timestart>=$2
+            and observaciones_rast.timeend<=$3 
+        ), obs AS (
+            INSERT INTO observaciones_areal (series_id,timestart,timeend)
+            SELECT series_areal_id, timestart, timeend
+            FROM areal_means
+            ON CONFLICT (series_id, timestart, timeend) DO UPDATE SET timeupdate=excluded.timeupdate
+            RETURNING *
+        ), val AS (
+            INSERT INTO valores_num_areal (obs_id, valor)
+            SELECT obs.id,
+            areal_means.valor
+            FROM obs JOIN areal_means ON obs.series_id = areal_means.series_areal_id AND obs.timestart = areal_means.timestart AND obs.timeend=areal_means.timeend
+            RETURNING ${(return_values) ? "*" : "1"}
+        )
+            ${(return_values) ? `SELECT
+            obs.id,
+            obs.series_id, 
+            obs.timestart,
+            obs.timeend,
+            obs.nombre,
+            obs.descripcion,
+            obs.unit_id,
+            obs.timeupdate,
+            val.valor
+        FROM obs JOIN val ON obs.id=val.obs_id
+        ORDER BY obs.timestart`: "SELECT count(val.id) FROM val"}
+        ;
+    `
+    const result = await global.pool.query(stmt, [series_areal_id, timestart, timeend])
+    if(return_values) {
+        return result.rows
+    }
+    console.debug("Inserted " + result.rows[0].count + " observaciones areales")
+    return
+}

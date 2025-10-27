@@ -3392,8 +3392,14 @@ internal.RastToArealProcedure = class extends internal.CrudProcedure {
         // - funcion
         // - only_obs
         // - batch_by_year
+        // - simple
+        // - return_values
     }
     async run() {
+        if(options.simple) {
+            this.result = await rastToArealAll(this.series_id, this.timestart, this.timeend, this.area_id, this.options.return_values)
+            return this.result
+        }
         if(Array.isArray(this.area_id)) {
             this.result = []
             for(var a of this.area_id) {
