@@ -301,14 +301,16 @@ export function parseMJD(mjd : number, origin : Date = new Date(Date.UTC(1850,0,
     }
 }
 
-function parseOrigin(o : string) : Date {
+export function parseOrigin(o : string) : Date {
     // "days since 1850-1-1"
     const m = o.match(/\d{4}-\d{1,2}-\d{1,2}/)
     if(!m) {
         return
     }
     const s = m[0].split("-").map(i => parseInt(i))
-    return new Date(Date.UTC(s[0], s[1] - 1, s[2]))
+    const origin = new Date(Date.UTC(s[0], s[1] - 1, s[2]))
+    origin.setUTCFullYear(s[0])
+    return origin
 }
 
 export async function parseDatesFromNc(

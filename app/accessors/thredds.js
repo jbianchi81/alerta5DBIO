@@ -14,6 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Client = void 0;
 exports.parseMJD = parseMJD;
+exports.parseOrigin = parseOrigin;
 exports.parseDatesFromNc = parseDatesFromNc;
 exports.ncToPostgisRaster = ncToPostgisRaster;
 exports.downloadNC = downloadNC;
@@ -220,7 +221,9 @@ function parseOrigin(o) {
         return;
     }
     const s = m[0].split("-").map(i => parseInt(i));
-    return new Date(Date.UTC(s[0], s[1] - 1, s[2]));
+    const origin = new Date(Date.UTC(s[0], s[1] - 1, s[2]));
+    origin.setUTCFullYear(s[0]);
+    return origin;
 }
 function parseDatesFromNc(nc_file, origin, noleap) {
     return __awaiter(this, void 0, void 0, function* () {

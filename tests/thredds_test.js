@@ -2,7 +2,7 @@ const test = require('node:test')
 const assert = require('assert')
 // process.env.NODE_ENV = "test"
 // const {serie: Serie, observacion: Observacion, observaciones: Observaciones, estacion: Estacion} = require('../app/CRUD')
-const {Client, ncToPostgisRaster, parseDatesFromNc, readTifDate, setTifMetadata, tifToObservacionRaster, tifDirToObservacionesRaster, parseMJD} = require('../app/accessors/thredds.js')
+const {Client, ncToPostgisRaster, parseDatesFromNc, readTifDate, setTifMetadata, tifToObservacionRaster, tifDirToObservacionesRaster, parseMJD, parseOrigin} = require('../app/accessors/thredds.js')
 const {Pool} = require('pg')
 const {fuente, serie, observacion}  = require('../app/CRUD.js')
 const fs = require('fs')
@@ -50,7 +50,10 @@ test('parse dates w/ origin noleap from md', async(t) => {
     assert.equal(dates[364].date.toISOString(),new Date(Date.UTC(1990,11,31,12)).toISOString())
 })
 
-
+test('parse origin year 1', (t) => {
+    const origin = parseOrigin("days since 0001-01-01 00:00:00")
+    assert.equal(origin.toISOString(), '0001-01-01T00:00:00.000Z')
+})
 
 test('ncToPostgres', async(t) => {
 
