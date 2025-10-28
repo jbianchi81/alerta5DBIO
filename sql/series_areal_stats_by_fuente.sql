@@ -1,0 +1,2 @@
+create or replace view series_areal_stats_by_fuente AS
+select fuentes.nombre,fuentes_id,count(distinct series_areal.id) AS series,count(timestart),min(timestart),max(timestart) from observaciones_areal join series_areal on series_areal.id=series_id join fuentes on fuentes.id=fuentes_id group by fuentes.nombre,fuentes_id order by fuentes.nombre;

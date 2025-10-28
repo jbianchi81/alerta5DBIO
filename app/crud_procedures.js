@@ -3397,10 +3397,10 @@ internal.RastToArealProcedure = class extends internal.CrudProcedure {
         // - force_resample
     }
     async run() {
-        if(this.options.simple) {
-            this.result = await rastToArealAll(this.series_id, this.timestart, this.timeend, this.area_id, this.options.return_values)
-            return this.result
-        }
+        // if(this.options.simple) {
+        //     this.result = await rastToArealAll(this.series_id, this.timestart, this.timeend, this.area_id, this.options.return_values)
+        //     return this.result
+        // }
         if(Array.isArray(this.area_id)) {
             this.result = []
             for(var a of this.area_id) {
