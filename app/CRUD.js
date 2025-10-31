@@ -10886,9 +10886,10 @@ internal.CRUD = class {
 			return []
 		}
 		obs_values = obs_values.join(",")
-		var on_conflict_clause_obs = (no_update) ? " NOTHING " : (config.crud.update_observaciones_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\
-		timeupdate=excluded.timeupdate" : " NOTHING "
-		var on_conflict_clause_val = (no_update) ? " NOTHING " : " UPDATE SET valor=excluded.valor "
+		const on_conflict_update_timeupdate = (no_update) ? false : (config.crud.update_observaciones_timeupdate) ? true : false
+		var on_conflict_clause_obs = (on_conflict_update_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\
+		timeupdate=excluded.timeupdate" : " UPDATE SET id=observaciones_areal.id "
+		var on_conflict_clause_val = (no_update) ? " UPDATE SET id=observaciones_areal.id " : " UPDATE SET valor=excluded.valor "
 		var disable_trigger = "" // (timeSupport) ? "ALTER TABLE observaciones_areal DISABLE TRIGGER obs_dt_trig;" : ""
 		var enable_trigger = "" // (timeSupport) ? "ALTER TABLE observaciones_areal ENABLE TRIGGER obs_dt_trig;" : ""
 		var release_client = false
@@ -10909,7 +10910,11 @@ internal.CRUD = class {
 				throw("insert into observaciones_areal query error")
 			}
 			if(rows.length==0){
-				throw("No observaciones_areal inserted")
+				if(on_conflict_update_timeupdate) {
+					throw("No observaciones_areal inserted")
+				} else {
+					console.log("No observaciones_areal inserted")
+				}
 			}
 			//~ console.log(result.rows)
 			var val_values = observaciones.map((obs,i)=>{
