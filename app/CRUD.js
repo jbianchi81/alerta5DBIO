@@ -9626,21 +9626,35 @@ internal.CRUD = class {
 			delete row.timestart
 			delete row.timeend
 			delete row.count
-			var s = [await this.getEstacion(row.estacion_id), await this.getVar(row.var_id), await this.getProcedimiento(row.proc_id), await this.getUnidad(row.unit_id)]
-			const serie = new internal.serie({estacion:s[0],"var":s[1],procedimiento:s[2],unidades:s[3], tipo:"puntual"})  // estacion,variable,procedimiento,unidades,tipo,fuente
+			try {
+				var s = [await this.getEstacion(row.estacion_id), await this.getVar(row.var_id), await this.getProcedimiento(row.proc_id), await this.getUnidad(row.unit_id)]
+				var serie = new internal.serie({estacion:s[0],"var":s[1],procedimiento:s[2],unidades:s[3], tipo:"puntual"})  // estacion,variable,procedimiento,unidades,tipo,fuente
+			} catch(e) {
+				if(release_client) {
+					await client.release()
+				}
+				throw(e)
+			}
 			serie.id=row.id
 			serie.date_range = row.date_range
-			if(timestart && timeend) {
-				options.obs_type = serie["var"].type
-				var observaciones
-				if(options.regular) {
-					observaciones = await this.getRegularSeries("puntual",row.id,(options.dt) ? options.dt : "1 days", timestart, timeend,options)
-				} else {
-					observaciones = await this.getObservacionesRTS("puntual",{series_id:row.id,timestart:timestart,timeend:timeend,timeupdate:timeupdate},options,serie)
+			try {
+				if(timestart && timeend) {
+					options.obs_type = serie["var"].type
+					var observaciones
+					if(options.regular) {
+						observaciones = await this.getRegularSeries("puntual",row.id,(options.dt) ? options.dt : "1 days", timestart, timeend,options)
+					} else {
+						observaciones = await this.getObservacionesRTS("puntual",{series_id:row.id,timestart:timestart,timeend:timeend,timeupdate:timeupdate},options,serie)
+					}					
+				} else if(timeupdate) {
+					options.obs_type = serie["var"].type
+					observaciones = await this.getObservacionesRTS("puntual",{series_id:row.id,timeupdate:timeupdate},options,serie)
 				}
-			} else if(timeupdate) {
-				options.obs_type = serie["var"].type
-				observaciones = await this.getObservacionesRTS("puntual",{series_id:row.id,timeupdate:timeupdate},options,serie)
+			} catch(e) {
+				if(release_client) {
+					await client.release()
+				}
+				throw(e)
 			}
 			if(options.asArray) {
 				serie.observaciones = observaciones
@@ -9648,19 +9662,39 @@ internal.CRUD = class {
 				serie.setObservaciones(observaciones)
 			}
 			if(options && options.getStats) {
-				await serie.getStats(client)
-				console.log("got stats for series")
-			}
-			if(options && options.getMonthlyStats) {
-				if(serie.var.id == 48 && serie.observaciones.length > 0) {
-					serie.getWeibullPercentiles()
-				} else {
-					const monthlyStats = await this.getMonthlyStats("puntual",serie.id)
-					serie.monthlyStats = monthlyStats.values
+				try {
+					await serie.getStats(client)
+					console.log("got stats for series")
+				} catch(e) {
+					if(release_client) {
+						await client.release()
+					}
+					throw(e)
 				}
 			}
-			await serie.setPercentilesRef()
-			
+			if(options && options.getMonthlyStats) {
+				try {
+					if(serie.var.id == 48 && serie.observaciones.length > 0) {
+						serie.getWeibullPercentiles()
+					} else {
+						const monthlyStats = await this.getMonthlyStats("puntual",serie.id)
+						serie.monthlyStats = monthlyStats.values
+					}
+				} catch(e) {
+					if(release_client) {
+						await client.release()
+					}
+					throw(e)
+				}
+			}
+			try {
+				await serie.setPercentilesRef()
+			} catch(e) {
+				if(release_client) {
+					await client.release()
+				}
+				throw(e)
+			}			
 			if(release_client) {
 				await client.release()
 			}
@@ -10889,7 +10923,7 @@ internal.CRUD = class {
 		const on_conflict_update_timeupdate = (no_update) ? false : (config.crud.update_observaciones_timeupdate) ? true : false
 		var on_conflict_clause_obs = (on_conflict_update_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\
 		timeupdate=excluded.timeupdate" : " UPDATE SET id=observaciones_areal.id "
-		var on_conflict_clause_val = (no_update) ? " UPDATE SET id=observaciones_areal.id " : " UPDATE SET valor=excluded.valor "
+		var on_conflict_clause_val = (no_update) ? " UPDATE SET obs_id=valores_num_areal.obs_id " : " UPDATE SET valor=excluded.valor "
 		var disable_trigger = "" // (timeSupport) ? "ALTER TABLE observaciones_areal DISABLE TRIGGER obs_dt_trig;" : ""
 		var enable_trigger = "" // (timeSupport) ? "ALTER TABLE observaciones_areal ENABLE TRIGGER obs_dt_trig;" : ""
 		var release_client = false
@@ -10954,6 +10988,7 @@ internal.CRUD = class {
 			if(release_client) {
 				await client.query("ROLLBACK")
 			}
+			console.error(e)
 			throw(e)
 		} finally {
 			if(release_client) {
