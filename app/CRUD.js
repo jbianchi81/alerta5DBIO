@@ -12495,7 +12495,7 @@ internal.CRUD = class {
 		const obs_tabla = this.getObsTable(tipo)
 		const val_tabla = this.getValTable(tipo)
 		//~ console.log({keys:Object.keys(serie.var.def_hora_corte).join(","),tostr:timeSteps.interval2string(serie.var.def_hora_corte)})
-		var t_offset = (serie.fuente && serie.fuente.hora_corte) ? timeSteps.interval2string(serie.fuente.hora_corte) : (serie.var.def_hora_corte)  ? timeSteps.interval2string(serie.var.def_hora_corte) : "00:00:00"
+		var t_offset = (serie.var.def_hora_corte)  ? timeSteps.interval2string(serie.var.def_hora_corte) : (serie.fuente && serie.fuente.hora_corte) ? timeSteps.interval2string(serie.fuente.hora_corte) :  "00:00:00"
 		// console.log("t_offset:" + t_offset)
 		var valuequerystring = (tipo == "rast" || tipo == "raster") ? this.rasterValueQueryString(options.format,options) : val_tabla + ".valor"
 		// console.log(valuequerystring)
