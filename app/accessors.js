@@ -6428,7 +6428,23 @@ internal.a5_cubos = class {
 		})
 	}
 
-	getSeries(filter={},options={}) {
+	async updateSerie(id, timestart, timeend) {
+		const observaciones = await this.get(
+			{
+				id: id, 
+				timestart: timestart,
+				timeend: timeend
+			})
+		const results = await crud.upsertObservacionesCubo(id,observaciones)
+		return results.map(r => new CRUD.observacion({
+			tipo: "raster",
+			series_id: id,
+			timestart: r.rows[0].date
+		}))
+
+	}
+
+	async getSeries(filter={},options={}) {
 		if(filter.fuentes_id) {
 			filter.id = (filter.id) ? filter.id : filter.fuentes_id
 		}
@@ -6440,13 +6456,14 @@ internal.a5_cubos = class {
 			id: filter.id,
 			data_table: filter.data_table
 		}
-		return axios.get(this.config.url + "/obs/raster/cubos",{
+		const response = await axios.get(this.config.url + "/obs/raster/cubos",{
 			headers: {"Authorization": "Bearer " + this.config.token},
 			params: params
 		})
-		.then(response=>{
-			return response.data
-		})
+		const series = response.data.map(serie => 
+			new CRUD.serie({...serie, id: serie.id ?? serie.fuente.id})
+		)
+    	return series
 	}
 	// upsertSeries(filter={},options={}) {
 	// 	return this.getSeries(filter,options)
