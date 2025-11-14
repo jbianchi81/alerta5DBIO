@@ -4,6 +4,7 @@ const internal = {}
 const timeSteps = require('./timeSteps')
 var Validator = require('jsonschema').Validator;
 const fs = require('fs')
+const fsPromises = require('fs/promises')
 const path = require('path')
 var apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
 var schemas = apidoc.components.schemas
@@ -708,6 +709,26 @@ internal.delay = async function(t, val) {
             resolve(val)
         },t)
     })
+}
+
+internal.waitForFile = async(path, timeout = 10000, interval = 500) => {
+  const start = Date.now();
+
+  while (true) {
+    try {
+      await fsPromises.access(path);
+      return true; // file exists
+    } catch (e) {
+		// console.error(e.toString())
+	}
+
+	const now = Date.now()
+    if (now - start > timeout) {
+      throw new Error("Timeout waiting for file: " + path + ". Waited " + (now - start) + " ms" );
+    }
+
+    await new Promise(r => setTimeout(r, interval));
+  }
 }
 
 internal.gdalDatasetRasterBandsToArray = function(dataset) {

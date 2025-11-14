@@ -36,3 +36,17 @@ test('get pp cdp batch con insert', async(t) => {
         }
     })
 })
+
+test('get pp cdp diario insert splines', async(t) => {
+    await t.test("get_pp_cdp_diario", async t => {
+        // get_pp_cdp_diario(fecha,filter={},options={},upsert, surf_series_id)
+        const obs = await Crud.get_pp_cdp_diario(
+            new Date(2025,0,1,9),
+            {},
+            {no_update_areales: true},
+            true,
+            23
+        )
+        assert.equal(obs.timestart.getTime(), new Date(2025,0,1,9).getTime())
+    })
+})

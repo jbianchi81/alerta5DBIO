@@ -148,7 +148,7 @@ internal.printRastObsColorMap= function (input,output,observation,options={}) {
 	return internal.printGrassMap(input,output,options)
 }
 
-internal.surf = function (input,output,parameters) {
+internal.surf = async function (input,output,parameters) {
 	if(!parameters) {
 		return Promise.reject("parameters missing")
 	}
@@ -186,8 +186,6 @@ internal.surf = function (input,output,parameters) {
 		  r.mapcalc expression=\"pp_surf_mask=if(mask,pp_surf,null())\" --o;\n\
 		  r.mapcalc expression=\"pp_surf=if(pp_surf_mask>0,pp_surf_mask,0)\" --o\n"
 	}
-
-
 	var batch_job = "#!/bin/bash\n\
 	\n\
 	g.region res=" + res + " n=" + n + " s=" + s + " w=" + w + " e=" + e + "\n\
@@ -195,18 +193,13 @@ internal.surf = function (input,output,parameters) {
 	if ! v.surf.rst pp_points elev=pp_surf --o zcolumn=valor segmax=" + segmax + " tension=" + tension + "; then exit 1;fi\n\
 	" + mask_stmt + "\n\
 	r.out.gdal pp_surf out=" + output + " --o" // metaopt=\"DESCRIPCION_DEL_PRODUCTO=\\\"Mapa de precipitacion interpolado a partir de datos de estaciones meteorologicas\\\",FECHA_INICIO="+ parameters.timestart.toISOString() + ",FECHA_FIN=" + parameters.timeend.toISOString() + ",METODO_DE_INTERPOLACION=splines,UNIDADES=milimetros,VARIABLE=precipitacion,FUENTES=\\\"Servicio Meteorologico Nacional, Direccion provincial de Hidraulica de Entre Rios, ACUMAR, ANA (Brasil), SNIH-SIyPH (Ministerio del Interior)\\\",PRODUCTO_ID=7,GENERADO_POR=\\\"Instituto Nacional del Agua. Direccion de Sistemas de Informacion y Alerta Hidrologico\\\",CONTACTO=\\\"Au. Ezeiza-Canuelas km 1,52, Ezeiza, Buenos Aires, Argentina. tel +54 011 44804500 ext. 2341/2415 - jbianchi@ina.gob.ar\\\"\""
-	return fs.writeFile(grass_batch_job_file, batch_job)
-	.then(()=>{
-		fs.chmodSync(grass_batch_job_file, "755");
-		//~ process.env.GRASS_BATCH_JOB = grass_batch_job_file
-		return execShellCommand('grass -c ' + location + '/' + mapset + ' --exec ' + grass_batch_job_file)
-		.then(stdout=>{
-			console.log(stdout)
-			//~ delete process.env.GRASS_BATCH_JOB
-			console.log("se escribió el archivo " + output)
-			return output
-		})
-	})
+	await fs.writeFile(grass_batch_job_file, batch_job);
+	fs.chmodSync(grass_batch_job_file, "755");
+	const stdout = await execShellCommand('grass -c ' + location + '/' + mapset + ' --exec ' + grass_batch_job_file);
+	console.log(stdout);
+	//~ delete process.env.GRASS_BATCH_JOB
+	console.log("se escribió el archivo " + output);
+	return output;
 	//~ .catch(e=>{
 		//~ delete process.env.GRASS_BATCH_JOB
 		//~ console.error(e)

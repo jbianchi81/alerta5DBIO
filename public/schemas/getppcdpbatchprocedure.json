@@ -19,6 +19,10 @@
                 "upsert": {
                     "type": "boolean"
                 },
+                "surf_series_id": {
+                    "type": "number",
+                    "description": "id of splines raster daily series - where to upsert"
+                },
                 "filter": {
                     "$href": "seriespuntualesfilter.json"
                 },

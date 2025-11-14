@@ -32,7 +32,7 @@ var pointsWithinPolygon = require("@turf/points-within-polygon")
 
 // const series2waterml2 = require('./series2waterml2');
 // const { relativeTimeThreshold } = require('moment-timezone');
-const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2, control_filter3, control_query_args, getCalStats, assertValidDateTruncField, sanitizeIdFilter, ensureDirForFile } = require('./utils');
+const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2, control_filter3, control_query_args, getCalStats, assertValidDateTruncField, sanitizeIdFilter, ensureDirForFile, waitForFile } = require('./utils');
 const { DateFromDateOrInterval, Interval } = require('./timeSteps');
 // const { isContext } = require('vm');
 const logger = require('./logger');
@@ -20182,7 +20182,16 @@ ORDER BY cal.cal_id`
 	}
 	
 
-	static async get_pp_cdp_diario(fecha,filter={},options={},upsert) {
+	/**
+	 * 
+	 * @param {Date|string} fecha 
+	 * @param {SerieFilter} filter - estacion_id: number, var_id: number, proc_id: number, unit_id: number, tabla: string
+	 * @param {*} options - skip_count_control: Boolean, no_update_areales: Boolean, no_send_data: Boolean
+	 * @param {Boolean} upsert 
+	 * @param {number} surf_series_id - id of splines raster daily series - to upsert
+	 * @returns 
+	 */
+	static async get_pp_cdp_diario(fecha,filter={},options={},upsert, surf_series_id) {
 		const used = process.memoryUsage();
 		for (let key in used) {
 		  console.log(`${key} ${Math.round(used[key] / 1024 / 1024 * 100) / 100} MB`);
@@ -20196,69 +20205,75 @@ ORDER BY cal.cal_id`
 		var timeend = new Date(timestart.getTime() + 24*3600*1000)
 		console.log({ts:timestart,te:timeend})
 		filter.estacion_id = (filter.estacion_id) ? filter.estacion_id : global.config.pp_cdp.estacion_ids
-		return this.getCampo(1,timestart,timeend,filter,options)
-		.then(campo=>{
-			if(!options.skip_count_control) {
-				var count_synop = campo.series.reduce((count,s)=> count + ((s.estacion.tabla == 'stations') ? 1 : 0),0)
-				var count_synop_cdp = campo.series.reduce((count,s)=> count + ((s.estacion.tabla == 'stations_cdp') ? 1 : 0),0)
-				console.log({count_synop:count_synop,count_synop_cdp:count_synop_cdp})
-				if(count_synop == 0 || count_synop_cdp == 0) {
-					throw("Faltan registros SYNOP")
+		const campo = await this.getCampo(1,timestart,timeend,filter,options)
+		if(!options.skip_count_control) {
+			var count_synop = campo.series.reduce((count,s)=> count + ((s.estacion.tabla == 'stations') ? 1 : 0),0)
+			var count_synop_cdp = campo.series.reduce((count,s)=> count + ((s.estacion.tabla == 'stations_cdp') ? 1 : 0),0)
+			console.log({count_synop:count_synop,count_synop_cdp:count_synop_cdp})
+			if(count_synop == 0 || count_synop_cdp == 0) {
+				throw("Faltan registros SYNOP")
+			}
+		}
+		options.output = "pp_diaria_" + timestart.toISOString().substring(0,10).replace(/-/g,"") + "_nearest.tif"
+		if(!fs.existsSync(path.resolve(sprintf("%s/%04d", global.config.pp_cdp.outputdir, timestart.getUTCFullYear())))) {
+			fs.mkdirSync(path.resolve(sprintf("%s/%04d", global.config.pp_cdp.outputdir, timestart.getUTCFullYear())))
+		}
+		if(!fs.existsSync(path.resolve(sprintf("%s/%04d/%02d", global.config.pp_cdp.outputdir, timestart.getUTCFullYear(), timestart.getUTCMonth()+1)))) {
+			fs.mkdirSync(path.resolve(sprintf("%s/%04d/%02d", global.config.pp_cdp.outputdir, timestart.getUTCFullYear(), timestart.getUTCMonth()+1)))
+		}
+		options.outputdir = path.resolve(sprintf("%s/%04d/%02d", global.config.pp_cdp.outputdir, timestart.getUTCFullYear(), timestart.getUTCMonth()+1))
+		var csv_file = path.resolve(options.outputdir + "/" + "pp_diaria_" + timestart.toISOString().substring(0,10).replace(/-/g,"") + ".csv")
+		// escribe archivo CSV
+		await fs.writeFile(csv_file,campo.toCSV())
+		//~ options.geojsonfile = path.resolve(options.outputdir + "/" + options.output.replace(/\.tif$/,".json"))
+		var surf_file = path.resolve(options.outputdir + "/" + "pp_diaria_" + timestart.toISOString().substring(0,10).replace(/-/g,"") + "_surf.tif")
+		var png_file =  path.resolve(options.outputdir + "/" + "pp_diaria_" + timestart.toISOString().substring(0,10).replace(/-/g,"") + "_surf.png")
+		var geojson_file = path.resolve(options.outputdir + "/" + "pp_diaria_" + timestart.toISOString().substring(0,10).replace(/-/g,"") +".json")
+		var nearest_file = path.resolve(options.outputdir + "/" + options.output)
+		// genera raster x vecino más próximo y escribe archivo geojson
+		const result = await this.points2rast(campo.toGeoJSON(),{series_id:global.config.pp_cdp.series_id,timestart:timestart,timeend:timeend},{...options,geojsonfile:geojson_file,tipo:"diario"},upsert)
+		if(upsert && !options.no_update_areales) {
+			// calcula medias areales
+			try {
+				const result_areal = await this.rast2areal(global.config.pp_cdp.series_id,timestart,timeend,"all")
+				console.log("upserted " + result_areal.length + " into series_areal, series_id:" + global.config.pp_cdp.series_id)
+			} catch(e){
+					console.error(e)
+			}
+		}
+		// genera raster x splines
+		var surf_parameters = {...global.config.grass,maskfile: path.resolve(global.config.pp_cdp.maskfile),timestart:timestart,timeend:timeend,res:0.1}
+		const output_surf = await printMap.surf(geojson_file,surf_file,surf_parameters)
+		console.log(output_surf)
+		if(upsert && surf_series_id) {
+			await waitForFile(output_surf)
+			const created_surf_obs = await internal.observacion.importRaster(output_surf, timestart, {days: 1}, {days: 1}, surf_series_id, true)
+			console.log("Created " + created_surf_obs.length + " surf raster obs.")
+		}
+		var parameters = {...global.config.grass, timestart: timestart,timeend: timeend, title: "precipitaciones diarias campo interpolado [mm]"}
+		parameters.render_file = undefined
+		// imprime mapa splines
+		const output_print_pp_cdp_diario = await printMap.print_pp_cdp_diario(surf_file,png_file,parameters,geojson_file)
+		console.log(output_print_pp_cdp_diario)
+		if(options.no_send_data) {
+			return {
+				type:"pp_cdp_diario",
+				timestart: result.timestart,
+				timeend: result.timeend,
+				files: {
+					points_geojson: geojson_file,
+					points_csv: csv_file,
+					nearest_tif: nearest_file,
+					nearest_png: nearest_file.replace(/\.tif$/,".png"),
+					surf_tif: surf_file,
+					surf_png: png_file
 				}
 			}
-			options.output = "pp_diaria_" + timestart.toISOString().substring(0,10).replace(/-/g,"") + "_nearest.tif"
-			if(!fs.existsSync(path.resolve(sprintf("%s/%04d", global.config.pp_cdp.outputdir, timestart.getUTCFullYear())))) {
-				fs.mkdirSync(path.resolve(sprintf("%s/%04d", global.config.pp_cdp.outputdir, timestart.getUTCFullYear())))
-			}
-			if(!fs.existsSync(path.resolve(sprintf("%s/%04d/%02d", global.config.pp_cdp.outputdir, timestart.getUTCFullYear(), timestart.getUTCMonth()+1)))) {
-				fs.mkdirSync(path.resolve(sprintf("%s/%04d/%02d", global.config.pp_cdp.outputdir, timestart.getUTCFullYear(), timestart.getUTCMonth()+1)))
-			}
-			options.outputdir = path.resolve(sprintf("%s/%04d/%02d", global.config.pp_cdp.outputdir, timestart.getUTCFullYear(), timestart.getUTCMonth()+1))
-			var csv_file = path.resolve(options.outputdir + "/" + "pp_diaria_" + timestart.toISOString().substring(0,10).replace(/-/g,"") + ".csv")
-			// escribe archivo CSV
-			fs.writeFile(csv_file,campo.toCSV())
-			.catch(e=>{
-				console.error(e)
-			})
-			//~ options.geojsonfile = path.resolve(options.outputdir + "/" + options.output.replace(/\.tif$/,".json"))
-			var surf_file = path.resolve(options.outputdir + "/" + "pp_diaria_" + timestart.toISOString().substring(0,10).replace(/-/g,"") + "_surf.tif")
-			var png_file =  path.resolve(options.outputdir + "/" + "pp_diaria_" + timestart.toISOString().substring(0,10).replace(/-/g,"") + "_surf.png")
-			var geojson_file = path.resolve(options.outputdir + "/" + "pp_diaria_" + timestart.toISOString().substring(0,10).replace(/-/g,"") +".json")
-			var nearest_file = path.resolve(options.outputdir + "/" + options.output)
-			// genera raster x vecino más próximo y escribe archivo geojson
-			return this.points2rast(campo.toGeoJSON(),{series_id:global.config.pp_cdp.series_id,timestart:timestart,timeend:timeend},{...options,geojsonfile:geojson_file,tipo:"diario"},upsert)
-			.then(result=>{
-				if(upsert && !options.no_update_areales) {
-					// calcula medias areales
-					this.rast2areal(global.config.pp_cdp.series_id,timestart,timeend,"all")
-					.then(result=>{
-						console.log("upserted " + result.length + " into series_areal, series_id:" + global.config.pp_cdp.series_id)
-					})
-					.catch(e=>{
-						console.error(e)
-					})
-				}
-				// genera raster x splines
-				var surf_parameters = {...global.config.grass,maskfile: path.resolve(global.config.pp_cdp.maskfile),timestart:timestart,timeend:timeend,res:0.1}
-				return printMap.surf(geojson_file,surf_file,surf_parameters)
-				.then(output=>{
-					console.log(output)
-					var parameters = {...global.config.grass, timestart: timestart,timeend: timeend, title: "precipitaciones diarias campo interpolado [mm]"}
-					parameters.render_file = undefined
-					// imprime mapa splines
-					return printMap.print_pp_cdp_diario(surf_file,png_file,parameters,geojson_file)
-				})
-				.then(output=>{
-					console.log(output)
-					if(options.no_send_data) {
-						return {type:"pp_cdp_diario",timestart:result.timestart,timeend:result.timeend,files:{points_geojson:geojson_file,points_csv:csv_file,nearest_tif:nearest_file,nearest_png:nearest_file.replace(/\.tif$/,".png"),surf_tif:surf_file,surf_png:png_file}}
-					} else {
-						return result
-					}
-				})
-			})
-		})
+		} else {
+			return result
+		}
 	}
+
 	static async get_pp_cdp_semanal(fecha,filter={},options={}) {
 		// toma fecha inicial, si falta, por defecto es hoy - 8 días 
 		var timestart = (fecha) ? new Date(fecha) : new Date(new Date().getTime() - 1000*3600*(35 + 7*24))
@@ -20330,7 +20345,8 @@ ORDER BY cal.cal_id`
 			})
 		})
 	}
-	static async get_pp_cdp_batch(timestart,timeend,filter={},options={},upsert) {
+
+	static async get_pp_cdp_batch(timestart,timeend,filter={},options={},upsert,surf_series_id) {
 		var timestart_diario = (timestart) ? timeSteps.DateFromDateOrInterval(timestart) : new Date(new Date().getTime() - 1000*3600*(35 + 14*24))
 		if(timestart_diario.toString() == "Invalid Date") {
 			return Promise.reject("fecha: Invalid Date")
@@ -20352,35 +20368,28 @@ ORDER BY cal.cal_id`
 		var all_results = []
 		var all_errors = []
 		options.no_send_data = true
-		return Promise.allSettled(
-			fechas_diario.map(fecha => this.get_pp_cdp_diario(fecha,filter,options,upsert))
-		).then(result=>{
-			result.forEach(r=>{
-				if(r.status == 'fulfilled') {
-					all_results.push(r.value)
-				} else {
-					all_errors.push(r.reason)
-					console.error(r.reason)
-				}
-			})
-			return Promise.allSettled(
-				fechas_semanal.map(fecha => this.get_pp_cdp_semanal(fecha,filter,options))
-			)
-		}).then(result=>{
-			result.forEach(r=>{
-				if(r.status == 'fulfilled') {
-					all_results.push(r.value)
-				} else {
-					all_errors.push(r.reason)
-					console.error(r.reason)
-				}
-			})
-			if(all_results.length == 0) {
-				throw(all_errors)
-			} else {
-				return all_results
+		for(const fecha of fechas_diario) {
+			try {
+				const obs = await this.get_pp_cdp_diario(fecha,filter,options,upsert,surf_series_id)
+				all_results.push(obs)
+			} catch(e) {
+				all_errors.push(e)
+				console.error(e)
 			}
-		})
+		}
+		for(const fecha of fechas_semanal) {
+			try {
+				const obs = await this.get_pp_cdp_semanal(fecha,filter,options)
+			} catch(e) {
+				all_errors.push(e)
+				console.error(e)
+			}
+		}
+		if(all_results.length == 0) {
+			throw(all_errors)
+		} else {
+			return all_results
+		}
 	}
 	
 	static async checkAuth(user,params={}) {

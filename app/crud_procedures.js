@@ -1619,9 +1619,10 @@ internal.GetPpCdpBatchProcedure = class extends internal.CrudProcedure {
         this.filter = arguments[0].filter
         // this.options = arguments[0].options
         this.upsert =  arguments[0].upsert
+        this.surf_series_id = arguments[0].surf_series_id
     }
     async run() {
-        this.result = await crud.get_pp_cdp_batch(this.timestart,this.timeend,this.filter,this.options,this.upsert,this.client)
+        this.result = await crud.get_pp_cdp_batch(this.timestart,this.timeend,this.filter,this.options,this.upsert,this.surf_series_id)
         return this.result
     }
 }
@@ -1640,9 +1641,10 @@ internal.GetPpCdpDiario = class extends internal.CrudProcedure {
         this.filter = arguments[0].filter
         this.options = arguments[0].options
         this.upsert =  arguments[0].upsert
+        this.surf_series_id = arguments[0].surf_series_id
     }
     async run() {
-        this.result = await crud.get_pp_cdp_diario(this.date,this.filter,this.options,this.upsert)
+        this.result = await crud.get_pp_cdp_diario(this.date,this.filter,this.options,this.upsert, this.surf_series_id)
         return this.result
     }
    
