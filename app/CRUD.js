@@ -39,6 +39,7 @@ const logger = require('./logger');
 const {serieToGmd} = require('./serieToGmd')
 const {Geometry} = require('./geometry')
 const import_rast = require('./import_rast')
+const {SerieFilter, SerieOptions} = require('./serie_types')
 
 const { escapeIdentifier, escapeLiteral } = require('pg');
 const { options } = require('marked');
@@ -2298,7 +2299,7 @@ internal.serie = class extends baseModel {
 
 	/**
 	 * Reads series from database
-	 * @param {Object} filter 
+	 * @param {SerieFilter} filter 
 	 * valid parameters:
 	 * - tipo : str        - either "puntual", "areal" or "raster"
 	 * - id : int          - series identifier
@@ -2306,8 +2307,9 @@ internal.serie = class extends baseModel {
 	 * - timeend : date    - end date of observations
 	 * - public : boolean  - if true, retrieves only public series
 	 * - timeupdate        - update date of observations
-	 * @param {Object} options 
+	 * @param {SerieOptions} options 
 	 * valid parameters:
+	 * - include_geom bool
 	 * - no_metadata bool
 	 * - obs_type string
 	 * - asArray bool
@@ -3071,6 +3073,12 @@ function assignPercentileCategory(value, categories) {
 	return
 }
 
+/**
+ * 
+ * @param {SerieFilter} filter - Filtering options (id, proc_id, date ranges, availability, geom, etc.) 
+ * @param {SerieOptions} options - Output formatting and sorting options.
+ * @returns {string} SQL query
+ */
 internal.serie.build_read_query = function(filter={},options={}) {
 	// var model = apidoc.serie
 	var valid_filters
@@ -10145,9 +10153,17 @@ internal.CRUD = class {
 		return result.map(s=>new internal.serie(s))
 	}
 	
+	/**
+	 * @param {"puntual" | "areal" | "raster"} tipo - series type: puntual, areal, raster
+	 * @param {SerieFilter} filter - Filtering options (id, proc_id, date ranges, availability, geom, etc.)
+	 * @param {SerieOptions} options - Output formatting and sorting options.
+	 * @param {Client} client - postgresql client
+	 * @param {ExpressRequest} req - Express request object
+	 * @returns {internal.serie[]} matched series
+	 */
 	static async getSeries(tipo,filter={},options={},client,req) {
-		console.debug({options:options})
-		console.debug({filter:filter})
+		// console.debug({options:options})
+		// console.debug({filter:filter})
 		if(tipo) {
 			filter.tipo = tipo
 		}
