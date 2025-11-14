@@ -8813,7 +8813,7 @@ internal.CRUD = class {
 	static upsertFuenteQuery(fuente) {
 		var query = "\
 			INSERT INTO fuentes (id, nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, def_extent, date_column, def_pixeltype, abstract, source) \
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, st_geomfromtext($18), $19, $20, $21, $22)\
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, st_setsrid(st_geomfromtext($18),4326), $19, $20, $21, $22)\
 			ON CONFLICT (id) DO UPDATE SET \
 				id=excluded.id, \
 				nombre=excluded.nombre, \
