@@ -1964,7 +1964,7 @@ LEFT JOIN table_constraints_json ON (fuentes.data_table = table_constraints_json
 ORDER BY series_rast.id
 WITH NO DATA;
 
-CREATE TYPE access_level AS ENUM ('none', 'read', 'write');
+CREATE TYPE access_level AS ENUM ('read', 'write');
 
 CREATE TABLE groups (
     id SERIAL PRIMARY KEY,
@@ -1980,7 +1980,7 @@ CREATE TABLE user_groups (
 CREATE TABLE red_group_access (
     red_id    INTEGER NOT NULL REFERENCES redes(id) ON DELETE CASCADE,
     group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-    access access_level NOT NULL DEFAULT 'none',
+    access access_level NOT NULL DEFAULT 'read',
     PRIMARY KEY (group_id, red_id)
 );
 
@@ -1997,8 +1997,7 @@ WITH access_join AS (
         rga.access,
         CASE rga.access
             WHEN 'write' THEN 2
-            WHEN 'read'  THEN 1
-            ELSE 0
+            ELSE 1
         END AS priority
     FROM users u
     JOIN user_groups ug      ON ug.user_id = u.id
@@ -2015,8 +2014,7 @@ SELECT
     -- effective access is the MAX priority converted back to ENUM
     CASE MAX(priority)
         WHEN 2 THEN 'write'
-        WHEN 1 THEN 'read'
-        ELSE 'none'
+        ELSE 'read'
     END::access_level AS effective_access
 FROM access_join
 GROUP BY user_id, user_name, red_id, red_name, tabla_id;

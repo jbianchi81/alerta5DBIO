@@ -421,13 +421,13 @@ app.put('/obs/unidades/:id',auth.isAdmin,upsertUnidad)
 app.delete('/obs/unidades/:id',auth.isAdmin,deleteUnidades)
 
 app.get('/obs/puntual/fuentes/:fuentes_id/estaciones',auth.isPublic,getEstaciones)
-app.post('/obs/puntual/fuentes/:fuentes_id/estaciones',auth.isAdmin,upsertEstaciones)
+app.post('/obs/puntual/fuentes/:fuentes_id/estaciones',auth.isWriter,upsertEstaciones)
 app.get('/obs/puntual/fuentes/:fuentes_id/estaciones/:id',auth.isPublic,getEstacion)
 app.put('/obs/puntual/fuentes/:fuentes_id/estaciones/:id',auth.isAdmin,updateEstacion)
 app.delete('/obs/puntual/fuentes/:fuentes_id/estaciones/:id',auth.isAdmin,deleteEstacion)
 
 app.get('/obs/puntual/estaciones',auth.isPublic,getEstaciones)
-app.post('/obs/puntual/estaciones',auth.isAdmin,upsertEstaciones)
+app.post('/obs/puntual/estaciones',auth.isWriter,upsertEstaciones)
 app.get('/obs/puntual/estaciones/:id',auth.isPublic,getEstacion)
 app.put('/obs/puntual/estaciones/:id',auth.isAdmin,updateEstacion)
 app.delete('/obs/puntual/estaciones/:id',auth.isAdmin,deleteEstacion)
@@ -892,7 +892,7 @@ function getRed(req,res) {
 		}
 	}
 	console.log("filter:" + JSON.stringify(filter))
-	crud.getRed(filter.id)
+	crud.getRed(filter.id,filter.user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(400).send("Red no encontrada")
@@ -1779,7 +1779,7 @@ function getEstacion(req,res) {
 		res.status(400).send({message:"bad request: missing id"})
 		return
 	}
-	crud.getEstacion(filter.id,filter.public,options)
+	crud.getEstacion(filter.id,filter.public,options,filter.user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(404).send({message:"estacion not found"})
@@ -1826,7 +1826,7 @@ function upsertEstaciones(req,res) {
 		res.status(400).send({message:"query error",error:"Atributo 'estaciones' debe ser un array'"})
 		return
 	}
-	crud.upsertEstaciones(estaciones) // .map(v => {
+	crud.upsertEstaciones(estaciones,{},(req.user) ? req.user.id : undefined) // .map(v => {
 		//~ var estacion = new CRUD.estacion(v)
 		//~ return estacion
 	//~ }))
@@ -7815,9 +7815,13 @@ function getFilter(req) {
 			filter.col_id = req.params.col_id
 		}
 	}
-	//~ if(filter.geom) {
-		//~ console.log(filter.geom.toString())
-	//~ }
+	
+	if(req.user) {
+		if(req.user.id) {
+			filter.user_id = req.user.id
+		}
+	}
+
 	return filter
 }
 

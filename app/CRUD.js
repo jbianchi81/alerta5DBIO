@@ -100,27 +100,29 @@ internal.red = class extends baseModel  {
 		switch (arguments.length) {
 			case 1:
 				if(typeof(arguments[0]) == "string") {
-					[this.id,this.tabla_id, this.nombre,this.is_public,this.public_his_plata] = arguments[0].split(",")
+					[this.id,this.tabla_id, this.nombre,this.is_public,this.public_his_plata,this.access_level] = arguments[0].split(",")
 				} else {
 					this.id = arguments[0].id
 					this.tabla_id = arguments[0].tabla_id
 					this.nombre = arguments[0].nombre
 					this.public = arguments[0].public
 					this.public_his_plata = arguments[0].public_his_plata 
+					this.access_level = arguments[0].access_level
 				}
 				break;
 			default:
-				[this.id,this.tabla_id, this.nombre,this.is_public,this.public_his_plata] = arguments
+				[this.id,this.tabla_id, this.nombre,this.is_public,this.public_his_plata, this.access_level] = arguments
 				break;
 		}
 		this.public = (!this.public) ? false : this.public
 		this.public_his_plata = (!this.public_his_plata) ? false : this.public_his_plata
 	}
 	toString() {
-		return "{tabla_id: " + this.tabla_id + ", nombre: " + this.nombre + ", public: " + this.public + ", public_his_plata: " + this.public_his_plata + ", id: " + this.id + "}"
+		return JSON.stringify(this)
+		// return "{tabla_id: " + this.tabla_id + ", nombre: " + this.nombre + ", public: " + this.public + ", public_his_plata: " + this.public_his_plata + ", id: " + this.id + "}"
 	}
 	toCSV() {
-		return this.tabla_id + "," + this.nombre + "," + this.public + "," + this.public_his_plata + "," + this.id
+		return this.tabla_id + "," + this.nombre + "," + this.public + "," + this.public_his_plata + "," + this.id + "," + this.access_level
 	}
 	toCSVless() {
 		return this.tabla_id + "," + this.nombre + "," + this.id
@@ -207,6 +209,16 @@ internal.red = class extends baseModel  {
 			}
 		}
 		return deleted
+	}
+
+	static getUserAccessClause(user_id, red_id_field="redes.id") {
+		return (user_id) ? [
+			pasteIntoSQLQuery(` JOIN (SELECT user_red_access.red_id, user_red_access.effective_access FROM user_red_access WHERE user_id=$1) ura ON ${red_id_field}=ura.red_id `,[user_id]),
+			"ura.effective_access"
+		] : [
+			"",
+			"'write'"
+		]
 	}
 }
 
@@ -7249,10 +7261,11 @@ internal.CRUD = class {
 			console.error(e)
 		})
 	}
-	static async getRed(id) {
-		return global.pool.query("\
-		SELECT id,tabla_id,nombre,public,public_his_plata from redes \
-		WHERE id=$1",[id])
+	static async getRed(id, user_id) {
+		const [access_join, access_level] = internal.red.getUserAccessClause(user_id)
+		return global.pool.query(`
+		SELECT redes.id,redes.tabla_id,redes.nombre,redes.public,redes.public_his_plata,${access_level} AS access_level FROM redes ${access_join}
+		WHERE redes.id=$1`,[id])
 		.then(result=>{
 			if(result.rows.length<=0) {
 				console.log("Red no encontrada")
@@ -7266,7 +7279,7 @@ internal.CRUD = class {
 			//~ })
 		})
 	}
-	static async getRedes(filter) {
+	static async getRedes(filter={}) {
 		//~ console.log(filter)
 		const valid_filters = {nombre:"regex_string", tabla_id:"string", public:"boolean", public_his_plata:"boolean", id:"integer"}
 		var filter_string=""
@@ -7294,17 +7307,17 @@ internal.CRUD = class {
 			return Promise.reject(new Error("invalid filter value"))
 		}
 		//~ console.log("filter_string:" + filter_string)
-		return global.pool.query("SELECT * from redes WHERE 1=1 " + filter_string)
-		.then(res=>{
+		const [access_join, access_level] = internal.red.getUserAccessClause(filter.user_id)
+		try {
+			const res = await global.pool.query(`SELECT redes.*,${access_level} AS access_level FROM redes ${access_join} WHERE 1=1 ${filter_string}`)
 			var redes = res.rows.map(red=>{
 				return new internal.red(red)
 			})
 			return redes
-		})
-		.catch(e=>{
-			console.error(e)
-			return null
-		})
+		} catch(e) {
+			console.error(e.toString())
+			throw new Error("Query error:" + e.toString())
+		}
 	}
 	
 	
@@ -7556,19 +7569,16 @@ internal.CRUD = class {
 		return estacion
 	}
 	
-	static async upsertEstaciones(estaciones,options)  {
+	static async upsertEstaciones(estaciones,options,user_id)  {
+
+		const redes = await internal.red.read({user_id:user_id})
+		const tabla_ids = redes.filter(red => red.access_level == "write").map(red => red.tabla_id)
 		// var upserted=[]
 		var queries = []
 		for(var i = 0; i < estaciones.length; i++) {
-			// var estacion
-			// try {
-			// 	estacion = await this.upsertEstacion(new internal.estacion(estaciones[i]),options) //,options)
-			// } catch (e) {
-			// 	console.error(e)
-			// }
-			// if(estacion) {
-			// 	upserted.push(estacion)
-			// }
+			if(tabla_ids.indexOf(estaciones[i].tabla) < 0) {
+				throw new Error("El usuario no tiene permiso de escritura para la red " + estaciones[i].tabla)
+			} 
 			if(estaciones[i].id) {
 				const existing_estacion = await internal.estacion.read({id:estaciones[i].id})
 				if(existing_estacion) {
@@ -7583,7 +7593,7 @@ internal.CRUD = class {
 			queries.push(this.upsertEstacionQuery(estaciones[i],options))
 		}
 		// return upserted // Promise.all(promises)
-		const result = await this.executeQueryArray(queries,internal.estacion)
+		const result = await this.executeQueryArray(queries,internal.estacion,true)
 		return result
 	}
 			
@@ -7679,16 +7689,18 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getEstacion(id,isPublic,options={}) {
-		const stmt = "\
-		SELECT estaciones.nombre, estaciones.id_externo, st_x(estaciones.geom) geom_x, st_y(estaciones.geom) geom_y, estaciones.tabla,  estaciones.distrito, estaciones.pais, estaciones.rio, estaciones.has_obs, estaciones.tipo, estaciones.automatica, estaciones.habilitar, estaciones.propietario, estaciones.abrev, estaciones.URL, estaciones.localidad, estaciones.real, estaciones.id, estaciones.unid, nivel_alerta.valor nivel_alerta, nivel_evacuacion.valor nivel_evacuacion, nivel_aguas_bajas.valor nivel_aguas_bajas, estaciones.cero_ign, estaciones.altitud, redes.public, redes.nombre as red_nombre, redes.id as red_id\
-		FROM estaciones\
-		LEFT OUTER JOIN redes ON (estaciones.tabla = redes.tabla_id) \
-		LEFT OUTER JOIN alturas_alerta nivel_alerta ON (estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado='a') \
-		LEFT OUTER JOIN alturas_alerta nivel_evacuacion ON (estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado='e') \
-		LEFT OUTER JOIN alturas_alerta nivel_aguas_bajas ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b') \
-		WHERE estaciones.unid=$1 \
-		AND estaciones.geom IS NOT NULL"
+	static async getEstacion(id,isPublic,options={},user_id) {
+		const [access_join, access_level] = internal.red.getUserAccessClause(user_id)
+		const stmt = `
+		SELECT estaciones.nombre, estaciones.id_externo, st_x(estaciones.geom) geom_x, st_y(estaciones.geom) geom_y, estaciones.tabla,  estaciones.distrito, estaciones.pais, estaciones.rio, estaciones.has_obs, estaciones.tipo, estaciones.automatica, estaciones.habilitar, estaciones.propietario, estaciones.abrev, estaciones.URL, estaciones.localidad, estaciones.real, estaciones.id, estaciones.unid, nivel_alerta.valor nivel_alerta, nivel_evacuacion.valor nivel_evacuacion, nivel_aguas_bajas.valor nivel_aguas_bajas, estaciones.cero_ign, estaciones.altitud, redes.public, redes.nombre as red_nombre, redes.id as red_id, ${access_level} AS access_level
+		FROM estaciones
+		JOIN redes ON (estaciones.tabla = redes.tabla_id)
+		${access_join}
+		LEFT OUTER JOIN alturas_alerta nivel_alerta ON (estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado='a') 
+		LEFT OUTER JOIN alturas_alerta nivel_evacuacion ON (estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado='e') 
+		LEFT OUTER JOIN alturas_alerta nivel_aguas_bajas ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b') 
+		WHERE estaciones.unid=$1 
+		AND estaciones.geom IS NOT NULL`
 		// console.debug(pasteIntoSQLQuery(stmt, [id]))
 		const result = await global.pool.query(stmt, [id])
 		if(result.rows.length<=0) {
@@ -7702,7 +7714,7 @@ internal.CRUD = class {
 			}
 		}
 		const geometry = new internal.geometry("Point", [result.rows[0].geom_x, result.rows[0].geom_y])
-		const estacion = new internal.estacion(result.rows[0].nombre,result.rows[0].id_externo,geometry,result.rows[0].tabla,result.rows[0].distrito,result.rows[0].pais,result.rows[0].rio,result.rows[0].has_obs,result.rows[0].tipo,result.rows[0].automatica,result.rows[0].habilitar,result.rows[0].propietario,result.rows[0].abrev,result.rows[0].URL,result.rows[0].localidad,result.rows[0].real,result.rows[0].nivel_alerta,result.rows[0].nivel_evacuacion,result.rows[0].nivel_aguas_bajas,result.rows[0].altitud,result.rows[0].public,result.rows[0].cero_ign,undefined,undefined,{id:result.rows[0].red_id, nombre:result.rows[0].red_nombre,tabla_id: result.rows[0].tabla})
+		const estacion = new internal.estacion(result.rows[0].nombre,result.rows[0].id_externo,geometry,result.rows[0].tabla,result.rows[0].distrito,result.rows[0].pais,result.rows[0].rio,result.rows[0].has_obs,result.rows[0].tipo,result.rows[0].automatica,result.rows[0].habilitar,result.rows[0].propietario,result.rows[0].abrev,result.rows[0].URL,result.rows[0].localidad,result.rows[0].real,result.rows[0].nivel_alerta,result.rows[0].nivel_evacuacion,result.rows[0].nivel_aguas_bajas,result.rows[0].altitud,result.rows[0].public,result.rows[0].cero_ign,undefined,undefined,{id:result.rows[0].red_id, nombre:result.rows[0].red_nombre,tabla_id: result.rows[0].tabla, access_level: result.rows[0].access_level})
 		estacion.id =  result.rows[0].unid
 		if(options.get_drainage_basin) {
 			await estacion.getDrainageBasin()
@@ -7829,6 +7841,7 @@ internal.CRUD = class {
 			pagination_clause = (filter.limit) ? `LIMIT ${filter.limit}` : ""
 			pagination_clause += (filter.offset) ? ` OFFSET ${filter.offset}`: ""
 		}
+		const [access_join, access_level] = internal.red.getUserAccessClause(filter.user_id,"redes.fuentes_id")
 		const stmt = `
 			SELECT
 				estaciones.nombre, 
@@ -7860,10 +7873,12 @@ internal.CRUD = class {
 					'id', redes.fuentes_id,
 					'tabla_id', redes.tabla_id,
 					'public', redes.public,
-					'public_his_plata', redes.public_his_plata
+					'public_his_plata', redes.public_his_plata,
+					'access_level', ${access_level}
 				) as red
 			FROM estaciones
 			JOIN (SELECT id AS fuentes_id, tabla_id, public, public_his_plata, nombre AS red_nombre FROM redes) redes ON (estaciones.tabla=redes.tabla_id)
+			${access_join}
 			LEFT OUTER JOIN alturas_alerta nivel_alerta ON (estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado='a') 
 			LEFT OUTER JOIN alturas_alerta nivel_evacuacion ON (estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado='e') 
 			LEFT OUTER JOIN alturas_alerta nivel_aguas_bajas ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b') 
@@ -9336,12 +9351,15 @@ internal.CRUD = class {
 		return series_result
 	}
 
-	static async executeQueryArray(queries,internalClass) {
+	static async executeQueryArray(queries,internalClass, throwOnError) {
 		var results = []
 		for(var i in queries) {
 			try {
 				var result = await global.pool.query(queries[i])
 			} catch (e) {
+				if(throwOnError) {
+					throw e
+				}
 				console.error(e)
 				continue
 			}
