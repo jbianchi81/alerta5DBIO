@@ -18,7 +18,6 @@ import crypto from 'crypto'
 
 const config = global.config // require('config');
 
-const port = process.env.PORT || config.rest.port || 3000
 const CRUD = require('./CRUD')
 const crud = CRUD.CRUD // new CRUD.CRUD(global.pool,config)
 
@@ -78,7 +77,7 @@ if(config.rest.auth_database) {
 	auth_pool = global.pool
 }
 import {Authentication} from 'a5base/auth'
-const auth = new Authentication(app,config,auth_pool)
+export const auth = new Authentication(app,config,auth_pool)
 const passport = auth.passport
 
 app.engine('handlebars', (exphbs.engine) ? exphbs.engine({defaultLayout: 'main'}) : exphbs({defaultLayout: 'main'}));// ({defaultLayout: 'main'})); //  <- CHANGE FOR NEWER express-handlebars versions
@@ -111,6 +110,20 @@ const LocalStrategy = require('passport-local').Strategy;
 const formidable = require('formidable')
 const { default: axios } = require('axios')
 
+
+// CRUD ERROR HANDLING //
+const { AuthError, NotFoundError } = require('./custom_errors.js')
+
+function handleCrudError(e, res) {
+	console.error(e)
+	if(e instanceof AuthError) {
+		res.status(401).send({message:"Unauthorized", error: e.toString()})
+	} else if(e instanceof NotFoundError) {
+		res.status(404).send({message:"Not found", error: e.toString()})
+	} else {
+		res.status(500).send({message:"Server error",error:e.toString()})
+	}
+}
 
 // CONTROLLER //
 
@@ -362,7 +375,7 @@ app.get('/obs/:tipo/fuentes',auth.isPublic,((req,res)=>{
 		res.status(400).send({message:"tipo incorrecto"})
 	}
 }))
-app.post('/obs/:tipo/fuentes',auth.isWriter, ((req,res)=>{
+app.post('/obs/:tipo/fuentes',auth.isAdmin, ((req,res)=>{
 	if(req.params.tipo.toLowerCase()=="puntual") {
 		upsertRedes(req,res)
 	} else if(req.params.tipo.toLowerCase()=="areal" || req.params.tipo.toLowerCase()=="raster" || req.params.tipo.toLowerCase()=="rast") {
@@ -380,7 +393,7 @@ app.get('/obs/:tipo/fuentes/:id',auth.isPublic,((req,res)=>{
 		res.status(400).send({message:"tipo incorrecto"})
 	}
 }))
-app.put('/obs/:tipo/fuentes/:id',auth.isWriter,((req,res)=>{
+app.put('/obs/:tipo/fuentes/:id',auth.isAdmin,((req,res)=>{
 	if(req.params.tipo.toLowerCase()=="puntual") {
 		updateRed(req,res)
 	} else if(req.params.tipo.toLowerCase()=="areal" || req.params.tipo.toLowerCase()=="raster" || req.params.tipo.toLowerCase()=="rast") {
@@ -389,7 +402,7 @@ app.put('/obs/:tipo/fuentes/:id',auth.isWriter,((req,res)=>{
 		res.status(400).send({message:"tipo incorrecto"})
 	}
 }))
-app.delete('/obs/:tipo/fuentes/:id',auth.isWriter,((req,res)=>{
+app.delete('/obs/:tipo/fuentes/:id',auth.isAdmin,((req,res)=>{
 	if(req.params.tipo.toLowerCase()=="puntual") {
 		deleteRed(req,res)
 	} else if(req.params.tipo.toLowerCase()=="areal" || req.params.tipo.toLowerCase()=="raster" || req.params.tipo.toLowerCase()=="rast") {
@@ -429,9 +442,9 @@ app.delete('/obs/puntual/fuentes/:fuentes_id/estaciones/:id',auth.isAdmin,delete
 app.get('/obs/puntual/estaciones',auth.isPublic,getEstaciones)
 app.post('/obs/puntual/estaciones',auth.isWriter,upsertEstaciones)
 app.get('/obs/puntual/estaciones/:id',auth.isPublic,getEstacion)
-app.put('/obs/puntual/estaciones/:id',auth.isAdmin,updateEstacion)
-app.delete('/obs/puntual/estaciones/:id',auth.isAdmin,deleteEstacion)
-app.delete('/obs/puntual/estaciones',auth.isAdmin,deleteEstaciones)
+app.put('/obs/puntual/estaciones/:id',auth.isWriter,updateEstacion)
+app.delete('/obs/puntual/estaciones/:id',auth.isWriter,deleteEstacion)
+app.delete('/obs/puntual/estaciones',auth.isWriter,deleteEstaciones)
 
 app.get('/obs/raster/escenas',auth.isPublic,getEscenas)
 app.post('/obs/raster/escenas',auth.isAdmin,upsertEscenas)
@@ -869,8 +882,7 @@ function getRedes(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		res.status(500).send({message:"Server error",error:e.toString()})
-		console.error(e)
+		handleCrudError(e, res)
 	})
 }
 
@@ -902,8 +914,7 @@ function getRed(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		res.status(500).send({message:"Server error",error:e.toString()})
-		console.error(e)
+		handleCrudError(e, res)
 	})
 }
   
@@ -940,8 +951,7 @@ function upsertRedes(req,res) {
 		send_output({},result,res)
 	})
 	.catch(e=>{
-		res.status(500).send({message:"Server error",error:e.toString()})
-		console.error(e)
+		handleCrudError(e, res)
 	})
 }
 
@@ -976,8 +986,7 @@ async function updateRed(req, res) {
 			updated = await red.update(req.body.fuente)
 		}
 	} catch(e) {
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 		return
 	}
 	send_output(options,updated,res)
@@ -1007,8 +1016,7 @@ function deleteRed(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -1030,8 +1038,7 @@ function getFuentes(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		res.status(500).send({message:"Server error",error:e.toString()})
-		console.error(e)
+		handleCrudError(e, res)
 	})
 }
   
@@ -1068,8 +1075,7 @@ function upsertFuentes(req,res) {
 		send_output({},result,res)
 	})
 	.catch(e=>{
-		res.status(500).send({message:"Server error",error:e.toString()})
-		console.error(e)
+		handleCrudError(e, res)
 	})
 }
 
@@ -1097,8 +1103,7 @@ function getFuente(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		res.status(500).send({message:"Server error",error:e.toString()})
-		console.error(e)
+		handleCrudError(e, res)
 	})
 }
 
@@ -1132,8 +1137,7 @@ async function updateFuente(req,res) {
 			result = await fuente.update(req.body.fuente)
 		}
 	} catch(e) {
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 		return
 	}
 	if(!result) {
@@ -1168,8 +1172,7 @@ function deleteFuente(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -1190,8 +1193,7 @@ function getFuentesAll(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -1213,8 +1215,7 @@ function getVariables(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }	
 
@@ -1241,8 +1242,7 @@ function getVariable(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }	
 
@@ -1286,8 +1286,7 @@ function upsertVariables(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -1327,8 +1326,7 @@ function upsertVariable(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -1360,8 +1358,7 @@ function deleteVariable(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -1382,8 +1379,7 @@ function getProcedimientos(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }	
 
@@ -1410,8 +1406,7 @@ function getProcedimiento(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }	
 
@@ -1452,8 +1447,7 @@ function upsertProcedimientos(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -1490,8 +1484,7 @@ function upsertProcedimiento(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -1518,8 +1511,7 @@ function deleteProcedimiento(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -1540,8 +1532,7 @@ function getUnidades(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }	
 
@@ -1568,8 +1559,7 @@ function getUnidad(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }	
 
@@ -1616,8 +1606,7 @@ function upsertUnidades(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -1662,8 +1651,7 @@ function upsertUnidad(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -1690,8 +1678,7 @@ function deleteUnidades(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -1761,8 +1748,7 @@ function getEstaciones(req,res) {
 		send_output(options,result,res,"estaciones")
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -1789,8 +1775,7 @@ function getEstacion(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }	
 
@@ -1840,8 +1825,7 @@ function upsertEstaciones(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -1877,8 +1861,7 @@ function upsertEstacion(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -1891,18 +1874,18 @@ function updateEstacion(req,res) {
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	}
-	var estacion
 	if(req.body && req.body.estacion) {
 		if(typeof req.body.estacion == "string") {
-			estacion = JSON.parse(req.body.estacion.trim())
+			var estacion = JSON.parse(req.body.estacion.trim())
 		} else {
-			estacion = req.body.estacion
+			var estacion = req.body.estacion
 		}
 		if(filter.id) {
 			estacion.id = filter.id
 		} else if(filter.estacion_id) {
 			estacion.id = filter.estacion_id
 		}
+		var user_id = filter.user_id
 	} else {
 		var id
 		if(filter.id) {
@@ -1914,11 +1897,11 @@ function updateEstacion(req,res) {
 			res.status(400).send({message:"falta estacion_id"})
 			return
 		}
-		estacion = {...filter}
+		var { user_id, ...estacion } = filter
 		estacion.id = id
 	}
 	console.log({estacion:estacion})
-	crud.updateEstacion(new CRUD.estacion(estacion))
+	crud.updateEstacion(new CRUD.estacion(estacion), undefined, undefined, user_id)
 	.then(result=>{
 		if(!result) {
 			console.log("Updated: 0 estacion")
@@ -1947,7 +1930,7 @@ function deleteEstacion(req,res) {
 		res.status(400).send({message:"query error",error:"Falta atributo 'id'"})
 		return
 	}
-	crud.deleteEstacion(filter.id)
+	crud.deleteEstacion(filter.id, filter.user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(400).send({message:"bad request"})
@@ -1957,8 +1940,7 @@ function deleteEstacion(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -1986,8 +1968,7 @@ function deleteEstaciones(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2011,8 +1992,7 @@ function getEscenas(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2039,8 +2019,7 @@ function getEscena(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }	
 
@@ -2084,8 +2063,7 @@ function upsertEscenas(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2118,8 +2096,7 @@ function upsertEscena(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2146,8 +2123,7 @@ function deleteEscena(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2172,8 +2148,7 @@ function getCubeSerie(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2198,8 +2173,7 @@ function getCubeSeries(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2234,8 +2208,7 @@ function getRastFromCube(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2267,8 +2240,7 @@ function getAreas(req,res) {
 		})
 	}
 	promise.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2295,8 +2267,7 @@ function getArea(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }	
 
@@ -2341,8 +2312,7 @@ function upsertAreas(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2378,8 +2348,7 @@ function upsertArea(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2406,8 +2375,7 @@ function deleteArea(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2444,8 +2412,7 @@ function getSeries(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2480,8 +2447,7 @@ function getSerie(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2539,8 +2505,7 @@ function upsertSeries(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2579,8 +2544,7 @@ function upsertSerie(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2611,8 +2575,7 @@ function deleteSerie(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2645,8 +2608,7 @@ function deleteSeries(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2673,8 +2635,7 @@ function getObservacionesGuardadas(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2701,8 +2662,7 @@ function getObservaciones(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2748,8 +2708,7 @@ function getObservacion(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2916,8 +2875,7 @@ function deleteObservaciones(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2947,8 +2905,7 @@ function deleteObservacion(req,res) {   // by id+tipo
 		}
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e})
+		handleCrudError(e, res)
 	})
 }
 
@@ -2976,8 +2933,7 @@ function deleteObservacionesById(req,res) {
 		send_output(options,obs,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 	
 }
@@ -3027,8 +2983,7 @@ function upsertObservaciones(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -3051,8 +3006,7 @@ function upsertObservacionesCSV(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -3206,8 +3160,7 @@ function getRastObs(req,res) {      // GENERA ARCHIVOS GTIFF Y DEVUELVE LISTADO 
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
@@ -3228,8 +3181,7 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 	try {
 		var serie = await crud.rastExtract(filter.series_id,filter.timestart,filter.timeend,options,filter.public)
 	} catch (e) {
-		console.error(e)
-		res.status(500).send({message:"Server error",error:e.toString()})
+		handleCrudError(e, res)
 	}
 	if(!serie) {
 		console.error("No se encontró la serie")
@@ -5578,8 +5530,7 @@ function getParaguay09 (req,res) {
 			send_output(options,observaciones,res)
 		})
 		.catch(e=>{
-			  console.error(e)
-			  res.status(500).send("Server error")
+			  handleCrudError(e, res)
 		})
 }
 
@@ -5636,8 +5587,7 @@ function postParaguay09 (req,res) {
 					send_output({csvless:true},observaciones,res)
 				})
 				.catch(e=>{
-					  console.error(e)
-					  res.status(500).send("Server error")
+					  handleCrudError(e, res)
 				})
 			//~ }).catch(e=>{
 				//~ console.error({message:"authentication error",error:e})
@@ -5676,8 +5626,7 @@ function getPrefe (req,res) {  // getPrefe?estacion_id=&timestart=&timeend=
 	  return
     })
     .catch(e=>{
-	  console.error(e)
-	  res.status(500).send({error:e})
+	  handleCrudError(e, res)
     })
 }
 
@@ -5711,14 +5660,12 @@ function getPrefeAndUpdate (req,res) {  // getPrefe?estacion_id=&timestart=&time
 		  return
 	  })
 	  .catch(e=>{
-		  console.error(e)
-		  res.status(500).send({error:e})
+		  handleCrudError(e, res)
 	  })
 	  return
     })
     .catch(e=>{
-	  console.error(e)
-	  res.status(500).send({error:e})
+   	  handleCrudError(e, res)
     })
 }
 
@@ -5839,8 +5786,7 @@ function postTelex (req,res) {
 					send_output({csvless:true},observaciones,res) // csvless:true
 				})
 				.catch(e=>{
-					  console.error(e)
-					  res.status(500).send("Server error")
+					  handleCrudError(e, res)
 				})
 			//~ }).catch(e=>{
 				//~ console.error({message:"authentication error",error:e})
@@ -5929,8 +5875,7 @@ function postTabprono(req,res) {
 				.then(result=>{
 					send_output({},result,res)
 				}).catch(e=>{
-					console.error(e)
-					res.status(500).send("Server error")
+					handleCrudError(e, res)
 				})
 			//~ }).catch(e=>{
 				//~ console.error({message:"authentication error",error:e})
@@ -8203,34 +8148,4 @@ function guess_tipo (data) {
 	}
 }
 
-const auth_levels = {
-	"public": auth.isPublic,
-	"authenticated": auth.isAuthenticated,
-	"writer": auth.isWriter,
-	"admin": auth.isAdmin,
-	"public_view": auth.isPublicView,
-	"authenticated_view": auth.isAuthenticatedView,
-	"writer_view": auth.isWriterView,
-	"admin_view": auth.isAdminView
-};
-
-(async ()=> {
-
-	if(config.rest.child_apps) {
-		for(const child_app of config.rest.child_apps) {
-			console.debug(`loading child app source ${child_app.source}`)
-			const child_app_source = (await import (child_app.source)).default;
-			const auth_middleware = (child_app.auth && auth_levels.hasOwnProperty(child_app.auth)) ? auth_levels[child_app.auth] : auth.isPublic
-			app.use(child_app.path, auth_middleware, child_app_source);
-		}
-	}
-
-	app.listen(port, (err) => {
-		if (err) {
-			return console.log('Err',err)
-		}
-		console.log(`server listening on port ${port}`)
-	})
-
-})()
-
+export default app

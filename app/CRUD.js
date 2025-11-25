@@ -44,6 +44,8 @@ const {SerieFilter, SerieOptions} = require('./serie_types')
 const { escapeIdentifier, escapeLiteral } = require('pg');
 const { options } = require('marked');
 
+const {AuthError, NotFoundError} = require('./custom_errors.js')
+
 const apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
 var schemas = apidoc.components.schemas
 traverse(schemas,changeRef)
@@ -930,6 +932,8 @@ internal.area = class extends baseModel  {
 		return geojson
 	}
 }
+
+internal.area_group = require('./area_group').default
 
 internal.escena = class extends baseModel  {
 	constructor() {
@@ -7441,6 +7445,45 @@ internal.CRUD = class {
 		return querystring
 	}
 
+	static async hasAccess(
+		estacion_id,
+		tabla_id,
+		user_id,
+		write=false
+	) {
+		const access_level = (write) ? "write" : "read"
+		if(!user_id) {
+			return true
+		}
+		if(estacion_id) {
+			var query = pasteIntoSQLQuery(`SELECT EXISTS (
+				SELECT 1
+					FROM user_red_access 
+					JOIN (SELECT unid,tabla FROM estaciones WHERE unid=$1) AS e  
+					ON e.tabla=user_red_access.tabla_id
+					WHERE user_id=$2 
+					AND effective_access=$3
+			)`,[estacion_id,user_id,access_level])
+		} else if(tabla_id) {
+			var query = pasteIntoSQLQuery(`SELECT EXISTS (
+				SELECT 1 
+					FROM user_red_access 
+					WHERE tabla_id=$1
+					AND user_id=$2 
+					AND effective_access=$3
+			)`,[tabla_id,user_id,access_level])
+		} else {
+			throw new Error("Falta estacion_id o tabla_id")
+		}
+		const result = await global.pool.query(query)
+		if(result.rows.length && result.rows[0].exists) {
+			return true
+		} else {
+			return false
+		}
+
+	}
+
 	/** 
 	 * updates estacion where unid=estacion.id if estacion.id is defined, else updates estacion where tabla=estacion.tabla and id_externo=estacion.id_externo. Only updates fields that are defined in the provided instance.
 	 * @param {internal.estacion} estacion - the instance to update
@@ -7448,7 +7491,7 @@ internal.CRUD = class {
 	 * @param {pg.Client=} client - pg client to include in a transactional block.
 	 * @returns {Promise<internal.estacion>} A promise to the updated estacion instance
 	 */
-	static async updateEstacion(estacion,options={},client) {
+	static async updateEstacion(estacion,options={},client, user_id) {
 		var release_client = false
 		if(!client) {
 			client = await global.pool.connect()
@@ -7459,6 +7502,10 @@ internal.CRUD = class {
 		if(!estacion.id) {
 			if(!estacion.tabla || !estacion.id_externo) {
 				return Promise.reject("Falta id o tabla + id_externo")
+			}
+			const has_access = await this.hasAccess(undefined,estacion.tabla,user_id,true) 
+			if(!has_access) {
+				throw new AuthError("El usuario no tiene derecho de escritura sobre esta estación")
 			}
 			query = `
 			UPDATE estaciones 
@@ -7504,14 +7551,14 @@ internal.CRUD = class {
 			altitud=coalesce($20,altitud),
 			ubicacion=coalesce($21,ubicacion)
 			WHERE unid = $18
-			RETURNING unid id, nombre, st_asGeoJSON(geom)::json geom, distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev AS abreviatura, URL as "URL", localidad, real, cero_ign, altitud, ubicacion`
+			RETURNING unid id, nombre, st_asGeoJSON(geom)::json geom, distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev AS abreviatura, URL as "URL", localidad, real, cero_ign, altitud, tabla, id_externo, ubicacion`
 			query_params = [estacion.nombre, estacion.id_externo, (estacion.geom) ? estacion.geom.coordinates[0] : undefined, (estacion.geom) ? estacion.geom.coordinates[1] : undefined, estacion.tabla, estacion.provincia, estacion.pais, estacion.rio, estacion.has_obs, estacion.tipo, estacion.automatica, estacion.habilitar, estacion.propietario, estacion.abreviatura, estacion.URL, estacion.localidad, estacion.real, estacion.id, estacion.cero_ign, estacion.altitud, estacion.ubicacion]
 		}
 		// console.debug(pasteIntoSQLQuery(query, query_params))
 		const result = await client.query(query,query_params) 
 		if(result.rows.length<=0) {
 			console.error("No se encontró la estación")
-			throw("No se encontró la estación")
+			throw new NotFoundError("No se encontró la estación")
 		}
 		// console.log("Updated estaciones.unid=" + result.rows[0].id)
 		Object.keys(result.rows[0]).forEach(key=>{
@@ -7577,7 +7624,7 @@ internal.CRUD = class {
 		var queries = []
 		for(var i = 0; i < estaciones.length; i++) {
 			if(tabla_ids.indexOf(estaciones[i].tabla) < 0) {
-				throw new Error("El usuario no tiene permiso de escritura para la red " + estaciones[i].tabla)
+				throw new AuthError("El usuario no tiene permiso de escritura para la red " + estaciones[i].tabla)
 			} 
 			if(estaciones[i].id) {
 				const existing_estacion = await internal.estacion.read({id:estaciones[i].id})
@@ -7597,7 +7644,11 @@ internal.CRUD = class {
 		return result
 	}
 			
-	static async deleteEstacion(unid) {
+	static async deleteEstacion(unid, user_id) {
+		const has_access = this.hasAccess(unid, undefined, user_id, true)
+		if(!has_access) {
+			throw new AuthError("El usuario no tiene permisos para eliminar la estación")
+		}
 		return global.pool.query("\
 			DELETE FROM estaciones\
 			WHERE unid=$1\
@@ -7710,7 +7761,7 @@ internal.CRUD = class {
 		if(isPublic) {
 			if(!result.rows[0].public) {
 				console.log("estacion no es public")
-				throw("el usuario no posee autorización para acceder a esta estación")
+				throw new AuthError("el usuario no posee autorización para acceder a esta estación")
 			}
 		}
 		const geometry = new internal.geometry("Point", [result.rows[0].geom_x, result.rows[0].geom_y])
@@ -7906,7 +7957,6 @@ internal.CRUD = class {
 		// 	return null
 		// })
 	}
-			
 			
 	// AREA //
 	
