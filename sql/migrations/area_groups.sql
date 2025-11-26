@@ -4,7 +4,8 @@ BEGIN;
 
 CREATE TABLE area_groups (
     id SERIAL PRIMARY KEY,
-    name VARCHAR NOT NULL
+    name VARCHAR NOT NULL,
+    owner_id INTEGER NOT NULL REFERENCES users(id)
 );
 
 -- CREATE TABLE user_groups (
@@ -13,11 +14,7 @@ CREATE TABLE area_groups (
 --     PRIMARY KEY (user_id, group_id)
 -- );
 
-CREATE TABLE area_groups_reg (
-    ag_id INTEGER NOT NULL REFERENCES area_groups(id) ON DELETE CASCADE,
-    area_id INTEGER NOT NULL REFERENCES areas_pluvio(unid) ON DELETE CASCADE,
-    PRIMARY KEY (ag_id, area_id)
-);
+ALTER TABLE areas_pluvio ADD COLUMN group_id INTEGER REFERENCES area_groups(id);
 
 CREATE TABLE user_area_groups_access (
     ag_id    INTEGER NOT NULL REFERENCES area_groups(id) ON DELETE CASCADE,
@@ -33,6 +30,7 @@ WITH access_join AS (
         u.name    AS user_name,
         ag.id      AS ag_id,
         ag.name  AS ag_name,
+        ag.owner_id AS ag_owner_id,
         g.id      AS group_id,
         g.name    AS group_name,
         uaga.access,
@@ -51,12 +49,13 @@ SELECT
     user_name,
     ag_id,
     ag_name,
+    ag_owner_id,
     -- effective access is the MAX priority converted back to ENUM
     CASE MAX(priority)
         WHEN 2 THEN 'write'
         ELSE 'read'
     END::access_level AS effective_access
 FROM access_join
-GROUP BY user_id, user_name, ag_id, ag_name;
+GROUP BY user_id, user_name, ag_id, ag_name, ag_owner_id;
 
 COMMIT;
