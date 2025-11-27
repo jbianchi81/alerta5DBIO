@@ -2,6 +2,10 @@ BEGIN;
 
 -- CREATE TYPE access_level AS ENUM ('read', 'write');
 
+DROP VIEW user_area_access;
+DROP TABLE user_area_groups_access;
+DROP TABLE area_groups;
+
 CREATE TABLE area_groups (
     id SERIAL PRIMARY KEY,
     name VARCHAR NOT NULL,
@@ -14,11 +18,11 @@ CREATE TABLE area_groups (
 --     PRIMARY KEY (user_id, group_id)
 -- );
 
-ALTER TABLE areas_pluvio ADD COLUMN group_id INTEGER REFERENCES area_groups(id);
+-- ALTER TABLE areas_pluvio ADD COLUMN group_id INTEGER REFERENCES area_groups(id);
 
 CREATE TABLE user_area_groups_access (
     ag_id    INTEGER NOT NULL REFERENCES area_groups(id) ON DELETE CASCADE,
-    group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    group_name VARCHAR NOT NULL REFERENCES groups(name) ON DELETE CASCADE,
     access access_level NOT NULL DEFAULT 'read',
     PRIMARY KEY (group_id, ag_id)
 );
@@ -31,7 +35,6 @@ WITH access_join AS (
         ag.id      AS ag_id,
         ag.name  AS ag_name,
         ag.owner_id AS ag_owner_id,
-        g.id      AS group_id,
         g.name    AS group_name,
         uaga.access,
         CASE uaga.access
@@ -40,8 +43,8 @@ WITH access_join AS (
         END AS priority
     FROM users u
     JOIN user_groups ug      ON ug.user_id = u.id
-    JOIN groups g            ON g.id = ug.group_id
-    JOIN user_area_groups_access uaga ON uaga.group_id = g.id
+    JOIN groups g            ON g.name = ug.group_name
+    JOIN user_area_groups_access uaga ON uaga.group_name = g.name
     JOIN area_groups ag             ON ag.id = uaga.ag_id
 )
 SELECT

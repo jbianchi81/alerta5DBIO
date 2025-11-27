@@ -69,6 +69,9 @@ if(config.enable_cors) {
 	app.use(cors())
 }
 
+// GROUPS
+import groupRouterModule from './routes/groups.js'
+
 // AUTHENTICATION
 if(config.rest.auth_database) {
 	const {Pool} = require('pg')
@@ -88,6 +91,7 @@ app.set('views', [
 app.use( bodyParser.json({limit: '50mb'}) );       // to support JSON-encoded bodies
 app.use(express.urlencoded())
 app.use('/planillas',auth.isWriter);
+app.use('/groups',auth.isAdmin, groupRouterModule.default)
 app.use(express.static('public', {
 	setHeaders: function (res, path, stat) {
 		res.set('x-timestamp', Date.now())
