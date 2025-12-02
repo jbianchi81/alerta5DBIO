@@ -1698,7 +1698,6 @@ internal.fuente = class extends baseModel {
 		await global.pool.query(stmt)
 		return
 	}
-
 }
 
 internal.fuente.build_read_query = function(filter) {
@@ -3643,11 +3642,16 @@ internal.serie.build_read_query = function(filter={},options={}) {
 			id_externo:{table: "estaciones"}
 		}}
 		table = "series"
+
+		// ACCESS LEVEL
+		const [access_join, access_level] = internal.red.getUserAccessClause(filter.user_id,"redes.fuentes_id")
+
 		join_clauses = [...join_clauses,...[
 			`JOIN estaciones 
 				ON (estaciones.unid=series.estacion_id)`,
 			`JOIN redes
 				ON (redes.tabla_id = estaciones.tabla)`,
+			access_join,
 			`LEFT OUTER JOIN alturas_alerta AS nivel_alerta 
 				ON (estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado='a')`,
 			`LEFT OUTER JOIN alturas_alerta AS nivel_evacuacion 
@@ -3666,65 +3670,35 @@ internal.serie.build_read_query = function(filter={},options={}) {
 				"redes.public AS public"
 			]]
 		} else {
-			// if(options.include_geom && !options.no_geom) {
-			// 	select_fields.push(
-			// 		`json_build_object(
-			// 			'id', estaciones.unid, 
-			// 			'nombre', estaciones.nombre, 
-			// 			'id_externo', estaciones.id_externo, 
-			// 			'geom', st_asgeojson(estaciones.geom::geometry)::json, 
-			// 			'tabla', estaciones.tabla, 
-			// 			'pais', estaciones.pais, 
-			// 			'rio', estaciones.rio, 
-			// 			'has_obs', estaciones.has_obs, 
-			// 			'tipo', estaciones.tipo, 
-			// 			'automatica', estaciones.automatica, 
-			// 			'habilitar', estaciones.habilitar, 
-			// 			'propietario', estaciones.propietario, 
-			// 			'abreviatura', estaciones.abrev, 
-			// 			'localidad', estaciones.localidad, 
-			// 			'real', estaciones."real", 
-			// 			'nivel_alerta', nivel_alerta.valor, 
-			// 			'nivel_evacuacion', nivel_evacuacion.valor, 
-			// 			'nivel_aguas_bajas', nivel_aguas_bajas.valor, 
-			// 			'altitud', estaciones.altitud, 
-			// 			'public', redes.public, 
-			// 			'cero_ign', estaciones.cero_ign, 
-			// 			'red_id', redes.id, 
-			// 			'red_nombre', redes.nombre
-			// 		) AS estacion`
-			// 	)
-			// } else {
-				select_fields.push(`json_build_object(
-					'id', estaciones.unid, 
-					'nombre', estaciones.nombre, 
-					'id_externo', estaciones.id_externo, 
-					'geom', st_asgeojson(estaciones.geom::geometry)::json,
-					'longitude', st_x(estaciones.geom::geometry),
-					'latitude', st_y(estaciones.geom::geometry),
-					'tabla', estaciones.tabla, 
-					'pais', estaciones.pais, 
-					'rio', estaciones.rio, 
-					'has_obs', estaciones.has_obs, 
-					'tipo', estaciones.tipo, 
-					'automatica', estaciones.automatica, 
-					'habilitar', estaciones.habilitar, 
-					'propietario', estaciones.propietario, 
-					'abreviatura', estaciones.abrev, 
-					'localidad', estaciones.localidad, 
-					'real', estaciones."real", 
-					'nivel_alerta', nivel_alerta.valor, 
-					'nivel_evacuacion', nivel_evacuacion.valor, 
-					'nivel_aguas_bajas', nivel_aguas_bajas.valor, 
-					'altitud', estaciones.altitud, 
-					'public', redes.public, 
-					'cero_ign', estaciones.cero_ign, 
-					'red_id', redes.id, 
-					'red_nombre', redes.nombre,
-					'red', json_build_object('nombre', redes.nombre, 'id', redes.id, 'tabla_id', redes.tabla_id, 'public', redes.public, 'public_his_plata', redes.public_his_plata)
-				) AS estacion`)
-			// }
-		}		
+			select_fields.push(`json_build_object(
+				'id', estaciones.unid, 
+				'nombre', estaciones.nombre, 
+				'id_externo', estaciones.id_externo, 
+				'geom', st_asgeojson(estaciones.geom::geometry)::json,
+				'longitude', st_x(estaciones.geom::geometry),
+				'latitude', st_y(estaciones.geom::geometry),
+				'tabla', estaciones.tabla, 
+				'pais', estaciones.pais, 
+				'rio', estaciones.rio, 
+				'has_obs', estaciones.has_obs, 
+				'tipo', estaciones.tipo, 
+				'automatica', estaciones.automatica, 
+				'habilitar', estaciones.habilitar, 
+				'propietario', estaciones.propietario, 
+				'abreviatura', estaciones.abrev, 
+				'localidad', estaciones.localidad, 
+				'real', estaciones."real", 
+				'nivel_alerta', nivel_alerta.valor, 
+				'nivel_evacuacion', nivel_evacuacion.valor, 
+				'nivel_aguas_bajas', nivel_aguas_bajas.valor, 
+				'altitud', estaciones.altitud, 
+				'public', redes.public, 
+				'cero_ign', estaciones.cero_ign, 
+				'red_id', redes.id, 
+				'red_nombre', redes.nombre,
+				'red', json_build_object('nombre', redes.nombre, 'id', redes.id, 'tabla_id', redes.tabla_id, 'public', redes.public, 'public_his_plata', redes.public_his_plata, 'access_level', ${access_level})
+			) AS estacion`)
+		}
 	} else {
 		console.error("invalid tipo")
 		throw "invalid tipo"

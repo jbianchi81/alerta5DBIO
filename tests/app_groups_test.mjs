@@ -227,6 +227,88 @@ test("GET /groups/:group_name/members/:user_id", async() => {
   assert.equal(member.user_id, 5)
 })
 
+// redes access
+
+test("POST /groups/:group_name/redes unauthorized", async() =>{
+  const res = await request(app)
+    .post(`/groups/${group.name}/redes`)
+    .send([
+      {
+        "red_id": 10
+      },
+      {
+        "red_id": 4
+      }
+    ])
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${token}`);
+  assert.equal(res.statusCode, 401);
+})
+
+test("POST /groups/:group_name/redes", async() =>{
+  const res = await request(app)
+    .post(`/groups/${group.name}/redes`)
+    .send([
+      {
+        "red_id": 10
+      },
+      {
+        "red_id": 4
+      }
+    ])
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${admin_token}`);
+  assert.equal(res.statusCode, 200);
+  assert(Array.isArray(res.body))
+  assert.equal(res.body.length,2)
+  for(const member of res.body) {
+    assert("red_id" in member)
+  }
+  assert.ok(res.body.map(m=>m.user_id).includes(10))
+  assert.ok(res.body.map(m=>m.user_id).includes(4))
+})
+
+test("GET /groups/:name/redes", async() => {
+  const res = await request(app)
+    .get(`/groups/${group.name}/redes`)
+    .set("Authorization", `Bearer ${admin_token}`);
+  assert.equal(res.statusCode, 200);
+  assert(Array.isArray(res.body))
+  assert.equal(res.body.length,2)
+  for(const member of res.body) {
+    assert("red_id" in member)
+  }
+  assert.ok(res.body.map(m=>m.user_id).includes(10))
+  assert.ok(res.body.map(m=>m.user_id).includes(4))
+})
+
+test("GET /groups/:group_name/redes/:red_id unauthorized", async() => {
+  const res = await request(app)
+    .get(`/groups/${group.name}/redes/10`)
+    .set("Authorization", `Bearer ${writer_token}`);
+  assert.equal(res.statusCode, 401);
+})
+
+test("GET /groups/:group_name/redes/:red_id not found", async() => {
+  const res = await request(app)
+    .get(`/groups/${group.name}/redes/5876`)
+    .set("Authorization", `Bearer ${admin_token}`);
+  assert.equal(res.statusCode, 404);
+})
+
+test("GET /groups/:group_name/redes/:red_id", async() => {
+    const res = await request(app)
+    .get(`/groups/${group.name}/redes/10`)
+    .set("Authorization", `Bearer ${admin_token}`);
+  assert.equal(res.statusCode, 200);
+  assert(!Array.isArray(res.body))
+  const member = res.body
+  assert.ok("red_id" in member)
+  assert.equal(member.user_id, 10)
+})
+
+// delete
+
 test("DELETE /groups/:group_name/members/:user_id (remove user from group)", async() => {
     const res = await request(app)
     .delete(`/groups/${group.name}/members/5`)
@@ -242,6 +324,20 @@ test("DELETE /groups/:group_name/members/:user_id (remove user from group)", asy
   assert.equal(res2.statusCode, 404);
 })
 
+test("DELETE /groups/:group_name/redes/:red_id (remove red from group)", async() => {
+    const res = await request(app)
+    .delete(`/groups/${group.name}/redes/10`)
+    .set("Authorization", `Bearer ${admin_token}`);
+  assert.equal(res.statusCode, 200);
+  assert(!Array.isArray(res.body))
+  const member = res.body
+  assert.ok("red_id" in member)
+  assert.equal(member.red_id, 10)
+  const res2 = await request(app)
+    .get(`/groups/${group.id}/redes/10`)
+    .set("Authorization", `Bearer ${admin_token}`);
+  assert.equal(res2.statusCode, 404);
+})
 
 test("DELETE /groups/:name  fail unauthorized", async () => {
   const res = await request(app)
