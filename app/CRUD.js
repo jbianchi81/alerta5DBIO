@@ -272,7 +272,8 @@ internal.estacion = class extends baseModel {
 		ubicacion: {type: "string"},
 		drainage_basin: {type: "object"},
 		tabla: {foreign_key: true, type: "string", table: "redes", column: "tabla_id"},
-		red: {type: internal.red}
+		red: {type: internal.red},
+		series: {type: "array", items: internal.serie}
 	}
 	constructor() {
 		switch(arguments.length) {
