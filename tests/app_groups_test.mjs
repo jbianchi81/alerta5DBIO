@@ -234,14 +234,16 @@ test("POST /groups/:group_name/redes unauthorized", async() =>{
     .post(`/groups/${group.name}/redes`)
     .send([
       {
-        "red_id": 10
+        "red_id": 10,
+        "access": "write"
       },
       {
-        "red_id": 4
+        "red_id": 4,
+        "access": "read"
       }
     ])
     .set("Content-Type", "application/json")
-    .set("Authorization", `Bearer ${token}`);
+    .set("Authorization", `Bearer ${writer_token}`);
   assert.equal(res.statusCode, 401);
 })
 
@@ -250,10 +252,12 @@ test("POST /groups/:group_name/redes", async() =>{
     .post(`/groups/${group.name}/redes`)
     .send([
       {
-        "red_id": 10
+        "red_id": 10,
+        "access": "write"
       },
       {
-        "red_id": 4
+        "red_id": 4,
+        "access": "read"
       }
     ])
     .set("Content-Type", "application/json")
@@ -264,8 +268,8 @@ test("POST /groups/:group_name/redes", async() =>{
   for(const member of res.body) {
     assert("red_id" in member)
   }
-  assert.ok(res.body.map(m=>m.user_id).includes(10))
-  assert.ok(res.body.map(m=>m.user_id).includes(4))
+  assert.ok(res.body.map(m=>m.red_id).includes(10))
+  assert.ok(res.body.map(m=>m.red_id).includes(4))
 })
 
 test("GET /groups/:name/redes", async() => {
@@ -278,8 +282,8 @@ test("GET /groups/:name/redes", async() => {
   for(const member of res.body) {
     assert("red_id" in member)
   }
-  assert.ok(res.body.map(m=>m.user_id).includes(10))
-  assert.ok(res.body.map(m=>m.user_id).includes(4))
+  assert.ok(res.body.map(m=>m.red_id).includes(10))
+  assert.ok(res.body.map(m=>m.red_id).includes(4))
 })
 
 test("GET /groups/:group_name/redes/:red_id unauthorized", async() => {
@@ -302,9 +306,9 @@ test("GET /groups/:group_name/redes/:red_id", async() => {
     .set("Authorization", `Bearer ${admin_token}`);
   assert.equal(res.statusCode, 200);
   assert(!Array.isArray(res.body))
-  const member = res.body
-  assert.ok("red_id" in member)
-  assert.equal(member.user_id, 10)
+  const red = res.body
+  assert.ok("red_id" in red)
+  assert.equal(red.red_id, 10)
 })
 
 // delete

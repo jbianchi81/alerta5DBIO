@@ -13,86 +13,86 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UserGroup = void 0;
+exports.RedGroup = void 0;
 const setGlobal_1 = __importDefault(require("a5base/setGlobal"));
 const custom_errors_1 = require("../custom_errors");
 const g = (0, setGlobal_1.default)();
-class UserGroup {
-    /** Assign memberships */
-    static assign(group_name, members) {
+class RedGroup {
+    /** Assign access */
+    static assign(group_name, redes) {
         return __awaiter(this, void 0, void 0, function* () {
             // Check all user_ids exist
-            const ids = members.map(m => m.user_id);
+            const ids = redes.map(m => m.red_id);
             if (ids.length === 0)
                 return [];
-            const checkUsers = yield g.pool.query(`SELECT id FROM users WHERE id = ANY($1)`, [ids]);
-            if (checkUsers.rows.length !== ids.length) {
-                throw new custom_errors_1.NotFoundError("USER_NOT_FOUND");
+            const checkRedes = yield g.pool.query(`SELECT id FROM redes WHERE id = ANY($1)`, [ids]);
+            if (checkRedes.rows.length !== ids.length) {
+                throw new custom_errors_1.NotFoundError("RED_NOT_FOUND");
             }
-            // Delete existing members for group
-            yield g.pool.query(`DELETE FROM user_groups WHERE group_name = $1`, [group_name]);
+            // Delete existing redes for group
+            yield g.pool.query(`DELETE FROM red_group_access WHERE group_name = $1`, [group_name]);
             // Insert new memberships
             const inserted = [];
-            for (const m of members) {
+            for (const r of redes) {
                 const result = yield g.pool.query(`
-        INSERT INTO user_groups (user_id, group_name)
-        VALUES ($1, $2)
-        RETURNING user_id, group_name
-        `, [m.user_id, group_name]);
+        INSERT INTO red_group_access (red_id, group_name, access)
+        VALUES ($1, $2, $3)
+        RETURNING red_id, group_name, access
+        `, [r.red_id, group_name, r.access]);
                 inserted.push(result.rows[0]);
             }
             return inserted;
         });
     }
     /** Add users to group */
-    static add(group_name, members) {
+    static add(group_name, redes) {
         return __awaiter(this, void 0, void 0, function* () {
             // Check all user_ids exist
-            const ids = members.map(m => m.user_id);
+            const ids = redes.map(m => m.red_id);
             if (ids.length === 0)
                 return [];
-            const checkUsers = yield g.pool.query(`SELECT id FROM users WHERE id = ANY($1)`, [ids]);
+            const checkUsers = yield g.pool.query(`SELECT id FROM redes WHERE id = ANY($1)`, [ids]);
             if (checkUsers.rows.length !== ids.length) {
-                throw new custom_errors_1.NotFoundError("USER_NOT_FOUND");
+                throw new custom_errors_1.NotFoundError("RED_NOT_FOUND");
             }
             // Insert new memberships
             const inserted = [];
-            for (const m of members) {
+            for (const r of redes) {
                 const result = yield g.pool.query(`
-        INSERT INTO user_groups (user_id, group_name)
-        VALUES ($1, $2)
-        ON CONFLICT (user_id, group_name) DO UPDATE SET user_id=excluded.user_id
-        RETURNING user_id, group_name
-        `, [m.user_id, group_name]);
+        INSERT INTO red_group_access (red_id, group_name, access)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (red_id, group_name) DO UPDATE SET access=excluded.access
+        RETURNING red_id, group_name, access
+        `, [r.red_id, group_name, r.access]);
                 inserted.push(result.rows[0]);
             }
             return inserted;
         });
     }
-    /** List members of a group */
+    /** List redes of a group */
     static list(group_name) {
         return __awaiter(this, void 0, void 0, function* () {
-            const result = yield g.pool.query(`SELECT user_id, group_name FROM user_groups WHERE group_name = $1 ORDER BY user_id`, [group_name]);
+            const result = yield g.pool.query(`SELECT red_id, group_name, access FROM red_group_access WHERE group_name = $1 ORDER BY red_id`, [group_name]);
             return result.rows;
         });
     }
     /** Read membership */
-    static read(group_id, user_id) {
+    static read(group_id, red_id) {
         return __awaiter(this, void 0, void 0, function* () {
-            const result = yield g.pool.query(`SELECT user_id, group_name FROM user_groups WHERE group_name = $1 AND user_id = $2`, [group_id, user_id]);
+            const result = yield g.pool.query(`SELECT red_id, group_name, access FROM red_group_access WHERE group_name = $1 AND red_id = $2`, [group_id, red_id]);
             return result.rows[0] || null;
         });
     }
     /** Delete membership */
-    static delete(group_name, user_id) {
+    static delete(group_name, red_id) {
         return __awaiter(this, void 0, void 0, function* () {
             const result = yield g.pool.query(`
-      DELETE FROM user_groups
-        WHERE group_name = $1 AND user_id = $2
-    RETURNING user_id, group_name
-      `, [group_name, user_id]);
+      DELETE FROM red_group_access
+        WHERE group_name = $1 AND red_id = $2
+    RETURNING red_id, group_name, access
+      `, [group_name, red_id]);
             return result.rows[0] || null;
         });
     }
 }
-exports.UserGroup = UserGroup;
+exports.RedGroup = RedGroup;

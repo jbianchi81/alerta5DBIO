@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 
 import { Group } from '../models/group';
 import { UserGroup } from "../models/user_group";
+import { RedGroup } from "../models/red_group_access";
 
 const router = Router();
 
@@ -83,6 +84,61 @@ router.delete("/:group_name/members/:user_id", async (req : Request, res : Respo
   const user_id = Number(req.params.user_id);
 
   const deleted = await UserGroup.delete(req.params.group_name, user_id);
+  if (!deleted) return res.status(404).json({ error: "not found" });
+
+  res.json(deleted);
+});
+
+// redes
+router.put("/:group_name/redes", async(req : Request, res : Response) => {
+  try {
+    const redes = await RedGroup.add(req.params.group_name, req.body);
+    res.json(redes);
+  } catch (err: any) {
+    if (err.message === "RED_NOT_FOUND") {
+      return res.status(400).json({ error: "red id not found" });
+    }
+    throw err;
+  }
+});
+
+router.post("/:group_name/redes", async (
+  req : Request,
+  res : Response) => {
+  try {
+    const redes = await RedGroup.add(req.params.group_name, req.body);
+    res.json(redes);
+  } catch (err: any) {
+    if (err.message === "RED_NOT_FOUND") {
+      return res.status(400).json({ error: "red id not found" });
+    }
+    throw err;
+  }
+});
+
+// GET /groups/:id/redes  (list)
+router.get("/:group_name/redes", async (req : Request, res : Response) => {
+  const list = await RedGroup.list(req.params.group_name);
+  res.json(list);
+});
+
+// GET /groups/:group_id/members/:user_id
+router.get("/:group_name/redes/:red_id", async (req : Request, res : Response) => {
+  
+  const red_id = Number(req.params.red_id);
+
+  const red = await RedGroup.read(req.params.group_name, red_id);
+  if (!red) return res.status(404).json({ error: "not found" });
+
+  res.json(red);
+});
+
+// DELETE /groups/:group_id/redes/:red_id
+router.delete("/:group_name/redes/:red_id", async (req : Request, res : Response) => {
+  
+  const red_id = Number(req.params.red_id);
+
+  const deleted = await RedGroup.delete(req.params.group_name, red_id);
   if (!deleted) return res.status(404).json({ error: "not found" });
 
   res.json(deleted);

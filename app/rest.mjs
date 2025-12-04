@@ -124,6 +124,8 @@ function handleCrudError(e, res) {
 		res.status(401).send({message:"Unauthorized", error: e.toString()})
 	} else if(e instanceof NotFoundError) {
 		res.status(404).send({message:"Not found", error: e.toString()})
+	} else if (e instanceof BadRequestError) {
+		res.status(400).send({message:"Bad request", error: e.toString()})
 	} else {
 		res.status(500).send({message:"Server error",error:e.toString()})
 	}
@@ -467,11 +469,11 @@ app.put('/obs/areal/areas/:id',auth.isAdmin,upsertArea)
 app.delete('/obs/areal/areas/:id',auth.isAdmin,deleteArea)
 
 app.get('/obs/:tipo/series',auth.isPublic,getSeries)
-app.post('/obs/:tipo/series',auth.isAdmin,upsertSeries)
-app.delete('/obs/:tipo/series',auth.isAdmin,deleteSeries)
+app.post('/obs/:tipo/series',auth.isWriter,upsertSeries)
+app.delete('/obs/:tipo/series',auth.isWriter,deleteSeries)
 app.get('/obs/:tipo/series/:id',auth.isPublic,getSerie)
-app.put('/obs/:tipo/series/:id',auth.isAdmin,upsertSerie)
-app.delete('/obs/:tipo/series/:id',auth.isAdmin,deleteSerie)
+app.put('/obs/:tipo/series/:id',auth.isWriter,upsertSerie)
+app.delete('/obs/:tipo/series/:id',auth.isWriter,deleteSerie)
 
 app.get('/obs/:tipo/series/:series_id/observaciones',auth.isPublic,getObservaciones)
 app.get('/obs/:tipo/observaciones',auth.isPublic,getObservaciones)
@@ -2439,7 +2441,7 @@ function getSerie(req,res) {
 		res.status(400).send({message:"query error",error:"Falta atributo 'id'"})
 		return
 	}
-	crud.getSerie(filter.tipo,filter.id,filter.timestart,filter.timeend,options,filter.public)
+	crud.getSerie(filter.tipo,filter.id,filter.timestart,filter.timeend,options,filter.public, undefined, undefined, filter.user_id)
 	.then(result=>{
 		if(result) {
 			console.log("Results: series_id=" + result.id)
@@ -2498,7 +2500,14 @@ function upsertSeries(req,res) {
 	// if(options.series_metadata) { // upsert estacion,var,procedimiento,unidades,fuente
 		
 	// }
-	crud.upsertSeries(series,options.series_metadata,undefined, undefined, undefined, undefined, options.update_obs)
+	if(req.user && options.series_metadata) {
+		if(req.user.role != "admin") {
+			console.error("Usuario debe ser admin para crear metadatos de serie")
+			res.status(401).send({message:"Usuario debe ser admin para crear metadatos de serie"})
+			return
+		}
+	}
+	crud.upsertSeries(series,options.series_metadata,undefined, undefined, undefined, undefined, options.update_obs, (req.user) ? req.user.id : undefined)
 	.then(result=>{
 		if(!result) {
 			console.error("nothing upserted")
@@ -2538,7 +2547,7 @@ function upsertSerie(req,res) {
 	if(filter.id) {
 		serie.id = filter.id
 	}
-	crud.upsertSerie(new CRUD.serie(serie),options)
+	crud.upsertSerie(new CRUD.serie(serie),options, filter.user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(400).send({message:"bad request"})
@@ -2569,7 +2578,7 @@ function deleteSerie(req,res) {
 		res.status(400).send({message:"query error",error:"Falta atributo 'id'"})
 		return
 	}
-	crud.deleteSerie(filter.tipo,filter.id)
+	crud.deleteSerie(filter.tipo,filter.id,filter.user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(400).send({message:"bad request"})

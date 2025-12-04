@@ -102,11 +102,11 @@ export class UserGroup {
   /** Read membership */
   static async read(
     group_id: number,
-    user_name: number
+    user_id: number
   ): Promise<UserGroupRecord | null> {
     const result = await g.pool.query(
       `SELECT user_id, group_name FROM user_groups WHERE group_name = $1 AND user_id = $2`,
-      [group_id, user_name]
+      [group_id, user_id]
     );
     return (result.rows[0] as UserGroupRecord) || null;
   }

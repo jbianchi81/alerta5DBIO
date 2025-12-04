@@ -44,7 +44,7 @@ const {SerieFilter, SerieOptions} = require('./serie_types')
 const { escapeIdentifier, escapeLiteral } = require('pg');
 const { options } = require('marked');
 
-const {AuthError, NotFoundError} = require('./custom_errors.js')
+const {AuthError, NotFoundError, BadRequestError} = require('./custom_errors.js')
 
 const apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
 var schemas = apidoc.components.schemas
@@ -3644,7 +3644,7 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		table = "series"
 
 		// ACCESS LEVEL
-		const [access_join, access_level] = internal.red.getUserAccessClause(filter.user_id,"redes.fuentes_id")
+		const [access_join, access_level] = internal.red.getUserAccessClause(filter.user_id,"redes.id")
 
 		join_clauses = [...join_clauses,...[
 			`JOIN estaciones 
@@ -7425,7 +7425,7 @@ internal.CRUD = class {
 		user_id,
 		write=false
 	) {
-		const access_level = (write) ? "write" : "read"
+		const max_priority = (write) ? 2 : 1
 		if(!user_id) {
 			return true
 		}
@@ -7436,16 +7436,16 @@ internal.CRUD = class {
 					JOIN (SELECT unid,tabla FROM estaciones WHERE unid=$1) AS e  
 					ON e.tabla=user_red_access.tabla_id
 					WHERE user_id=$2 
-					AND effective_access=$3
-			)`,[estacion_id,user_id,access_level])
+					AND max_priority>=$3
+			)`,[estacion_id,user_id,max_priority])
 		} else if(tabla_id) {
 			var query = pasteIntoSQLQuery(`SELECT EXISTS (
 				SELECT 1 
 					FROM user_red_access 
 					WHERE tabla_id=$1
 					AND user_id=$2 
-					AND effective_access=$3
-			)`,[tabla_id,user_id,access_level])
+					AND max_priority>=$3
+			)`,[tabla_id,user_id,max_priority])
 		} else {
 			throw new Error("Falta estacion_id o tabla_id")
 		}
@@ -8995,9 +8995,22 @@ internal.CRUD = class {
 			
 	// SERIE //
 	
-	static async upsertSerie(serie,options={}) {
+	static async upsertSerie(serie,options={}, user_id) {
 		if(!serie.tipo) {
 			serie.tipo = "puntual"
+		}
+		serie.tipo = serie.tipo.toLowerCase()
+		if(serie.tipo == "puntual" && user_id) {
+			if(!serie.estacion) {
+				throw new BadRequestError("Falta estacion")
+			}
+			if(!serie.estacion.id) {
+				throw new BadRequestError("Falta estacion.id")
+			}
+			const has_access = await this.hasAccess(serie.estacion.id, undefined, user_id, true)
+			if(!has_access) {
+				throw new AuthError("Usuario no tiene acceso de escritura a la red especificada")
+			}
 		}
 		if(serie.id) { // if id is given, looks for a match
 			const serie_match = await internal.serie.read({tipo:serie.tipo,id:serie.id})
@@ -9009,6 +9022,7 @@ internal.CRUD = class {
 		} else {
 			await serie.getId()
 		}
+		
 		var result = await global.pool.query(this.upsertSerieQuery(serie))
 		if(result.rows.length == 0) {
 			console.log("nothing inserted")
@@ -9138,7 +9152,7 @@ internal.CRUD = class {
 	 * @param {pg.Client=} client - pg client to use within transaction block 
 	 * @returns {Promise<internal.serie[]>} The created/updated series
 	 */
-	static async upsertSeries(series,all=false,upsert_estacion=false,generate_id=false,client, upsert_fuente=true, update_obs) {
+	static async upsertSeries(series,all=false,upsert_estacion=false,generate_id=false,client, upsert_fuente=true, update_obs, user_id) {
 		// var promises=[]
 		// console.log({all:all})
 		var series_result=[]
@@ -9219,6 +9233,10 @@ internal.CRUD = class {
 				if (all || upsert_estacion) {
 					// console.debug("Upsert estacion of new serie")
 					if(serie.estacion instanceof internal.estacion) {
+						const has_access = await this.hasAccess(undefined,serie.estacion.tabla, user_id, true)
+						if(!has_access) {
+							throw new AuthError("Usuario no tiene acceso de escritura a la red especificada")
+						}
 						serie_props.estacion = await this.upsertEstacion(serie.estacion,undefined,client) //await client.query(this.upsertEstacionQuery(serie.estacion,{no_update_id:no_update_estacion_id}))
 						// serie_props.estacion = new internal.estacion(result.rows[0])
 						// console.log("estacion: " + serie_props.estacion.toString())
@@ -9279,6 +9297,12 @@ internal.CRUD = class {
 					throw("Specified Fuente not found")
 				}
 
+				if(serie.tipo == "puntual" && user_id) {
+					const has_access = await this.hasAccess(serie.estacion.id, undefined, user_id, true)
+					if(!has_access) {
+						throw new AuthError("Usuario no tiene acceso de escritura a la red especificada")
+					}
+				}
 				var query_string
 				// check if series exists already
 				var series_match = await this.getSeries(serie.tipo,{estacion_id:serie.estacion.id,var_id:serie.var.id,proc_id:serie.procedimiento.id,unit_id:serie.unidades.id,fuentes_id:serie.fuente.id},{},client)
@@ -9393,7 +9417,7 @@ internal.CRUD = class {
 		return results
 	}
 	
-	static async deleteSerie(tipo,id) {
+	static async deleteSerie(tipo,id,user_id) {
 		if(tipo == "areal") {
 			return global.pool.query("\
 				DELETE FROM series_areal\
@@ -9425,6 +9449,13 @@ internal.CRUD = class {
 				throw(e)
 			})
 		} else {
+			if(user_id) {
+				const serie = await this.getSerie("puntual",id,undefined,undefined,undefined,undefined,undefined,undefined,user_id)
+				if(!serie) {
+					console.log("id not found")
+					return
+				}
+			}
 			return global.pool.query("\
 				DELETE FROM series\
 				WHERE id=$1\
@@ -9522,7 +9553,7 @@ internal.CRUD = class {
 		}
 	}
 	
-	static async getSerie(tipo,id,timestart,timeend,options={},isPublic,timeupdate,client) {
+	static async getSerie(tipo,id,timestart,timeend,options={},isPublic,timeupdate,client,user_id) {
 		var release_client = false
 		if(!client) {
 			client = await global.pool.connect()
@@ -9648,12 +9679,25 @@ internal.CRUD = class {
 			}
 			return serie
 		} else {
-			var result = await client.query("\
-			SELECT series.id,series.estacion_id,series.var_id,series.proc_id,series.unit_id,redes.public,series_date_range.timestart,series_date_range.timeend,series_date_range.count FROM series \
-			JOIN estaciones ON series.estacion_id=estaciones.unid \
-			JOIN redes ON estaciones.tabla=redes.tabla_id\
-			LEFT JOIN series_date_range on series.id=series_date_range.series_id\
-			WHERE series.id=$1",[id])
+			const [access_clause, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
+			var result = await client.query(`
+			SELECT 
+				series.id,
+				series.estacion_id,
+				series.var_id,
+				series.proc_id,
+				series.unit_id,
+				redes.public,
+				series_date_range.timestart,
+				series_date_range.timeend,
+				series_date_range.count,
+				${access_level} AS access_level 
+			FROM series 
+			JOIN estaciones ON series.estacion_id=estaciones.unid 
+			JOIN redes ON estaciones.tabla=redes.tabla_id
+			${access_clause}
+			LEFT JOIN series_date_range on series.id=series_date_range.series_id
+			WHERE series.id=$1`,[id])
 			if(result.rows.length<=0) {
 				console.log("serie no encontrada")
 				if(release_client) {

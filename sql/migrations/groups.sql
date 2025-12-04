@@ -55,6 +55,7 @@ SELECT
     red_name,
     tabla_id,
     -- effective access is the MAX priority converted back to ENUM
+    MAX(priority) AS max_priority,
     CASE MAX(priority)
         WHEN 2 THEN 'write'
         ELSE 'read'
