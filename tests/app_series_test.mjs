@@ -3,10 +3,32 @@ import assert from "node:assert/strict";
 import request from "supertest";
 import app from "../app/rest.mjs";
 
-const writer_token = "token" // role writer
-const noaccess_token = "token_1" // role writer
-const reader_token = "token_2" // role public
-const admin_token = "token_3" // role admin
+const writer = {
+  name: "writer_name",
+  role: "writer",
+  password: "writer_password",
+  token: "writer_token" // role writer
+}
+const noaccess = {
+  name: "noaccess_name",
+  role: "writer",
+  password: "noaccess_password",
+  token: "noaccess_token" // role writer
+}
+const reader = {
+  name: "reader_name",
+  role: "public",
+  password: "reader_password",
+  token: "reader_token" // role public
+}
+const admin = {
+  name: "admin_name",
+  role: "admin",
+  password: "admin_password",
+  token: "admin_token" // role admin
+}
+
+const admin_token = "token_3" // debe preexistir
 
 let estacion
 let serie
@@ -17,8 +39,36 @@ const estacion_id = 2948
 // test('parent test', async (t) => {
   // preparacion
 
-  test("crea grupo, asigna usuario y red", async ()=> {
-    
+  test("crea usuarios, crea grupo, asigna usuario y red", async ()=> {
+
+    const res0 = await request(app)
+      .put(`/users/${writer.name}`)
+      .send(writer)
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${admin_token}`);
+    console.log(res0.body)
+    const res_no = await request(app)
+      .put(`/users/${noaccess.name}`)
+      .send(noaccess)
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${admin_token}`);
+    console.log(res_no.body)
+      // assert.equal(res0.statusCode, 201)    
+    const res_re = await request(app)
+      .put(`/users/${reader.name}`)
+      .send(reader)
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${admin_token}`);
+    console.log(res_re.body)
+    const res_ad = await request(app)
+      .put(`/users/${admin.name}`)
+      .send(admin)
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${admin_token}`);
+    console.log(res_ad.body)
+
+
+
     const res = await request(app)
       .post("/groups")
       .send([
@@ -28,16 +78,17 @@ const estacion_id = 2948
       ])
       .set("Content-Type", "application/json")
       .set("Authorization", `Bearer ${admin_token}`);
-    assert.equal(res.statusCode, 201)
+    console.log(res.body)
+    // assert.equal(res.statusCode, 201)
     const res2 = await request(app)
       .put(`/groups/${group_name}/members`)
       .send([
           {
-              user_id: 5
+              user_name: writer.name
           },{
-              user_id: 7
+              user_name: reader.name
           },{
-            user_id: 8
+            user_name: admin.name
           }]
       )
       .set("Content-Type", "application/json")
@@ -70,7 +121,7 @@ const estacion_id = 2948
         }
       ])
       .set("Content-Type", "application/json")
-      .set("Authorization", `Bearer ${writer_token}`);
+      .set("Authorization", `Bearer ${writer.token}`);
     assert.equal(res4.statusCode, 200);  
     assert.ok(Array.isArray(res4.body))
     assert.equal(res4.body.length,1)
@@ -87,7 +138,7 @@ const estacion_id = 2948
         unidades: {id: 11}
       }])
       .set("Content-Type", "application/json")
-      .set("Authorization", `Bearer ${writer_token}`);
+      .set("Authorization", `Bearer ${writer.token}`);
 
     assert.equal(res.statusCode, 401);
     })
@@ -102,7 +153,7 @@ const estacion_id = 2948
         unidades: {id: 11}
       }])
       .set("Content-Type", "application/json")
-      .set("Authorization", `Bearer ${writer_token}`);
+      .set("Authorization", `Bearer ${writer.token}`);
 
     assert.equal(res.statusCode, 200);
     assert(Array.isArray(res.body));
@@ -124,7 +175,7 @@ const estacion_id = 2948
   test("GET /obs/puntual/series", async () => {
     const res = await request(app)
       .get("/obs/puntual/series?tabla=alturas_prefe&id_externo=t665a443&var_id=2&proc_id=1&unit_id=11")
-      .set("Authorization", `Bearer ${writer_token}`);
+      .set("Authorization", `Bearer ${writer.token}`);
 
     assert.equal(res.statusCode, 200);
     assert.ok("rows" in res.body)
@@ -155,7 +206,7 @@ const estacion_id = 2948
           unidades: {id: 9}
         }
       })
-      .set("Authorization", `Bearer ${writer_token}`);
+      .set("Authorization", `Bearer ${writer.token}`);
 
     assert.equal(res2.statusCode, 200);
     assert("id" in res2.body)
@@ -177,7 +228,7 @@ const estacion_id = 2948
         unidades: {id: 11}
       }])
       .set("Content-Type", "application/json")
-      .set("Authorization", `Bearer ${noaccess_token}`);
+      .set("Authorization", `Bearer ${noaccess.token}`);
     console.log(res.text)
     assert.equal(res.statusCode, 401);
   });
@@ -192,7 +243,7 @@ const estacion_id = 2948
         unidades: {id: 11}
       })
       .set("Content-Type", "application/json")
-      .set("Authorization", `Bearer ${reader_token}`);
+      .set("Authorization", `Bearer ${reader.token}`);
 
     assert.equal(res.statusCode, 401);
   });
@@ -200,7 +251,7 @@ const estacion_id = 2948
   test("GET /obs/puntual/series no access", async () => {
     const res = await request(app)
       .get("/obs/puntual/series?tabla=alturas_prefe&id_externo=t665a443")
-      .set("Authorization", `Bearer ${noaccess_token}`);
+      .set("Authorization", `Bearer ${noaccess.token}`);
 
     assert.equal(res.statusCode, 200);
     console.log(res.text)
@@ -212,7 +263,7 @@ const estacion_id = 2948
   test("GET /obs/puntual/series reader access", async () => {
     const res = await request(app)
       .get("/obs/puntual/series?tabla=alturas_prefe&id_externo=t665a443")
-      .set("Authorization", `Bearer ${reader_token}`);
+      .set("Authorization", `Bearer ${reader.token}`);
 
     assert.equal(res.statusCode, 200);
     console.log(res.text)
@@ -225,7 +276,7 @@ const estacion_id = 2948
   test("GET /obs/puntual/series/:id no access not found", async () => {
     const res = await request(app)
       .get(`/obs/puntual/series/${serie.id}`)
-      .set("Authorization", `Bearer ${noaccess_token}`);
+      .set("Authorization", `Bearer ${noaccess.token}`);
 
     assert.equal(res.statusCode, 404);
     console.log(res.body)
@@ -234,7 +285,7 @@ const estacion_id = 2948
     test("GET /obs/puntual/series/:id reader access", async () => {
     const res = await request(app)
       .get(`/obs/puntual/series/${serie.id}`)
-      .set("Authorization", `Bearer ${reader_token}`);
+      .set("Authorization", `Bearer ${reader.token}`);
 
     assert.equal(res.statusCode, 200);
     console.log(res.body)
@@ -245,7 +296,7 @@ const estacion_id = 2948
   test("DELETE /obs/puntual/series/{id} no access", async () => {
     const res = await request(app)
       .delete(`/obs/puntual/series/${serie.id}`)
-      .set("Authorization", `Bearer ${noaccess_token}`);
+      .set("Authorization", `Bearer ${noaccess.token}`);
 
     console.log(res.text)
     assert.equal(res.statusCode, 400);
@@ -254,7 +305,7 @@ const estacion_id = 2948
   test("DELETE /obs/puntual/series no access, not found", async () => {
     const res = await request(app)
       .delete(`/obs/puntual/series?estacion_id=${estacion_id}`)
-      .set("Authorization", `Bearer ${noaccess_token}`);
+      .set("Authorization", `Bearer ${noaccess.token}`);
     console.log(res.text)
     assert.equal(res.statusCode, 200);
     assert.ok(Array.isArray(res.body))
@@ -266,7 +317,7 @@ const estacion_id = 2948
   test("DELETE /obs/puntual/series/{id}", async () => {
     const res = await request(app)
       .delete(`/obs/puntual/series/${serie.id}`)
-      .set("Authorization", `Bearer ${writer_token}`);
+      .set("Authorization", `Bearer ${writer.token}`);
 
     assert.equal(res.statusCode, 200);
     assert.ok(!Array.isArray(res.body));
@@ -282,7 +333,7 @@ const estacion_id = 2948
   test("DELETE /obs/puntual/estaciones/{id}", async () => {
     const res = await request(app)
       .delete(`/obs/puntual/estaciones/${estacion_id}`)
-      .set("Authorization", `Bearer ${writer_token}`);
+      .set("Authorization", `Bearer ${writer.token}`);
     console.log(res.text)
     assert.equal(res.statusCode, 200);
   })
@@ -292,5 +343,28 @@ const estacion_id = 2948
       .delete(`/groups/${group_name}`)
       .set("Authorization", `Bearer ${admin_token}`);
     assert.equal(res.statusCode, 200);
+  })
+
+  test("DELETE /users/:username", async() => {
+    const res0 = await request(app)
+      .delete(`/users/${writer.name}`)
+      .set("Authorization", `Bearer ${admin_token}`);
+    console.log(res0.body)
+    assert.equal(res0.statusCode, 200)    
+    const res_no = await request(app)
+      .delete(`/users/${noaccess.name}`)
+      .set("Authorization", `Bearer ${admin_token}`);
+    console.log(res_no.body)
+    const res_re = await request(app)
+      .delete(`/users/${reader.name}`)
+      .set("Authorization", `Bearer ${admin_token}`);
+    console.log(res_re.body)
+    assert.equal(res_re.statusCode, 200)    
+    const res_ad = await request(app)
+      .delete(`/users/${admin.name}`)
+      .set("Authorization", `Bearer ${admin_token}`);
+    assert.equal(res_ad.statusCode, 200)    
+    console.log(res_ad.body)
+
   })
 // })

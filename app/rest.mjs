@@ -116,7 +116,7 @@ const { default: axios } = require('axios')
 
 
 // CRUD ERROR HANDLING //
-const { AuthError, NotFoundError } = require('./custom_errors.js')
+const { AuthError, NotFoundError, BadRequestError } = require('./custom_errors.js')
 
 function handleCrudError(e, res) {
 	console.error(e)
@@ -692,7 +692,7 @@ app.put('/users/:username',auth.isAdmin,(req,res)=>{    // ?password=&role=reade
 			}
 			return global.pool.query("INSERT INTO users (name,pass_enc,role,token) VALUES ($1,$2,coalesce($3,'reader'),$4) RETURNING name,pass_enc,role,token",[req.params.username, crypto.createHash('sha256').update(password).digest('hex'), role,crypto.createHash('sha256').update(token).digest('hex')])
 		} else {
-			return global.pool.query("UPDATE users set pass_enc=coalesce($1,pass_enc), role=coalesce($2,role), token=coalesce($4,token) where name=$3 RETURNING name,pass_enc,role,token",[(password) ? crypto.createHash('sha256').update(req.query.password).digest('hex') : undefined, role, req.params.username, (token) ? crypto.createHash('sha256').update(req.query.token).digest('hex') : undefined])
+			return global.pool.query("UPDATE users set pass_enc=coalesce($1,pass_enc), role=coalesce($2,role), token=coalesce($4,token) WHERE name=$3 RETURNING name,pass_enc,role,token",[(password) ? crypto.createHash('sha256').update(req.query.password).digest('hex') : undefined, role, req.params.username, (token) ? crypto.createHash('sha256').update(req.query.token).digest('hex') : undefined])
 		}
 	})
 	.then(result=>{
@@ -810,6 +810,23 @@ app.post('/userChangePassword',auth.isAuthenticated, (req,res)=>{
 			})
 		//~ }
 	//~ })
+})
+
+app.delete('/users/:username',auth.isAdmin, async (req,res) => {
+	try {
+		const result = await global.pool.query(`
+			DELETE FROM users WHERE name=$1 RETURNING id,name,role`, [req.params.username])
+		if(!result.rows.length) {
+			console.error("Delete: usuario no encontrado")
+			res.status(404).send("Usuario no encontrado")
+			return
+		}
+		res.send(result.rows[0])
+	}
+	catch(e) {
+		console.error(e)
+		res.status(500).send(e.toString())
+	}
 })
 
 // informe_semanal
@@ -1917,8 +1934,7 @@ function updateEstacion(req,res) {
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(400).send({message:"Query error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 

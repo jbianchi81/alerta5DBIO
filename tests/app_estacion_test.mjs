@@ -3,14 +3,52 @@ import assert from "node:assert/strict";
 import request from "supertest";
 import app from "../app/rest.mjs";
 
-const writer_token = "token"
-const admin_token = "token_3"
+const writer = {
+  name: "writer_name",
+  role: "writer",
+  password: "writer_password",
+  token: "writer_token" // role writer
+}
+const admin = {
+  name: "admin_name",
+  role: "admin",
+  password: "admin_password",
+  token: "admin_token" // role admin
+}
+const noaccess = {
+  name: "noaccess_name",
+  role: "writer",
+  password: "noaccess_password",
+  token: "noaccess_token" // role writer
+}
+
+const admin_token = "token_3" // debe preexistir
 
 let group
 const group_name = "test_app_estacion"
 
 // prepare
 test("prepare group", async () => {
+  // create users
+  const res0 = await request(app)
+    .put(`/users/${writer.name}`)
+    .send(writer)
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res0.body)
+  const res_ad = await request(app)
+    .put(`/users/${admin.name}`)
+    .send(admin)
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res_ad.body)
+  const res_no = await request(app)
+    .put(`/users/${noaccess.name}`)
+    .send(noaccess)
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res_no.body)
+
   // create group
   const res = await request(app)
     .post("/groups")
@@ -30,9 +68,9 @@ test("prepare group", async () => {
     .put(`/groups/${group.name}/members`)
     .send([
         {
-            user_id: 5
+            user_name: writer.name
         },{
-            user_id: 8
+            user_name: admin.name
         }]
     )
     .set("Content-Type", "application/json")
@@ -72,7 +110,7 @@ test("POST /obs/puntual/estaciones  w/ write access", async () => {
       geom: {type: "Point", coordinates: [0,0]}
     })
     .set("Content-Type", "application/json")
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
 
   assert.equal(res.statusCode, 200);
   assert(Array.isArray(res.body));
@@ -85,7 +123,7 @@ test("POST /obs/puntual/estaciones  w/ write access", async () => {
 test("GET /obs/puntual/estaciones", async () => {
   const res = await request(app)
     .get("/obs/puntual/estaciones?tabla=alturas_prefe&id_externo=t665a443")
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
 
   assert.equal(res.statusCode, 200);
   assert(Array.isArray(res.body));
@@ -103,7 +141,7 @@ test("PUT /obs/puntual/estaciones/{id}", async () => {
         habilitar: true
       }
     })
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
 
   assert.equal(res2.statusCode, 200);
   assert("tabla" in res2.body)
@@ -116,7 +154,7 @@ test("PUT /obs/puntual/estaciones/{id}", async () => {
 test("PUT /obs/puntual/estaciones/{id}?", async () => {
   const res2 = await request(app)
     .put(`/obs/puntual/estaciones/${estacion.id}?propietario=pna`)
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
 
   assert.equal(res2.statusCode, 200);
   assert("tabla" in res2.body)
@@ -137,7 +175,7 @@ test("POST /obs/puntual/estaciones  w/ no write access", async () => {
       geom: {type: "Point", coordinates: [0,0]}
     })
     .set("Content-Type", "application/json")
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
 
   assert.equal(res.statusCode, 401);
 });
@@ -152,7 +190,7 @@ test("POST /obs/puntual/estaciones  w/ no write access 2", async () => {
       geom: {type: "Point", coordinates: [0,0]}
     })
     .set("Content-Type", "application/json")
-    .set("Authorization", `Bearer token_1`);
+    .set("Authorization", `Bearer ${noaccess.token}`);
 
   assert.equal(res.statusCode, 401);
 });
@@ -160,7 +198,7 @@ test("POST /obs/puntual/estaciones  w/ no write access 2", async () => {
 test("GET /obs/puntual/estaciones no access", async () => {
   const res = await request(app)
     .get("/obs/puntual/estaciones?tabla=alturas_prefe&id_externo=t665a443")
-    .set("Authorization", `Bearer token_1`);
+    .set("Authorization", `Bearer ${noaccess.token}`);
 
   assert.equal(res.statusCode, 200);
   assert(Array.isArray(res.body));
@@ -170,16 +208,16 @@ test("GET /obs/puntual/estaciones no access", async () => {
 test("PUT /obs/puntual/estaciones/{id}? no access", async () => {
   const res2 = await request(app)
     .put(`/obs/puntual/estaciones/${estacion.id}?propietario=pna`)
-    .set("Authorization", `Bearer token_1`);
-
+    .set("Authorization", `Bearer ${noaccess.token}`);
+  console.log(res2.body)
   assert.equal(res2.statusCode, 401);
 });
 
 test("DELETE /obs/puntual/estaciones/{id} no access", async () => {
   const res = await request(app)
     .delete(`/obs/puntual/estaciones/${estacion.id}`)
-    .set("Authorization", `Bearer token_1`);
-
+    .set("Authorization", `Bearer ${noaccess.token}`);
+  console.log(res.body)
   assert.equal(res.statusCode, 401);
 })
 
@@ -189,8 +227,8 @@ test("DELETE /obs/puntual/estaciones/{id} no access", async () => {
 test("DELETE /obs/puntual/estaciones/{id}", async () => {
   const res = await request(app)
     .delete(`/obs/puntual/estaciones/${estacion.id}`)
-    .set("Authorization", `Bearer ${writer_token}`);
-
+    .set("Authorization", `Bearer ${writer.token}`);
+  console.log(res.body)
   assert.equal(res.statusCode, 200);
   assert("tabla" in res.body)
   assert.equal(res.body.tabla,"alturas_prefe")

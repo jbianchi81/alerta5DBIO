@@ -15,7 +15,7 @@ const user_group_1 = require("../models/user_group");
 const red_group_access_1 = require("../models/red_group_access");
 const router = (0, express_1.Router)();
 router.get('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const items = yield group_1.Group.list();
+    const items = yield group_1.Group.list(req.query);
     res.json(items);
 }));
 router.get('/:name', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -59,7 +59,7 @@ router.post("/:group_name/members", (req, res) => __awaiter(void 0, void 0, void
     }
     catch (err) {
         if (err.message === "USER_NOT_FOUND") {
-            return res.status(400).json({ error: "user id not found" });
+            return res.status(400).json({ error: "user name not found" });
         }
         throw err;
     }
@@ -69,18 +69,18 @@ router.get("/:group_name/members", (req, res) => __awaiter(void 0, void 0, void 
     const list = yield user_group_1.UserGroup.list(req.params.group_name);
     res.json(list);
 }));
-// GET /groups/:group_id/members/:user_id
-router.get("/:group_name/members/:user_id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const user_id = Number(req.params.user_id);
-    const member = yield user_group_1.UserGroup.read(req.params.group_name, user_id);
+// GET /groups/:group_id/members/:user_name
+router.get("/:group_name/members/:user_name", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const user_name = req.params.user_name;
+    const member = yield user_group_1.UserGroup.read(req.params.group_name, undefined, user_name);
     if (!member)
         return res.status(404).json({ error: "not found" });
     res.json(member);
 }));
-// DELETE /groups/:group_id/members/:user_id
-router.delete("/:group_name/members/:user_id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const user_id = Number(req.params.user_id);
-    const deleted = yield user_group_1.UserGroup.delete(req.params.group_name, user_id);
+// DELETE /groups/:group_id/members/:user_name
+router.delete("/:group_name/members/:user_name", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const user_name = req.params.user_name;
+    const deleted = yield user_group_1.UserGroup.delete(req.params.group_name, undefined, user_name);
     if (!deleted)
         return res.status(404).json({ error: "not found" });
     res.json(deleted);

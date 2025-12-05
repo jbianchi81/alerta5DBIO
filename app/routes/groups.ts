@@ -7,7 +7,7 @@ import { RedGroup } from "../models/red_group_access";
 const router = Router();
 
 router.get('/', async (req : Request, res : Response) => {
-  const items = await Group.list();
+  const items = await Group.list(req.query);
   res.json(items);
 });
 
@@ -48,14 +48,14 @@ router.put("/:group_name/members", async (req : Request, res : Response) => {
 });
 
 router.post("/:group_name/members", async (
-  req : Request<{ group_name: string }, any, { user_id: number }[]>,
+  req : Request<{ group_name: string }, any, { user_name: string }[]>,
   res : Response) => {
   try {
     const members = await UserGroup.add(req.params.group_name, req.body);
     res.json(members);
   } catch (err: any) {
     if (err.message === "USER_NOT_FOUND") {
-      return res.status(400).json({ error: "user id not found" });
+      return res.status(400).json({ error: "user name not found" });
     }
     throw err;
   }
@@ -67,23 +67,23 @@ router.get("/:group_name/members", async (req : Request, res : Response) => {
   res.json(list);
 });
 
-// GET /groups/:group_id/members/:user_id
-router.get("/:group_name/members/:user_id", async (req : Request, res : Response) => {
+// GET /groups/:group_id/members/:user_name
+router.get("/:group_name/members/:user_name", async (req : Request, res : Response) => {
   
-  const user_id = Number(req.params.user_id);
+  const user_name = req.params.user_name;
 
-  const member = await UserGroup.read(req.params.group_name, user_id);
+  const member = await UserGroup.read(req.params.group_name, undefined, user_name);
   if (!member) return res.status(404).json({ error: "not found" });
 
   res.json(member);
 });
 
-// DELETE /groups/:group_id/members/:user_id
-router.delete("/:group_name/members/:user_id", async (req : Request, res : Response) => {
+// DELETE /groups/:group_id/members/:user_name
+router.delete("/:group_name/members/:user_name", async (req : Request, res : Response) => {
   
-  const user_id = Number(req.params.user_id);
+  const user_name = req.params.user_name;
 
-  const deleted = await UserGroup.delete(req.params.group_name, user_id);
+  const deleted = await UserGroup.delete(req.params.group_name, undefined, user_name);
   if (!deleted) return res.status(404).json({ error: "not found" });
 
   res.json(deleted);

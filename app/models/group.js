@@ -17,10 +17,17 @@ exports.Group = void 0;
 const setGlobal_1 = __importDefault(require("a5base/setGlobal"));
 const g = (0, setGlobal_1.default)();
 class Group {
-    static list() {
+    static list(filter = {}) {
         return __awaiter(this, void 0, void 0, function* () {
-            const q = `SELECT name FROM groups ORDER BY name`;
-            const result = yield g.pool.query(q);
+            let result;
+            if (filter.name) {
+                const q = `SELECT name FROM groups WHERE name=$1 ORDER BY name`;
+                result = yield g.pool.query(q, [filter.name]);
+            }
+            else {
+                const q = `SELECT name FROM groups ORDER BY name`;
+                result = yield g.pool.query(q);
+            }
             return result.rows;
         });
     }

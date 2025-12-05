@@ -3,18 +3,55 @@ import assert from "node:assert/strict";
 import request from "supertest";
 import app from "../app/rest.mjs";
 
-const writer_token = "token" // writer user
-const reader_token = "token_1" // reader user
-const admin_token = "token_3" // admin user
+const writer = {
+  name: "writer_name",
+  role: "writer",
+  password: "writer_password",
+  token: "writer_token" // role writer
+}
+const noaccess = {
+  name: "noaccess_name",
+  role: "writer",
+  password: "noaccess_password",
+  token: "noaccess_token" // role writer
+}
+const reader = {
+  name: "reader_name",
+  role: "public",
+  password: "reader_password",
+  token: "reader_token" // role public
+}
+const admin_token = "token_3" // role admin
 
 let group
 
+const group_name = "app_groups_test"
+
 // prepare
 
-test("DELETE /groups/:name prepare", async () => {
-  const res = await request(app)
+test("prepare", async () => {
+    const res0 = await request(app)
+    .put(`/users/${writer.name}`)
+    .send(writer)
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res0.body)
+  const res1 = await request(app)
+    .put(`/users/${noaccess.name}`)
+    .send(noaccess)
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res1.body)
+  const res2 = await request(app)
+    .put(`/users/${reader.name}`)
+    .send(reader)
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res2.body)
+  const res3 = await request(app)
     .delete(`/groups/testgroup`)
     .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res3.body)
 })
 
 // create group
@@ -24,11 +61,11 @@ test("POST /groups  fail unauthorized", async () => {
     .post("/groups")
     .send([
       {
-        name: "test_create"
+        name: group_name
       }
     ])
     .set("Content-Type", "application/json")
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 401);
 })
 
@@ -37,7 +74,7 @@ test("POST /groups  w/ admin access", async () => {
     .post("/groups")
     .send([
       {
-        name: "test_create"
+        name: group_name
       }
     ])
     .set("Content-Type", "application/json")
@@ -47,13 +84,13 @@ test("POST /groups  w/ admin access", async () => {
   assert.equal(res.body.length,1)
   group = res.body[0]
   assert("name" in group)
-  assert.equal(group["name"], "test_create")
+  assert.equal(group["name"], group_name)
 })
 
 test("GET /groups fail unauthorized", async () => {
   const res = await request(app)
     .get("/groups")
-    .set("Authorization", `Bearer ${reader_token}`);
+    .set("Authorization", `Bearer ${reader.token}`);
   assert.equal(res.statusCode, 401);
 })
 
@@ -68,7 +105,7 @@ test("GET /groups", async () => {
   for(let i=0;i<res.body.length;i++) {
     const gr = res.body[i]
     assert("name" in gr)
-    if(gr.name == group.name) {
+    if(gr.name == group_name) {
       found = true
       assert.equal(group.id, gr.id)
     }
@@ -79,48 +116,48 @@ test("GET /groups", async () => {
 test("GET /groups?name=", async () => {
   const res = await request(app)
     .get("/groups")
-    .query({name: group.name})
+    .query({name: group_name})
     .set("Authorization", `Bearer ${admin_token}`);
   assert.equal(res.statusCode, 200);
-  assert(Array.isArray(res.body))
+  assert.ok(Array.isArray(res.body))
   assert.equal(res.body.length, 1)
   const gr = res.body[0]
-  assert("name" in gr)
-  assert(group.name, gr.name)
+  assert.ok("name" in gr)
+  assert.equal(group_name, gr.name)
 })
 
 test("GET /groups/:name fail unauthorized", async () => {
   const res = await request(app)
-    .get(`/groups/${group.name}`)
-    .set("Authorization", `Bearer ${writer_token}`);
+    .get(`/groups/${group_name}`)
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 401);
 })
 
 test("GET /groups/:name", async () => {
   const res = await request(app)
-    .get(`/groups/${group.name}`)
+    .get(`/groups/${group_name}`)
     .set("Authorization", `Bearer ${admin_token}`);
   assert.equal(res.statusCode, 200);
-  assert(!Array.isArray(res.body))
+  assert.ok(!Array.isArray(res.body))
   const gr = res.body
-  assert("name" in gr)
-  assert(group.name, gr.name)
+  assert.ok("name" in gr)
+  assert.equal(group_name, gr.name)
 })
 
 // test("PUT /groups/:name  fail unauthorized", async () => {
 //   const res = await request(app)
-//     .put(`/groups/${group.name}`)
+//     .put(`/groups/${group_name}`)
 //     .send({
 //         name: "test_create_edit"
 //     })
 //     .set("Content-Type", "application/json")
-//     .set("Authorization", `Bearer ${writer_token}`);
+//     .set("Authorization", `Bearer ${writer.token}`);
 //   assert.equal(res.statusCode, 401);
 // })
 
 // test("PUT /groups/:name", async () => {
 //   const res = await request(app)
-//     .put(`/groups/${group.name}`)
+//     .put(`/groups/${group_name}`)
 //     .send({
 //         name: "test_create_edit"
 //     })
@@ -138,27 +175,27 @@ test("GET /groups/:name", async () => {
 
 test("POST /groups/:name/members (assign membership) unauthorized", async() => {
     const res = await request(app)
-    .put(`/groups/${group.name}/members`)
+    .put(`/groups/${group_name}/members`)
     .send([
         {
-            user_id: 5
+            user_name: writer.name
         },{
-            user_id: 6
+            user_name: reader.name
         }]
     )
     .set("Content-Type", "application/json")
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 401);
 })
 
 test("POST /groups/:name/members (assign membership)", async() => {
   const res = await request(app)
-    .put(`/groups/${group.name}/members`)
+    .put(`/groups/${group_name}/members`)
     .send([
         {
-            user_id: 5
+            user_name: writer.name
         },{
-            user_id: 6
+            user_name: reader.name
         }]
     )
     .set("Content-Type", "application/json")
@@ -167,20 +204,20 @@ test("POST /groups/:name/members (assign membership)", async() => {
   assert(Array.isArray(res.body))
   assert.equal(res.body.length,2)
   for(const member of res.body) {
-    assert("user_id" in member)
+    assert("user_name" in member)
   }
-  assert.ok(res.body.map(m=>m.user_id).includes(5))
-  assert.ok(res.body.map(m=>m.user_id).includes(6))
+  assert.ok(res.body.map(m=>m.user_name).includes(writer.name))
+  assert.ok(res.body.map(m=>m.user_name).includes(reader.name))
 })
 
-test("POST /groups/:name/members (assign membership) fail bad request user id not found", async() => {
+test("POST /groups/:name/members (assign membership) fail bad request user not found", async() => {
   const res = await request(app)
-    .put(`/groups/${group.name}/members`)
+    .put(`/groups/${group_name}/members`)
     .send([
         {
-            user_id: 5436534
+            user_name: "5436534"
         },{
-            user_id: 6346378
+            user_name: "6346378"
         }]
     )
     .set("Content-Type", "application/json")
@@ -190,48 +227,48 @@ test("POST /groups/:name/members (assign membership) fail bad request user id no
 
 test("GET /groups/:name/members", async() => {
   const res = await request(app)
-    .get(`/groups/${group.name}/members`)
+    .get(`/groups/${group_name}/members`)
     .set("Authorization", `Bearer ${admin_token}`);
   assert.equal(res.statusCode, 200);
   assert(Array.isArray(res.body))
   assert.equal(res.body.length,2)
   for(const member of res.body) {
-    assert("user_id" in member)
+    assert("user_name" in member)
   }
-  assert.ok(res.body.map(m=>m.user_id).includes(5))
-  assert.ok(res.body.map(m=>m.user_id).includes(6))
+  assert.ok(res.body.map(m=>m.user_name).includes(writer.name))
+  assert.ok(res.body.map(m=>m.user_name).includes(reader.name))
 })
 
-test("GET /groups/:group_name/members/:user_id unauthorized", async() => {
+test("GET /groups/:group_name/members/:user_name unauthorized", async() => {
   const res = await request(app)
-    .get(`/groups/${group.name}/members/5`)
-    .set("Authorization", `Bearer ${writer_token}`);
+    .get(`/groups/${group_name}/members/${writer.name}`)
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 401);
 })
 
-test("GET /groups/:group_name/members/:user_id not found", async() => {
+test("GET /groups/:group_name/members/:user_name not found", async() => {
   const res = await request(app)
-    .get(`/groups/${group.name}/members/45643`)
+    .get(`/groups/${group_name}/members/45643`)
     .set("Authorization", `Bearer ${admin_token}`);
   assert.equal(res.statusCode, 404);
 })
 
-test("GET /groups/:group_name/members/:user_id", async() => {
+test("GET /groups/:group_name/members/:user_name", async() => {
     const res = await request(app)
-    .get(`/groups/${group.name}/members/5`)
+    .get(`/groups/${group_name}/members/${writer.name}`)
     .set("Authorization", `Bearer ${admin_token}`);
   assert.equal(res.statusCode, 200);
   assert(!Array.isArray(res.body))
   const member = res.body
-  assert.ok("user_id" in member)
-  assert.equal(member.user_id, 5)
+  assert.ok("user_name" in member)
+  assert.equal(member.user_name, writer.name)
 })
 
 // redes access
 
 test("POST /groups/:group_name/redes unauthorized", async() =>{
   const res = await request(app)
-    .post(`/groups/${group.name}/redes`)
+    .post(`/groups/${group_name}/redes`)
     .send([
       {
         "red_id": 10,
@@ -243,13 +280,13 @@ test("POST /groups/:group_name/redes unauthorized", async() =>{
       }
     ])
     .set("Content-Type", "application/json")
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 401);
 })
 
 test("POST /groups/:group_name/redes", async() =>{
   const res = await request(app)
-    .post(`/groups/${group.name}/redes`)
+    .post(`/groups/${group_name}/redes`)
     .send([
       {
         "red_id": 10,
@@ -274,7 +311,7 @@ test("POST /groups/:group_name/redes", async() =>{
 
 test("GET /groups/:name/redes", async() => {
   const res = await request(app)
-    .get(`/groups/${group.name}/redes`)
+    .get(`/groups/${group_name}/redes`)
     .set("Authorization", `Bearer ${admin_token}`);
   assert.equal(res.statusCode, 200);
   assert(Array.isArray(res.body))
@@ -288,21 +325,21 @@ test("GET /groups/:name/redes", async() => {
 
 test("GET /groups/:group_name/redes/:red_id unauthorized", async() => {
   const res = await request(app)
-    .get(`/groups/${group.name}/redes/10`)
-    .set("Authorization", `Bearer ${writer_token}`);
+    .get(`/groups/${group_name}/redes/10`)
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 401);
 })
 
 test("GET /groups/:group_name/redes/:red_id not found", async() => {
   const res = await request(app)
-    .get(`/groups/${group.name}/redes/5876`)
+    .get(`/groups/${group_name}/redes/5876`)
     .set("Authorization", `Bearer ${admin_token}`);
   assert.equal(res.statusCode, 404);
 })
 
 test("GET /groups/:group_name/redes/:red_id", async() => {
     const res = await request(app)
-    .get(`/groups/${group.name}/redes/10`)
+    .get(`/groups/${group_name}/redes/10`)
     .set("Authorization", `Bearer ${admin_token}`);
   assert.equal(res.statusCode, 200);
   assert(!Array.isArray(res.body))
@@ -313,24 +350,24 @@ test("GET /groups/:group_name/redes/:red_id", async() => {
 
 // delete
 
-test("DELETE /groups/:group_name/members/:user_id (remove user from group)", async() => {
+test("DELETE /groups/:group_name/members/:user_name (remove user from group)", async() => {
     const res = await request(app)
-    .delete(`/groups/${group.name}/members/5`)
+    .delete(`/groups/${group_name}/members/${writer.name}`)
     .set("Authorization", `Bearer ${admin_token}`);
   assert.equal(res.statusCode, 200);
   assert(!Array.isArray(res.body))
   const member = res.body
-  assert.ok("user_id" in member)
-  assert.equal(member.user_id, 5)
+  assert.ok("user_name" in member)
+  assert.equal(member.user_name, writer.name)
   const res2 = await request(app)
-    .get(`/groups/${group.id}/members/5`)
+    .get(`/groups/${group_name}/members/${writer.name}`)
     .set("Authorization", `Bearer ${admin_token}`);
   assert.equal(res2.statusCode, 404);
 })
 
 test("DELETE /groups/:group_name/redes/:red_id (remove red from group)", async() => {
     const res = await request(app)
-    .delete(`/groups/${group.name}/redes/10`)
+    .delete(`/groups/${group_name}/redes/10`)
     .set("Authorization", `Bearer ${admin_token}`);
   assert.equal(res.statusCode, 200);
   assert(!Array.isArray(res.body))
@@ -345,22 +382,42 @@ test("DELETE /groups/:group_name/redes/:red_id (remove red from group)", async()
 
 test("DELETE /groups/:name  fail unauthorized", async () => {
   const res = await request(app)
-    .delete(`/groups/${group.name}`)
-    .set("Authorization", `Bearer ${writer_token}`);
+    .delete(`/groups/${group_name}`)
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 401);
 })
 
 test("DELETE /groups/:name", async () => {
   const res = await request(app)
-    .delete(`/groups/${group.name}`)
+    .delete(`/groups/${group_name}`)
     .set("Authorization", `Bearer ${admin_token}`);
   assert.equal(res.statusCode, 200);
   assert(!Array.isArray(res.body))
   const gr = res.body
   assert("name" in gr)
-  assert.equal(gr.name, group.name)
+  assert.equal(gr.name, group_name)
   const res2 = await request(app)
-    .get(`/groups/${group.name}`)
+    .get(`/groups/${group_name}`)
     .set("Authorization", `Bearer ${admin_token}`);
   assert.equal(res2.statusCode, 404);
+})
+
+
+// restore 
+test("restore", async() => {
+    const res0 = await request(app)
+    .delete(`/users/${writer.name}`)
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res0.body)
+  assert.equal(res0.statusCode,200)
+  const res1 = await request(app)
+    .delete(`/users/${noaccess.name}`)
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res1.body)
+  assert.equal(res1.statusCode,200)
+  const res2 = await request(app)
+    .delete(`/users/${reader.name}`)
+    .set("Authorization", `Bearer ${admin_token}`);
+  assert.equal(res2.statusCode,200)
+  console.log(res2.body)
 })

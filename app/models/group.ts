@@ -16,10 +16,20 @@ export interface GroupUpdateParams {
   name: string;
 }
 
+export interface GroupFilter  {
+  name?: string;
+}
+
 export class Group {
-  static async list(): Promise<GroupRecord[]> {
-    const q = `SELECT name FROM groups ORDER BY name`;
-    const result = await g.pool.query(q);
+  static async list(filter: GroupFilter={}): Promise<GroupRecord[]> {
+    let result : any
+    if(filter.name) {
+      const q = `SELECT name FROM groups WHERE name=$1 ORDER BY name`;
+      result = await g.pool.query(q,[filter.name]);
+    } else {
+      const q = `SELECT name FROM groups ORDER BY name`;
+      result = await g.pool.query(q);
+    }
     return result.rows as GroupRecord[];
   }
 
@@ -45,6 +55,7 @@ export class Group {
     const q = `
       INSERT INTO groups (name)
       VALUES ($1)
+      ON CONFLICT (name) DO UPDATE SET name=excluded.name
       RETURNING name
     `;
     const result = await g.pool.query(q, [params.name]);

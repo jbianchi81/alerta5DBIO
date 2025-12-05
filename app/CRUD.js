@@ -7504,6 +7504,10 @@ internal.CRUD = class {
 			RETURNING unid id, nombre, st_asGeoJSON(geom)::json geom, distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev AS abreviatura, URL as "URL", localidad, real, cero_ign, altitud, tabla, id_externo, ubicacion`
 			query_params = [estacion.nombre, estacion.id_externo, (estacion.geom) ? estacion.geom.coordinates[0] : undefined, (estacion.geom) ? estacion.geom.coordinates[1] : undefined, estacion.tabla, estacion.provincia, estacion.pais, estacion.rio, estacion.has_obs, estacion.tipo, estacion.automatica, estacion.habilitar, estacion.propietario, estacion.abreviatura, estacion.URL, estacion.localidad, estacion.real, estacion.cero_ign, estacion.altitud, estacion.ubicacion]
 		} else {
+			const has_access = await this.hasAccess(estacion.id,undefined,user_id,true) 
+			if(!has_access) {
+				throw new AuthError("El usuario no tiene derecho de escritura sobre esta estación")
+			}
 			query = `UPDATE estaciones 
 			SET nombre=coalesce($1,nombre),
 			id_externo=coalesce($2,id_externo), 
@@ -7619,7 +7623,7 @@ internal.CRUD = class {
 	}
 			
 	static async deleteEstacion(unid, user_id) {
-		const has_access = this.hasAccess(unid, undefined, user_id, true)
+		const has_access = await this.hasAccess(unid, undefined, user_id, true)
 		if(!has_access) {
 			throw new AuthError("El usuario no tiene permisos para eliminar la estación")
 		}
