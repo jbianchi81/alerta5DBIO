@@ -15,6 +15,7 @@ import { body } from 'express-validator'
 import querystring from 'querystring'
 import { spawn } from 'child_process'
 import crypto from 'crypto'
+import { setTimeout } from 'node:timers/promises';
 
 const config = global.config // require('config');
 
@@ -58,10 +59,6 @@ const mareas = Mareas.CRUD // new Mareas.CRUD(global.pool)
 const printRast = require('./print_rast')
 const print_rast = printRast.print_rast
 const print_rast_series = printRast.print_rast_series
-
-// MEMORY USAGE LOG
-fs.writeFileSync("logs/memUsage.log","#timestamp,rss,heapTotal,heapUsed,external\n")
-setInterval(logMemUsage,10000)
 
 // CORS
 const cors = require('cors')
@@ -146,12 +143,11 @@ app.get('/', (req,res)=> {
 	// })
 })
 
-app.get('/exit',auth.isAdmin,(req,res)=>{  // terminate Nodejs process
+app.get('/exit',auth.isAdmin,async (req,res)=>{  // terminate Nodejs process
 	res.status(200).send("Terminating Nodejs process")
 	console.log("Exit order recieved from client")
-	setTimeout(()=>{
-		process.exit()
-	},500)
+	await setTimeout(500)
+	process.exit()
 })
 app.post('/getRedes',auth.isPublic,[
 	body('nombre').isString().trim(),
@@ -8142,14 +8138,6 @@ function countValidFilters(valid_filters={},filter={}) {
 		}
 	}
 	return count_filters
-}
-
-function logMemUsage(logfile="logs/memUsage.log") {
-	var mu = process.memoryUsage()
-	var now = new Date()
-	var line = [now.toISOString(),mu.rss,mu.heapTotal,mu.heapUsed,mu.external].join(",") + "\n"
-	// console.log(line)
-	fs.appendFileSync(logfile,line)
 }
 
 function guess_tipo (data) {

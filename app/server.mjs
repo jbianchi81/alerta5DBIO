@@ -1,4 +1,17 @@
 import app, { auth } from "./rest.mjs";
+import fs  from "promise-fs"
+
+// MEMORY USAGE LOG
+function logMemUsage(logfile="logs/memUsage.log") {
+	var mu = process.memoryUsage()
+	var now = new Date()
+	var line = [now.toISOString(),mu.rss,mu.heapTotal,mu.heapUsed,mu.external].join(",") + "\n"
+	// console.log(line)
+	fs.appendFileSync(logfile,line)
+}
+
+fs.writeFileSync("logs/memUsage.log","#timestamp,rss,heapTotal,heapUsed,external\n")
+setInterval(logMemUsage,10000)
 
 const config = global.config
 

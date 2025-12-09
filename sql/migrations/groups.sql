@@ -1,15 +1,15 @@
 BEGIN;
 
-DROP VIEW user_fuentes_access;
-DROP TABLE user_groups_fuentes_access;
-DROP VIEW user_area_access;
-DROP TABLE user_area_groups_access;
-DROP TABLE area_groups;
+DROP VIEW IF EXISTS user_fuentes_access;
+DROP TABLE IF EXISTS user_groups_fuentes_access;
+DROP VIEW IF EXISTS user_area_access;
+DROP TABLE IF EXISTS user_area_groups_access;
+DROP TABLE IF EXISTS area_groups;
 
-DROP VIEW user_red_access;
-DROP TABLE red_group_access;
-DROP TABLE user_groups;
-DROP TABLE groups;
+DROP VIEW IF EXISTS user_red_access;
+DROP TABLE IF EXISTS red_group_access;
+DROP TABLE IF EXISTS user_groups;
+DROP TABLE IF EXISTS groups;
 
 -- CREATE TYPE access_level AS ENUM ('read', 'write');
 
