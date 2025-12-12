@@ -11530,7 +11530,7 @@ internal.CRUD = class {
 						)
 					}
 				}
-				const invalid_filter_keys = Object.keys(filter).filter(key => (Object.keys(valid_filters).indexOf(key) < 0))
+				const invalid_filter_keys = Object.keys(filter).filter(key => filter[key]).filter(key => (Object.keys(valid_filters).indexOf(key) < 0))
 				if(invalid_filter_keys.length) {
 					throw(new Error("Invalid filter keys: " + invalid_filter_keys.toString()))
 				}
