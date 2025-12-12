@@ -11398,7 +11398,6 @@ internal.CRUD = class {
 					throw new Error(e)
 				}
 			}
-			console.debug("release_client: " + release_client.toString())
 			var result_rows = []
 			if(filter.id) {
 				if(Array.isArray(filter.id)) {
