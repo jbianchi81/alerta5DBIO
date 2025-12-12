@@ -48,6 +48,7 @@ internal.hidrowebservice_historico = require('./accessors/hidrowebservice_histor
 internal.fewspirestwebservice = require('./accessors/fewspirestwebservice').Client
 internal.dados_ons = require('./accessors/dados_ons').Client
 internal.gpm = require('./accessors/gpm').Client
+internal.gpm_3h = internal.gpm
 internal.dinac_convencional = require('./accessors/dinac_convencional').Client
 internal.hidroinformatica = require('./accessors/hidroinformatica').Client
 internal.hidroestimador = require('./accessors/hidroestimador').Client
