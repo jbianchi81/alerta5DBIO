@@ -7380,6 +7380,9 @@ internal.CRUD = class {
 	}
 
 	static upsertEstacionQuery(estacion,options={}) {
+		if(!estacion.geom) {
+			throw new Error("Missing required geom field")
+		}
 		var onconflictaction = (options.no_update) ? "DO NOTHING" : (options.no_update_id || !estacion.id) ? "DO UPDATE SET \
 				nombre=excluded.nombre,\
 				geom=excluded.geom,\
@@ -11615,12 +11618,12 @@ internal.CRUD = class {
 						}
 						console.debug(`page: ${page}, deleted_rows: ${deleted_rows}`)
 					} catch (e) {
-						if(release_client) {
-							console.debug("ROLLBACK")
-							await client.query("ROLLBACK")
-							console.debug("releasing client")
-							await client.release()
-						}
+						// if(release_client) {
+						// 	console.debug("ROLLBACK")
+						// 	await client.query("ROLLBACK")
+						// 	console.debug("releasing client")
+						// 	await client.release()
+						// }
 						throw(e)
 					}
 				} while (deleted_rows > 0)
