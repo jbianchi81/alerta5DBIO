@@ -9151,10 +9151,11 @@ internal.CRUD = class {
 					if(!serie.var.id) {
 						throw(new Error("var.id missing"))
 					}
-					serie_props["var"] = await internal.var.read(serie.var.id)
-					if(!serie_props["var"]) {
+					serie_props["var"] = await internal.var.read({id:serie.var.id})
+					if(!serie_props["var"].length) {
 						throw(new Error("var " + serie.var.id + " not found"))
 					}
+					serie_props["var"] = serie_props["var"][0]
 					if(!serie.procedimiento.id) {
 						throw(new Error("procedimiento.id missing"))
 					}

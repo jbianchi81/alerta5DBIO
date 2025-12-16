@@ -35,6 +35,7 @@ exports.Client = exports.parseEmas = void 0;
 const abstract_accessor_engine_1 = require("./abstract_accessor_engine");
 const accessor_utils_1 = require("../accessor_utils");
 const CRUD_1 = require("../CRUD");
+const node_fetch_1 = __importDefault(require("node-fetch"));
 const fs_1 = __importDefault(require("fs"));
 const readline_1 = __importDefault(require("readline"));
 const VARIABLES = [
@@ -45,10 +46,39 @@ const VARIABLES = [
     "humsuelo3", "tempsuelo1", "tempsuelo2", "tempsuelo3", "humhoja", "muestviento",
     "txviento", "recepiss", "intarc"
 ];
-function parseDate(dateStr, timeStr) {
+const COMPASS_16 = {
+    N: 0,
+    NNE: 22.5,
+    NE: 45,
+    ENE: 67.5,
+    E: 90,
+    ESE: 112.5,
+    SE: 135,
+    SSE: 157.5,
+    S: 180,
+    SSW: 202.5,
+    SW: 225,
+    WSW: 247.5,
+    W: 270,
+    WNW: 292.5,
+    NW: 315,
+    NNW: 337.5
+};
+function dirToDegrees(direction) {
+    if (!(direction in COMPASS_16)) {
+        throw new Error("Bad compass direction");
+    }
+    return COMPASS_16[direction];
+}
+function parseDate(dateStr, timeStr, USADateFormat = false) {
     // dateStr: "m/d/yy"
     // timeStr: "hh:mm"
-    const [m, d, yy] = dateStr.split("/").map(Number);
+    if (USADateFormat) {
+        var [m, d, yy] = dateStr.split("/").map(Number);
+    }
+    else {
+        var [d, m, yy] = dateStr.split("/").map(Number);
+    }
     const [hh, mm] = timeStr.split(":").map(Number);
     const yyyy = 2000 + yy;
     const dt = new Date(Date.UTC(yyyy, m - 1, d, hh, mm));
@@ -83,7 +113,7 @@ function readLinesLocalFile(path) {
 }
 function readLinesUrl(url) {
     return __asyncGenerator(this, arguments, function* readLinesUrl_1() {
-        const res = yield __await(fetch(url));
+        const res = yield __await((0, node_fetch_1.default)(url));
         if (!res.ok)
             throw new Error(`Failed to fetch ${url}: ${res.statusText}`);
         const text = yield __await(res.text());
@@ -156,9 +186,10 @@ stationId, variables = VARIABLES, timestart, timeend) {
 }
 exports.parseEmas = parseEmas;
 class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
-    constructor() {
-        super(...arguments);
+    constructor(config) {
+        super(config);
         this.default_config = {
+            "stations_file": "data/emas/stations.json",
             "url": "https://www.hidraulica.gob.ar/ema",
             "variable_lists": {
                 "basabil": [
@@ -183,14 +214,14 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 "gualeguaychu": ["tempmedia", "tempmax", "tempmin", "humrel", "puntorocio", "velvientomedia", "dirviento", "recviento", "velvientomax", "dirvientomax", "sensterm", "indcalor", "indthw", "presion", "precip", "intprecip", "graddcalor", "graddfrio", "tempint", "humint", "rocioint", "incalint", "muestviento", "txviento", "recepiss", "intarc"]
             },
             "variable_map": {
-                53: "tempmedia",
-                58: "humrel",
-                43: "puntorocio",
-                55: "velvientomedia",
-                57: "dirviento",
-                68: "presion",
-                27: "precip",
-                14: "radsolar"
+                53: { name: "tempmedia", unit_id: 12 },
+                58: { name: "humrel", unit_id: 15 },
+                43: { name: "puntorocio", unit_id: 12 },
+                55: { name: "velvientomedia", unit_id: 13 },
+                57: { name: "dirviento", unit_id: 16 },
+                68: { name: "presion", unit_id: 17 },
+                27: { name: "precip", unit_id: 9 },
+                14: { name: "radsolar", unit_id: 144 }
             },
             "station_map": {
                 928: {
@@ -215,6 +246,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 }
             }
         };
+        this.setConfig(config);
     }
     getData(station_id, timestart, timeend) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -236,60 +268,168 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         if (!variable) {
             throw new Error("var_id" + var_id + " not found in variable_map");
         }
-        return emas_table.rows.map(row => {
-            return {
+        const obs = []
+        for(const row of emas_table.rows) {
+            if(row.values[variable.name] == null) {
+                continue
+            }
+            const valor = (["dirviento", "dirvientomax"].indexOf(variable.name) >= 0) ? dirToDegrees(row.values[variable.name].toString()) : Number(row.values[variable.name]);
+            obs.push({
                 timestart: row.date_time,
                 timeend: row.date_time,
-                valor: row[variable],
+                valor: valor,
                 series_id: series_id
-            };
+            })
+        }
+        return obs
+    }
+    getSites(filter = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this.config.stations_file) {
+                throw new Error("Missing stations_file in config");
+            }
+            if (!fs_1.default.existsSync(this.config.stations_file)) {
+                throw new Error("Stations file not found");
+            }
+            const stations_ = fs_1.default.readFileSync(this.config.stations_file, { encoding: "utf-8" });
+            const stations = JSON.parse(stations_);
+            if (!Array.isArray(stations)) {
+                throw new Error("stations file must be a json array");
+            }
+            const crud_stations = (0, accessor_utils_1.filterSites)(stations, filter).map((s) => new CRUD_1.estacion(s));
+            for (const s of crud_stations) {
+                yield s.getId();
+            }
+            return crud_stations;
         });
     }
     getSeries(filter = {}) {
         return __awaiter(this, void 0, void 0, function* () {
+            const stations = yield this.getSites({ estacion_id: filter.estacion_id });
+            var series = [];
+            for (const station of stations) {
+                const station_series = Object.keys(this.config.variable_map).map(var_id => {
+                    return {
+                        estacion_id: station.id,
+                        var_id: var_id,
+                        unit_id: this.config.variable_map[var_id].unit_id,
+                        proc_id: 1
+                    };
+                });
+                series.push(...station_series);
+            }
+            var crud_series = series.map(s => new CRUD_1.serie(s));
+            for (const s of crud_series) {
+                yield s.getId(false);
+            }
+            crud_series = (0, accessor_utils_1.filterSeries)(crud_series, filter);
+            return crud_series;
+        });
+    }
+    getSavedSeries(filter = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
             const station_ids = Object.keys(this.config.station_map);
-            var series = yield CRUD_1.serie.read({ estacion_id: station_ids }, { no_metadata: true });
+            var series = yield CRUD_1.serie.read({ estacion_id: station_ids });
             series = (0, accessor_utils_1.filterSeries)(series, filter);
             const series_map = {};
             for (const serie of series) {
                 series_map[serie.id] = {
+                    tipo: serie.tipo,
                     estacion_id: serie.estacion.id,
-                    var_id: serie.var.id
+                    var_id: serie.var.id,
+                    unit_id: serie.unidades.id,
+                    proc_id: serie.procedimiento.id
                 };
             }
             this.series_map = series_map;
             return series;
         });
     }
-    get(filter) {
+    get(filter, options) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!filter || !filter.series_id) {
-                throw new Error("Missing series_id");
-            }
             if (!this.series_map) {
-                yield this.getSeries({ series_id: filter.series_id });
+                yield this.getSavedSeries({ series_id: filter.series_id });
             }
-            if (Array.isArray(filter.series_id)) {
-                const observaciones = [];
-                for (const s_id of filter.series_id) {
-                    const serie = this.series_map[s_id];
+            const observaciones = [];
+            const series = [];
+            if (filter.series_id) {
+                if (Array.isArray(filter.series_id)) {
+                    for (const s_id of filter.series_id) {
+                        const serie = this.series_map[s_id];
+                        if (!serie) {
+                            throw new Error("series_id " + filter.series_id + " not found");
+                        }
+                        const emas_table = yield this.getData(serie.estacion_id, filter.timestart, filter.timeend);
+                        const obs = this.extractSerieFromTable(emas_table, serie.var_id, s_id);
+                        if (options && options.return_series) {
+                            series.push(Object.assign(Object.assign({}, serie), { observaciones: obs }));
+                        }
+                        else {
+                            observaciones.push(...obs);
+                        }
+                    }
+                }
+                else {
+                    const serie = this.series_map[filter.series_id];
                     if (!serie) {
                         throw new Error("series_id " + filter.series_id + " not found");
                     }
                     const emas_table = yield this.getData(serie.estacion_id, filter.timestart, filter.timeend);
-                    observaciones.push(...(this.extractSerieFromTable(emas_table, serie.var_id, s_id)));
+                    const obs = this.extractSerieFromTable(emas_table, serie.var_id, filter.series_id);
+                    if (options && options.return_series) {
+                        series.push(Object.assign(Object.assign({}, serie), { observaciones: obs }));
+                    }
+                    else {
+                        observaciones.push(...obs);
+                    }
                 }
-                return observaciones;
             }
             else {
-                const serie = this.series_map[filter.series_id];
-                if (!serie) {
-                    throw new Error("series_id " + filter.series_id + " not found");
+                // filter series and group by estacion_id
+                const grouped = (0, accessor_utils_1.filterSeriesByIds)(Object.entries(this.series_map).map(([key, obj]) => (Object.assign({ id: key }, obj))), filter).reduce((acc, obj) => {
+                    var _a;
+                    const key = obj.estacion_id;
+                    ((_a = acc[key]) !== null && _a !== void 0 ? _a : (acc[key] = [])).push(obj);
+                    return acc;
+                }, {});
+                const observaciones = [];
+                // iter estaciones
+                for (const estacion_id of Object.keys(grouped)) {
+                    const e_id = Number(estacion_id);
+                    const emas_table = yield this.getData(e_id, filter.timestart, filter.timeend);
+                    for (const serie of grouped[estacion_id]) {
+                        const obs = this.extractSerieFromTable(emas_table, serie.var_id);
+                        if (options && options.return_series) {
+                            series.push(Object.assign(Object.assign({}, serie), { observaciones: obs }));
+                        }
+                        else {
+                            observaciones.push(...obs);
+                        }
+                    }
                 }
-                const emas_table = yield this.getData(serie.estacion_id, filter.timestart, filter.timeend);
-                return this.extractSerieFromTable(emas_table, serie.var_id, filter.series_id);
             }
+            if (options && options.return_series) {
+                return series;
+            }
+            else {
+                return observaciones;
+            }
+        });
+    }
+    createAccessor() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const emas_accessor = new CRUD_1.accessor({
+                name: "emas",
+                class: "emas",
+                url: this.config.url,
+                config: this.config,
+                series_tipo: "puntual",
+                title: "Estaciones Meteorológicas Automáticas DPH Entre Ríos"
+            });
+            const created = yield emas_accessor.create();
+            return created;
         });
     }
 }
 exports.Client = Client;
+Client._get_is_multiseries = true;

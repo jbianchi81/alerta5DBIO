@@ -200,6 +200,23 @@ internal.filterSeries = function(series=[],params={}) {
 	})
 }
 
+internal.filterSeriesByIds = function(series=[],params={}) {
+	return series.filter(serie => {
+        return (
+            [
+                internal.filterByParam(params.estacion_id, serie.estacion_id),
+                internal.filterByParam(params.var_id, serie.var_id),
+                internal.filterByParam(params.unit_id, serie.unit_id),
+                internal.filterByParam(params.series_id, serie.id),
+                internal.filterByParam(params.id, serie.id),
+                internal.filterByParam(params.tipo, serie.tipo)
+            ].indexOf(false) < 0
+        )
+		
+	})
+}
+
+
 /**
  * Fetch url with querystring params and write stream into localfilepath. Resolve with callback on write stream finish
  * @param {string} url - url

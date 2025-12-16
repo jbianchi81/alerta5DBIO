@@ -56,6 +56,7 @@ internal.caru = require('./accessors/caru').Client
 internal.ctp_ultimas_alturas = require('./accessors/ctp_ultimas_alturas').Client
 internal.persiann = require('./accessors/persiann').Client
 internal.pilcomayo = require('./accessors/pilcomayo').Client
+internal.emas = require('./accessors/emas').Client
 
 // Promise.allSettled polyfill
 
@@ -152,6 +153,30 @@ internal.getAccessor = async function (name,classname,config) {
 
 
 internal.Accessor = class {
+
+	async create() {
+		if(this.engine.createAccessor) {
+			return this.engine.createAccessor()
+		} else {
+			const acc = await CRUD.accessor({
+				class: this.clase,
+				name: this.clase,
+				url: this.url,
+				series_tipo: this.series_tipo,
+				series_source_id: this.series_source_id,
+				series_id: this.series_id,
+				title: this.title,
+				upload_fields: this.upload_fields,
+				config: this.config
+			})
+			return acc.create()
+		}
+	}
+
+	async delete() {
+		return CRUD.accessor.delete({name: this.name})
+	}
+
 	constructor(fields={}) { // clase, url, series_tipo, series_source_id,config,series_id) {
 		if(!fields.class) {
 			throw("Missing class")
