@@ -65,6 +65,9 @@ const COMPASS_16 = {
     NNW: 337.5
 };
 function dirToDegrees(direction) {
+    if (!direction) {
+        return;
+    }
     if (!(direction in COMPASS_16)) {
         throw new Error("Bad compass direction");
     }
@@ -91,21 +94,28 @@ function parseDate(dateStr, timeStr, USADateFormat = false) {
 }
 function readLinesLocalFile(path) {
     return __asyncGenerator(this, arguments, function* readLinesLocalFile_1() {
-        var e_1, _a;
+        var _a, e_1, _b, _c;
         const rl = readline_1.default.createInterface({
             input: fs_1.default.createReadStream(path),
             crlfDelay: Infinity,
         });
         try {
-            for (var rl_1 = __asyncValues(rl), rl_1_1; rl_1_1 = yield __await(rl_1.next()), !rl_1_1.done;) {
-                const line = rl_1_1.value;
-                yield yield __await(line);
+            for (var _d = true, rl_1 = __asyncValues(rl), rl_1_1; rl_1_1 = yield __await(rl_1.next()), _a = rl_1_1.done, !_a;) {
+                _c = rl_1_1.value;
+                _d = false;
+                try {
+                    const line = _c;
+                    yield yield __await(line);
+                }
+                finally {
+                    _d = true;
+                }
             }
         }
         catch (e_1_1) { e_1 = { error: e_1_1 }; }
         finally {
             try {
-                if (rl_1_1 && !rl_1_1.done && (_a = rl_1.return)) yield __await(_a.call(rl_1));
+                if (!_d && !_a && (_b = rl_1.return)) yield __await(_b.call(rl_1));
             }
             finally { if (e_1) throw e_1.error; }
         }
@@ -127,7 +137,7 @@ function readLinesUrl(url) {
  */
 function parseEmas(source, // local file path OR http(s) URL
 stationId, variables = VARIABLES, timestart, timeend) {
-    var e_2, _a;
+    var _a, e_2, _b, _c;
     return __awaiter(this, void 0, void 0, function* () {
         const rows = [];
         const isUrl = /^https?:\/\//i.test(source);
@@ -135,49 +145,56 @@ stationId, variables = VARIABLES, timestart, timeend) {
             ? readLinesUrl(source)
             : readLinesLocalFile(source);
         try {
-            for (var lineGenerator_1 = __asyncValues(lineGenerator), lineGenerator_1_1; lineGenerator_1_1 = yield lineGenerator_1.next(), !lineGenerator_1_1.done;) {
-                let line = lineGenerator_1_1.value;
-                line = line.trim();
-                if (!line)
-                    continue;
-                const parts = line.split(/\s+/);
-                if (!/^\d{1,2}\/\d{1,2}\/\d\d$/.test(parts[0]))
-                    continue; // skip non-date lines
-                const dateStr = parts[0];
-                const timeStr = parts[1];
-                const timestamp = parseDate(dateStr, timeStr);
-                if (!timestamp)
-                    continue;
-                if (timestart && timestamp.getTime() < timestart.getTime())
-                    continue;
-                if (timeend && timestamp.getTime() > timeend.getTime())
-                    continue;
-                const values = parts.slice(2);
-                const record = {};
-                for (let i = 0; i < values.length; i++) {
-                    const val = values[i];
-                    if (val === "---")
+            for (var _d = true, lineGenerator_1 = __asyncValues(lineGenerator), lineGenerator_1_1; lineGenerator_1_1 = yield lineGenerator_1.next(), _a = lineGenerator_1_1.done, !_a;) {
+                _c = lineGenerator_1_1.value;
+                _d = false;
+                try {
+                    let line = _c;
+                    line = line.trim();
+                    if (!line)
                         continue;
-                    const name = VARIABLES[i];
-                    if (!name)
+                    const parts = line.split(/\s+/);
+                    if (!/^\d{1,2}\/\d{1,2}\/\d\d$/.test(parts[0]))
+                        continue; // skip non-date lines
+                    const dateStr = parts[0];
+                    const timeStr = parts[1];
+                    const timestamp = parseDate(dateStr, timeStr);
+                    if (!timestamp)
                         continue;
-                    if (/^[+-]?\d+(?:\.\d+)?$/.test(val)) {
-                        record[name] = parseFloat(val);
+                    if (timestart && timestamp.getTime() < timestart.getTime())
+                        continue;
+                    if (timeend && timestamp.getTime() > timeend.getTime())
+                        continue;
+                    const values = parts.slice(2);
+                    const record = {};
+                    for (let i = 0; i < values.length; i++) {
+                        const val = values[i];
+                        if (val === "---")
+                            continue;
+                        const name = VARIABLES[i];
+                        if (!name)
+                            continue;
+                        if (/^[+-]?\d+(?:\.\d+)?$/.test(val)) {
+                            record[name] = parseFloat(val);
+                        }
+                        else {
+                            record[name] = val;
+                        }
                     }
-                    else {
-                        record[name] = val;
-                    }
+                    rows.push({
+                        date_time: timestamp,
+                        values: record
+                    });
                 }
-                rows.push({
-                    date_time: timestamp,
-                    values: record
-                });
+                finally {
+                    _d = true;
+                }
             }
         }
         catch (e_2_1) { e_2 = { error: e_2_1 }; }
         finally {
             try {
-                if (lineGenerator_1_1 && !lineGenerator_1_1.done && (_a = lineGenerator_1.return)) yield _a.call(lineGenerator_1);
+                if (!_d && !_a && (_b = lineGenerator_1.return)) yield _b.call(lineGenerator_1);
             }
             finally { if (e_2) throw e_2.error; }
         }
@@ -192,7 +209,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             "stations_file": "data/emas/stations.json",
             "url": "https://www.hidraulica.gob.ar/ema",
             "variable_lists": {
-                "basabil": [
+                "basavil": [
                     "tempmedia", "tempmax", "tempmin", "humrel", "puntorocio", "velvientomedia", "dirviento",
                     "recviento", "velvientomax", "dirvientomax", "sensterm", "indcalor", "indthw", "indthws",
                     "presion", "precip", "intprecip", "radsolar", "enersolar", "maxradsolar", "graddcalor",
@@ -268,10 +285,10 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         if (!variable) {
             throw new Error("var_id" + var_id + " not found in variable_map");
         }
-        const obs = []
-        for(const row of emas_table.rows) {
-            if(row.values[variable.name] == null) {
-                continue
+        const obs = [];
+        for (const row of emas_table.rows) {
+            if (row.values[variable.name] == null) {
+                continue;
             }
             const valor = (["dirviento", "dirvientomax"].indexOf(variable.name) >= 0) ? dirToDegrees(row.values[variable.name].toString()) : Number(row.values[variable.name]);
             obs.push({
@@ -279,9 +296,9 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 timeend: row.date_time,
                 valor: valor,
                 series_id: series_id
-            })
+            });
         }
-        return obs
+        return obs;
     }
     getSites(filter = {}) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -431,5 +448,5 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         });
     }
 }
-exports.Client = Client;
 Client._get_is_multiseries = true;
+exports.Client = Client;

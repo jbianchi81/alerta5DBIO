@@ -200,7 +200,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
     "stations_file": "data/emas/stations.json",
     "url": "https://www.hidraulica.gob.ar/ema", // unused
     "variable_lists": {
-      "basabil": [
+      "basavil": [
         "tempmedia", "tempmax", "tempmin", "humrel", "puntorocio", "velvientomedia", "dirviento",
         "recviento", "velvientomax", "dirvientomax", "sensterm", "indcalor", "indthw", "indthws",
         "presion", "precip", "intprecip", "radsolar", "enersolar", "maxradsolar", "graddcalor",
@@ -280,15 +280,20 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
     if (!variable) {
       throw new Error("var_id" + var_id + " not found in variable_map")
     }
-    return emas_table.rows.map(row => {
+    const obs : Observacion[] = []
+    for(const row of emas_table.rows) {
+      if(row.values[variable.name] == null) {
+        continue
+      }
       const valor = (["dirviento", "dirvientomax"].indexOf(variable.name) >= 0) ? dirToDegrees(row.values[variable.name].toString()) : Number(row.values[variable.name])  
-      return {
+      obs.push({
         timestart: row.date_time,
         timeend: row.date_time,
         valor: valor,
         series_id: series_id
-      }
-    })
+      })
+    }
+    return obs
   }
 
   async getSites(filter: SitesFilter = {}): Promise<Estacion[]> {

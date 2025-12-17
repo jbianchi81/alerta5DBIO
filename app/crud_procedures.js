@@ -1982,6 +1982,27 @@ internal.ReadVariablesFromAccessorProcedure = class extends internal.CrudProcedu
     }
 }
 
+internal.CreateAccessorProcedure  = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "CreateAccessorProcedure"
+        if(!arguments[0]) {
+            throw("Missing arguments")
+        }
+        if(!arguments[0].class) {
+            throw("Missing class")
+        }
+        this.class = arguments[0].class
+        this.name = arguments[0].name ?? this.class
+    }
+    async run() {
+        const client = new Accessors.Accessor({class:this.class, name: this.name})
+        const accessor = await client.create()
+        this.result = accessor
+        console.log("Created accesor " + this.class)
+        return this.result
+    }
+}
 
 internal.TestAccessorProcedure  = class  extends internal.CrudProcedure {
     constructor() {
@@ -3618,6 +3639,7 @@ const availableCrudProcedures = {
     "UpdateCubeFromSeriesProcedure": internal.UpdateCubeFromSeriesProcedure,
     "UpdateSerieRastFromCubeProcedure": internal.UpdateSerieRastFromCubeProcedure,
     "GetPpCdpBatchProcedure": internal.GetPpCdpBatchProcedure,
+    "CreateAccessorProcedure": internal.CreateAccessorProcedure,
     "TestAccessorProcedure": internal.TestAccessorProcedure,
     "UpdateFromAccessorProcedure":internal.UpdateFromAccessorProcedure,
     "DeleteFromAccessorProcedure": internal.DeleteFromAccessorProcedure,

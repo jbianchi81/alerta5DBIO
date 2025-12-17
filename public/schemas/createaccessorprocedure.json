@@ -1,0 +1,29 @@
+{
+    "$id": "testaccessorprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "CreateAccessorProcedure",
+    "description": "Creates accessor with default parameters",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "CreateAccessorProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "class": {
+                    "type": "string",
+                    "description": "Class of the accessor to be created"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Assign this name to the accessor. Defaults to class name"
+                }
+            },
+            "required": [
+                "class"
+            ]
+        }
+    }
+}
