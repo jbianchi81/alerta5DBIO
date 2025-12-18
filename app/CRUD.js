@@ -10466,12 +10466,12 @@ internal.CRUD = class {
 	static removeDuplicates(observaciones) {   // elimina observaciones con timestart duplicado
 		// var timestarts = []
 		// console.log("sorting...")
-		observaciones.sort((a,b) => (a.timestart - b.timestart))
+		observaciones.sort((a,b) => (a.timestart.getTime() - b.timestart.getTime()))
 		// console.log("done")
 		var previous_timestart = new Date("1800-01-01")
 		// console.log("filtering...")
 		return observaciones.filter(o=>{ 
-			if(o.timestart - previous_timestart == 0) {
+			if(o.timestart.getTime() - previous_timestart.getTime() == 0) {
 				console.log("removing duplicate observacion, timestart:"+o.timestart)
 				return false
 			} else {

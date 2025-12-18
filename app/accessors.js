@@ -5377,11 +5377,12 @@ internal.sat2 = class {
 			for(var mapping of series_mappings) {
 				var historicos = await this.RecuperarHistoricosDeEquipoPorSensor(mapping.idEquipo,mapping.idSensor,timestart,timeend,cookieJar)
 				observaciones.push(...historicos.body.map(observacion=>{
+					const timestart = new Date(observacion.fecha)
 					return {
 						tipo: "puntual",
 						series_id: series_id,
-						timestart: observacion.fecha,
-						timeend: observacion.fecha,
+						timestart: timestart,
+						timeend: timestart,
 						valor: observacion.valor
 					}
 				}))
@@ -5435,7 +5436,8 @@ internal.sat2 = class {
 						continue
 					}
 				}
-				for(const idSensor of idSensores) {						// DESCARGA DATOS DE EQUIPO POR SENSOR DE API 
+				for(const idSensor of idSensores) {						
+					// DESCARGA DATOS DE EQUIPO POR SENSOR DE API 
 					if(filter.id_sensor) {
 						if(Array.isArray(filter.id_sensor)) {
 							if(filter.id_sensor.indexOf(idSensor.toString()) < 0) {
@@ -5458,11 +5460,12 @@ internal.sat2 = class {
 					const obs = crud.removeDuplicates(
 						historicos.body.map(
 							observacion=>{
+								const timestart = new Date(observacion.fecha)
 								return {
 									tipo: "puntual",
 									series_id: serie.id,
-									timestart: observacion.fecha,
-									timeend: observacion.fecha,
+									timestart: timestart,
+									timeend: timestart,
 									valor: observacion.valor
 								}
 					}))
