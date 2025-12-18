@@ -4924,6 +4924,149 @@ internal.sat2 = class {
                 //~ "149": {"var_id":37, "unit_id":11, "proc_id":1},           // nivel nieve
                 //~ "14": {"var_id":14, "unit_id":33, "proc_id":1}            // radiacion
 			},
+			"direct_mappings": {
+				"99": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"100": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"101": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"102": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"104": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"105": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"106": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"107": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"109": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"110": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"111": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"112": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"113": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"114": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"115": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"116": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"117": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"118": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"119": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"120": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"121": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"122": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"123": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"124": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"125": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"126": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"127": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"128": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"129": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"130": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"131": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"132": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"133": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"134": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"135": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"136": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"137": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"138": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"139": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"140": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"141": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"142": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"143": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"144": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"145": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"146": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"1046": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				]
+			},
 			"derived_series": [
 				{
 					"source_series": {
@@ -5168,10 +5311,37 @@ internal.sat2 = class {
 		return idSensores
 	}
 
+	getDirectMappings(id_externo,var_id,unit_id) {
+		if(!this.config.direct_mappings) {
+			// console.debug("Direct mappings not set")
+			return
+		}
+		if(!(id_externo in this.config.direct_mappings)) {
+			// console.debug("id_externo not found in direct mappings")
+			return
+		}
+		const direct_mappings = this.config.direct_mappings[id_externo].filter(m => m.var_id == var_id && m.unit_id == unit_id)
+		if(!direct_mappings.length) {
+			// console.debug("id_Externo found but no direct mappings for var_id and unit_id")
+			return
+		}
+		return direct_mappings.map(m => {
+			return {idEquipo: Number(id_externo), idSensor: m.idSensor}
+		})
+	}
+
 	async getSeriesMappings(series_id) {
 		// returns {idEquipo:"", idSensor:""}
-		return crud.getSerie("puntual",series_id)
-		.then(serie=>{
+		try {
+			const serie = await crud.getSerie("puntual",series_id)
+
+			// mapeo directo
+			const direct_mappings = this.getDirectMappings(serie.estacion.id_externo,serie.var.id,serie.unidades.id)
+			if(direct_mappings) {
+				return direct_mappings
+			}
+
+			// mapeo por id sensor y unidades
 			var idSensores = this.getIdSensores(serie.var.id,serie.unidades.id)
 			if(!idSensores) {
 				console.error("No se encontraron sensores que coincidan con var_id y unit_id")
@@ -5183,11 +5353,11 @@ internal.sat2 = class {
 					"idSensor": idSensor
 				}
 			})
-		})
-		.catch(e=>{
-			console.error("Serie no encontrada")
+		}
+		catch (e) {
+			console.error("Serie no encontrada:" + e.toString())
 			return
-		})
+		}
 	}
 
 	async getData(series_id,timestart,timeend) {
@@ -5245,7 +5415,7 @@ internal.sat2 = class {
 		const estaciones = await crud.getEstaciones(estaciones_filter)													// GETESTACIONES DE DB
 		const observaciones = []
 		for(const estacion of estaciones) {
-			//~ console.log({estacion:estacion})
+			// console.debug({estacion_id:estacion.id})
 			var seriesFilter = {...estaciones_filter}
 			seriesFilter.estacion_id = estacion.id
 			seriesFilter.proc_id = 1
@@ -5254,11 +5424,16 @@ internal.sat2 = class {
 			// console.debug({series_length: series.length})
 			for(const serie of series) {
 				//~ console.log({serie:serie})
-				//~ console.log({var_id: serie.var.id})
-				var idSensores = this.getIdSensores(serie.var.id,serie.unidades.id)
-				if(!idSensores) {
-					//~ console.log("idSensor not found")
-					continue
+				// console.debug({var_id: serie.var.id})
+				const direct_mappings = this.getDirectMappings(serie.estacion.id_externo,serie.var.id,serie.unidades.id)
+				if(direct_mappings) {
+					var idSensores = direct_mappings.map(m => m.idSensor)
+				} else {
+					var idSensores = this.getIdSensores(serie.var.id,serie.unidades.id)
+					if(!idSensores) {
+						// console.debug("idSensor not found")
+						continue
+					}
 				}
 				for(const idSensor of idSensores) {						// DESCARGA DATOS DE EQUIPO POR SENSOR DE API 
 					if(filter.id_sensor) {
