@@ -293,6 +293,65 @@ const estacion_id = 2948
     assert.equal(res.body.id,serie.id)
   })
 
+  // OBSERVACIONES
+
+test("POST /obs/puntual/series/:id/observaciones  w/ write access", async () => {
+    const res = await request(app)
+      .post(`/obs/puntual/series/${serie.id}/observaciones`)
+      .send([{
+        timestart: new Date("2000-01-01T03:00:00.000Z"),
+        timeend: new Date("2000-01-01T03:00:00.000Z"),
+        valor: 1.11
+      },{
+        timestart: new Date("2000-01-02T03:00:00.000Z"),
+        timeend: new Date("2000-01-02T03:00:00.000Z"),
+        valor: 2.22
+      },{
+        timestart: new Date("2000-01-03T03:00:00.000Z"),
+        timeend: new Date("2000-01-03T03:00:00.000Z"),
+        valor: 3.33
+      }])
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${writer.token}`);
+
+    assert.equal(res.statusCode, 200);
+    assert(Array.isArray(res.body));
+    assert.equal(res.body.length,3)
+    const observaciones = res.body[0]
+    for(const o of observaciones) {
+      assert.ok("timestart" in observaciones)
+      assert.ok(new Date(observaciones.timestart).toString() != "Invalid Date")
+      assert.ok("timeend" in observaciones)
+      assert.ok(new Date(observaciones.timeend).toString() != "Invalid Date")
+      assert.ok("valor" in observaciones)
+      assert.ok(Number(observaciones.valor).toString() != "NaN")
+    }
+  });
+
+  test("POST /obs/puntual/series/:id/observaciones  w/ no write access", async () => {
+    const res = await request(app)
+      .post(`/obs/puntual/series/${serie.id}/observaciones`)
+      .send([{
+        timestart: new Date("2000-01-01T03:00:00.000Z"),
+        timeend: new Date("2000-01-01T03:00:00.000Z"),
+        valor: 1.11
+      },{
+        timestart: new Date("2000-01-02T03:00:00.000Z"),
+        timeend: new Date("2000-01-02T03:00:00.000Z"),
+        valor: 2.22
+      },{
+        timestart: new Date("2000-01-03T03:00:00.000Z"),
+        timeend: new Date("2000-01-03T03:00:00.000Z"),
+        valor: 3.33
+      }])
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${noaccess.token}`);
+
+    assert.equal(res.statusCode, 401);
+  });
+
+  // DELETE
+
   test("DELETE /obs/puntual/series/{id} no access", async () => {
     const res = await request(app)
       .delete(`/obs/puntual/series/${serie.id}`)
