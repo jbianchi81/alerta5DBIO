@@ -27,13 +27,20 @@ const admin = {
   password: "admin_password",
   token: "admin_token" // role admin
 }
+const reader_of_red_10 = {
+  name: "other_writer",
+  role: "writer",
+  password: "other_writer_password",
+  token: "other_writer_token" // role admin
+}
 
 const admin_token = "token_3" // debe preexistir
 
 let estacion
 let serie
 
-const group_name = "app_series_test"
+const group_name = "app_series_test_writers"
+const other_group_name = "app_series_test_readers"
 const estacion_id = 2948
 
 // test('parent test', async (t) => {
@@ -66,20 +73,28 @@ const estacion_id = 2948
       .set("Content-Type", "application/json")
       .set("Authorization", `Bearer ${admin_token}`);
     console.log(res_ad.body)
-
-
+    const res_or = await request(app)
+      .put(`/users/${reader_of_red_10.name}`)
+      .send(reader_of_red_10)
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${admin_token}`);
+    console.log(res_or.body)
 
     const res = await request(app)
       .post("/groups")
       .send([
         {
           name: group_name
+        },
+        {
+          name: other_group_name
         }
       ])
       .set("Content-Type", "application/json")
       .set("Authorization", `Bearer ${admin_token}`);
     console.log(res.body)
     // assert.equal(res.statusCode, 201)
+
     const res2 = await request(app)
       .put(`/groups/${group_name}/members`)
       .send([
@@ -109,6 +124,34 @@ const estacion_id = 2948
       .set("Content-Type", "application/json")
       .set("Authorization", `Bearer ${admin_token}`);
     assert.equal(res3.statusCode, 200);  
+    
+    // readers group
+    const res11 = await request(app)
+      .put(`/groups/${other_group_name}/members`)
+      .send([
+          {
+              user_name: reader_of_red_10.name
+          }]
+      )
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${admin_token}`);
+    assert.equal(res11.statusCode, 200);
+    const res12 = await request(app)
+      .post(`/groups/${other_group_name}/redes`)
+      .send([
+        {
+          "red_id": 11,
+          "access": "write"
+        },
+        {
+          "red_id": 10,
+          "access": "read"
+        }
+      ])
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${admin_token}`);
+    assert.equal(res12.statusCode, 200);  
+    
     const res4 = await request(app)
       .post(`/obs/puntual/estaciones`)
       .send([
@@ -248,6 +291,21 @@ const estacion_id = 2948
     assert.equal(res.statusCode, 401);
   });
 
+  test("POST /obs/puntual/estaciones  w/ no write access 3", async () => {
+    const res = await request(app)
+      .post("/obs/puntual/estaciones")
+      .send({
+        estacion: {id: estacion_id},
+        var: {id: 2},
+        procedimiento: {id: 1},
+        unidades: {id: 11}
+      })
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+
+    assert.equal(res.statusCode, 401);
+  });
+
   test("GET /obs/puntual/series no access", async () => {
     const res = await request(app)
       .get("/obs/puntual/series?tabla=alturas_prefe&id_externo=t665a443")
@@ -264,6 +322,18 @@ const estacion_id = 2948
     const res = await request(app)
       .get("/obs/puntual/series?tabla=alturas_prefe&id_externo=t665a443")
       .set("Authorization", `Bearer ${reader.token}`);
+
+    assert.equal(res.statusCode, 200);
+    console.log(res.text)
+    assert.ok("rows" in res.body)
+    assert(Array.isArray(res.body["rows"]));
+    assert.equal(res.body["rows"].length,1)
+  })
+
+  test("GET /obs/puntual/series reader access 2", async () => {
+    const res = await request(app)
+      .get("/obs/puntual/series?tabla=alturas_prefe&id_externo=t665a443")
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
 
     assert.equal(res.statusCode, 200);
     console.log(res.text)
@@ -295,7 +365,7 @@ const estacion_id = 2948
 
   // OBSERVACIONES
 
-test("POST /obs/puntual/series/:id/observaciones  w/ write access", async () => {
+  test("POST /obs/puntual/series/:id/observaciones  w/ write access", async () => {
     const res = await request(app)
       .post(`/obs/puntual/series/${serie.id}/observaciones`)
       .send([{
@@ -350,12 +420,168 @@ test("POST /obs/puntual/series/:id/observaciones  w/ write access", async () => 
     assert.equal(res.statusCode, 401);
   });
 
+  test("POST /obs/puntual/series/:id/observaciones  w/ no write access 2", async () => {
+    const res = await request(app)
+      .post(`/obs/puntual/series/${serie.id}/observaciones`)
+      .send([{
+        timestart: new Date("2000-01-01T03:00:00.000Z"),
+        timeend: new Date("2000-01-01T03:00:00.000Z"),
+        valor: 1.11
+      },{
+        timestart: new Date("2000-01-02T03:00:00.000Z"),
+        timeend: new Date("2000-01-02T03:00:00.000Z"),
+        valor: 2.22
+      },{
+        timestart: new Date("2000-01-03T03:00:00.000Z"),
+        timeend: new Date("2000-01-03T03:00:00.000Z"),
+        valor: 3.33
+      }])
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+
+    assert.equal(res.statusCode, 401);
+  });
+
+  test("GET /obs/puntual/series/:id/observaciones  w/ read access", async () => {
+    const res = await request(app)
+      .get(`/obs/puntual/series/${serie.id}/observaciones`)
+      .query({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,3)
+  });
+
+  test("GET /obs/puntual/series/:id/observaciones  w/ read access 2", async () => {
+    const res = await request(app)
+      .get(`/obs/puntual/series/${serie.id}/observaciones`)
+      .query({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,3)
+  });
+
+  test("GET /obs/puntual/series/:id/observaciones  w/ NO read access 2", async () => {
+    const res = await request(app)
+      .get(`/obs/puntual/series/${serie.id}/observaciones`)
+      .query({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode, 401); // or empty list?
+  });
+    // observaciones/{id}
+  test("PUT /obs/puntual/series/:id/observaciones/:id  w/ write access", async () => {
+    // read
+    const res_obs = await request(app)
+      .get(`/obs/puntual/series/${serie.id}/observaciones`)
+      .query({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode,200)
+    assert.ok(Array.isArray(res.body))
+    assert.ok(res.body.length)
+    const obs = res.body[0]
+
+    // update
+    const res = await request(app)
+      .put(`/obs/puntual/series/${serie.id}/observaciones/${obs.id}`)
+      .send({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-01T03:00:00.000Z",
+        valor: 1.01
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200); 
+
+    // fail update w/ reader 
+    const res_fail = await request(app)
+      .put(`/obs/puntual/series/${serie.id}/observaciones/${obs.id}`)
+      .send({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-01T03:00:00.000Z",
+        valor: 1.21
+      })
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res_fail.statusCode, 401); 
+
+    // read updated
+    const res_read = await request(app)
+    .get(`/obs/puntual/series/${serie.id}/observaciones/${obs.id}`)
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res_read.statusCode,200)
+    assert.ok(!Array.isArray(res_read.body))
+    assert.ok("valor" in res_read.body)
+    assert.equal(res_read.body.valor, 1.01)
+  });  
+
   // DELETE
+
+    // observaciones
+  test("DELETE /obs/puntual/series/{id}/observaciones no access", async () => {
+    const res = await request(app)
+      .delete(`/obs/puntual/series/${serie.id}/observaciones`)
+      .query({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-03T04:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    console.log(res.text)
+    assert.equal(res.statusCode, 401);
+  })
+
+  test("DELETE /obs/puntual/series/{id}/observaciones no access 2 (reader)", async () => {
+    const res = await request(app)
+      .delete(`/obs/puntual/series/${serie.id}/observaciones`)
+      .query({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-03T04:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    console.log(res.text)
+    assert.equal(res.statusCode, 401);
+  })
+
+  test("DELETE /obs/puntual/series/{id}/observaciones w/ write access", async () => {
+    const res = await request(app)
+      .delete(`/obs/puntual/series/${serie.id}/observaciones`)
+      .query({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-03T04:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    console.log(res.text)
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,3)
+  })
+
+
+    // series
 
   test("DELETE /obs/puntual/series/{id} no access", async () => {
     const res = await request(app)
       .delete(`/obs/puntual/series/${serie.id}`)
       .set("Authorization", `Bearer ${noaccess.token}`);
+
+    console.log(res.text)
+    assert.equal(res.statusCode, 400);
+  })
+
+  test("DELETE /obs/puntual/series/{id} no write access", async () => {
+    const res = await request(app)
+      .delete(`/obs/puntual/series/${serie.id}`)
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
 
     console.log(res.text)
     assert.equal(res.statusCode, 400);
@@ -370,8 +596,6 @@ test("POST /obs/puntual/series/:id/observaciones  w/ write access", async () => 
     assert.ok(Array.isArray(res.body))
     assert.equal(res.body.length,0)
   })
-
-  // delete
 
   test("DELETE /obs/puntual/series/{id}", async () => {
     const res = await request(app)
