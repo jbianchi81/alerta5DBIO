@@ -7423,13 +7423,30 @@ internal.CRUD = class {
 		estacion_id,
 		tabla_id,
 		user_id,
-		write=false
+		write=false,
+		series_id,
+		tipo="puntual"
 	) {
 		const max_priority = (write) ? 2 : 1
 		if(!user_id) {
 			return true
 		}
-		if(estacion_id) {
+		if(series_id) {
+			if(tipo.toLowerCase() != "puntual") {
+				// areal y raster no implementado
+				return true
+			}
+			var query = pasteIntoSQLQuery(`SELECT EXISTS (
+				SELECT 1
+					FROM user_red_access 
+					JOIN (SELECT unid,tabla FROM estaciones) AS e  
+					ON e.tabla=user_red_access.tabla_id
+					JOIN (SELECT estacion_id,id from series WHERE id=$1) AS s
+					ON s.estacion_id=e.unid
+					WHERE user_id=$2 
+					AND max_priority>=$3
+			)`,[series_id,user_id,max_priority])
+		} else if(estacion_id) {
 			var query = pasteIntoSQLQuery(`SELECT EXISTS (
 				SELECT 1
 					FROM user_red_access 
@@ -7447,7 +7464,7 @@ internal.CRUD = class {
 					AND max_priority>=$3
 			)`,[tabla_id,user_id,max_priority])
 		} else {
-			throw new Error("Falta estacion_id o tabla_id")
+			throw new Error("Falta series_id o estacion_id o tabla_id")
 		}
 		const result = await global.pool.query(query)
 		if(result.rows.length && result.rows[0].exists) {
@@ -10747,7 +10764,7 @@ internal.CRUD = class {
 	// 	return internal.utils.pasteIntoSQLQuery(query,params)
 	// }
 
-	static async upsertObservaciones(observaciones,tipo,series_id,options={},client) {
+	static async upsertObservaciones(observaciones,tipo,series_id,options={},client, user_id) {
 		if(!observaciones) {
 			return Promise.reject("falta observaciones")
 		}
@@ -10796,6 +10813,22 @@ internal.CRUD = class {
 		}
 		if(tipo) {
 			if(tipo=="puntual") {
+				if(series_id) {
+					// check access level
+					const has_access = await this.hasAccess(undefined, undefined, user_id, true, series_id)
+					if(!has_access) {
+						throw new AuthError("El usuario no tiene permiso de escritura sobre la serie tipo=puntual id=" + series_id)
+					}
+				} else {
+					const series_id_list = [...new Set(observaciones.map(o => o.series_id))]
+					for(const s_id of series_id_list) {
+						// check access level
+						const has_access = await this.hasAccess(undefined, undefined, user_id, true, s_id)
+						if(!has_access) {
+							throw new AuthError("El usuario no tiene permiso de escritura sobre la serie tipo=puntual id=" + s_id)
+						}
+					}
+				}
 				return this.upsertObservacionesPuntual(observaciones,options.skip_nulls,options.no_update,(serie) ? serie.var.timeSupport : undefined,client, (serie) ? serie.var.def_hora_corte : undefined)
 			} else if(tipo=="areal") {
 				return this.upsertObservacionesAreal(observaciones,options.skip_nulls,options.no_update, (serie) ? serie.var.timeSupport : undefined,client, (serie) ? serie.var.def_hora_corte : undefined)
@@ -10808,12 +10841,25 @@ internal.CRUD = class {
 		if(config.verbose) {
 			console.debug("crud.upsertObservaciones: tipo: " + tipo)
 		}
+		// check access level
+		const series_map = [
+			...new Set(observaciones.map(o => `${o.tipo ?? "puntual"}|${o.series_id}`))
+		].map(k => {
+			const [tipo, id] = k.split('|');
+			return { tipo, id: Number(id) };
+		});
+		for(const s of series_map) {
+			// check access level
+			const has_access = await this.hasAccess(undefined, undefined, user_id, true, s.id, s.tipo)
+			if(!has_access) {
+				throw new AuthError("El usuario no tiene permiso de escritura sobre la serie tipo=" + s.tipo + " id=" + s.id)
+			}
+		}
+
 		var upserted = []
 		var errors = []
 		for(var i=0; i<observaciones.length; i++) {
 			const observacion = new internal.observacion(observaciones[i])
-			// console.log("pushing obs:"+observacion.toCSVless())
-			//~ console.log("valor.length:"+observacion.valor.length)
 			if(options.skip_nulls && (observacion.valor === null || observacion.valor === undefined )) {
 				console.log("skipping null value, series_id:" + observacion.series_id + " timestart:" + observacion.timestart) 
 			} else {
@@ -10829,17 +10875,6 @@ internal.CRUD = class {
 			throw(errors)
 		}
 		return upserted
-		// Promise.allSettled(promises)
-		// .then(results=>{
-		// 	return results.map(r=>{
-		// 		if(r.status == "fulfilled") {
-		// 			return r.value //valuetype
-		// 		} else {
-		// 			console.error("upsert rejected, reason:" + r.reason)
-		// 			return
-		// 		}
-		// 	}).filter(r=>r)
-		// })
 	}
 	
 			
@@ -11203,7 +11238,7 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async updateObservacionById(o) {
+	static async updateObservacionById(o, user_id) {
 		var observacion = new internal.observacion(o)
 		//~ console.log({observacion:observacion})
 		var validFieldsObs = ["timestart","timeend","timeupdate"]
@@ -11215,61 +11250,68 @@ internal.CRUD = class {
 		var fieldsObs = validFieldsObs.filter(f=>observacion[f])
 		var obstable = (observacion.tipo == "areal") ? "observaciones_areal" : "observaciones"
 		var valtable = (observacion.tipo == "areal") ? "valores_num_areal" : "valores_num"
-		return global.pool.connect()
-		.then(client=>{
-			if(fieldsObs.length > 0) {
-				var setfieldsObs = fieldsObs.map( (f,i) => f + "=$" + (i+1))
-				var valuesObs = fieldsObs.map(f=> observacion[f])
-				var promises = []
-				var stmt = "UPDATE " + obstable + " SET " + setfieldsObs.join(",") + " WHERE id=$" + (fieldsObs.length+1) + " RETURNING *"
-				valuesObs.push(observacion.id)
-				promises.push(client.query(stmt, valuesObs))
-				console.log(internal.utils.pasteIntoSQLQuery(stmt,valuesObs))
-			} else {
-				promises.push(client.query("SELECT * from " + obstable + " WHERE id=$1",[observacion.id]))
-				console.log(internal.utils.pasteIntoSQLQuery("SELECT * from " + obstable + " WHERE id=$1",[observacion.id]))
+		const client = await global.pool.connect()
+		if(observacion.tipo.toLowerCase() == "puntual") {
+			// check access level
+			const obs = await this.getObservacion(observacion.tipo, observacion.id, undefined, user_id)
+			if(!obs) {
+				throw NotFoundError("Observacion not found. tipo=" + observacion.tipo + ", id=" + observacion.id)
 			}
-			if(observacion.valor) {
-				var stmt = "UPDATE " + valtable + " SET valor=$1 WHERE obs_id=$2 RETURNING *"
-				promises.push(client.query(stmt,[observacion.valor, observacion.id]))
-				console.log(internal.utils.pasteIntoSQLQuery(stmt,[observacion.valor, observacion.id]))
-			} else {
-				promises.push(client.query("SELECT * from " + valtable + " WHERE obs_id=$1",[observacion.id]))
-				console.log(internal.utils.pasteIntoSQLQuery("SELECT * from " + valtable + " WHERE obs_id=$1",[observacion.id]))
+			const has_access = await this.hasAccess(undefined, undefined, user_id, true, obs.series_id, obs.tipo)
+			if(!has_access) {
+				throw new AuthError("El usuario no tiene acceso de escritura para la serie tipo=" + obs.tipo + " id=" + obs.series_id)
 			}
-			return Promise.all(promises)
-			.then(result=>{
-				if(!result[0].rows) {
-					var notification = client.notifications[client.notifications.length-1].message.toString()
-					client.release()
-					throw notification
-					
-				}
-				if(result[0].rows.length == 0) {
-					if(client.notifications && client.notifications.length > 0) {
-						var notification = client.notifications[client.notifications.length-1].message.toString()
-						client.release()
-						throw notification
-					} else {
-						throw "id de observación no encontrado"
-					}
-				}
-				var obs = result[0].rows[0]
-				if(result[1].rows) {
-					obs.valor = result[1].rows[0].valor
-					obs.tipo = "puntual"
-					client.release()
-					return new internal.observacion(obs)
-				} else {
-					var notification = client.notifications[client.notifications.length-1].message.toString()
-					client.release
-					throw notification
-				}
-			})
-		})
+		}
+		if(fieldsObs.length > 0) {
+			var setfieldsObs = fieldsObs.map( (f,i) => f + "=$" + (i+1))
+			var valuesObs = fieldsObs.map(f=> observacion[f])
+			var promises = []
+			var stmt = "UPDATE " + obstable + " SET " + setfieldsObs.join(",") + " WHERE id=$" + (fieldsObs.length+1) + " RETURNING *"
+			valuesObs.push(observacion.id)
+			promises.push(client.query(stmt, valuesObs))
+			console.log(internal.utils.pasteIntoSQLQuery(stmt,valuesObs))
+		} else {
+			promises.push(client.query("SELECT * from " + obstable + " WHERE id=$1",[observacion.id]))
+			console.log(internal.utils.pasteIntoSQLQuery("SELECT * from " + obstable + " WHERE id=$1",[observacion.id]))
+		}
+		if(observacion.valor) {
+			var stmt = "UPDATE " + valtable + " SET valor=$1 WHERE obs_id=$2 RETURNING *"
+			promises.push(client.query(stmt,[observacion.valor, observacion.id]))
+			console.log(internal.utils.pasteIntoSQLQuery(stmt,[observacion.valor, observacion.id]))
+		} else {
+			promises.push(client.query("SELECT * from " + valtable + " WHERE obs_id=$1",[observacion.id]))
+			console.log(internal.utils.pasteIntoSQLQuery("SELECT * from " + valtable + " WHERE obs_id=$1",[observacion.id]))
+		}
+		const result = await Promise.all(promises)
+		if(!result[0].rows) {
+			var notification = client.notifications[client.notifications.length-1].message.toString()
+			client.release()
+			throw notification
+			
+		}
+		if(result[0].rows.length == 0) {
+			if(client.notifications && client.notifications.length > 0) {
+				var notification = client.notifications[client.notifications.length-1].message.toString()
+				client.release()
+				throw notification
+			} else {
+				throw "id de observación no encontrado"
+			}
+		}
+		var obs = result[0].rows[0]
+		if(result[1].rows) {
+			obs.valor = result[1].rows[0].valor
+			obs.tipo = "puntual"
+			client.release()
+			return new internal.observacion(obs)
+		} else {
+			var notification = client.notifications[client.notifications.length-1].message.toString()
+			client.release
+			throw notification
+		}
 	}
 		
-	static async deleteObservacion(tipo,id,client) {
+	static async deleteObservacion(tipo, id, client, user_id) {
 		if(parseInt(id).toString() == "NaN") {
 			return Promise.reject("id inválido")
 		}
@@ -11277,6 +11319,17 @@ internal.CRUD = class {
 		const val_tabla = (tipo == "areal") ? "valores_num_areal" : (tipo == "rast" || tipo == "raster") ? "" : "valores_num"
 		if(!client) {
 			var release_client = true
+		}
+		if(obs_tabla == "observaciones") {
+			// check access level
+			const obs = await this.getObservacion(tipo, id, undefined, user_id)
+			if(!obs) {
+				throw NotFoundError("Observacion not found. tipo=" + tipo + ", id=" + id)
+			}
+			const has_access = await this.hasAccess(undefined, undefined, user_id, true, obs.series_id, obs.tipo)
+			if(!has_access) {
+				throw new AuthError("El usuario no tiene acceso de escritura para la serie tipo=" + obs.tipo + " id=" + obs.series_id)
+			}
 		}
 		client = (client) ? client : await global.pool.connect()
 		try {
@@ -11332,13 +11385,13 @@ internal.CRUD = class {
 		}
 	}
 	
-	static async deleteObservacionesById(tipo,id,no_send_data=false,client) {
+	static async deleteObservacionesById(tipo, id, no_send_data=false, client, user_id) {
 		// var max_ids_per_statements = 500
 		if(Array.isArray(id)) { 	
 			if(no_send_data) {
 				for(var i of id) {
 					try {
-						await this.deleteObservacion(tipo,i,client)
+						await this.deleteObservacion(tipo,i,client,user_id)
 					} catch (e) {
 						console.error(e.toString())
 					}
@@ -11347,12 +11400,12 @@ internal.CRUD = class {
 			} else {
 				const deleted = []
 				for(var i of id) {
-					deleted.push(await this.deleteObservacion(tipo,i,client))
+					deleted.push(await this.deleteObservacion(tipo,i,client,user_id))
 				}
 				return deleted.filter(d=>d)
 			}
 		} else {
-			const deleted = await this.deleteObservacion(tipo,id,client)
+			const deleted = await this.deleteObservacion(tipo,id,client,user_id)
 			if(no_send_data) {
 				return
 			} else {
@@ -11391,7 +11444,7 @@ internal.CRUD = class {
 	 * - no_send_data : bool
 	 * - batch_size : int | "NULL"
 	 */
-	static async deleteObservaciones(tipo,filter={},options={},client) { // con options.no_send_data devuelve count de registros eliminados, si no devuelve array de registros eliminados
+	static async deleteObservaciones(tipo,filter={},options={},client,user_id) { // con options.no_send_data devuelve count de registros eliminados, si no devuelve array de registros eliminados
 		tipo = (tipo) ? tipo : filter.tipo
 		delete filter.tipo
 		tipo = (tipo.toLowerCase() == "areal") ? "areal" : (tipo.toLowerCase() == "rast" || tipo.toLowerCase() == "raster") ? "raster" : "puntual"
@@ -11489,7 +11542,15 @@ internal.CRUD = class {
 			}
 			console.debug("release_client: " + release_client.toString())
 			var result_rows = []
+			let [access_join_clause, access_level] = ["", "'write'"]
 			if(filter.id) {
+				if(obs_tabla == "observaciones" && user_id) {
+					[access_join_clause, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
+					access_join_clause = `JOIN series ON observaciones.series_id=series.id
+						JOIN estaciones ON estaciones.unid=series.estacion_id
+						JOIN redes ON redes.tabla_id=estaciones.tabla
+						${access_join_clause}`
+				} 
 				if(Array.isArray(filter.id)) {
 					if(filter.id.length == 0) {
 						console.info("crud/deleteObservaciones: Nothing to delete (passed zero length id array)")
@@ -11501,14 +11562,17 @@ internal.CRUD = class {
 						return []
 					}
 					// deleteValorText = `WITH deleted AS (DELETE FROM ${val_tabla} WHERE obs_id IN (${filter.id.map(id=>parseInt(id)).join(",")}) ${returning_clause}) ${select_deleted_clause}`
+
 					let row_count
 					var page = -1
 					do {
 						page = page + 1
 						try {
 							const result = await executeQueryReturnRows(`WITH selected AS (
-								SELECT id FROM ${obs_tabla} 
-									WHERE id IN (${filter.id.map(id=>parseInt(id)).join(",")}) 
+								SELECT ${obs_tabla}.id FROM ${obs_tabla}
+									${access_join_clause}
+									WHERE ${obs_tabla}.id IN (${filter.id.map(id=>parseInt(id)).join(",")}) 
+									AND ${access_level}='write'
 									LIMIT ${batch_size}
 								), deleted AS (
 								DELETE FROM ${obs_tabla}
@@ -11528,11 +11592,17 @@ internal.CRUD = class {
 				} else {
 					// deleteValorText = `WITH deleted AS (DELETE FROM ${val_tabla} WHERE obs_id=${parseInt(filter.id)} ${returning_clause}) ${select_deleted_clause}`
 					try {
-						result_rows = await executeQueryReturnRows(`WITH deleted AS (
-							DELETE FROM ${obs_tabla} 
-							WHERE id=$1
-							${returning_clause}
-							) 
+						result_rows = await executeQueryReturnRows(`WITH selected AS (
+								SELECT ${obs_tabla}.id FROM ${obs_tabla}
+									${access_join_clause}
+									WHERE ${obs_tabla}.id = $1 
+									AND ${access_level}='write'
+									LIMIT ${batch_size}
+								), deleted AS (
+									DELETE FROM ${obs_tabla} 
+									WHERE id IN (SELECT id FROM selected)
+									${returning_clause}
+								) 
 							${select_deleted_clause}`,
 							[parseInt(filter.id)],
 							client,
@@ -11561,6 +11631,12 @@ internal.CRUD = class {
 					time_not: {type: "time", column:"timestart", not: true}
 
 				}
+
+				if(obs_tabla == "observaciones" && user_id) {
+					[access_join_clause, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
+					access_join_clause = `JOIN redes ON redes.tabla_id=estaciones.tabla
+						${access_join_clause}`
+				} 
 				// var join_clause = ""
 				// var obs_using_clause = ""
 				var	obs_join_clause = `JOIN ${val_tabla} ON (${obs_tabla}.id = ${val_tabla}.obs_id)`
@@ -11628,16 +11704,7 @@ internal.CRUD = class {
 				if(!filter_string) {
 					return Promise.reject(new Error("invalid filter value"))
 				}
-				// deleteValorText = `
-				// 	WITH deleted AS (
-				// 		DELETE FROM ${val_tabla}
-				// 		USING ${obs_tabla}
-				// 		${join_clause}
-				// 		WHERE ${obs_tabla}.id=${val_tabla}.obs_id 
-				// 		${filter_string}
-				// 		${returning_clause}
-				// 	)
-				// 	${select_deleted_clause}`
+				
 				let target_obs
 				if(!options.no_send_data) {
 					try {
@@ -11647,7 +11714,9 @@ internal.CRUD = class {
 							${val_tabla}.valor 
 							FROM ${obs_tabla}
 							${obs_join_clause}
+							${access_join_clause}
 							WHERE 1=1
+							AND ${access_level}='write'
 							${filter_string}`,
 							undefined,
 							client,
@@ -11682,7 +11751,9 @@ internal.CRUD = class {
 							WITH selected AS (
 								SELECT ${obs_tabla}.id FROM ${obs_tabla}
 								${obs_join_clause}
+								${access_join_clause}
 								WHERE 1=1
+								AND ${access_level}='write'
 								${filter_string}
 								LIMIT ${batch_size}
 							),
@@ -11733,7 +11804,7 @@ internal.CRUD = class {
 		}
 	}
 
-	static async getObservacion(tipo,id,filter) {
+	static async getObservacion(tipo,id,filter,user_id) {
 		var stmt
 		var valid_filters = {series_id:"integer",timestart:"timestart",timeend:"timeend",unit_id:"integer",timeupdate:"string"}
 		var filter_string = internal.utils.control_filter(valid_filters,filter)
@@ -11745,7 +11816,20 @@ internal.CRUD = class {
 		} else if (tipo.toLowerCase() == "rast" || tipo.toLowerCase() == "raster") {
 			stmt = "SELECT observaciones_rast.id,observaciones_rast.series_id,observaciones_rast.timestart,observaciones_rast.timeend,ST_AsGDALRaster(observaciones_rast.valor, 'GTIff') valor,observaciones_rast.timeupdate,fuentes.public FROM observaciones_rast,series_rast,fuentes WHERE observaciones_rast.series_id=series_rast.id AND series_rast.fuentes_id=fuentes.id AND observaciones_rast.id=$1 " + filter_string
 		} else {
-			stmt = "SELECT observaciones.*, valores_num.valor,redes.public FROM observaciones,valores_num,series,estaciones,redes WHERE observaciones.series_id=series.id AND series.estacion_id=estaciones.unid AND estaciones.tabla=redes.tabla_id AND observaciones.id=valores_num.obs_id AND observaciones.id=$1 " + filter_string
+			const [access_join, access_level] = internal.red.getUserAccessClause(user_id,"redes.id")
+			stmt = `SELECT 
+				observaciones.*, 
+				valores_num.valor,
+				redes.public 
+			  FROM observaciones 
+			  JOIN valores_num ON observaciones.id=valores_num.obs_id  
+			  JOIN series ON observaciones.series_id=series.id 
+			  JOIN estaciones ON series.estacion_id=estaciones.unid 
+			  JOIN redes ON estaciones.tabla=redes.tabla_id 
+			  ${access_join}
+			  WHERE observaciones.id=$1 
+			  ${filter_string}
+			  `
 		}
 		return global.pool.query(stmt,[id])
 		.then(result=>{
@@ -12541,7 +12625,7 @@ internal.CRUD = class {
 		}
 	}
 	
-	static async getObservacionesRTS(tipo,filter={},options={},serie) {
+	static async getObservacionesRTS(tipo,filter={},options={},serie, user_id) {
 		//~ console.log({options:options})
 		if(options.skip_nulls || !filter.series_id || Array.isArray(filter.series_id)) {
 			return this.getObservaciones(tipo,filter,options)
@@ -12555,21 +12639,26 @@ internal.CRUD = class {
 		var serie_result
 		if(serie) {
 			if(filter.public && !serie.estacion.public) {
-				console.log("usuario no autorizado para acceder a la serie seleccionada")
+				// console.log("usuario no autorizado para acceder a la serie seleccionada")
 				// return Promise.reject("usuario no autorizado para acceder a la serie seleccionada")
-				throw("usuario no autorizado para acceder a la serie seleccionada")
+				throw new AuthError("usuario no autorizado para acceder a la serie seleccionada")
+			}
+			// check access level
+			const has_access = await this.hasAccess(undefined, undefined, user_id, false, serie.id, tipo ?? serie.tipo)
+			if(!has_access) {
+				throw new AuthError(`El usuario no tiene acceso a la serie tipo=${tipo ?? serie_tipo}, id=${serie.id}`)
 			}
 			serie_result = serie
 		} else {
 			try {
-				serie_result = await this.getSerie(tipo,filter.series_id,undefined,undefined,undefined,filter.public) // tipo,id,timestart,timeend,options={},isPublic
+				serie_result = await this.getSerie(tipo,filter.series_id,undefined,undefined,undefined,filter.public,undefined,undefined,user_id) // tipo,id,timestart,timeend,options={},isPublic
 			} catch(e) {
 				throw(e)
 			}
 		}
 		serie = serie_result
 		if(!serie) {
-			throw("Serie no encontrada")
+			throw new NotFoundError("Serie no encontrada")
 		}
 		if(!serie.var.timeSupport) {
 			// console.log("no timeSupport")

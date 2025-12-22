@@ -476,16 +476,17 @@ const estacion_id = 2948
         timeend: "2000-01-04T03:00:00.000Z"
       })
       .set("Authorization", `Bearer ${noaccess.token}`);
-    assert.equal(res.statusCode, 401); // or empty list?
+    assert.equal(res.statusCode, 404);
   });
+
     // observaciones/{id}
   test("PUT /obs/puntual/series/:id/observaciones/:id  w/ write access", async () => {
     // read
-    const res_obs = await request(app)
+    let res = await request(app)
       .get(`/obs/puntual/series/${serie.id}/observaciones`)
       .query({
         timestart: "2000-01-01T03:00:00.000Z",
-        timeend: "2000-01-04T03:00:00.000Z"
+        timeend: "2000-01-01T03:00:00.000Z"
       })
       .set("Authorization", `Bearer ${writer.token}`);
     assert.equal(res.statusCode,200)
@@ -494,40 +495,62 @@ const estacion_id = 2948
     const obs = res.body[0]
 
     // update
-    const res = await request(app)
+    res = await request(app)
       .put(`/obs/puntual/series/${serie.id}/observaciones/${obs.id}`)
       .send({
-        timestart: "2000-01-01T03:00:00.000Z",
-        timeend: "2000-01-01T03:00:00.000Z",
         valor: 1.01
       })
       .set("Authorization", `Bearer ${writer.token}`);
     assert.equal(res.statusCode, 200); 
 
     // fail update w/ reader 
-    const res_fail = await request(app)
+    res = await request(app)
       .put(`/obs/puntual/series/${serie.id}/observaciones/${obs.id}`)
       .send({
-        timestart: "2000-01-01T03:00:00.000Z",
-        timeend: "2000-01-01T03:00:00.000Z",
         valor: 1.21
       })
       .set("Authorization", `Bearer ${reader_of_red_10.token}`);
-    assert.equal(res_fail.statusCode, 401); 
+    assert.equal(res.statusCode, 401); 
 
     // read updated
-    const res_read = await request(app)
+    res = await request(app)
     .get(`/obs/puntual/series/${serie.id}/observaciones/${obs.id}`)
       .set("Authorization", `Bearer ${writer.token}`);
-    assert.equal(res_read.statusCode,200)
-    assert.ok(!Array.isArray(res_read.body))
-    assert.ok("valor" in res_read.body)
-    assert.equal(res_read.body.valor, 1.01)
+    assert.equal(res.statusCode,200)
+    assert.ok(!Array.isArray(res.body))
+    assert.ok("valor" in res.body)
+    assert.equal(res.body.valor, 1.01)
+
+    // delete no access
+    res = await request(app)
+      .delete(`/obs/puntual/series/${serie.id}/observaciones/${obs.id}`)
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    console.log(res.text)
+    assert.equal(res.statusCode, 401);
+
+    // delete no access (reader)
+    res = await request(app)
+       .delete(`/obs/puntual/series/${serie.id}/observaciones/${obs.id}`)
+       .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    console.log(res.text)
+    assert.equal(res.statusCode, 401);
+    
+    // delete
+    res = await request(app)
+       .delete(`/obs/puntual/series/${serie.id}/observaciones/${obs.id}`)
+       .set("Authorization", `Bearer ${writer.token}`);
+    console.log(res.text)
+    assert.equal(res.statusCode, 200);
+    assert.ok(!Array.isArray(res.body))
+    assert.ok("id" in res.body)
+    assert.equal(res.body.id, obs.id)
+    assert.equal(res.body.timestart, "2000-01-01T03:00:00.000Z")
   });  
 
   // DELETE
 
     // observaciones
+
   test("DELETE /obs/puntual/series/{id}/observaciones no access", async () => {
     const res = await request(app)
       .delete(`/obs/puntual/series/${serie.id}/observaciones`)
@@ -628,6 +651,14 @@ const estacion_id = 2948
     assert.equal(res.statusCode, 200);
   })
 
+  test("DELETE /groups/:name", async () => {
+    const res = await request(app)
+      .delete(`/groups/${other_group_name}`)
+      .set("Authorization", `Bearer ${admin_token}`);
+    assert.equal(res.statusCode, 200);
+  })
+
+
   test("DELETE /users/:username", async() => {
     const res0 = await request(app)
       .delete(`/users/${writer.name}`)
@@ -648,6 +679,11 @@ const estacion_id = 2948
       .set("Authorization", `Bearer ${admin_token}`);
     assert.equal(res_ad.statusCode, 200)    
     console.log(res_ad.body)
+    const res_add = await request(app)
+      .delete(`/users/${reader_of_red_10.name}`)
+      .set("Authorization", `Bearer ${admin_token}`);
+    assert.equal(res_add.statusCode, 200)    
+    console.log(res_add.body)
 
   })
 // })

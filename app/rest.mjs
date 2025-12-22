@@ -2681,7 +2681,7 @@ function getObservaciones(req,res) {
 		res.status(400).send({message:"query error",error:"Faltan parámetros: tipo, series_id, timestart, timeend"})
 		return
 	}
-	crud.getObservacionesRTS(tipo,filter,options)
+	crud.getObservacionesRTS(tipo,filter,options,undefined,filter.user_id)
 	.then(result=>{
 		console.log("Results: " + result.length)
 		send_output(options,result,res)
@@ -2893,7 +2893,9 @@ function deleteObservaciones(req,res) {
 		{
 			no_send_data: options.no_send_data,
 			batch_size: batch_size
-		}
+		},
+		undefined,
+		filter.user_id
 	)
 	.then(result=>{
 		console.log("Deleted: " + (options.no_send_data) ? result : result.length)
@@ -2919,7 +2921,7 @@ function deleteObservacion(req,res) {   // by id+tipo
 		res.status(400).send({message:"Error: Missing arguments",required_arguments:["tipo","id"],recieved_arguments:filter})
 		return
 	}
-	crud.deleteObservacion(filter.tipo,filter.id)
+	crud.deleteObservacion(filter.tipo,filter.id, undefined, filter.user_id)
 	.then(obs=>{
 		if(obs) {
 			console.debug("Deleted: id " + obs.id)
@@ -2937,6 +2939,7 @@ function deleteObservacion(req,res) {   // by id+tipo
 function deleteObservacionesById(req,res) {
 	//~ console.log(req.body)
 	try {
+		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2947,7 +2950,7 @@ function deleteObservacionesById(req,res) {
 		//~ res.status(400).send({message:"Error: Missing observaciones"})
 		//~ return
 	//~ }
-	crud.deleteObservacionesById(req.body.tipo, req.body.id)
+	crud.deleteObservacionesById(req.body.tipo, req.body.id, undefined, undefined, filter.user_id)
 
 	//~ var promises = req.body.observaciones.map(o=> crud.deleteObservacion(o.tipo,o.id))
 	//~ Promise.all(promises)
@@ -3002,7 +3005,7 @@ function upsertObservaciones(req,res) {
 	crud.upsertObservaciones(observaciones.map(o => {
 		var obs = new CRUD.observacion(o)
 		return obs
-	}),filter.tipo,filter.series_id,options)
+	}),filter.tipo,filter.series_id,options, undefined, filter.user_id)
 	.then(result=>{
 		console.log("Upserted: " + result.length)
 		send_output(options,result,res)
@@ -3102,7 +3105,7 @@ function updateObservacionById(req,res) {
 			})
 		}
 	}
-	crud.updateObservacionById(filter)
+	crud.updateObservacionById(filter, filter.user_id)
 	.then(updated=>{
 		//~ console.log({updated:updated})
 		if(!updated) {
