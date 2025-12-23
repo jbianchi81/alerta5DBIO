@@ -9477,10 +9477,14 @@ internal.CRUD = class {
 					return
 				}
 			}
-			return global.pool.query("\
-				DELETE FROM series\
-				WHERE id=$1\
-				RETURNING 'puntual' AS tipo,*",[id]
+			const has_access = await this.hasAccess(undefined, undefined, user_id, true, id, "puntual")
+			if(!has_access) {
+				throw new AuthError("El usuario no tiene permiso de escritura sobre la serie tipo=puntual, id=" + id)
+			}
+			return global.pool.query(`
+				DELETE FROM series
+				WHERE id=$1
+				RETURNING 'puntual' AS tipo,*`,[id]
 			).then(result=>{
 				if(result.rows.length<=0) {
 					console.log("id not found")
@@ -11324,7 +11328,7 @@ internal.CRUD = class {
 			// check access level
 			const obs = await this.getObservacion(tipo, id, undefined, user_id)
 			if(!obs) {
-				throw NotFoundError("Observacion not found. tipo=" + tipo + ", id=" + id)
+				throw new NotFoundError("Observacion not found. tipo=" + tipo + ", id=" + id)
 			}
 			const has_access = await this.hasAccess(undefined, undefined, user_id, true, obs.series_id, obs.tipo)
 			if(!has_access) {
@@ -11640,7 +11644,7 @@ internal.CRUD = class {
 				// var join_clause = ""
 				// var obs_using_clause = ""
 				var	obs_join_clause = `JOIN ${val_tabla} ON (${obs_tabla}.id = ${val_tabla}.obs_id)`
-				if(filter.var_id != undefined || filter.proc_id != undefined || filter.unit_id != undefined || filter.estacion_id != undefined || filter.area_id != undefined || filter.tabla != undefined || filter.tabla_id != undefined || filter.fuentes_id != undefined || filter.id_externo != undefined || filter.geom != undefined) {
+				if(filter.var_id != undefined || filter.proc_id != undefined || filter.unit_id != undefined || filter.estacion_id != undefined || filter.area_id != undefined || filter.tabla != undefined || filter.tabla_id != undefined || filter.fuentes_id != undefined || filter.id_externo != undefined || filter.geom != undefined || access_join_clause != "") {
 					// join_clause += `JOIN ${series_tabla} ON (${series_tabla}.id = ${obs_tabla}.series_id)`
 					// obs_using_clause = `USING ${series_tabla}`
 					obs_join_clause += ` JOIN ${series_tabla} ON (${series_tabla}.id = ${obs_tabla}.series_id)`
@@ -11837,7 +11841,7 @@ internal.CRUD = class {
 				console.log("observación no encontrada")
 				return
 			}
-			if(filter.public) {
+			if(filter && filter.public) {
 				if(!result.rows[0].public) {
 					throw("El usuario no posee autorización para acceder a esta observación")
 				}

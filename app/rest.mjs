@@ -2887,15 +2887,16 @@ function deleteObservaciones(req,res) {
 		}
 		var batch_size = parseInt(options.batch_size)
 	}
+	const {user_id, ...filter_} = filter
 	crud.deleteObservaciones(
-		filter.tipo,
-		filter,
+		filter_.tipo,
+		filter_,
 		{
 			no_send_data: options.no_send_data,
 			batch_size: batch_size
 		},
 		undefined,
-		filter.user_id
+		user_id
 	)
 	.then(result=>{
 		console.log("Deleted: " + (options.no_send_data) ? result : result.length)
@@ -3117,8 +3118,7 @@ function updateObservacionById(req,res) {
 		send_output(options,updated,res)
 	})
 	.catch(e=>{
-		console.error({error:e})
-		res.status(400).send({message:"Query error",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 

@@ -387,14 +387,14 @@ const estacion_id = 2948
     assert.equal(res.statusCode, 200);
     assert(Array.isArray(res.body));
     assert.equal(res.body.length,3)
-    const observaciones = res.body[0]
+    const observaciones = res.body
     for(const o of observaciones) {
-      assert.ok("timestart" in observaciones)
-      assert.ok(new Date(observaciones.timestart).toString() != "Invalid Date")
-      assert.ok("timeend" in observaciones)
-      assert.ok(new Date(observaciones.timeend).toString() != "Invalid Date")
-      assert.ok("valor" in observaciones)
-      assert.ok(Number(observaciones.valor).toString() != "NaN")
+      assert.ok("timestart" in o)
+      assert.ok(new Date(o.timestart).toString() != "Invalid Date")
+      assert.ok("timeend" in o)
+      assert.ok(new Date(o.timeend).toString() != "Invalid Date")
+      assert.ok("valor" in o)
+      assert.ok(Number(o.valor).toString() != "NaN")
     }
   });
 
@@ -501,6 +501,7 @@ const estacion_id = 2948
         valor: 1.01
       })
       .set("Authorization", `Bearer ${writer.token}`);
+    console.log(res.text)
     assert.equal(res.statusCode, 200); 
 
     // fail update w/ reader 
@@ -510,6 +511,7 @@ const estacion_id = 2948
         valor: 1.21
       })
       .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    console.log(res.text)
     assert.equal(res.statusCode, 401); 
 
     // read updated
@@ -526,7 +528,7 @@ const estacion_id = 2948
       .delete(`/obs/puntual/series/${serie.id}/observaciones/${obs.id}`)
       .set("Authorization", `Bearer ${noaccess.token}`);
     console.log(res.text)
-    assert.equal(res.statusCode, 401);
+    assert.equal(res.statusCode, 404);
 
     // delete no access (reader)
     res = await request(app)
@@ -560,7 +562,9 @@ const estacion_id = 2948
       })
       .set("Authorization", `Bearer ${noaccess.token}`);
     console.log(res.text)
-    assert.equal(res.statusCode, 401);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,0)
   })
 
   test("DELETE /obs/puntual/series/{id}/observaciones no access 2 (reader)", async () => {
@@ -572,7 +576,9 @@ const estacion_id = 2948
       })
       .set("Authorization", `Bearer ${reader_of_red_10.token}`);
     console.log(res.text)
-    assert.equal(res.statusCode, 401);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,0)
   })
 
   test("DELETE /obs/puntual/series/{id}/observaciones w/ write access", async () => {
@@ -586,7 +592,7 @@ const estacion_id = 2948
     console.log(res.text)
     assert.equal(res.statusCode, 200);
     assert.ok(Array.isArray(res.body))
-    assert.equal(res.body.length,3)
+    assert.equal(res.body.length,2)
   })
 
 
@@ -607,7 +613,7 @@ const estacion_id = 2948
       .set("Authorization", `Bearer ${reader_of_red_10.token}`);
 
     console.log(res.text)
-    assert.equal(res.statusCode, 400);
+    assert.equal(res.statusCode, 401);
   })
 
   test("DELETE /obs/puntual/series no access, not found", async () => {
