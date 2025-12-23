@@ -2795,37 +2795,8 @@ function getObservacionesDia(req,res) {
 		res.status(400).send({message:"query error",error:"Missing parameters: either var_id or series_id or fuentes_id must be specified"})
 		return
 	}
-	//~ if(filter.series_id) {
-		//~ if(/,/.test(filter.series_id)) {
-			//~ filter.series_id = filter.series_id.split(",")
-		//~ }
-	//~ }
-	//~ if(filter.var_id) {
-		//~ if(/,/.test(filter.var_id)) {
-			//~ filter.var_id = filter.var_id.split(",")
-		//~ }
-	//~ }
-	//~ if(filter.proc_id) {
-		//~ if(/,/.test(filter.proc_id)) {
-			//~ filter.proc_id = filter.proc_id.split(",")
-		//~ }
-	//~ }
-	//~ if(filter.estacion_id) {
-		//~ if(/,/.test(filter.estacion_id)) {
-			//~ filter.estacion_id = filter.estacion_id.split(",")
-		//~ }
-	//~ }
-	//~ if(filter.area_id) {
-		//~ if(/,/.test(filter.area_id)) {
-			//~ filter.area_id = filter.area_id.split(",")
-		//~ }
-	//~ }
-	//~ if(filter.fuentes_id) {
-		//~ if(/,/.test(filter.fuentes_id)) {
-			//~ filter.fuentes_id = filter.fuentes_id.split(",")
-		//~ }
-	//~ }
-	crud.getObservacionesDia(tipo,filter,options)
+	const {user_id, ...filter_} = filter
+	crud.getObservacionesDia(tipo,filter_,options,user_id)
 	.then(result=>{
 		console.log("Results: " + result.length)
 		if(!result.length) {
@@ -2849,8 +2820,7 @@ function getObservacionesDia(req,res) {
 		}
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(400).send({error:e})
+		handleCrudError(e,res)
 	})
 }
 

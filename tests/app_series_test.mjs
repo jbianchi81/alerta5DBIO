@@ -479,6 +479,56 @@ const estacion_id = 2948
     assert.equal(res.statusCode, 404);
   });
 
+  test("GET /obs/puntual/dia/:date", async() => {
+    const res = await request(app)
+      .get(`/obs/puntual/dia/2000-01-01`)
+      .query({
+        var_id: 2
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray,res.body)
+    assert.equal(res.body.length,1)
+    assert.ok("date" in res.body[0])
+    assert.equal(res.body[0].date,"2000-01-01")
+    assert.ok("series_id" in res.body[0])
+    assert.equal(res.body[0].series_id,serie.id)
+    assert.ok("var_id" in res.body[0])
+    assert.equal(res.body[0].var_id,2)
+    assert.ok("proc_id" in res.body[0])
+    assert.equal(res.body[0].proc_id,1)
+    assert.ok("unit_id" in res.body[0])
+    assert.ok("estacion_id" in res.body[0])
+    assert.equal(res.body[0].estacion_id, estacion_id)
+    assert.ok("valor" in res.body[0])
+  })
+
+  test("GET /obs/puntual/dia/:date reader", async() => {
+    const res = await request(app)
+      .get(`/obs/puntual/dia/2000-01-01`)
+      .query({
+        var_id: 2
+      })
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray,res.body)
+    assert.equal(res.body.length,1)
+    assert.ok("date" in res.body[0])
+    assert.equal(res.body[0].date,"2000-01-01")
+    assert.ok("series_id" in res.body[0])
+    assert.equal(res.body[0].series_id,serie.id)
+  })
+
+  test("GET /obs/puntual/dia/:date no access", async() => {
+    const res = await request(app)
+      .get(`/obs/puntual/dia/2000-01-01`)
+      .query({
+        var_id: 2
+      })
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode, 404);
+  })
+
     // observaciones/{id}
   test("PUT /obs/puntual/series/:id/observaciones/:id  w/ write access", async () => {
     // read

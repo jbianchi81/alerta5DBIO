@@ -13014,7 +13014,7 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getObservacionesDia(tipo, filter, options) {
+	static async getObservacionesDia(tipo, filter, options, user_id) {
 //		date=new Date(),tipo="puntual",series_id,estacion_id,var_id,proc_id=[1,2],agg_func="avg")
 		if(!filter) {
 			throw(new Error("filter missing"))
@@ -13110,29 +13110,32 @@ internal.CRUD = class {
 								fuentes.public\
 						ORDER BY observaciones_areal.series_id;"
 			} else if(tipo.toLowerCase()=="puntual") {
-				stmt = "SELECT observaciones.timestart::date::text date,\
-								observaciones.series_id,\
-								series.var_id,\
-								series.proc_id,\
-								series.unit_id,\
-								series.estacion_id,\
-								round("+agg_func+"(valores_num.valor)::numeric,$2::int) valor,\
-								redes.public\
-						FROM observaciones,valores_num,series,estaciones,redes\
-						WHERE observaciones.id=valores_num.obs_id\
-						AND series.id=observaciones.series_id\
-						AND observaciones.series_id IN ("+series_id+")\
-						AND observaciones.timestart::date=$1::date\
-						AND series.estacion_id=estaciones.unid\
-						AND estaciones.tabla=redes.tabla_id " + public_filter + "\
-						GROUP BY observaciones.timestart::date::text,\
-									observaciones.series_id,\
-								series.var_id,\
-								series.proc_id,\
-								series.unit_id,\
-								series.estacion_id,\
-								redes.public\
-						ORDER BY observaciones.series_id;"
+				const [access_join, access_level]  = internal.red.getUserAccessClause(user_id, "redes.id") 
+				stmt = `SELECT observaciones.timestart::date::text date,
+								observaciones.series_id,
+								series.var_id,
+								series.proc_id,
+								series.unit_id,
+								series.estacion_id,
+								round(${agg_func}(valores_num.valor)::numeric,$2::int) valor,
+								redes.public
+						FROM observaciones
+						JOIN valores_num ON observaciones.id=valores_num.obs_id
+						JOIN series ON series.id=observaciones.series_id 
+						JOIN estaciones ON series.estacion_id=estaciones.unid
+						JOIN redes ON estaciones.tabla=redes.tabla_id 
+						${access_join}
+						WHERE observaciones.series_id IN (${series_id})
+						AND observaciones.timestart::date=$1::date
+						${public_filter}
+						GROUP BY observaciones.timestart::date::text,
+									observaciones.series_id,
+								series.var_id,
+								series.proc_id,
+								series.unit_id,
+								series.estacion_id,
+								redes.public
+						ORDER BY observaciones.series_id;`
 			} else {
 				throw(new Error("Bad tipo"))
 			}
@@ -13216,31 +13219,37 @@ internal.CRUD = class {
 					//~ console.error("bad proc_id")
 					throw new Error("bad proc_id")
 				}
-				stmt = "SELECT observaciones.timestart::date::text date,\
-							observaciones.series_id,\
-							series.var_id,\
-							series.proc_id,\
-							series.unit_id,\
-							series.estacion_id,\
-							round("+agg_func+"(valores_num.valor)::numeric,$2::int) valor,\
-							redes.public\
-					FROM observaciones,valores_num,series,estaciones,redes\
-					WHERE observaciones.id=valores_num.obs_id\
-					AND series.id=observaciones.series_id\
-					AND series.var_id IN ("+var_id+")\
-					AND series.proc_id IN ("+proc_id+")\
-					AND observaciones.timestart::date=$1::date\
-					AND series.estacion_id=estaciones.unid\
-					AND estaciones.tabla=redes.tabla_id " + public_filter + "\
-					"+estacion_id_filter+"\
-					GROUP BY observaciones.timestart::date::text,\
-								observaciones.series_id,\
-							series.var_id,\
-							series.proc_id,\
-							series.unit_id,\
-							series.estacion_id,\
-							redes.public\
-					ORDER BY observaciones.series_id;"
+				const [access_join, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
+				stmt = `SELECT observaciones.timestart::date::text date,
+							observaciones.series_id,
+							s.var_id,
+							s.proc_id,
+							s.unit_id,
+							s.estacion_id,
+							round(${agg_func}(valores_num.valor)::numeric,$2::int) valor,
+							redes.public
+					FROM observaciones
+					JOIN valores_num ON observaciones.id=valores_num.obs_id
+					JOIN (SELECT * 
+						FROM series 
+						WHERE series.var_id IN (${var_id})
+						AND series.proc_id IN (${proc_id})) s ON s.id=observaciones.series_id
+					JOIN (SELECT * 
+						FROM estaciones 
+						${estacion_id_filter}) e ON s.estacion_id=e.unid
+					JOIN redes ON e.tabla=redes.tabla_id
+					${access_join}
+					WHERE observaciones.timestart::date=$1::date
+					${public_filter}
+					
+					GROUP BY observaciones.timestart::date::text,
+								observaciones.series_id,
+							s.var_id,
+							s.proc_id,
+							s.unit_id,
+							s.estacion_id,
+							redes.public
+					ORDER BY observaciones.series_id;`
 			}
 			//~ console.log(stmt)
 			const result = await global.pool.query(stmt,[date,precision])
