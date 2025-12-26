@@ -98,6 +98,40 @@ test("prepare group", async () => {
   assert.equal(res3.body.length,2)
 })
 
+// redes
+
+test("GET /obs/puntual/fuentes", async() => {
+  const res = await request(app)
+    .get("/obs/puntual/fuentes")
+    .set("Authorization", `Bearer ${writer.token}`);
+  assert.equal(res.statusCode, 200);
+  assert(Array.isArray(res.body));
+  assert.equal(res.body.length,2)
+  assert.ok(res.body.map(r=>r.id).indexOf(10) >= 0)
+  assert.ok(res.body.map(r=>r.id).indexOf(4) >= 0)
+})
+
+test("GET /obs/puntual/fuentes admin", async() => {
+  const res = await request(app)
+    .get("/obs/puntual/fuentes")
+    .set("Authorization", `Bearer ${admin.token}`);
+  assert.equal(res.statusCode, 200);
+  assert(Array.isArray(res.body));
+  assert.equal(res.body.length,2)
+  assert.ok(res.body.map(r=>r.id).indexOf(10) >= 0)
+  assert.ok(res.body.map(r=>r.id).indexOf(4) >= 0)
+})
+
+test("GET /obs/puntual/fuentes no access", async() => {
+  const res = await request(app)
+    .get("/obs/puntual/fuentes")
+    .set("Authorization", `Bearer ${noaccess.token}`);
+  assert.equal(res.statusCode, 200);
+  assert(Array.isArray(res.body));
+  assert.equal(res.body.length,0)
+})
+
+
 let estacion
 
 test("POST /obs/puntual/estaciones  w/ write access", async () => {

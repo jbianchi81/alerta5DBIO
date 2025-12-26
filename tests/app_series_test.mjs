@@ -160,7 +160,8 @@ const estacion_id = 2948
           tabla: "alturas_prefe",
           id_externo: "t665a443",
           nombre: "test write",
-          geom: {type: "Point", coordinates: [0,0]}
+          geom: {type: "Point", coordinates: [0,0]},
+          habilitar: true
         }
       ])
       .set("Content-Type", "application/json")
@@ -528,6 +529,273 @@ const estacion_id = 2948
       .set("Authorization", `Bearer ${noaccess.token}`);
     assert.equal(res.statusCode, 404);
   })
+
+  test("GET /obs/puntual/series/:series_id/regular", async() => {
+    const res = await request(app)
+      .get(`/obs/puntual/series/${serie.id}/regular`)
+      .query({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z",
+        dt: "1 day"
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length, 3)
+  })
+
+    test("GET /obs/puntual/series/:series_id/regular reader", async() => {
+    const res = await request(app)
+      .get(`/obs/puntual/series/${serie.id}/regular`)
+      .query({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z",
+        dt: "1 day"
+      })
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length, 3)
+  })
+
+  test("GET /obs/puntual/series/:series_id/regular no access", async() => {
+    const res = await request(app)
+      .get(`/obs/puntual/series/${serie.id}/regular`)
+      .query({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z",
+        dt: "1 day"
+      })
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode, 401);
+  })
+
+  test("GET /obs/puntual/regular", async() => {
+    const res = await request(app)
+      .get(`/obs/puntual/regular`)
+      .query({
+        series_id: [serie.id],
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z",
+        dt: "1 day"
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,6)
+  })
+
+  test("GET /obs/puntual/regular reader", async() => {
+    const res = await request(app)
+      .get(`/obs/puntual/regular`)
+      .query({
+        series_id: [serie.id],
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z",
+        dt: "1 day"
+      })
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,6)
+  })
+
+    test("GET /obs/puntual/regular no access", async() => {
+    const res = await request(app)
+      .get(`/obs/puntual/regular`)
+      .query({
+        series_id: [serie.id],
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z",
+        dt: "1 day"
+      })
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,3)
+  })
+
+    // campo
+    test("GET /obs/puntual/campo", async() => {
+    const res = await request(app)
+      .get(`/obs/puntual/campo`)
+      .query({
+        var_id: 2,
+        unit_id: 9,
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok("series" in res.body)
+    assert.ok(Array.isArray(res.body.series))
+    assert.equal(res.body.series.length,1)
+    assert.ok("valor" in res.body.series[0])
+    assert.equal(res.body.series[0].valor, 3.33)
+  })
+
+  test("GET /obs/puntual/campo reader", async() => {
+    const res = await request(app)
+      .get(`/obs/puntual/campo`)
+      .query({
+        var_id: 2,
+        unit_id: 9,
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok("series" in res.body)
+    assert.ok(Array.isArray(res.body.series))
+    assert.equal(res.body.series.length,1)
+    assert.ok("valor" in res.body.series[0])
+    assert.equal(res.body.series[0].valor, 3.33)
+  })
+
+  test("GET /obs/puntual/campo no access", async() => {
+    const res = await request(app)
+      .get(`/obs/puntual/campo`)
+      .query({
+        var_id: 2,
+        unit_id: 9,
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode, 404);
+  })
+
+    // serieCampo
+  test("GET /obs/variables/:var_id/from/:timestart/to/:timeend/by/:dt", async() => {
+    const res = await request(app)
+      .get(`/obs/variables/2/from/2000-01-01T03:00:00.000Z/to/2000-01-04T03:00:00.000Z/by/1 days`)
+      .query({
+        unit_id: 9
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,3)
+    for(const s of res.body) {
+      assert.ok("series" in s)
+      assert.equal(s.series.length,1)
+      assert.ok("valor" in s.series[0])
+    }
+  })
+
+  test("GET /obs/variables/:var_id/from/:timestart/to/:timeend/by/:dt reader", async() => {
+    const res = await request(app)
+      .get(`/obs/variables/2/from/2000-01-01T03:00:00.000Z/to/2000-01-04T03:00:00.000Z/by/1 days`)
+      .query({
+        unit_id: 9
+      })
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,3)
+    for(const s of res.body) {
+      assert.ok("series" in s)
+      assert.equal(s.series.length,1)
+      assert.ok("valor" in s.series[0])
+    }
+  })
+
+    test("GET /obs/variables/:var_id/from/:timestart/to/:timeend/by/:dt no access", async() => {
+    const res = await request(app)
+      .get(`/obs/variables/2/from/2000-01-01T03:00:00.000Z/to/2000-01-04T03:00:00.000Z/by/1 days`)
+      .query({
+        unit_id: 9
+      })
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode, 404);
+  })
+
+    // getSeriesBySiteAndVar
+  test("GET /getSeriesBySiteAndVar", async() => {
+    const res = await request(app)
+      .get(`/getSeriesBySiteAndVar`)
+      .query({
+        var_id: 2,
+        estacion_id: estacion.id
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok("id" in res.body)
+    assert.equal(res.body.id, serie.id)
+  })
+
+    test("GET /getSeriesBySiteAndVar reader", async() => {
+    const res = await request(app)
+      .get(`/getSeriesBySiteAndVar`)
+      .query({
+        var_id: 2,
+        estacion_id: estacion.id
+      })
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok("id" in res.body)
+    assert.equal(res.body.id, serie.id)
+  })
+
+    test("GET /getSeriesBySiteAndVar no access", async() => {
+    const res = await request(app)
+      .get(`/getSeriesBySiteAndVar`)
+      .query({
+        var_id: 2,
+        estacion_id: estacion.id
+      })
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode, 404);
+  })
+
+   // /getObservacionesTimestart
+   test("GET /getObservacionesTimestart", async() => {
+    const res = await request(app)
+      .get(`/getObservacionesTimestart`)
+      .query({
+        var_id: 2,
+        timestart: "2000-01-01T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode,200)
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,1)
+    assert.ok("series_id" in res.body[0])
+    assert.equal(res.body[0].series_id, serie.id)
+    assert.ok("timestart" in res.body[0])
+    assert.equal(res.body[0].timestart, "2000-01-01T03:00:00.000Z")
+   })
+
+  test("GET /getObservacionesTimestart reader", async() => {
+    const res = await request(app)
+      .get(`/getObservacionesTimestart`)
+      .query({
+        var_id: 2,
+        timestart: "2000-01-01T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode,200)
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,1)
+    assert.ok("series_id" in res.body[0])
+    assert.equal(res.body[0].series_id, serie.id)
+    assert.ok("timestart" in res.body[0])
+    assert.equal(res.body[0].timestart, "2000-01-01T03:00:00.000Z")
+   })
+
+  test("GET /getObservacionesTimestart no access", async() => {
+    const res = await request(app)
+      .get(`/getObservacionesTimestart`)
+      .query({
+        var_id: 2,
+        timestart: "2000-01-01T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode,200)
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,0)
+   })
+
 
     // observaciones/{id}
   test("PUT /obs/puntual/series/:id/observaciones/:id  w/ write access", async () => {

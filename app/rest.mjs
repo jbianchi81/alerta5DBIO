@@ -895,7 +895,8 @@ function getRedes(req,res) {
 		return
 	}
 	console.log("filter:" + JSON.stringify(filter))
-	crud.getRedes(filter)
+	const {user_id, ...filter_} = filter
+	crud.getRedes(filter_, user_id)
 	.then(result=>{
 		console.log("Results: " + result.length)
 		send_output(options,result,res)
@@ -1206,7 +1207,8 @@ function getFuentesAll(req,res) {
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	}
-	crud.getFuentesAll(filter)
+	const {user_id, ...filter_} = filter
+	crud.getFuentesAll(filter_,user_id)
 	.then(result=>{
 		console.log("Results: " + result.length)
 		send_output(options,result,res)
@@ -1870,7 +1872,7 @@ function upsertEstacion(req,res) {
 	//~ if(filter.unid) {
 		//~ estacion.unid = filter.unid
 	//~ }
-	crud.upsertEstacion(new CRUD.estacion(estacion))
+	crud.upsertEstacion(new CRUD.estacion(estacion),undefined,undefined,filter.user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(400).send({message:"bad request"})
@@ -2752,7 +2754,7 @@ function getObservacionesTimestart(req,res) {
 		res.status(400).send({message:"query error",error:"Missing parameters: either var_id or series_id or fuentes_id must be specified"})
 		return
 	}
-	crud.getObservacionesTimestart(tipo,filter,options)
+	crud.getObservacionesTimestart(tipo,filter,options,filter.user_id)
 	.then(result=>{
 		console.log("Results: " + result.length)
 		if(options.cume_dist) {
@@ -3373,16 +3375,14 @@ function getRegularSeries (req,res) {
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	} 
-	crud.getRegularSeries(filter.tipo,filter.series_id,options.dt,filter.timestart,filter.timeend,{t_offset:filter.t_offset, aggFunction:filter.agg_func,inst:filter.inst,timeSupport:filter.time_support,precision:filter.precision}) // options: t_offset,aggFunction,inst,timeSupport,precision
+	crud.getRegularSeries(filter.tipo,filter.series_id,options.dt,filter.timestart,filter.timeend,{t_offset:filter.t_offset, aggFunction:filter.agg_func,inst:filter.inst,timeSupport:filter.time_support,precision:filter.precision},undefined,undefined,undefined,undefined,undefined,filter.user_id) // options: t_offset,aggFunction,inst,timeSupport,precision
 	.then(result=>{
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(400).send(e.toString())
+		handleCrudError(e, res)
 	})
 }
-  //~ });
 
 function getMultipleRegularSeries (req,res) {
 	// <tipo> <series_id> <dt> <timestart> <timeend>')
@@ -3405,7 +3405,7 @@ function getMultipleRegularSeries (req,res) {
 	var series = filter.series_id.map(s=>{
 		return { tipo: filter.tipo, id: s}
 	})
-	crud.getMultipleRegularSeries(series,filter.dt,filter.timestart,filter.timeend,{t_offset:filter.t_offset, aggFunction:filter.agg_func,inst:filter.inst,timeSupport:filter.time_support,precision:filter.precision}) // options: t_offset,aggFunction,inst,timeSupport,precision
+	crud.getMultipleRegularSeries(series,filter.dt,filter.timestart,filter.timeend,{t_offset:filter.t_offset, aggFunction:filter.agg_func,inst:filter.inst,timeSupport:filter.time_support,precision:filter.precision},filter.user_id) // options: t_offset,aggFunction,inst,timeSupport,precision
 	.then(result=>{
 		if(options.csv) {
 			var csv = result.map(r=>{
@@ -3417,8 +3417,7 @@ function getMultipleRegularSeries (req,res) {
 		}
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(400).send(e)
+		handleCrudError(e, res)
 	})
 }
 
@@ -3444,13 +3443,12 @@ function getCampo (req,res) {
 		return
 	} 
 	console.log({filter:filter,options:options})
-	crud.getCampo(filter.var_id,filter.timestart,filter.timeend,filter,options)
+	crud.getCampo(filter.var_id,filter.timestart,filter.timeend,filter,options,filter.user_id)
 	.then(result=>{
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(400).send(e)
+		handleCrudError(e, res)
 	})
 }
 
@@ -3476,13 +3474,12 @@ function getCampoSerie (req,res) {
 		return
 	} 
 	console.log({filter:filter,options:options})
-	crud.getCampoSerie(filter.var_id,filter.timestart,filter.timeend,filter,options)
+	crud.getCampoSerie(filter.var_id,filter.timestart,filter.timeend,filter,options,filter.user_id)
 	.then(result=>{
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(400).send(e)
+		handleCrudError(e, res)
 	})
 }
 
@@ -3734,11 +3731,12 @@ function getSeriesBySiteAndVar(req,res) {  //	estacion_id,var_id,timestart,timee
 		filter.series_id,
 		filter.tipo,
 		options.from_view,
-		options.get_cal_stats
+		options.get_cal_stats,
+		filter.user_id
 	)
 	.then(result=>{
 		if(!result) {
-			res.status(400).send({error:"serie no encontrada",message:"serie no encontrada"})
+			res.status(404).send({error:"serie no encontrada",message:"serie no encontrada"})
 		} else {
 			if(options.stats) {
 				if(options.stats.toLowerCase() == "daily" ) {
@@ -3772,8 +3770,7 @@ function getSeriesBySiteAndVar(req,res) {  //	estacion_id,var_id,timestart,timee
 		}
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(400).send(e.toString())
+		handleCrudError(e, res)
 	})
 }
 

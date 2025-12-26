@@ -187,7 +187,8 @@ internal.red = class extends baseModel  {
 			const red = await internal.CRUD.getRed(filter.id)
 			return new internal.red(red)
 		}
-		return internal.CRUD.getRedes(filter)
+		const {user_id, ...filter_} = filter
+		return internal.CRUD.getRedes(filter_, user_id)
 	}
 
 	async delete() {
@@ -569,10 +570,11 @@ internal.estacion = class extends baseModel {
 		}
 	}
 	static async read(filter={},options) {
+		const {user_id, filter_} = filter
 		if(filter.id && !Array.isArray(filter.id)) {
-			return internal.CRUD.getEstacion(filter.id,filter.public, options)
+			return internal.CRUD.getEstacion(filter.id,filter.public, options,user_id)
 		}
-		return internal.CRUD.getEstaciones(filter,options)
+		return internal.CRUD.getEstaciones(filter_,options,undefined,user_id)
 	}
 	async create(options) {
 		const created = await internal.CRUD.upsertEstacion(this,options)
@@ -7257,7 +7259,7 @@ internal.CRUD = class {
 			//~ })
 		})
 	}
-	static async getRedes(filter={}) {
+	static async getRedes(filter={}, user_id) {
 		//~ console.log(filter)
 		const valid_filters = {nombre:"regex_string", tabla_id:"string", public:"boolean", public_his_plata:"boolean", id:"integer"}
 		var filter_string=""
@@ -7285,7 +7287,7 @@ internal.CRUD = class {
 			return Promise.reject(new Error("invalid filter value"))
 		}
 		//~ console.log("filter_string:" + filter_string)
-		const [access_join, access_level] = internal.red.getUserAccessClause(filter.user_id)
+		const [access_join, access_level] = internal.red.getUserAccessClause(user_id)
 		try {
 			const res = await global.pool.query(`SELECT redes.*,${access_level} AS access_level FROM redes ${access_join} WHERE 1=1 ${filter_string}`)
 			var redes = res.rows.map(red=>{
@@ -7310,9 +7312,13 @@ internal.CRUD = class {
 	 * @param {pg.Client=} client - pg client to include in a transactional block.
 	 * @returns {Promise<internal.estacion>} - the new or updated estacion instance
 	 */
-	static async upsertEstacion(estacion,options={},client) {
+	static async upsertEstacion(estacion,options={},client,user_id) {
 		if(!estacion.tabla || !estacion.id_externo) {
 			throw("Missing estacion.tabla and/or estacion.id_externo")
+		}
+		const has_access = await this.hasAccess(estacion.id,estacion.tabla,user_id,true)
+		if(!has_access) {
+			throw new AuthError("El usuario no tiene acceso de escritura para la red")
 		}
 		var release_client = false
 		if(!client) {
@@ -7795,7 +7801,7 @@ internal.CRUD = class {
 		}
 	}
 	
-	static async getEstaciones(filter={},options={},client) {
+	static async getEstaciones(filter={},options={},client,user_id) {
 		var release_client = false
 		if(!client) {
 			client = await global.pool.connect()
@@ -7887,7 +7893,7 @@ internal.CRUD = class {
 			pagination_clause = (filter.limit) ? `LIMIT ${filter.limit}` : ""
 			pagination_clause += (filter.offset) ? ` OFFSET ${filter.offset}`: ""
 		}
-		const [access_join, access_level] = internal.red.getUserAccessClause(filter.user_id,"redes.fuentes_id")
+		const [access_join, access_level] = internal.red.getUserAccessClause(user_id,"redes.fuentes_id")
 		const stmt = `
 			SELECT
 				estaciones.nombre, 
@@ -8988,12 +8994,12 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async getFuentesAll(filter={}) {
+	static async getFuentesAll(filter={}, user_id) {
 		var fuentes_areal
 		var fuentes_puntual
 		try {
-			fuentes_areal = await this.getFuentes(filter)
-			fuentes_puntual = await this.getRedes(filter)
+			fuentes_areal = await this.getFuentes(filter) //, user_id)
+			fuentes_puntual = await this.getRedes(filter, user_id)
 		} catch(e) {
 			throw(e)
 		}
@@ -9258,7 +9264,7 @@ internal.CRUD = class {
 						if(!has_access) {
 							throw new AuthError("Usuario no tiene acceso de escritura a la red especificada")
 						}
-						serie_props.estacion = await this.upsertEstacion(serie.estacion,undefined,client) //await client.query(this.upsertEstacionQuery(serie.estacion,{no_update_id:no_update_estacion_id}))
+						serie_props.estacion = await this.upsertEstacion(serie.estacion,undefined,client,user_id) //await client.query(this.upsertEstacionQuery(serie.estacion,{no_update_id:no_update_estacion_id}))
 						// serie_props.estacion = new internal.estacion(result.rows[0])
 						// console.log("estacion: " + serie_props.estacion.toString())
 					} else if (serie.estacion instanceof internal.area) {
@@ -9270,7 +9276,7 @@ internal.CRUD = class {
 						var result = await this.upsertEscena(serie.estacion,client) // client.query(this.upsertEscenaQuery(serie.estacion))
 						serie_props.estacion = new internal.escena(result)
 					} else {
-						var result = await this.upsertEstacion(new internal.estacion(serie.estacion),client) // client.query(this.upsertEscenaQuery(serie.estacion))
+						var result = await this.upsertEstacion(new internal.estacion(serie.estacion),undefined,client,user_id) // client.query(this.upsertEscenaQuery(serie.estacion))
 						serie_props.estacion = new internal.estacion(result)
 					}
 				} else {
@@ -12778,7 +12784,7 @@ internal.CRUD = class {
 	}
 
 	
-	static async getObservacionesTimestart(tipo, filter, options) {		// DEVUELVE ARRAY DE OBSERVACIONES CON EL TIMESTART EXACTO INDICADO Y OTROS FILTROS 
+	static async getObservacionesTimestart(tipo, filter, options, user_id) {		// DEVUELVE ARRAY DE OBSERVACIONES CON EL TIMESTART EXACTO INDICADO Y OTROS FILTROS 
 		if(!filter) {
 			return Promise.reject("filter missing")
 		}
@@ -12841,23 +12847,27 @@ internal.CRUD = class {
 						AND series_areal.fuentes_id=fuentes.id " + public_filter + "\
 						ORDER BY observaciones_areal.series_id;"
 			} else if(tipo.toLowerCase()=="puntual") {
-				stmt = "SELECT observaciones.timestart,\
-								observaciones.timeend,\
-								observaciones.series_id,\
-								series.var_id,\
-								series.proc_id,\
-								series.unit_id,\
-								series.estacion_id,\
-							   round(valores_num.valor::numeric,$2::int) valor,\
-							   redes.public\
-						FROM observaciones,valores_num,series,estaciones,redes\
-						WHERE observaciones.id=valores_num.obs_id\
-						AND series.id=observaciones.series_id\
-						AND observaciones.series_id IN ("+series_id+")\
-						AND observaciones.timestart=$1\
-						AND series.estacion_id=estaciones.unid\
-						AND estaciones.tabla=redes.tabla_id " + public_filter + "\
-						ORDER BY observaciones.series_id;"
+				const [access_join, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
+				stmt = `SELECT 
+						observaciones.timestart,
+						observaciones.timeend,
+						observaciones.series_id,
+						series.var_id,
+						series.proc_id,
+						series.unit_id,
+						series.estacion_id,
+						round(valores_num.valor::numeric,$2::int) valor,
+						redes.public
+					 observaciones
+					 JOIN valores_num ON observaciones.id=valores_num.obs_id
+					 JOIN series ON series.id=observaciones.series_id
+					 JOIN estaciones ON series.estacion_id=estaciones.unid
+					 JOIN redes ON estaciones.tabla=redes.tabla_id 
+					 ${access_join}
+					 WHERE observaciones.series_id IN (${series_id})
+					 AND observaciones.timestart=$1
+					 ${public_filter}
+					 ORDER BY observaciones.series_id`
 			} else {
 				return Promise.reject("Bad tipo")
 			}
@@ -12903,7 +12913,9 @@ internal.CRUD = class {
 						AND series_areal.fuentes_id IN ("+fuentes_id+")\
 						AND series_areal.fuentes_id=fuentes.id " + public_filter + "\
 						ORDER BY observaciones_areal.series_id;"
-			} else {												// PUNTUAL, sin SERIES_ID
+			} else {	
+				// PUNTUAL, sin SERIES_ID
+				const [access_join, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
 				var estacion_id_filter = ""
 				if(estacion_id) {
 					if(Array.isArray(estacion_id)) {
@@ -12933,25 +12945,27 @@ internal.CRUD = class {
 					//~ console.error("bad proc_id")
 					return Promise.reject("bad proc_id")
 				}
-				stmt = "SELECT observaciones.timestart,\
-							observaciones.timeend,\
-							observaciones.series_id,\
-							series.var_id,\
-							series.proc_id,\
-							series.unit_id,\
-							series.estacion_id,\
-						   round(valores_num.valor::numeric,$2::int) valor,\
-						   redes.public\
-					FROM observaciones,valores_num,series,estaciones,redes\
-					WHERE observaciones.id=valores_num.obs_id\
-					AND series.id=observaciones.series_id\
-					AND series.var_id IN ("+var_id+")\
-					AND series.proc_id IN ("+proc_id+")\
-					AND observaciones.timestart=$1\
-					"+estacion_id_filter+"\
-					AND series.estacion_id=estaciones.unid\
-					AND estaciones.tabla=redes.tabla_id " + public_filter + "\
-					ORDER BY observaciones.series_id;"
+				stmt = `SELECT observaciones.timestart,
+							observaciones.timeend,
+							observaciones.series_id,
+							series.var_id,
+							series.proc_id,
+							series.unit_id,
+							series.estacion_id,
+						   round(valores_num.valor::numeric,$2::int) valor,
+						   redes.public
+					FROM observaciones
+					JOIN valores_num ON observaciones.id=valores_num.obs_id
+					JOIN series ON series.id=observaciones.series_id
+					JOIN estaciones ON series.estacion_id=estaciones.unid
+					JOIN redes ON estaciones.tabla=redes.tabla_id
+					${access_join}
+					WHERE series.var_id IN (${var_id})
+					AND series.proc_id IN (${proc_id})
+					AND observaciones.timestart=$1
+					${estacion_id_filter}
+					${public_filter}
+					ORDER BY observaciones.series_id`
 			}
 			//~ console.log(stmt)
 			query = global.pool.query(stmt,[date,precision])
@@ -14509,7 +14523,7 @@ internal.CRUD = class {
 		return serie
 	}
 	
-	static async getRegularSeries(tipo="puntual",series_id,dt="1 days",timestart,timeend,options={},client, cal_id, cor_id, forecast_date, qualifier) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate,no_insert_as_obs,source_time_support
+	static async getRegularSeries(tipo="puntual",series_id,dt="1 days",timestart,timeend,options={},client, cal_id, cor_id, forecast_date, qualifier, user_id) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate,no_insert_as_obs,source_time_support
 		// console.debug({tipo:tipo,series_id:series_id,dt:dt,timestart:timestart,timeend:timeend,options:options})
 		if(!series_id || !timestart || !timeend) {
 			return Promise.reject("series_id, timestart and/or timeend missing")
@@ -14527,6 +14541,12 @@ internal.CRUD = class {
 				return Promise.reject("If cal_id is set, forecast_date must be defined")
 			}
 		}
+
+		const has_access = await this.hasAccess(undefined, undefined, user_id, false, series_id, tipo)
+		if(!has_access) {
+			throw new AuthError("El usuario no tiene permiso de lectura para la serie tipo=puntual id=" + series_id)
+		}
+
 		var serie = await this.getSerie(tipo,series_id)
 		if(!serie) {
 			console.error("serie not found")
@@ -15144,37 +15164,38 @@ internal.CRUD = class {
 		return corridas[0].series[0].pronosticos
 	}
 	
-	static async getMultipleRegularSeries(series,dt="1 days",timestart,timeend,options) {
+	static async getMultipleRegularSeries(series,dt="1 days",timestart,timeend,options,user_id) {
 		// series: [{tipo:...,id:...},{..},...]
 		// returns 2d array with dates in rows and series in columns
-		return Promise.all(series.map(s=>{
-			return this.getSerie((s.tipo) ? s.tipo : "puntual",{id:s.id})
-		}))
-		.then(seriesData=>{
-			seriesData = seriesData.map(s=>s[0])
-			var header0 = ["series_id"]
-			var header1 = ["estacion"]
-			var header2 = ["variable"]
-			return Promise.all(seriesData.map(s=>{
+		let seriesData = []
+		for(const s of series) {
+			const serie = await this.getSerie((s.tipo) ? s.tipo : "puntual",s.id,undefined,undefined,undefined,undefined,undefined,undefined,user_id)
+			if(serie) {
+				 seriesData.push(serie)
+			}
+		}
+		// seriesData = seriesData.map(s=>s[0])
+		var header0 = ["series_id"]
+		var header1 = ["estacion"]
+		var header2 = ["variable"]
+		const regularSeries = []
+		for(const s of seriesData) {
 				header0.push(s.id)
 				header1.push(s.estacion.nombre)
 				header2.push(s.var.nombre)
-				return this.getRegularSeries( (s.tipo) ? s.tipo : "puntual",s.id,dt,timestart,timeend,options)
-			}))
-			.then(regularSeries=>{
-				var multipleRegularSeries = [header0,header1,header2]
-				if(regularSeries.length>0) {
-					regularSeries[0].forEach((r,i)=>{
-						var row = [r.timestart.toISOString()]
-						regularSeries.forEach(s=>{
-							row.push(s[i].valor)
-						})
-						multipleRegularSeries.push(row)
-					})
-				}
-				return multipleRegularSeries
+				regularSeries.push(await this.getRegularSeries( (s.tipo) ? s.tipo : "puntual",s.id,dt,timestart,timeend,options))
+		}
+		var multipleRegularSeries = [header0,header1,header2]
+		if(regularSeries.length>0) {
+			regularSeries[0].forEach((r,i)=>{
+				var row = [r.timestart.toISOString()]
+				regularSeries.forEach(s=>{
+					row.push(s[i].valor)
+				})
+				multipleRegularSeries.push(row)
 			})
-		})
+		}
+		return multipleRegularSeries
 	}
 	
 	// getCampo2: obtiene set de series regulares de una variable puntual para un periodo y paso temporal dados, opcionalmente filtrado por recorte espacial (geom), procedimiento, array de ids de estación, id o array de id de red 
@@ -15235,16 +15256,15 @@ internal.CRUD = class {
 	}
 	
 	//getCampo: obtiene campo de una variable para un intervalo dado, opcionalmente filtrado por red, estacion, geometría (envolvente). Agregación temporal según parámetro agg_func (default: acum)	
-	static async getCampo(var_id,timestart,timeend,filter={},options={}) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate,min_count
-		return this.initCampo(var_id,timestart,timeend,filter,options)
-		.then(campo=>{
-			return this.getSingleCampo(campo)
-		})
+	static async getCampo(var_id,timestart,timeend,filter={},options={},user_id) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate,min_count
+		const campo = await this.initCampo(var_id,timestart,timeend,filter,options,user_id)
+		return this.getSingleCampo(campo)
 	}
+
 	// getCampoSerie  GENERA SERIE TEMPORAL CON INTERVALO options.dt (DEFAULT 1 days)  ITERA SOBRE GETSINGLECAMPO, DEVUELVE ARREGLO 
-	static async getCampoSerie(var_id,timestart,timeend,filter={},options={}) {
+	static async getCampoSerie(var_id,timestart,timeend,filter={},options={},user_id) {
 		try { 
-		 var campo = await this.initCampo(var_id,timestart,timeend,filter,options)
+		 var campo = await this.initCampo(var_id,timestart,timeend,filter,options,user_id)
 		} catch(e) {
 			return Promise.reject(e)
 		}
@@ -15283,7 +15303,7 @@ internal.CRUD = class {
 		return campos
 	}
 	
-	static async initCampo(var_id,timestart,timeend,filter={},options={}) {
+	static async initCampo(var_id,timestart,timeend,filter={},options={},user_id) {
 		var proc_id = (filter.proc_id) ? filter.proc_id : (var_id==4) ? 2 : 1
 		if(!var_id || ! proc_id || !timestart || !timeend) {
 			return Promise.reject("Missing parameters. required: var_id proc_id unit_id timestart timeend")
@@ -15294,61 +15314,103 @@ internal.CRUD = class {
 			}
 		}
 		var campo = {var_id:var_id, proc_id: proc_id, timestart: timestart, timeend: timeend, filter: {geom: filter.geom,estacion_id: filter.estacion_id, red_id: filter.red_id}, options: {aggFunction: options.agg_func,dt:options.dt,t_offset:options.t_offset,inst:options.inst,precision:options.precision,timeSupport:options.timeSupport,min_count:options.min_count}}
-		return Promise.all([this.getVar(campo.var_id),this.getProcedimiento(campo.proc_id)])
-		.then(results=>{
-			if(!results[0]) {
-				throw("var_id:"+campo.var_id+" not found")
-			}
-			if(!results[1]) {
-				throw("proc_id:"+campo.proc_id+"not found")
-			}
-			campo.variable = results[0]
-			campo.procedimiento = results[1]
-			campo.unit_id = (filter.unit_id) ? filter.unit_id : campo.variable.def_unit_id
+		const var_ = await this.getVar(campo.var_id)
+		if(!var_) {
+			throw new NotFoundError("var_id:"+campo.var_id+" not found")
+		}
+		const proc_ = await this.getProcedimiento(campo.proc_id)
+		if(!proc_) {
+			throw new NotFoundError("proc_id:"+campo.proc_id+" not found")
+		}
+		campo.variable = var_
+		campo.procedimiento = proc_
+		campo.unit_id = (filter.unit_id) ? filter.unit_id : campo.variable.def_unit_id
+		if(!campo.options.timeSupport) {
+			campo.options.timeSupport = campo.variable.timeSupport
+		}
+		const unit_ = await this.getUnidad(campo.unit_id)
+		if(!unit_) {
+			throw new NotFoundError("unit_id:" + campo.unit_id + " not found")
+		}
+		campo.unidades = unit_
+		if(!campo.options.inst) {
 			if(!campo.options.timeSupport) {
-				campo.options.timeSupport = campo.variable.timeSupport
+				campo.options.inst = true
+			} else if (timeSteps.interval2epochSync(campo.options.timeSupport) == 0) {
+				campo.options.inst = true
+			} else {
+				campo.options.inst = false
 			}
-			return this.getUnidad(campo.unit_id)
-		})
-		.then(results=>{
-			if(!results) {
-				throw("unit_id:" + campo.unit_id + " not found")
-			}
-			campo.unidades = results
-			if(!campo.options.inst) {
-				if(!campo.options.timeSupport) {
-					campo.options.inst = true
-				} else if (timeSteps.interval2epochSync(campo.options.timeSupport) == 0) {
-					campo.options.inst = true
-				} else {
-					campo.options.inst = false
-				}
-			}
+		}
 //			if(serie["var"].datatype.toLowerCase() == "continuous" || serie["var"].datatype.toLowerCase() == "sporadic") {
 //				def_inst = true
 //			} else {
 //				def_inst = false
 //			}
-			var valid_filters = {estacion_id: "numeric", red_id: "numeric", geom: "geometry", series_id: "numeric", public: "boolean_only_true"}
-			return global.pool.query("SELECT series.series_id series_id, series.proc_id, series.var_id, series.unit_id, series.estacion_id, estaciones.tabla, st_x(estaciones.geom) geom_x, st_y(estaciones.geom) geom_y, redes.red_id red_id, estaciones.nombre, estaciones.id_externo, estaciones.public \
-			from (select series.id series_id, series.estacion_id, series.proc_id, series.var_id, series.unit_id from series) series,(select unid, tabla,geom,estaciones.nombre,id_externo,public from estaciones,redes where estaciones.tabla=redes.tabla_id AND habilitar=true) estaciones,(select tabla_id,id red_id from redes) redes \
-			where var_id=$1 AND proc_id=$2 AND unit_id=$3 AND estaciones.unid=series.estacion_id and redes.tabla_id=estaciones.tabla " + internal.utils.control_filter(valid_filters, {estacion_id: filter.estacion_id, red_id: filter.red_id, geom: filter.geom, series_id: filter.series_id, public:filter.public}) + " ORDER BY series_id",[campo.variable.id,campo.procedimiento.id,campo.unidades.id])
-			//~ return this.getSeries("puntual",{var_id:campo.var_id,proc_id:campo.proc_id,unit_id:campo.unit_id,red_id:filter.red_id,geom:filter.geom,estacion_id:filter.estacion_id})
-		})
-		.then(result=>{
-			if(!result) {
-				throw("series not found")
-			}
-			if(result.rows.length==0) {
-				throw("no series match")
-			}
-			console.log("got " + result.rows.length + " series")
-			campo.series = result.rows.map(s=>{
-				return {id: s.series_id, estacion: {id: s.estacion_id, geom: new internal.geometry({type: "Point", coordinates: [s.geom_x, s.geom_y]}), tabla: s.tabla, red_id: s.red_id, nombre: s.nombre, id_externo: s.id_externo, public: s.public}}
-			}) 
-			campo.options.min_time_fraction = (options.min_time_fraction) ? parseFloat(options.min_time_fraction) : 1
-			return campo
-		})
+		var valid_filters = {estacion_id: "numeric", red_id: "numeric", geom: "geometry", series_id: "numeric", public: "boolean_only_true"}
+		const [access_join, access_level] = internal.red.getUserAccessClause(user_id, "r.red_id")
+		const stmt = `SELECT
+			s.series_id series_id, 
+			s.proc_id, 
+			s.var_id, 
+			s.unit_id, 
+			s.estacion_id, 
+			e.tabla,
+			e.geom,
+			st_x(e.geom) geom_x, 
+			st_y(e.geom) geom_y, 
+			r.red_id red_id, 
+			e.nombre, 
+			e.id_externo, 
+			r.public
+			FROM (
+				SELECT 
+					series.id series_id, 
+					series.estacion_id, 
+					series.proc_id, 
+					series.var_id, 
+					series.unit_id 
+				FROM series
+				WHERE 
+					var_id=$1 
+				AND proc_id=$2 
+				AND unit_id=$3 
+			) s
+			JOIN (
+				SELECT 
+					unid, 
+					tabla,
+					geom,
+					nombre,
+					id_externo
+				FROM 
+					estaciones
+				WHERE 
+					habilitar=true
+			) e ON e.unid=s.estacion_id
+			JOIN (
+				SELECT 
+					tabla_id,
+					id red_id,
+					public 
+				FROM redes
+			) r ON r.tabla_id=e.tabla
+			${access_join}
+			${internal.utils.control_filter(valid_filters, {estacion_id: filter.estacion_id, red_id: filter.red_id, geom: filter.geom, series_id: filter.series_id, public:filter.public})}
+			ORDER BY series_id`
+		const result = await global.pool.query(stmt,[campo.variable.id,campo.procedimiento.id,campo.unidades.id])
+		if(!result) {
+			throw new NotFoundError("series not found")
+		}
+		if(result.rows.length==0) {
+			throw new NotFoundError("no series match")
+		}
+		console.log("got " + result.rows.length + " series")
+		campo.series = result.rows.map(s=>{
+			return {id: s.series_id, estacion: {id: s.estacion_id, geom: new internal.geometry({type: "Point", coordinates: [s.geom_x, s.geom_y]}), tabla: s.tabla, red_id: s.red_id, nombre: s.nombre, id_externo: s.id_externo, public: s.public}}
+		}) 
+		campo.options.min_time_fraction = (options.min_time_fraction) ? parseFloat(options.min_time_fraction) : 1
+		return campo
 	}
 
 	
@@ -19820,7 +19882,8 @@ ORDER BY cal.cal_id`
 		series_id,
 		tipo="puntual",
 		from_view=true,
-		get_cal_stats
+		get_cal_stats,
+		user_id
 	) {
 		var stmt
 		var params
@@ -19844,7 +19907,8 @@ ORDER BY cal.cal_id`
 				JOIN fuentes ON fuentes.id=series_rast.fuentes_id
 				WHERE series.id = $1`
 				params = [ series_id ]
-			}else {
+			} else {
+				const [access_join, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
 				stmt = `SELECT 
 					'puntual' AS tipo,
 					series.id,
@@ -19852,29 +19916,37 @@ ORDER BY cal.cal_id`
 				FROM series
 				JOIN estaciones ON series.estacion_id = estaciones.unid
 				JOIN redes ON estaciones.tabla = redes.tabla_id
+				${access_join}
 				WHERE series.id = $1`
 				params = [ series_id ]
 			}
 		} else {
+			const [access_join, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
 			proc_id = (proc_id) ? proc_id : (var_id == 4) ? 2 : 1
-			stmt = "SELECT series.id,redes.public from series,estaciones,redes where estacion_id=$1 and var_id=$2 and proc_id=$3 and series.estacion_id=estaciones.unid AND estaciones.tabla=redes.tabla_id "
+			stmt = `SELECT 
+				series.id,
+				redes.public 
+			FROM series
+			JOIN estaciones ON series.estacion_id=estaciones.unid
+			JOIN redes ON estaciones.tabla=redes.tabla_id
+			${access_join}
+			WHERE
+				estacion_id=$1 
+			AND var_id=$2 
+			AND proc_id=$3`
 			params = [ estacion_id, var_id, proc_id ]
 		}
-		// console.log("getSeriesBySiteAndVar at "  + Date()) 
 		const result = await global.pool.query(stmt, params)
-		// console.log("got series at " + Date())
 		if(!result.rows) {
-			// console.log("No series rows returned")
 			return 
 		}
 		if(result.rows.length == 0) {
-			// console.log("0 series rows returned")
 			return 
 		}
 		if(isPublic) {
 			if (result.rows[0].public == false) {
 				// console.log("series not public")
-				throw("El usuario no está autorizado para acceder a esta serie")
+				throw new AuthError("El usuario no está autorizado para acceder a esta serie")
 			}
 		}
 		// console.log("get serie tipo" + tipo + " id " + result.rows[0].id)
