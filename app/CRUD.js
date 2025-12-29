@@ -15657,14 +15657,6 @@ internal.CRUD = class {
 			release_client = true
 			client = await global.pool.connect()
 		}
-		// console.log({filter:filter})
-		//~ var tabla_sitios = (filter.source_tipo=="areal") ? "areas_pluvio" : (filter.source_tipo=='raster') ? "escenas" : "estaciones"
-		//~ var tabla_series = (filter.source_tipo=="areal") ? "series_areal" : (filter.source_tipo=='raster') ? "series_rast" : "series"
-		//~ var tabla_dest_series = (filter.dest_tipo=="areal") ? "series_areal" : (filter.dest_tipo=='raster') ? "series_rast" : "series"
-		//~ var series_site_id_col = (filter.source_tipo=="areal") ? "area_id" : (filter.source_tipo=='raster') ? "escena_id" : "estacion_id"
-		//~ var site_id_col = (filter.source_tipo=="areal") ? "unid" : (filter.source_tipo=='raster') ? "id" : "unid"
-		//~ var provider_col = (filter.source_tipo=="areal") ? "s.fuentes_id" : (filter.source_tipo=='raster') ? "s.fuentes_id" : "e.tabla"
-		//~ var params = [filter.source_tipo,filter.source_series_id,filter.estacion_id,filter.provider_id,filter.source_var_id,filter.source_proc_id,filter.dest_tipo,filter.dest_series_id,filter.dest_var_id,filter.dest_proc_id,options.agg_func,options.dt,options.t_offset,filter.habilitar]
 	
 		var filter_string = internal.utils.control_filter2(
 			{

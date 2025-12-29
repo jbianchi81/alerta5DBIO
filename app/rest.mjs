@@ -203,17 +203,17 @@ app.get('/secciones',auth.isPublicView, (req,res)=>{
 	}
 	res.render("secciones_bs",params)
 })
-app.get('/visor',auth.isAuthenticatedView, (req,res)=>{
-	var params = (req.query) ? req.query : {}
-	if(req.user) {
-		if(req.user.username) {
-			params.loggedAs = req.user.username
-		}
-	}
-	//~ console.log({params:params})
-	params.tools = config.tools || []
-	res.render("visor",params)
-})
+// app.get('/visor',auth.isAuthenticatedView, (req,res)=>{
+// 	var params = (req.query) ? req.query : {}
+// 	if(req.user) {
+// 		if(req.user.username) {
+// 			params.loggedAs = req.user.username
+// 		}
+// 	}
+// 	//~ console.log({params:params})
+// 	params.tools = config.tools || []
+// 	res.render("visor",params)
+// })
 app.get('/metadatos',auth.isPublicView,(req,res)=>{
 	var params = (req.query) ? req.query : {}
 	if(req.user) {
@@ -236,8 +236,8 @@ app.get('/metadatos',auth.isPublicView,(req,res)=>{
 })
 app.get('/getMonitoredVars',auth.isPublic,getMonitoredVars)
 app.post('/getMonitoredVars',auth.isPublic,getMonitoredVars)
-app.get('/getMonitoredFuentes',auth.isPublic,getMonitoredFuentes)
-app.post('/getMonitoredFuentes',auth.isPublic,getMonitoredFuentes)
+// app.get('/getMonitoredFuentes',auth.isPublic,getMonitoredFuentes)
+// app.post('/getMonitoredFuentes',auth.isPublic,getMonitoredFuentes)
 //~ app.get('/getObsDiarios',auth.isPublic,getObsDiarios)
 //~ app.post('/getObsDiarios',auth.isPublic,getObsDiarios)
 //~ app.get('/updateObsDiarios',updateObsDiarios)
@@ -248,7 +248,7 @@ app.post('/getMonitoredFuentes',auth.isPublic,getMonitoredFuentes)
 //~ app.post('/updateCuantilesDiarios',auth.isWriter,updateCuantilesDiarios)
 //~ app.get('/updateCuantilesDiariosSuavizados',updateCuantilesDiariosSuavizados)
 //~ app.post('/updateCuantilesDiariosSuavizados',passport.authenticate('local'),updateCuantilesDiariosSuavizados)
-app.post('/upsertCuantilesDiariosSuavizados',auth.isWriter,upsertCuantilesDiariosSuavizados)
+app.post('/upsertCuantilesDiariosSuavizados',auth.isAdmin,upsertCuantilesDiariosSuavizados)
 app.get('/getRegularSeries',auth.isAuthenticated,getRegularSeries)
 app.get('/getMultipleRegularSeries',auth.isAuthenticated,getMultipleRegularSeries)
 app.get('/getAsociaciones',auth.isAuthenticated,getAsociaciones)
@@ -2990,6 +2990,7 @@ function upsertObservaciones(req,res) {
 
 function upsertObservacionesCSV(req,res) {
 	try {
+		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3001,7 +3002,7 @@ function upsertObservacionesCSV(req,res) {
 		return
 	}
 	var observaciones = csv2obs(req.body.tipo, req.body.series_id, req.body.csvfile)
-	crud.upsertObservaciones(observaciones)
+	crud.upsertObservaciones(observaciones, undefined, undefined, undefined, undefined, filter.user_id)
 	.then(result=>{
 		console.log("Upserted: " + result.length)
 		send_output(options,result,res)
