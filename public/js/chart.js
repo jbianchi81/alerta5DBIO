@@ -272,8 +272,8 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 				},
 				zIndex: 10
 			});
-			json.yAxis.max = Math.max(getseriesbysiteandvarobj.estacion.nivel_alerta,json.yAxis.max) // ...seriesdata.map(function(el) { return el[1]})); 
-			json.yAxis.min = Math.min(getseriesbysiteandvarobj.estacion.nivel_alerta,json.yAxis.min) // ...seriesdata.map(function(el) { return el[1]})); 
+			json.yAxis.max = Math.max(getseriesbysiteandvarobj.estacion.nivel_alerta, json.yAxis.max ?? getseriesbysiteandvarobj.estacion.nivel_alerta) // ...seriesdata.map(function(el) { return el[1]})); 
+			json.yAxis.min = Math.min(getseriesbysiteandvarobj.estacion.nivel_alerta,json.yAxis.min ?? getseriesbysiteandvarobj.estacion.nivel_alerta) // ...seriesdata.map(function(el) { return el[1]})); 
 		}
 		if(h_var_ids.indexOf(getseriesbysiteandvarobj.var.id) >= 0 && getseriesbysiteandvarobj.estacion.nivel_evacuacion) {
 			json.yAxis.plotLines.push({
@@ -287,9 +287,9 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 				},
 				zIndex:10
 			});
-			json.yAxis.max = Math.max(getseriesbysiteandvarobj.estacion.nivel_evacuacion,...seriesdata.map(function(el) { return el[1]})); 
+			json.yAxis.max = Math.max(getseriesbysiteandvarobj.estacion.nivel_evacuacion,json.yAxis.max ?? getseriesbysiteandvarobj.estacion.nivel_evacuacion); 
 			if (!json.yAxis.min) {
-				json.yAxis.min = Math.min(getseriesbysiteandvarobj.estacion.nivel_evacuacion,...seriesdata.map(function(el) { return el[1]})); 
+				json.yAxis.min = Math.min(getseriesbysiteandvarobj.estacion.nivel_evacuacion,json.yAxis.min ?? getseriesbysiteandvarobj.estacion.nivel_evacuacion); 
 			}
 		}	//~ $('#'+chart_container_id).show();
 		if(h_var_ids.indexOf(getseriesbysiteandvarobj.var.id) >= 0 && getseriesbysiteandvarobj.estacion.nivel_aguas_bajas) {
@@ -304,9 +304,9 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 				},
 				zIndex:10
 			});
-			json.yAxis.max = Math.max(getseriesbysiteandvarobj.estacion.nivel_aguas_bajas,...seriesdata.map(function(el) { return el[1]})); 
+			json.yAxis.max = Math.max(getseriesbysiteandvarobj.estacion.nivel_aguas_bajas,json.yAxis.max ?? getseriesbysiteandvarobj.estacion.nivel_aguas_bajas); 
 			if (!json.yAxis.min) {
-				json.yAxis.min = Math.min(getseriesbysiteandvarobj.estacion.nivel_aguas_bajas,...seriesdata.map(function(el) { return el[1]})); 
+				json.yAxis.min = Math.min(getseriesbysiteandvarobj.estacion.nivel_aguas_bajas,json.yAxis.min ?? getseriesbysiteandvarobj.estacion.nivel_aguas_bajas); 
 			}
 		}	//~ $('#'+chart_container_id).show();
 		if(getseriesbysiteandvarobj.percentiles_ref && (!getseriesbysiteandvarobj.monthlyStats || !getseriesbysiteandvarobj.monthlyStats.length)) {
@@ -323,8 +323,8 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 					},
 					zIndex:11
 				});
-				json.yAxis.max = (json.yAxis.max !== undefined) ? Math.max(valor,json.yAxis.max) : valor 
-				json.yAxis.min = (json.yAxis.min !== undefined) ? Math.min(valor,json.yAxis.min) : Math.min(valor, ...seriesdata.map(el => el[1]))
+				json.yAxis.max = Math.max(valor,json.yAxis.max ?? valor)
+				json.yAxis.min = Math.min(valor,json.yAxis.min ?? valor)
 				line_id++
 			}
 		}
@@ -381,8 +381,8 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 							}
 							//~ // adjust chart y range
 							if(!isNaN(o[1]) && typeof(json.yAxis.min) !== 'undefined') {
-								json.yAxis.min=Math.min(o[1],json.yAxis.min)
-								json.yAxis.max=Math.max(o[1],json.yAxis.max)
+								json.yAxis.min=Math.min(o[1],json.yAxis.min ?? o[1])
+								json.yAxis.max=Math.max(o[1],json.yAxis.max ?? o[1])
 							}
 							return [o[0].getTime(), o[1]]
 						}).sort((a,b)=>a[0] - b[0]),
