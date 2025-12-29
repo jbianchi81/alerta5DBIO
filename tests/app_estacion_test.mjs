@@ -167,6 +167,22 @@ test("GET /obs/puntual/estaciones", async () => {
   assert.equal(estacion.id,res.body[0].id)
 })
 
+test("GET /obs/puntual/estaciones with pagination", async () => {
+  const res = await request(app)
+    .get("/obs/puntual/estaciones?tabla=alturas_prefe&id_externo=t665a443&pagination=true")
+    .set("Authorization", `Bearer ${writer.token}`);
+
+  assert.equal(res.statusCode, 200);
+  assert.ok(!Array.isArray(res.body));
+  assert.ok("estaciones" in res.body)
+  assert.ok(Array.isArray(res.body.estaciones))
+  assert.equal(res.body.estaciones.length,1)
+  assert.equal(res.body.estaciones[0].tabla,"alturas_prefe")
+  assert.equal(res.body.estaciones[0].id_externo,"t665a443")
+  assert.equal(estacion.id,res.body.estaciones[0].id)
+})
+
+
 test("PUT /obs/puntual/estaciones/{id}", async () => {
   const res2 = await request(app)
     .put(`/obs/puntual/estaciones/${estacion.id}`)

@@ -7782,7 +7782,8 @@ internal.CRUD = class {
 		}
 		filter.offset = filter.offset ?? 0
 		filter.offset = parseInt(filter.offset)
-		const result = await internal.CRUD.getEstaciones(filter,options)
+		const {user_id, ...filter_} = filter
+		const result = await internal.CRUD.getEstaciones(filter_,options,undefined, user_id)
 		var is_last_page = (result.length < filter.limit)
 		if(is_last_page) {
 			return {
