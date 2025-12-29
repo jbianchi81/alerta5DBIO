@@ -7657,7 +7657,8 @@ internal.acumar = class {
 	}
 
 	parseMercobras(data) {
-		var columns = ["tempmedia","tempmax","tempmin","humrel","puntorocio","velvientomedia","dirviento","recviento","velvientomax","dirvientomax","sensterm","indcalor","indthw","presion","precip","intprecip","graddcalor","graddfrio","tempint","humint","rocioint","incalint","emcint","densintaire","muestviento","txviento","recepiss","intarc"]
+		// var columns = ["tempmedia","tempmax","tempmin","humrel","puntorocio","velvientomedia","dirviento","recviento","velvientomax","dirvientomax","sensterm","indcalor","indthw","presion","precip","intprecip","graddcalor","graddfrio","tempint","humint","rocioint","incalint","emcint","densintaire","muestviento","txviento","recepiss","intarc"] // cambio dic 2025
+		var columns = ["tempmedia","tempmax","tempmin","humrel","puntorocio","velvientomedia","dirviento","recviento","velvientomax","dirvientomax","sensterm","indcalor","indthw","indthsw","presion","precip","intprecip","radsolar","enersolar","maxradsolar","indiceuv","dosisuv","uvmax","graddcalor","graddfrio","tempint","humint","rocioint","incalint","emcint","densintaire","et","muestviento","txviento","recepiss","intarc"]
 		columns = columns.map(c=>{
 			var index = this.config.columns.map(col=>col.name).indexOf(c)
 			if(index>=0) {
