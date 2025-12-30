@@ -867,6 +867,51 @@ const estacion_id = 2948
     assert.equal(res.body.timestart, "2000-01-01T03:00:00.000Z")
   });  
 
+  // asociaciones
+
+  test("crea serie destino y asociacion", async() => {
+    // crea serie dest
+    let res = await request(app)
+      .post("/obs/puntual/series")
+      .send([{
+        estacion: {id: estacion_id},
+        var: {id: 39},
+        procedimiento: {id: 1},
+        unidades: {id: 11}
+      }])
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert(Array.isArray(res.body));
+    assert.equal(res.body.length,1)
+    const serie_dest = res.body[0]
+
+    // crea asociacion
+    res = await request(app)
+      .post("/obs/asociaciones")
+      .send([{
+        source_series_id: serie.id,
+        source_tipo: "puntual",
+        dest_series_id: serie_dest.id,
+        dest_tipo: "puntual",
+        dt: {days: 1},
+        agg_func: "average"
+      }])
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert(Array.isArray(res.body));
+    assert.equal(res.body.length,1)
+
+    // TODO:
+    // get asociaciones
+    // delete asociaciones
+    // post asociaciones noaccess fail unauthorized
+    // get asociaciones noaccess not found
+    // delete asociaciones noaccess not found
+    
+  })
+
   // DELETE
 
     // observaciones
