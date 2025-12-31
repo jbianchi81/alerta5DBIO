@@ -113,7 +113,7 @@ const { default: axios } = require('axios')
 
 
 // CRUD ERROR HANDLING //
-const { AuthError, NotFoundError, BadRequestError } = require('./custom_errors.js')
+const { AuthError, NotFoundError, BadRequestError, ConflictError } = require('./custom_errors.js')
 
 function handleCrudError(e, res) {
 	console.error(e)
@@ -123,6 +123,8 @@ function handleCrudError(e, res) {
 		res.status(404).send({message:"Not found", error: e.toString()})
 	} else if (e instanceof BadRequestError) {
 		res.status(400).send({message:"Bad request", error: e.toString()})
+	} else if (e instanceof ConflictError) {
+		res.status(409).send({message:"Conflict", error: e.toString()})
 	} else {
 		res.status(500).send({message:"Server error",error:e.toString()})
 	}
@@ -505,8 +507,8 @@ app.get('/obs/asociaciones',auth.isWriter,(req,res)=>{
 		getAsociaciones(req,res)
 	}
 })
-app.post('/obs/asociaciones',auth.isAdmin,upsertAsociaciones)
-app.delete('/obs/asociaciones',auth.isAdmin,deleteAsociaciones)
+app.post('/obs/asociaciones',auth.isWriter,upsertAsociaciones)
+app.delete('/obs/asociaciones',auth.isWriter,deleteAsociaciones)
 app.get('/obs/asociaciones/:id',auth.isWriter,(req,res)=>{
 	if(req.query.run && req.query.run.toString().toLowerCase() == 'true') {
 		runAsociacion(req,res)
@@ -514,8 +516,8 @@ app.get('/obs/asociaciones/:id',auth.isWriter,(req,res)=>{
 		getAsociacion(req,res)
 	}
 })
-app.put('/obs/asociaciones/:id',auth.isAdmin,upsertAsociacion)
-app.delete('/obs/asociaciones/:id',auth.isAdmin,deleteAsociacion)
+app.put('/obs/asociaciones/:id',auth.isWriter,upsertAsociacion)
+app.delete('/obs/asociaciones/:id',auth.isWriter,deleteAsociacion)
 app.get('/obs/:tipo/series/:series_id/estadisticosDiariosSuavizados',auth.isPublic,(req,res)=>{
 	if(req.query.run && req.query.run.toString().toLowerCase() == 'true') {
 		isWriter(req,res,()=> getCuantilesDiariosSuavizados(req,res))
@@ -887,7 +889,7 @@ app.get("/web/semanal/boceto", auth.isPublic, (req,res)=> {
 function getRedes(req,res) {
 	// Get redes from observations database 
 	try {
-		var filter = getFilter(req)
+		var {user_id, ...filter} = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -895,8 +897,7 @@ function getRedes(req,res) {
 		return
 	}
 	console.log("filter:" + JSON.stringify(filter))
-	const {user_id, ...filter_} = filter
-	crud.getRedes(filter_, user_id)
+	crud.getRedes(filter, user_id)
 	.then(result=>{
 		console.log("Results: " + result.length)
 		send_output(options,result,res)
@@ -1200,15 +1201,14 @@ function deleteFuente(req,res) {
 
 function getFuentesAll(req,res) {
 	try {
-		var filter = getFilter(req)
+		var {user_id, ...filter} = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	}
-	const {user_id, ...filter_} = filter
-	crud.getFuentesAll(filter_,user_id)
+	crud.getFuentesAll(filter,user_id)
 	.then(result=>{
 		console.log("Results: " + result.length)
 		send_output(options,result,res)
@@ -2784,7 +2784,7 @@ function getObservacionesTimestart(req,res) {
 
 function getObservacionesDia(req,res) {
 	try {
-		var filter = getFilter(req)
+		var {user_id, ...filter} = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2797,8 +2797,7 @@ function getObservacionesDia(req,res) {
 		res.status(400).send({message:"query error",error:"Missing parameters: either var_id or series_id or fuentes_id must be specified"})
 		return
 	}
-	const {user_id, ...filter_} = filter
-	crud.getObservacionesDia(tipo,filter_,options,user_id)
+	crud.getObservacionesDia(tipo,filter,options,user_id)
 	.then(result=>{
 		console.log("Results: " + result.length)
 		if(!result.length) {
@@ -2830,7 +2829,7 @@ function getObservacionesDia(req,res) {
 function deleteObservaciones(req,res) { 
 
 	try {
-		var filter = getFilter(req)
+		var {user_id, ...filter} = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2859,10 +2858,9 @@ function deleteObservaciones(req,res) {
 		}
 		var batch_size = parseInt(options.batch_size)
 	}
-	const {user_id, ...filter_} = filter
 	crud.deleteObservaciones(
-		filter_.tipo,
-		filter_,
+		filter.tipo,
+		filter,
 		{
 			no_send_data: options.no_send_data,
 			batch_size: batch_size
@@ -3488,19 +3486,19 @@ function getCampoSerie (req,res) {
 
 function getAsociaciones(req,res) {
 	try {
-		var filter = getFilter(req)
+		var {user_id, ...filter} = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	} 
-	crud.getAsociaciones(filter,options)
+	crud.getAsociaciones(filter,options,undefined,user_id)
 	.then(result=>{
 		res.send(result)
 	})
 	.catch(e=>{
-		res.status(404).send(e.toString())
+		handleCrudError(e, res)
 	})
 }
 
@@ -3509,7 +3507,7 @@ function getAsociaciones(req,res) {
 
 function upsertAsociaciones(req,res) {
 	try {
-		var filter = getFilter(req)
+		var {user_id, ...filter} = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3529,18 +3527,18 @@ function upsertAsociaciones(req,res) {
 		res.status(400).send({message:"missing object asociaciones in request body"})
 		return
 	}
-	crud.upsertAsociaciones(asociaciones,options)
+	crud.upsertAsociaciones(asociaciones,user_id)
 	.then(result=>{
 		res.send(result)
 	})
 	.catch(e=>{
-		res.status(404).send(e.toString())
+		handleCrudError(e, res)
 	})
 }
 
 function runAsociaciones(req,res) {
 	try {
-		var filter = getFilter(req)
+		var {user_id, ...filter} = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3548,23 +3546,18 @@ function runAsociaciones(req,res) {
 		return
 	} 
 	//~ console.log({options:options})
-	crud.runAsociaciones(filter,options)
+	crud.runAsociaciones(filter,options,undefined,user_id)
 	.then(result=>{
 		send_output(options,result,res)
 	})
 	.catch(e=>{
-		if(config.verbose) {
-			console.error(e)
-		} else {
-			console.error(e.toString())
-		}
-		res.status(404).send(e.toString())
+		handleCrudError(e, res)
 	})
 }
 
 function getAsociacion(req,res) {
 	try {
-		var filter = getFilter(req)
+		var {user_id, ...filter} = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3575,18 +3568,18 @@ function getAsociacion(req,res) {
 		res.status(400).send({message:"missing id"})
 		return
 	}
-	crud.getAsociacion(filter.id)
+	crud.getAsociacion(filter.id, user_id)
 	.then(result=>{
 		res.send(result)
 	})
 	.catch(e=>{
-		res.status(404).send(e.toString())
+		handleCrudError(e, res)
 	})
 }
 
-function upsertAsociacion(req,res) {
+async function upsertAsociacion(req,res) {
 	try {
-		var filter = getFilter(req)
+		var {user_id, ...filter} = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3601,19 +3594,20 @@ function upsertAsociacion(req,res) {
 		res.status(400).send({message:"missing property asociacion on request body"})
 		return
 	}
-	crud.upsertAsociacion(req.body.asociacion)
-	.then(result=>{
+	const client = await global.pool.connect()
+	try {
+		const result = await crud.upsertAsociacion(req.body.asociacion, user_id, client)
 		res.send(result)
-	})
-	.catch(e=>{
-		console.error(e)
-		res.status(404).send(e.toString())
-	})
+	} catch(e) {
+		handleCrudError(e, res)
+	} finally {
+		client.release()
+	}
 }
 
 function runAsociacion(req,res) {
 	try {
-		var filter = getFilter(req)
+		var {user_id, ...filter} = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3624,19 +3618,18 @@ function runAsociacion(req,res) {
 		res.status(400).send({message:"missing id"})
 		return
 	}
-	crud.runAsociacion(filter.id,filter,options)
+	crud.runAsociacion(filter.id,filter,options,user_id)
 	.then(result=>{
 		res.send(result)
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(400).send(e.toString())
+		handleCrudError(e, res)
 	})
 }
 
-function deleteAsociacion(req,res) {
+async function deleteAsociacion(req,res) {
 	try {
-		var filter = getFilter(req)
+		var {user_id, ...filter} = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3647,18 +3640,20 @@ function deleteAsociacion(req,res) {
 		res.status(400).send({message:"missing id"})
 		return
 	}
-	crud.deleteAsociacion(filter.id)
-	.then(result=>{
+	const client = await global.pool.connect()
+	try {
+		const result = await crud.deleteAsociacion(filter.id,user_id,client)
 		res.send(result)
-	})
-	.catch(e=>{
-		res.status(404).send(e.toString())
-	})
+	} catch(e) {
+		handleCrudError(e, res)
+	} finally {
+		client.release()
+	}
 }
 
 function deleteAsociaciones(req,res) {
 	try {
-		var filter = getFilter(req)
+		var {user_id, ...filter} = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3672,12 +3667,12 @@ function deleteAsociaciones(req,res) {
 		return
 	}
 	// console.log({filter:filter})
-	crud.deleteAsociaciones(filter)
+	crud.deleteAsociaciones(filter,user_id)
 	.then(result=>{
 		res.send(result)
 	})
 	.catch(e=>{
-		res.status(404).send(e.toString())
+		handleCrudError(e, res)
 	})
 }
 

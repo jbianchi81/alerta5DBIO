@@ -38,6 +38,7 @@ const admin_token = "token_3" // debe preexistir
 
 let estacion
 let serie
+let serie_dest
 
 const group_name = "app_series_test_writers"
 const other_group_name = "app_series_test_readers"
@@ -544,7 +545,7 @@ const estacion_id = 2948
     assert.equal(res.body.length, 3)
   })
 
-    test("GET /obs/puntual/series/:series_id/regular reader", async() => {
+  test("GET /obs/puntual/series/:series_id/regular reader", async() => {
     const res = await request(app)
       .get(`/obs/puntual/series/${serie.id}/regular`)
       .query({
@@ -600,7 +601,7 @@ const estacion_id = 2948
     assert.equal(res.body.length,6)
   })
 
-    test("GET /obs/puntual/regular no access", async() => {
+  test("GET /obs/puntual/regular no access", async() => {
     const res = await request(app)
       .get(`/obs/puntual/regular`)
       .query({
@@ -616,7 +617,7 @@ const estacion_id = 2948
   })
 
     // campo
-    test("GET /obs/puntual/campo", async() => {
+  test("GET /obs/puntual/campo", async() => {
     const res = await request(app)
       .get(`/obs/puntual/campo`)
       .query({
@@ -700,7 +701,7 @@ const estacion_id = 2948
     }
   })
 
-    test("GET /obs/variables/:var_id/from/:timestart/to/:timeend/by/:dt no access", async() => {
+  test("GET /obs/variables/:var_id/from/:timestart/to/:timeend/by/:dt no access", async() => {
     const res = await request(app)
       .get(`/obs/variables/2/from/2000-01-01T03:00:00.000Z/to/2000-01-04T03:00:00.000Z/by/1 days`)
       .query({
@@ -724,7 +725,7 @@ const estacion_id = 2948
     assert.equal(res.body.id, serie.id)
   })
 
-    test("GET /getSeriesBySiteAndVar reader", async() => {
+  test("GET /getSeriesBySiteAndVar reader", async() => {
     const res = await request(app)
       .get(`/getSeriesBySiteAndVar`)
       .query({
@@ -737,7 +738,7 @@ const estacion_id = 2948
     assert.equal(res.body.id, serie.id)
   })
 
-    test("GET /getSeriesBySiteAndVar no access", async() => {
+  test("GET /getSeriesBySiteAndVar no access", async() => {
     const res = await request(app)
       .get(`/getSeriesBySiteAndVar`)
       .query({
@@ -749,7 +750,7 @@ const estacion_id = 2948
   })
 
    // /getObservacionesTimestart
-   test("GET /getObservacionesTimestart", async() => {
+  test("GET /getObservacionesTimestart", async() => {
     const res = await request(app)
       .get(`/getObservacionesTimestart`)
       .query({
@@ -867,7 +868,7 @@ const estacion_id = 2948
     assert.equal(res.body.timestart, "2000-01-01T03:00:00.000Z")
   });  
 
-  // asociaciones
+  // ASOCIACIONES
 
   test("crea serie destino y asociacion", async() => {
     // crea serie dest
@@ -884,31 +885,227 @@ const estacion_id = 2948
     assert.equal(res.statusCode, 200);
     assert(Array.isArray(res.body));
     assert.equal(res.body.length,1)
-    const serie_dest = res.body[0]
+    serie_dest = res.body[0]
 
-    // crea asociacion
-    res = await request(app)
-      .post("/obs/asociaciones")
-      .send([{
+    const to_create = {
         source_series_id: serie.id,
         source_tipo: "puntual",
         dest_series_id: serie_dest.id,
         dest_tipo: "puntual",
         dt: {days: 1},
         agg_func: "average"
-      }])
+      }
+    
+    // crea asociacion reader fail unauthorized
+    res = await request(app)
+      .post("/obs/asociaciones")
+      .send([to_create])
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode, 401);
+    
+    // crea asociacion noaccess fail unauthorized
+    res = await request(app)
+      .post("/obs/asociaciones")
+      .send([to_create])
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode, 401);
+    
+    // crea asociacion
+    res = await request(app)
+      .post("/obs/asociaciones")
+      .send([to_create])
       .set("Content-Type", "application/json")
       .set("Authorization", `Bearer ${writer.token}`);
     assert.equal(res.statusCode, 200);
     assert(Array.isArray(res.body));
     assert.equal(res.body.length,1)
+    const asociacion = res.body[0]
 
-    // TODO:
+    // crea asociacion id conflict
+    const {id, ...asoc_bad_id} = asociacion
+    asoc_bad_id.id = id + 1
+    res = await request(app)
+      .post("/obs/asociaciones")
+      .send([asoc_bad_id])
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 409);
+
     // get asociaciones
-    // delete asociaciones
-    // post asociaciones noaccess fail unauthorized
+    res = await request(app)
+      .get("/obs/asociaciones")
+      .query({
+        source_series_id: serie.id,
+        source_tipo: "puntual"
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert(Array.isArray(res.body));
+    assert.equal(res.body.length,1)
+    assert.ok("id" in res.body[0])
+    assert.equal(res.body[0].id, asociacion.id)
+
+    // get asociaciones reader
+    res = await request(app)
+      .get("/obs/asociaciones")
+      .query({
+        source_series_id: serie.id,
+        source_tipo: "puntual"
+      })
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode, 200);
+    assert(Array.isArray(res.body));
+    assert.equal(res.body.length,1)
+    assert.ok("id" in res.body[0])
+    assert.equal(res.body[0].id, asociacion.id)
+
     // get asociaciones noaccess not found
+    res = await request(app)
+      .get("/obs/asociaciones")
+      .query({
+        source_series_id: serie.id,
+        source_tipo: "puntual"
+      })
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode, 200);
+    assert(Array.isArray(res.body));
+    assert.equal(res.body.length,0)
+
+    // get asociaciones/:id
+    res = await request(app)
+      .get(`/obs/asociaciones/${asociacion.id}`)
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(!Array.isArray(res.body));
+    assert.ok("id" in res.body)
+    assert.equal(res.body.id, asociacion.id)
+
+    // get asociaciones/:id reader
+    res = await request(app)
+      .get(`/obs/asociaciones/${asociacion.id}`)
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(!Array.isArray(res.body));
+    assert.ok("id" in res.body)
+    assert.equal(res.body.id, asociacion.id)
+
+    // get asociaciones/:id noaccess not found
+    res = await request(app)
+      .get(`/obs/asociaciones/${asociacion.id}`)
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode, 404);
+
+    // run
+    res = await request(app)
+      .get(`/obs/asociaciones/${asociacion.id}`)
+      .query({
+        run: true,
+        timestart: "2000-01-02T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,2)
+    for(const o of res.body) {
+      assert.ok("series_id" in o)
+      assert.equal(o.series_id, serie_dest.id)
+    }
+
+    // run no write access
+    res = await request(app)
+      .get(`/obs/asociaciones/${asociacion.id}`)
+      .query({
+        run: true,
+        timestart: "2000-01-02T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode, 401);
+
+    // run noaccess not found
+    res = await request(app)
+      .get(`/obs/asociaciones/${asociacion.id}`)
+      .query({
+        run: true,
+        timestart: "2000-01-02T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode, 404);
+
+    // delete asociaciones
+    res = await request(app)
+      .delete("/obs/asociaciones")
+      .query({
+        source_series_id: serie.id,
+        source_tipo: "puntual"
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert(Array.isArray(res.body));
+    assert.equal(res.body.length,1)
+    assert.ok("id" in res.body[0])
+    assert.equal(res.body[0].id, asociacion.id)
+    const deleted = res.body[0]
+
+    // recreate
+    res = await request(app)
+      .post("/obs/asociaciones")
+      .send([deleted])
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert(Array.isArray(res.body));
+    assert.equal(res.body.length,1)
+    const recreated = res.body[0]
+
+    // delete asociaciones reader not found
+    res = await request(app)
+      .delete("/obs/asociaciones")
+      .query({
+        source_series_id: serie.id,
+        source_tipo: "puntual"
+      })
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode, 401);
+
+    // delete asociaciones/:id reader not found
+    res = await request(app)
+      .delete(`/obs/asociaciones/${recreated.id}`)
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode, 401);
+
     // delete asociaciones noaccess not found
+    res = await request(app)
+      .delete("/obs/asociaciones")
+      .query({
+        source_series_id: serie.id,
+        source_tipo: "puntual"
+      })
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,0)
+
+
+    // delete asociaciones/:id noaccess not found
+    res = await request(app)
+      .delete(`/obs/asociaciones/${recreated.id}`)
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode, 404);
+
+    // delete /:id
+    res = await request(app)
+      .delete(`/obs/asociaciones/${recreated.id}`)
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert(!Array.isArray(res.body));
+    assert.ok("id" in res.body)
+    assert.equal(res.body.id, recreated.id)
+    const deleted_2 = res.body
     
   })
 
@@ -990,17 +1187,31 @@ const estacion_id = 2948
   })
 
   test("DELETE /obs/puntual/series/{id}", async () => {
-    const res = await request(app)
+    let res = await request(app)
       .delete(`/obs/puntual/series/${serie.id}`)
       .set("Authorization", `Bearer ${writer.token}`);
 
     assert.equal(res.statusCode, 200);
     assert.ok(!Array.isArray(res.body));
     console.log(res.text)
-    const serie_ = res.body
+    let serie_ = res.body
     assert.ok("estacion" in serie_)
     assert.ok("id" in serie_.estacion)
     assert.equal(serie_.estacion.id,estacion_id)
+
+    // other
+    res = await request(app)
+      .delete(`/obs/puntual/series/${serie_dest.id}`)
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(!Array.isArray(res.body));
+    console.log(res.text)
+    serie_ = res.body
+    assert.ok("estacion" in serie_)
+    assert.ok("id" in serie_.estacion)
+    assert.equal(serie_.estacion.id,estacion_id)
+    assert.ok("id" in serie_)
+    assert.equal(serie_.id, serie_dest.id)
   })
 
   // restore

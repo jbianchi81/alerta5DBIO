@@ -44,7 +44,7 @@ const {SerieFilter, SerieOptions} = require('./serie_types')
 const { escapeIdentifier, escapeLiteral } = require('pg');
 const { options } = require('marked');
 
-const {AuthError, NotFoundError, BadRequestError} = require('./custom_errors.js')
+const {AuthError, NotFoundError, BadRequestError, ConflictError} = require('./custom_errors.js')
 
 const apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
 var schemas = apidoc.components.schemas
@@ -7152,9 +7152,16 @@ internal.asociacion = class extends baseModel {
 		this.cal_id = arguments[0].cal_id
 	}
 	async create() {
-		const created = new internal.asociacion(await internal.CRUD.upsertAsociacion(this))
-		Object.assign(this,created)
-		return created
+		const client = await global.pool.connect() 
+		try {
+			const created = new internal.asociacion(await internal.CRUD.upsertAsociacion(this, undefined, client))
+			Object.assign(this,created)
+			return created
+		} catch(e) {
+			throw e
+		} finally {
+			client.release()
+		}
 	}
 	static async create(data) {
 		var asociaciones = await internal.CRUD.upsertAsociaciones(data)
@@ -7172,20 +7179,31 @@ internal.asociacion = class extends baseModel {
 		var asociaciones = await internal.CRUD.getAsociaciones(filter,options)
 		return asociaciones.map(a=>new internal.asociacion(a))
 	}
-	async delete() {
+	async delete(client) {
 		if(!this.id) {
 			throw("Can't delete asociacion: missing id")
 		}
-		return new internal.asociacion(await internal.CRUD.deleteAsociacion(this.id))
+		return new internal.asociacion(await internal.CRUD.deleteAsociacion(this.id, undefined, client ?? await global.pool.connect()))
 	}
+
 	static async delete(filter) {
 		var asociaciones = await internal.asociacion.read(filter)
-		var deleted = []
-		for(var a of asociaciones) {
-			deleted.push(await a.delete())
+		const client = await global.pool.connect()
+		try {
+			await client.query("BEGIN")
+			var deleted = []
+			for(var a of asociaciones) {
+				deleted.push(await a.delete(client))
+			}
+			return deleted
+		} catch(e) {
+			await client.query("ROLLBACK")
+			throw e
+		} finally {
+			client.release()
 		}
-		return deleted
 	}
+
 	async run(filter,options) {
 		return internal.CRUD.runAsociacion(this.id,filter,options)
 	}
@@ -7341,7 +7359,7 @@ internal.CRUD = class {
 			}
 		}
 		if(release_client) {
-			await client.release()
+			client.release()
 		}
 		return estacion
 	}
@@ -7951,7 +7969,7 @@ internal.CRUD = class {
 			estaciones.push(estacion)
 		}
 		if(release_client) {
-			await client.release()
+			client.release()
 		}
 		return estaciones
 		// .catch(e=>{
@@ -9416,12 +9434,12 @@ internal.CRUD = class {
 			console.log("ROLLBACK")
 			client.query("ROLLBACK")
 			if(release_client) {
-				await client.release()
+				client.release()
 			}
 			throw(e)
 		}
 		if(release_client) {
-			await client.release()
+			client.release()
 		}
 		console.log("upsertSeries: returning " + series_result.length + " series")
 		return series_result
@@ -9598,14 +9616,14 @@ internal.CRUD = class {
 			if(result.rows.length<=0) {
 				console.log("crud.getSerie: serie no encontrada")
 				if(release_client) {
-					await client.release()
+					client.release()
 				}
 				return
 			}
 			if(isPublic) {
 				if(!result.rows[0].public) {
 					if(release_client) {
-						await client.release()
+						client.release()
 					}
 					console.error("El usuario no posee autorización para acceder a esta serie")
 					return
@@ -9650,7 +9668,7 @@ internal.CRUD = class {
 				}
 			}
 			if(release_client) {
-				await client.release()
+				client.release()
 			}
 			return serie
 		} else if (tipo=="rast" || tipo=="raster") {
@@ -9660,7 +9678,7 @@ internal.CRUD = class {
 			if(result.rows.length<=0) {
 				console.log("serie no encontrada")
 				if(release_client) {
-					await client.release()
+					client.release()
 				}
 				// throw("serie no encontrada")
 				return
@@ -9668,7 +9686,7 @@ internal.CRUD = class {
 			if(isPublic) {
 				if(!result.rows[0].public) {
 					if(release_client) {
-						await client.release()
+						client.release()
 					}
 					console.error("El usuario no posee autorización para acceder a esta serie")
 					return
@@ -9707,7 +9725,7 @@ internal.CRUD = class {
 				}
 			}
 			if(release_client) {
-				await client.release()
+				client.release()
 			}
 			return serie
 		} else {
@@ -9733,7 +9751,7 @@ internal.CRUD = class {
 			if(result.rows.length<=0) {
 				console.log("serie no encontrada")
 				if(release_client) {
-					await client.release()
+					client.release()
 				}
 				// throw("serie no encontrada")
 				return
@@ -9741,7 +9759,7 @@ internal.CRUD = class {
 			if(isPublic) {
 				if(!result.rows[0].public) {
 					if(release_client) {
-						await client.release()
+						client.release()
 					}
 					console.error("El usuario no posee autorización para acceder a esta serie")
 					return
@@ -9757,7 +9775,7 @@ internal.CRUD = class {
 				var serie = new internal.serie({estacion:s[0],"var":s[1],procedimiento:s[2],unidades:s[3], tipo:"puntual"})  // estacion,variable,procedimiento,unidades,tipo,fuente
 			} catch(e) {
 				if(release_client) {
-					await client.release()
+					client.release()
 				}
 				throw(e)
 			}
@@ -9778,7 +9796,7 @@ internal.CRUD = class {
 				}
 			} catch(e) {
 				if(release_client) {
-					await client.release()
+					client.release()
 				}
 				throw(e)
 			}
@@ -9793,7 +9811,7 @@ internal.CRUD = class {
 					console.log("got stats for series")
 				} catch(e) {
 					if(release_client) {
-						await client.release()
+						client.release()
 					}
 					throw(e)
 				}
@@ -9808,7 +9826,7 @@ internal.CRUD = class {
 					}
 				} catch(e) {
 					if(release_client) {
-						await client.release()
+						client.release()
 					}
 					throw(e)
 				}
@@ -9817,12 +9835,12 @@ internal.CRUD = class {
 				await serie.setPercentilesRef()
 			} catch(e) {
 				if(release_client) {
-					await client.release()
+					client.release()
 				}
 				throw(e)
 			}			
 			if(release_client) {
-				await client.release()
+				client.release()
 			}
 			return serie
 		}
@@ -10513,7 +10531,7 @@ internal.CRUD = class {
 			}
 		}
 		if(release_client) {
-			await client.release()
+			client.release()
 		}
 		if(options.pagination) {
 			return {
@@ -11012,7 +11030,7 @@ internal.CRUD = class {
 			await client.query(enable_trigger)
 			if(release_client) {
 				await client.query("COMMIT;")
-				await client.release()
+				client.release()
 			} else {
 				await client.query("DROP table obs")
 			}
@@ -11022,7 +11040,7 @@ internal.CRUD = class {
 			// console.error({message: "upsertObservacionesPuntual error",error:e})
 			if(release_client) {
 				await client.query("ROLLBACK")
-				await client.release()
+				client.release()
 			}
 			throw(e)
 		}
@@ -11368,7 +11386,7 @@ internal.CRUD = class {
 					//~ obs.valor=res.rows[0].valor
 			if(release_client) {
 				await client.query("COMMIT")
-				await client.release()
+				client.release()
 			}
 			if(val_tabla != "") { // PUNTUAL o AREAL
 				if(deleted_valores.length>0 && deleted_observaciones.length>0) {
@@ -11390,7 +11408,7 @@ internal.CRUD = class {
 		} catch(e) {
 			if(release_client) {
 				await client.query('ROLLBACK')
-				await client.release()
+				client.release()
 			}
 			throw e
 		}
@@ -11547,7 +11565,7 @@ internal.CRUD = class {
 				try {
 					await client.query('BEGIN')
 				} catch (e) {
-					await client.release()
+					client.release()
 					throw new Error(e)
 				}
 			}
@@ -11568,7 +11586,7 @@ internal.CRUD = class {
 						if(release_client) {
 							console.debug("ROLLBACK")
 							await client.query("ROLLBACK")
-							await client.release()
+							client.release()
 						}
 						return []
 					}
@@ -11624,7 +11642,7 @@ internal.CRUD = class {
 				}
 				if(release_client) {
 					await client.query("COMMIT")
-					await client.release()
+					client.release()
 				}
 				return result_rows
 			} else {
@@ -11738,7 +11756,7 @@ internal.CRUD = class {
 								console.debug("ROLLBACK")
 								await client.query('ROLLBACK')
 								console.debug("Releasing client")
-								await client.release()
+								client.release()
 							}
 							if(options.no_send_data) {
 								return 0
@@ -11791,7 +11809,7 @@ internal.CRUD = class {
 							console.debug("ROLLBACK")
 							await client.query("ROLLBACK")
 							console.debug("releasing client")
-							await client.release()
+							client.release()
 						}
 						throw(e)
 					}
@@ -13474,7 +13492,7 @@ internal.CRUD = class {
 				upserted.push(ups_row)
 			} catch(e) {
 				await client.query("ROLLBACK")
-				await client.release()
+				client.release()
 				throw(e)
 			}
 		}
@@ -14593,7 +14611,7 @@ internal.CRUD = class {
 			var timestart = await this.date2obj(timestart)
 			var timeend = await this.date2obj(timeend) 
 			console.debug({timestart: timestart.toISOString(), timeend: timeend.toISOString()})
-			var dt = await this.interval2epoch(dt) * 1000
+			dt = await this.interval2epoch(dt) * 1000
 			dt_epoch = (inst) ? 0 : dt
 			var t_offset = await this.interval2epoch(t_offset) * 1000
 			var timestart_time = (timestart.getHours()*3600 + timestart.getMinutes()*60 + timestart.getSeconds()) * 1000 + timestart.getMilliseconds() // + timestart.getTimezoneOffset()*60*1000
@@ -14968,6 +14986,9 @@ internal.CRUD = class {
 								client.release()
 							}
 							throw("Bad aggregate function")
+					}
+					if (dt.constructor && dt.constructor.name == 'PostgresInterval') {
+						dt = dt.toPostgres()
 					}
 					if (dt.toLowerCase()=="1 days" || dt.toLowerCase()=="1 day" ) {
 						console.log("inst, dt 1 days")
@@ -15651,7 +15672,7 @@ internal.CRUD = class {
 	
 	// asociaciones
 	
-	static async getAsociaciones(filter={source_tipo:"puntual",dest_tipo:"puntual"},options={}, client) {
+	static async getAsociaciones(filter={source_tipo:"puntual",dest_tipo:"puntual"},options={}, client, user_id) {
 		var release_client = false
 		if(!client) {
 			release_client = true
@@ -15663,15 +15684,15 @@ internal.CRUD = class {
 				id: {type:"integer"},
 				source_tipo: {type: "string"}, 
 				source_series_id: {type: "number"}, 
-				source_estacion_id: {type: "number"}, 
-				dest_estacion_id: {type: "number"}, 
-				source_fuentes_id: {type: "string"}, 
-				source_var_id: {type: "number"},  
-				source_proc_id: {type: "number"}, 
+				source_estacion_id: {type: "number", table: "s_source"}, 
+				dest_estacion_id: {type: "number", table: "s_dest"}, 
+				source_fuentes_id: {type: "string", table: "s_source"}, 
+				source_var_id: {type: "number", table: "s_source"},  
+				source_proc_id: {type: "number", table: "s_source"}, 
 				dest_tipo: {type: "string"}, 
 				dest_series_id: {type: "number"}, 
-				dest_var_id: {type: "number"}, 
-				dest_proc_id: {type: "number"}, 
+				dest_var_id: {type: "number", table: "s_dest"}, 
+				dest_proc_id: {type: "number", table: "s_dest"}, 
 				agg_func: {type: "string"}, 
 				dt: {type: "interval"}, 
 				t_offset: {type: "interval"},
@@ -15695,76 +15716,105 @@ internal.CRUD = class {
 				t_offset: options.t_offset ?? filter.t_offset, 
 				cal_id: filter.cal_id
 			},
-			"asociaciones_view")
-		var query = "SELECT * \
-		    FROM asociaciones_view\
-		    WHERE 1=1 " + filter_string + " ORDER BY id"
-		    //~ source_tipo=coalesce($1,source_tipo)\
-		    //~ AND source_series_id=coalesce($2,source_series_id)\
-		    //~ AND source_estacion_id=coalesce($3,source_estacion_id)\
-		    //~ AND source_fuentes_id=coalesce($4::text,source_fuentes_id::text)\
-		    //~ AND source_var_id=coalesce($5,source_var_id)\
-		    //~ AND source_proc_id=coalesce($6,source_proc_id)\
-		    //~ AND dest_tipo=coalesce($7,dest_tipo)\
-		    //~ AND dest_series_id=coalesce($8,dest_series_id)\
-		    //~ AND dest_var_id=coalesce($9,dest_var_id)\
-		    //~ AND dest_proc_id=coalesce($10,dest_proc_id)\
-		    //~ AND agg_func=coalesce($11,agg_func)\
-		    //~ AND dt=coalesce($12,dt)\
-		    //~ AND t_offset=coalesce($13,t_offset)\
-		    //~ AND habilitar=coalesce($14,habilitar)"
-		//~ console.log(internal.utils.pasteIntoSQLQuery(query,params))
-		//~ return global.pool.query(query,params)
-		//~ "SELECT a.id,\
-									   //~ a.source_tipo, \
-									   //~ a.source_series_id, \
-									   //~ a.dest_tipo, \
-									   //~ a.dest_series_id, \
-									   //~ a.agg_func, \
-									   //~ a.dt::text, \
-									   //~ a.t_offset::text, \
-									   //~ a.precision, \
-									   //~ a.source_time_support::text, \
-									   //~ a.source_is_inst, \
-									   //~ row_to_json(s) source_series, \
-									   //~ row_to_json(d) dest_series, \
-									   //~ row_to_json(e) site\
-		//~ FROM asociaciones a," + tabla_series + " s, "+ tabla_dest_series + " d," + tabla_sitios + " e\
-		//~ WHERE a.source_series_id=s.id\
-		//~ AND a.dest_series_id=d.id\
-		//~ AND s."+series_site_id_col + "=e."+site_id_col+" \
-		//~ AND a.source_tipo=coalesce($1,a.source_tipo) \
-		//~ and a.source_series_id=coalesce($2,a.source_series_id)\
-		//~ AND a.dest_tipo=coalesce($3,a.dest_tipo) \
-		//~ and a.dest_series_id=coalesce($4,a.dest_series_id)\
-		//~ AND a.agg_func=coalesce($5,a.agg_func)\
-		//~ AND a.dt=coalesce($6,a.dt)\
-		//~ AND a.t_offset=coalesce($7,a.t_offset)\
-		//~ AND s.var_id=coalesce($8,s.var_id)\
-		//~ AND d.var_id=coalesce($9,d.var_id)\
-		//~ AND s.proc_id=coalesce($10,s.proc_id)\
-		//~ AND d.proc_id=coalesce($11,d.proc_id)\
-		//~ AND e."+site_id_col+"=coalesce($12,e."+site_id_col+")\
-		//~ AND "+provider_col+"=coalesce($13,"+provider_col+")\
-		//~ ORDER BY a.id",[filter.source_tipo,filter.source_series_id,filter.dest_tipo,filter.dest_series_id,options.agg_func,options.dt,options.t_offset,filter.source_var_id,filter.dest_var_id,filter.source_proc_id,filter.dest_proc_id,filter.estacion_id,filter.provider_id])
-		// console.log(query)
-		return client.query(query)
-		.then(result=>{
+			"a")
+		const [access_join, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
+		var query = `WITH s_all AS (
+         SELECT 'puntual'::text AS tipo,
+            series.id,
+            estaciones.unid AS sitio_id,
+            estaciones.tabla AS fuentes_id,
+            series.var_id,
+            series.proc_id,
+            series.unit_id
+           FROM series
+           JOIN estaciones ON estaciones.unid = series.estacion_id
+           JOIN redes ON redes.tabla_id = estaciones.tabla
+           ${access_join}
+        UNION ALL
+         SELECT 'areal'::text AS tipo,
+            series_areal.id,
+            series_areal.area_id AS sitio_id,
+            series_areal.fuentes_id::text AS fuentes_id,
+            series_areal.var_id,
+            series_areal.proc_id,
+            series_areal.unit_id
+           FROM series_areal
+        UNION ALL
+         SELECT 'raster'::text AS tipo,
+            series_rast.id,
+            series_rast.escena_id AS sitio_id,
+            series_rast.fuentes_id::text AS fuentes_id,
+            series_rast.var_id,
+            series_rast.proc_id,
+            series_rast.unit_id
+           FROM series_rast
+        )
+		SELECT a.id,
+			a.source_tipo,
+			a.source_series_id,
+			a.dest_tipo,
+			a.dest_series_id,
+			a.agg_func,
+			a.dt,
+			COALESCE(a.t_offset, '00:00:00'::interval) AS t_offset,
+			a."precision",
+			a.source_time_support,
+			a.source_is_inst,
+			s_source.sitio_id AS source_estacion_id,
+			s_source.fuentes_id AS source_fuentes_id,
+			s_source.var_id AS source_var_id,
+			s_source.proc_id AS source_proc_id,
+			s_source.unit_id AS source_unit_id,
+			s_dest.sitio_id AS dest_estacion_id,
+			s_dest.fuentes_id AS dest_fuentes_id,
+			s_dest.var_id AS dest_var_id,
+			s_dest.proc_id AS dest_proc_id,
+			s_dest.unit_id AS dest_unit_id,
+			a.habilitar,
+			a.expresion,
+			a.cal_id,
+			calibrados.nombre AS cal_nombre,
+			var."timeSupport" AS dest_time_support
+		FROM asociaciones a
+			JOIN s_all s_source ON a.source_tipo::text = s_source.tipo AND a.source_series_id = s_source.id
+			JOIN s_all s_dest ON a.dest_tipo::text = s_dest.tipo AND a.dest_series_id = s_dest.id
+			JOIN var ON s_dest.var_id = var.id 
+			LEFT JOIN calibrados ON calibrados.id = a.cal_id
+			WHERE 1=1
+			${filter_string}
+		ORDER BY a.id
+`
+		// var query = "SELECT * \
+		//     FROM asociaciones_view\
+		//     WHERE 1=1 " + filter_string + " ORDER BY id"
+		let result
+		try {
+			result = await client.query(query)
+		} catch(e) {
 			if(release_client) {
 				client.release()
 			}
-			return result.rows
-		})
-		.catch(e=>{
-			if(release_client) {
-				client.release()
-			}
-			console.error(e)
-			return
-		})
+			throw e
+		}
+		if(release_client) {
+			client.release()
+		}
+		return result.rows
 	}
+
+	static async getAsociacion(id,user_id) {
+		if(!id) {
+			throw new BadRequestError("Falta id")
+		}
+		const matches = await this.getAsociaciones({id:id}, undefined, undefined, user_id)
+		if(!matches.length) {
+			throw new NotFoundError("No se encontró asociacion id=" + id)
+		}
+		return matches[0]
+	}
+
 	
-	static async getAsociacion(id) {
+	static async getAsociacion_(id) {
 		return global.pool.query("SELECT * from asociaciones WHERE id=$1",[id])
 		.then(result=>{
 			if(!result) {
@@ -15816,205 +15866,201 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async upsertAsociacion(asociacion) {
+	static async upsertAsociacion(asociacion, user_id, client) {
+		if(!asociacion) {
+			throw new Error("Falta asociacion")
+		}
+		if(!client) {
+			throw new Error("Falta client")
+		}
 		if(!asociacion.source_series_id) {
-			return Promise.reject("missing source_series_id")
+			throw new BadRequestError("missing source_series_id")
 		}
 		if(!asociacion.dest_series_id) {
-			return Promise.reject("missing dest_series_id")
+			throw new BadRequestError("missing dest_series_id")
+		}
+		const has_access_source = await this.hasAccess(undefined, undefined, user_id, false, asociacion.source_series_id, asociacion.source_tipo)
+		if(!has_access_source) {
+			throw new AuthError("Usuario sin acceso de lectura a la serie de origen de la asociacion")
+		}
+		const has_access_dest = await this.hasAccess(undefined, undefined, user_id, true, asociacion.dest_series_id, asociacion.dest_tipo)
+		if(!has_access_dest) {
+			throw new AuthError("Usuario sin acceso de escritura a la serie de destino de la asociación")
 		}
 		asociacion = new internal.asociacion(asociacion)
-		const client = await global.pool.connect()
-		const result = await client.query("INSERT INTO asociaciones (source_tipo, source_series_id, dest_tipo, dest_series_id, agg_func, dt, t_offset, precision, source_time_support, source_is_inst, habilitar, expresion, cal_id) \
-VALUES (coalesce($1,'puntual'),$2,coalesce($3,'puntual'),$4,$5,$6,$7,$8,$9,$10,coalesce($11,true),$12,$13)\
-ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
-	source_tipo=excluded.source_tipo,\
-	source_series_id=excluded.source_series_id,\
-	agg_func=excluded.agg_func,\
-	dt=excluded.dt,\
-	t_offset=excluded.t_offset,\
-	precision=excluded.precision,\
-	source_time_support=excluded.source_time_support,\
-	source_is_inst=excluded.source_is_inst,\
-	habilitar=excluded.habilitar,\
-	expresion=excluded.expresion,\
-	cal_id=excluded.cal_id\
-	RETURNING *",[asociacion.source_tipo, asociacion.source_series_id, asociacion.dest_tipo, asociacion.dest_series_id, asociacion.agg_func, asociacion.dt, asociacion.t_offset, asociacion.precision, asociacion.source_time_support, asociacion.source_is_inst, asociacion.habilitar, asociacion.expresion,asociacion.cal_id])
+		const result = await client.query(`INSERT INTO asociaciones (source_tipo, source_series_id, dest_tipo, dest_series_id, agg_func, dt, t_offset, precision, source_time_support, source_is_inst, habilitar, expresion, cal_id, id) 
+VALUES (COALESCE($1,'puntual'),$2,COALESCE($3,'puntual'),$4,$5,$6,$7,$8,$9,$10,COALESCE($11,true),$12,$13, COALESCE($14, nextval('asociaciones_id_seq'::regclass)))
+ON CONFLICT (dest_tipo, dest_series_id) 
+DO UPDATE SET
+	source_tipo=EXCLUDED.source_tipo,
+	source_series_id=EXCLUDED.source_series_id,
+	agg_func=EXCLUDED.agg_func,
+	dt=EXCLUDED.dt,
+	t_offset=EXCLUDED.t_offset,
+	precision=EXCLUDED.precision,
+	source_time_support=EXCLUDED.source_time_support,
+	source_is_inst=EXCLUDED.source_is_inst,
+	habilitar=EXCLUDED.habilitar,
+	expresion=EXCLUDED.expresion,
+	cal_id=EXCLUDED.cal_id
+	WHERE asociaciones.id = EXCLUDED.id
+	RETURNING *`,[asociacion.source_tipo, asociacion.source_series_id, asociacion.dest_tipo, asociacion.dest_series_id, asociacion.agg_func, asociacion.dt, asociacion.t_offset, asociacion.precision, asociacion.source_time_support, asociacion.source_is_inst, asociacion.habilitar, asociacion.expresion,asociacion.cal_id, asociacion.id])
 		//~ console.log({result:result})
-		if(!result) {
-			console.error("query error")
-			throw("query error")
+		if(result.rowCount === 0) {
+			throw new ConflictError("Conflicting asociacion: dest_tipo/dest_series_id already exists with a different id")
 		}
-		if(result.rows.length==0){
-			throw("Nothing upserted")
-		}
-		if(asociacion.id) {
-			try {
-				const updated_result = await client.query(`
-					UPDATE asociaciones
-					SET id=$1
-					WHERE id=$2
-					RETURNING id
-				`, [asociacion.id, result.rows[0].id])
-				result.rows[0].id = updated_result.rows[0].id
-			} catch(e) {
-				await client.query("ROLLBACK")
-				await client.release()
-				throw(e)
-			}
-		}
-		await client.query("commit")
-		await client.release()
 		return new internal.asociacion(result.rows[0])
 	}
 	
-	static async upsertAsociaciones(asociaciones) {
-		if(!asociaciones || asociaciones.length == 0) {
-			return Promise.reject("Faltan asociaciones")
+	static async upsertAsociaciones(asociaciones, user_id) {
+		if(!asociaciones || !asociaciones.length) {
+			throw new BadRequestError("Faltan asociaciones")
 		}
-		var upserted = []
-		for(var asociacion of asociaciones) {
-			upserted.push(await this.upsertAsociacion(asociacion))
+		const upserted = []
+		const client = await global.pool.connect()
+		try {
+			await client.query("BEGIN")
+			for(var asociacion of asociaciones) {
+				const ups = await this.upsertAsociacion(asociacion, user_id, client)
+				upserted.push(ups)
+			}
+			await client.query("COMMIT")
+			return upserted	
+		} catch(e) {
+			await client.query("ROLLBACK")
+			throw e //(new Error(`Upsert asociaciones failed: ${e.message}`)
+		} finally {
+			client.release()
 		}
-		if(upserted.length == 0) {
-			throw("Nada fue acualizado/creado")
-		}			
-		return upserted	
 	}
 	
-	static async runAsociaciones(filter,options={},client) {
+	static async runAsociaciones(filter,options={},client, user_id) {
 		var release_client = false
 		if(!client) {
 			release_client = true
 			client = await global.pool.connect()
 		}
-		return this.getAsociaciones(filter,options,client)
-		.then(async asociaciones=>{
-			if(asociaciones.length==0) {
-				console.log("No se encontraron asociaciones")
-				return []
+		let asociaciones = await this.getAsociaciones(filter,options,client, user_id)
+		if(asociaciones.length==0) {
+			console.log("No se encontraron asociaciones")
+			return []
+		}
+		// filter out no habilitadas
+		asociaciones = asociaciones.filter(a=>a.habilitar)
+		var results = []
+		for(var a of asociaciones) {
+			var opt = {aggFunction: a.agg_func, t_offset: a.t_offset, insertSeriesId: a.dest_series_id, insertSeriesTipo: a.dest_tipo}
+			const has_access = await this.hasAccess(undefined, undefined, user_id, true, a.dest_series_id, a.dest_tipo)
+			if(!has_access) {
+				throw new AuthError("Usuario sin acceso de escritura a la serie de destino de la asociacion id=" + a.id)
 			}
-			// filter out no habilitadas
-			asociaciones = asociaciones.filter(a=>a.habilitar)
-			var results = []
-			for(var a of asociaciones) {
-				var opt = {aggFunction: a.agg_func, t_offset: a.t_offset, insertSeriesId: a.dest_series_id, insertSeriesTipo: a.dest_tipo}
-				if(a.source_time_support) {
-					opt.source_time_support = a.source_time_support
-				}
-				if(a.precision) {
-					opt.precision = a.precision
-				}
-				if(options.inst) {
-					opt.inst = options.inst
-				} else if (a.source_is_inst) {
-					opt.inst = a.source_is_inst
-				}
-				if(options.no_insert) {
-					opt.no_insert = true
-				}
-				if(options.no_send_data) {
-					opt.no_send_data = options.no_send_data
-				}
-				if(options.no_update) {
-					opt.no_update = true
-				}
-				if(options.no_insert_as_obs) {
-					opt.no_insert_as_obs = true
-				}
-				opt.dest_time_support = a.dest_time_support
-				//~ promises.push(a)
-				console.log("asociacion " + a.id)
-				var result
-				try {
-					if(a.agg_func) {
-						if(a.agg_func == "math") {
-							if(a.source_tipo != "puntual") {
-								throw("Tipo inválido para convertir por expresión (math)")
-							}
-							result = await this.getSerieAndConvert(
-								a.source_series_id,
-								filter.timestart,
-								filter.timeend,
-								a.expresion,
-								a.dest_series_id,
-								a.cal_id,
-								filter.cor_id,
-								filter.forecast_date,
-								a.source_tipo)
-						} else if (a.agg_func == "pulse") {
-							if(a.source_tipo != "puntual" && a.source_tipo != "areal") {
-								throw("Tipo inválido para convertir a pulsos")
-							}
-							result = await this.getSerieAndExtractPulses(a.source_tipo,a.source_series_id,filter.timestart,filter.timeend,a.dest_series_id)
-						} else if ( a.source_tipo !="raster" && a.source_tipo != "rast" && (a.dt.toPostgres() == "1 month" || a.dt.toPostgres() == "1 mon" || a.dt.toPostgres() == "1 months") ) {
-							console.log("running aggregateMonthly")
-							const serie = await internal.serie.read({tipo:a.source_tipo,id:a.source_series_id,timestart:filter.timestart,timeend:filter.timeend})
-							const observaciones = serie.aggregateMonthly(filter.timestart,filter.timeend,a.agg_func,a.precision,opt.source_time_support,a.expression,opt.inst)
-							result = await this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id,undefined) // remove client, non-transactional
-						} else {
-							if(a.source_tipo != a.dest_tipo) {
-								throw("Invalid asociacion: source_tipo and dest_tipo must coincide if agg_func is set")
-							}
-							result =  await this.getRegularSeries(
-								a.source_tipo,
-								a.source_series_id,
-								a.dt.toPostgres(),
-								filter.timestart,
-								filter.timeend,
-								opt,
-								client,
-								a.cal_id, 
-								filter.cor_id, 
-								filter.forecast_date, 
-								filter.qualifier
-							)
-						}
-					} else if(a.source_tipo=="raster" && a.dest_tipo=="areal") {
-						console.log("Running asociacion raster to areal")
-						result = await this.getSerie('areal',a.dest_series_id,undefined,undefined,{no_metadata:true},undefined,undefined,client)
-						.then(series=>{
-							return this.rast2areal(a.source_series_id,filter.timestart,filter.timeend,series.estacion.id,options,client)
-						})
-					} else {
-						console.error("asociacion " + a.id + "not run")
-					}
-					results.push(result)
-				} catch (e) {
-					console.error(e)
-				} 
+			if(a.source_time_support) {
+				opt.source_time_support = a.source_time_support
 			}
-			return results
-		})
-		.then(inserts=>{
-			if(release_client) {
-				client.release()
+			if(a.precision) {
+				opt.precision = a.precision
 			}
-			if(!inserts) {
-				return []
+			if(options.inst) {
+				opt.inst = options.inst
+			} else if (a.source_is_inst) {
+				opt.inst = a.source_is_inst
 			}
-			if(inserts.length==0) {
-				return []
+			if(options.no_insert) {
+				opt.no_insert = true
 			}
 			if(options.no_send_data) {
-				return inserts.reduce((a,b)=>a+b)
+				opt.no_send_data = options.no_send_data
 			}
-			return flatten(inserts)
-			//~ var allinserts = []
-			//~ inserts.forEach(i=>{
-				//~ allinserts.push(...i)
-			//~ })
-			//~ return allinserts // .flat()
-		})
-		//~ .catch(e=>{
-			//~ console.error(e)
-			//~ return
-		//~ })
+			if(options.no_update) {
+				opt.no_update = true
+			}
+			if(options.no_insert_as_obs) {
+				opt.no_insert_as_obs = true
+			}
+			opt.dest_time_support = a.dest_time_support
+			//~ promises.push(a)
+			console.log("asociacion " + a.id)
+			var result
+			try {
+				if(a.agg_func) {
+					if(a.agg_func == "math") {
+						if(a.source_tipo != "puntual") {
+							throw("Tipo inválido para convertir por expresión (math)")
+						}
+						result = await this.getSerieAndConvert(
+							a.source_series_id,
+							filter.timestart,
+							filter.timeend,
+							a.expresion,
+							a.dest_series_id,
+							a.cal_id,
+							filter.cor_id,
+							filter.forecast_date,
+							a.source_tipo)
+					} else if (a.agg_func == "pulse") {
+						if(a.source_tipo != "puntual" && a.source_tipo != "areal") {
+							throw("Tipo inválido para convertir a pulsos")
+						}
+						result = await this.getSerieAndExtractPulses(a.source_tipo,a.source_series_id,filter.timestart,filter.timeend,a.dest_series_id)
+					} else if ( a.source_tipo !="raster" && a.source_tipo != "rast" && (a.dt.toPostgres() == "1 month" || a.dt.toPostgres() == "1 mon" || a.dt.toPostgres() == "1 months") ) {
+						console.log("running aggregateMonthly")
+						const serie = await internal.serie.read({tipo:a.source_tipo,id:a.source_series_id,timestart:filter.timestart,timeend:filter.timeend})
+						const observaciones = serie.aggregateMonthly(filter.timestart,filter.timeend,a.agg_func,a.precision,opt.source_time_support,a.expression,opt.inst)
+						result = await this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id,undefined) // remove client, non-transactional
+					} else {
+						if(a.source_tipo != a.dest_tipo) {
+							throw("Invalid asociacion: source_tipo and dest_tipo must coincide if agg_func is set")
+						}
+						result =  await this.getRegularSeries(
+							a.source_tipo,
+							a.source_series_id,
+							a.dt.toPostgres(),
+							filter.timestart,
+							filter.timeend,
+							opt,
+							client,
+							a.cal_id, 
+							filter.cor_id, 
+							filter.forecast_date, 
+							filter.qualifier
+						)
+					}
+				} else if(a.source_tipo=="raster" && a.dest_tipo=="areal") {
+					console.log("Running asociacion raster to areal")
+					result = await this.getSerie('areal',a.dest_series_id,undefined,undefined,{no_metadata:true},undefined,undefined,client)
+					.then(series=>{
+						return this.rast2areal(a.source_series_id,filter.timestart,filter.timeend,series.estacion.id,options,client)
+					})
+				} else {
+					console.error("asociacion " + a.id + "not run")
+				}
+				results.push(result)
+			} catch (e) {
+				console.error(e)
+			} 
+		}
+		if(release_client) {
+			client.release()
+		}
+		if(!results) {
+			return []
+		}
+		if(!results.length) {
+			return []
+		}
+		if(options.no_send_data) {
+			return results.reduce((a,b)=>a+b)
+		}
+		return flatten(results)
 	}
 	
-	static async runAsociacion(id,filter={},options={}) {
-		const a = await this.getAsociacion(id)
+	static async runAsociacion(id,filter={},options={},user_id) {
+		const a = await this.getAsociacion(id,user_id)
 		console.debug("Got asociacion " + a.id)
+		const has_access = await this.hasAccess(undefined, undefined, user_id, true, a.dest_series_id, a.dest_tipo)
+		if(!has_access) {
+			throw new AuthError("El usuario no tiene acceso de escritura a la serie de destino de la asociación")
+		}
 		var opt = {aggFunction: a.agg_func, t_offset: a.t_offset, insertSeriesId: a.dest_series_id}
 		if(a.source_time_support) {
 			opt.source_time_support = a.source_time_support
@@ -16184,17 +16230,50 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 		}
 	}
 	
-	static async deleteAsociacion(id) {
-		return global.pool.query("DELETE FROM asociaciones WHERE id=$1 RETURNING *",[id])
-		.then(result=>{
-			if(!result) {
-				throw("query error")
+	static async deleteAsociacion(id, user_id, client) {
+		if(!client) {
+			throw new Error("Falta client")
+		}
+		if(!id) {
+			throw new BadRequestError("Falta id")
+		}
+		if(user_id) {
+			let match = await this.getAsociacion(id,user_id)
+			if(!match) {
+				throw new NotFoundError("Asociacion id=" + id + " no encontrada")
 			}
-			if(result.rows.length==0) {
-				throw("nothing deleted")
+			let has_access = await this.hasAccess(undefined, undefined, user_id, true, match.dest_series_id, match.dest_tipo)
+			if(!has_access) {
+				throw new AuthError("El usuario no tiene acceso de escritura para la serie de destino de la asociación")
 			}
-			return result.rows[0]
-		})
+		}
+		const result = await client.query("DELETE FROM asociaciones WHERE id=$1 RETURNING *",[id])
+		if(result.rows.length==0) {
+			throw NotFoundError("No se eliminó ningún registro")
+		}
+		return result.rows[0]
+	}
+
+	static async deleteAsociaciones(filter, user_id) {
+		const client = await global.pool.connect()
+		try {
+			await client.query("BEGIN")
+			const asociaciones = await this.getAsociaciones(filter, undefined, client, user_id)
+			const deleted = []
+			for(const a of asociaciones) {
+				const has_access = await this.hasAccess(undefined, undefined, user_id, true, a.source_series_id, a.source_tipo)
+				if(!has_access) {
+					throw new AuthError("El usuario no tiene acceso de escritura sobre la serie de destino de la asociación")
+				}
+				deleted.push(await this.deleteAsociacion(a.id,user_id, client))
+			}
+			return deleted
+		} catch(e) {
+			await client.query("ROLLBACK")
+			throw e
+		} finally {
+			client.release()
+		}
 	}
 	
 	// ACCESSORS //
