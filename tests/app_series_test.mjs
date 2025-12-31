@@ -481,6 +481,75 @@ const estacion_id = 2948
     assert.equal(res.statusCode, 404);
   });
 
+  // legacy create obs
+    // unauth
+  test("POST /upsertObservacion reader fail", async() => {
+    const res = await request(app)
+      .post(`/upsertObservacion`)
+      .send({
+        tipo: "puntual",
+        series_id: serie.id,
+        timestart: new Date("2000-04-01T03:00:00.000Z"),
+        timeend: new Date("2000-04-01T03:00:00.000Z"),
+        valor: 4.44
+      })
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode, 401);
+  })
+  test("POST /upsertObservacion noaccess fail", async() => {
+    const res = await request(app)
+      .post(`/upsertObservacion`)
+      .send({
+        tipo: "puntual",
+        series_id: serie.id,
+        timestart: new Date("2000-04-01T03:00:00.000Z"),
+        timeend: new Date("2000-04-01T03:00:00.000Z"),
+        valor: 4.44
+      })
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode, 401);
+  })
+
+    // auth
+  test("POST /upsertObservacion", async() => {
+    var res = await request(app)
+      .post(`/upsertObservacion`)
+      .send({
+        tipo: "puntual",
+        series_id: serie.id,
+        timestart: new Date("2000-04-01T03:00:00.000Z"),
+        timeend: new Date("2000-04-01T03:00:00.000Z"),
+        valor: 4.44
+      })
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok("series_id" in res.body)
+    assert.equal(res.body.series_id, serie.id)
+    assert.equal(res.body.timestart,"2000-04-01T03:00:00.000Z")
+    assert.equal(res.body.valor, 4.44)
+    assert.ok("id" in res.body)
+    const obs = res.body
+  
+    // delete obs legacy
+    res = await request(app)
+      .post(`/deleteObservacion`)
+      .query({
+        tipo: "puntual",
+        id: obs.id
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok("series_id" in res.body)
+    assert.equal(res.body.series_id, serie.id)
+    assert.equal(res.body.timestart,"2000-04-01T03:00:00.000Z")
+    assert.equal(res.body.valor, 4.44)
+    assert.equal(res.body.id, obs.id)
+  })
+
+  // /dia/:date
   test("GET /obs/puntual/dia/:date", async() => {
     const res = await request(app)
       .get(`/obs/puntual/dia/2000-01-01`)

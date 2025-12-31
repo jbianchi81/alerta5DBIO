@@ -286,6 +286,39 @@ test("DELETE /obs/puntual/estaciones/{id}", async () => {
   assert.equal(res.body.id,estacion.id)
 })
 
+// delete multi
+test("DELETE /obs/puntual/estaciones", async () => {
+  // recreate
+  var res = await request(app)
+    .post("/obs/puntual/estaciones")
+    .send({
+      tabla: "alturas_prefe",
+      id_externo: "t665a443",
+      nombre: "test write",
+      geom: {type: "Point", coordinates: [0,0]}
+    })
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${writer.token}`);
+  assert.equal(res.statusCode, 200)
+
+  // delete
+  res = await request(app)
+    .delete(`/obs/puntual/estaciones`)
+    .query({
+      tabla: "alturas_prefe",
+      id_externo: "t665a443"
+    })
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${writer.token}`);
+  console.log(res.body)
+  assert.equal(res.statusCode, 200);
+  assert.ok(Array.isArray(res.body))
+  assert.equal(res.body.length,1)
+  assert("tabla" in res.body[0])
+  assert.equal(res.body[0].tabla,"alturas_prefe")
+  assert.equal(res.body[0].id_externo,"t665a443")
+})
+
 test("DELETE /groups/:name", async () => {
   const res = await request(app)
     .delete(`/groups/${group_name}`)

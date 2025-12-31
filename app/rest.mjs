@@ -238,18 +238,6 @@ app.get('/metadatos',auth.isPublicView,(req,res)=>{
 })
 app.get('/getMonitoredVars',auth.isPublic,getMonitoredVars)
 app.post('/getMonitoredVars',auth.isPublic,getMonitoredVars)
-// app.get('/getMonitoredFuentes',auth.isPublic,getMonitoredFuentes)
-// app.post('/getMonitoredFuentes',auth.isPublic,getMonitoredFuentes)
-//~ app.get('/getObsDiarios',auth.isPublic,getObsDiarios)
-//~ app.post('/getObsDiarios',auth.isPublic,getObsDiarios)
-//~ app.get('/updateObsDiarios',updateObsDiarios)
-//~ app.post('/updateObsDiarios',auth.isWriter,updateObsDiarios)
-//~ app.get('/getCuantilesDiarios',auth.isAuthenticated,getCuantilesDiarios)
-//~ app.post('/getCuantilesDiarios',auth.isAuthenticated,getCuantilesDiarios)
-//~ app.get('/updateCuantilesDiarios',updateCuantilesDiarios)
-//~ app.post('/updateCuantilesDiarios',auth.isWriter,updateCuantilesDiarios)
-//~ app.get('/updateCuantilesDiariosSuavizados',updateCuantilesDiariosSuavizados)
-//~ app.post('/updateCuantilesDiariosSuavizados',passport.authenticate('local'),updateCuantilesDiariosSuavizados)
 app.post('/upsertCuantilesDiariosSuavizados',auth.isAdmin,upsertCuantilesDiariosSuavizados)
 app.get('/getRegularSeries',auth.isAuthenticated,getRegularSeries)
 app.get('/getMultipleRegularSeries',auth.isAuthenticated,getMultipleRegularSeries)
@@ -889,7 +877,8 @@ app.get("/web/semanal/boceto", auth.isPublic, (req,res)=> {
 function getRedes(req,res) {
 	// Get redes from observations database 
 	try {
-		var {user_id, ...filter} = getFilter(req)
+		var user_id = getUserId(req)
+		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -910,7 +899,8 @@ function getRedes(req,res) {
 function getRed(req,res) {
 	// Get red from observations database 
 	try {
-		var filter = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -925,7 +915,7 @@ function getRed(req,res) {
 		}
 	}
 	console.log("filter:" + JSON.stringify(filter))
-	crud.getRed(filter.id,filter.user_id)
+	crud.getRed(filter.id,user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(400).send("Red no encontrada")
@@ -1201,7 +1191,8 @@ function deleteFuente(req,res) {
 
 function getFuentesAll(req,res) {
 	try {
-		var {user_id, ...filter} = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1738,7 +1729,8 @@ function getEstaciones(req,res) {
   //~ .alias('e')
   //~ .description('Get estaciones from observations database')
 	try {
-		var filter = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1752,9 +1744,9 @@ function getEstaciones(req,res) {
 	}
 	console.debug({filter:filter},{options:options})
 	if(options.pagination) {
-		var promise = crud.getEstacionesWithPagination(filter,options,req)
+		var promise = crud.getEstacionesWithPagination(filter,options,req,user_id)
 	} else if(filter.id && !Array.isArray(filter.id)) {
-		var promise = CRUD.estacion.read(filter, options).then(r=>{
+		var promise = CRUD.estacion.read(filter, options,user_id).then(r=>{
 			if(r) {
 				return [r]
 			} else {
@@ -1762,7 +1754,7 @@ function getEstaciones(req,res) {
 			}
 		})
 	} else {
-		var promise = CRUD.estacion.read(filter,options)
+		var promise = CRUD.estacion.read(filter,options,user_id)
 	}
 	promise.then(result=>{
 		console.log("Results: " + ((Array.isArray(result.estaciones)) ? result.estaciones.length  : result.length))
@@ -1775,7 +1767,8 @@ function getEstaciones(req,res) {
 
 function getEstacion(req,res) {
 	try {
-		var filter = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1786,7 +1779,7 @@ function getEstacion(req,res) {
 		res.status(400).send({message:"bad request: missing id"})
 		return
 	}
-	crud.getEstacion(filter.id,filter.public,options,filter.user_id)
+	crud.getEstacion(filter.id,filter.public,options,user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(404).send({message:"estacion not found"})
@@ -1832,7 +1825,7 @@ function upsertEstaciones(req,res) {
 		res.status(400).send({message:"query error",error:"Atributo 'estaciones' debe ser un array'"})
 		return
 	}
-	crud.upsertEstaciones(estaciones,{},(req.user) ? req.user.id : undefined) // .map(v => {
+	crud.upsertEstaciones(estaciones,{},getUserId(req)) // .map(v => {
 		//~ var estacion = new CRUD.estacion(v)
 		//~ return estacion
 	//~ }))
@@ -1852,6 +1845,7 @@ function upsertEstaciones(req,res) {
 
 function upsertEstacion(req,res) { 
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -1872,7 +1866,7 @@ function upsertEstacion(req,res) {
 	//~ if(filter.unid) {
 		//~ estacion.unid = filter.unid
 	//~ }
-	crud.upsertEstacion(new CRUD.estacion(estacion),undefined,undefined,filter.user_id)
+	crud.upsertEstacion(new CRUD.estacion(estacion),undefined,undefined,user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(400).send({message:"bad request"})
@@ -1888,6 +1882,7 @@ function upsertEstacion(req,res) {
 
 function updateEstacion(req,res) { 
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -1906,7 +1901,6 @@ function updateEstacion(req,res) {
 		} else if(filter.estacion_id) {
 			estacion.id = filter.estacion_id
 		}
-		var user_id = filter.user_id
 	} else {
 		var id
 		if(filter.id) {
@@ -1918,7 +1912,7 @@ function updateEstacion(req,res) {
 			res.status(400).send({message:"falta estacion_id"})
 			return
 		}
-		var { user_id, ...estacion } = filter
+		var estacion = filter
 		estacion.id = id
 	}
 	console.log({estacion:estacion})
@@ -1939,6 +1933,7 @@ function updateEstacion(req,res) {
 
 function deleteEstacion(req,res) { 
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -1950,7 +1945,7 @@ function deleteEstacion(req,res) {
 		res.status(400).send({message:"query error",error:"Falta atributo 'id'"})
 		return
 	}
-	crud.deleteEstacion(filter.id, filter.user_id)
+	crud.deleteEstacion(filter.id, user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(400).send({message:"bad request"})
@@ -1966,6 +1961,7 @@ function deleteEstacion(req,res) {
 
 function deleteEstaciones(req,res) { 
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -1978,7 +1974,7 @@ function deleteEstaciones(req,res) {
 		res.status(400).send({message:"query error",error:"Bad request. filters missing"})
 		return
 	}
-	crud.deleteEstaciones(filter)
+	crud.deleteEstaciones(filter,user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(400).send({message:"bad request"})
@@ -2405,6 +2401,7 @@ function getSeries(req,res) {
   //~ .command('getSeries')
   //~ .description('Get series from observations database')
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -2426,7 +2423,7 @@ function getSeries(req,res) {
 	if(options.format && options.format.toLowerCase() == "gmd") {
 		options.include_geom = true
 	}
-	crud.getSeries(tipo,filter,options)
+	crud.getSeries(tipo,filter,options,undefined,undefined,user_id)
 	.then(result=>{
 		console.log("Results: " + result.length)
 		send_output(options,result,res)
@@ -2440,6 +2437,7 @@ function getSerie(req,res) {
   //~ .command('getSeries')
   //~ .description('Get series from observations database')
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -2455,7 +2453,7 @@ function getSerie(req,res) {
 		res.status(400).send({message:"query error",error:"Falta atributo 'id'"})
 		return
 	}
-	crud.getSerie(filter.tipo,filter.id,filter.timestart,filter.timeend,options,filter.public, undefined, undefined, filter.user_id)
+	crud.getSerie(filter.tipo,filter.id,filter.timestart,filter.timeend,options,filter.public, undefined, undefined, user_id)
 	.then(result=>{
 		if(result) {
 			console.log("Results: series_id=" + result.id)
@@ -2538,6 +2536,7 @@ function upsertSeries(req,res) {
 
 function upsertSerie(req,res) {
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -2561,7 +2560,7 @@ function upsertSerie(req,res) {
 	if(filter.id) {
 		serie.id = filter.id
 	}
-	crud.upsertSerie(new CRUD.serie(serie),options, filter.user_id)
+	crud.upsertSerie(new CRUD.serie(serie),options, user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(400).send({message:"bad request"})
@@ -2577,6 +2576,7 @@ function upsertSerie(req,res) {
 
 function deleteSerie(req,res) { 
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -2592,7 +2592,7 @@ function deleteSerie(req,res) {
 		res.status(400).send({message:"query error",error:"Falta atributo 'id'"})
 		return
 	}
-	crud.deleteSerie(filter.tipo,filter.id,filter.user_id)
+	crud.deleteSerie(filter.tipo,filter.id,user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(400).send({message:"bad request"})
@@ -2608,6 +2608,7 @@ function deleteSerie(req,res) {
 
 function deleteSeries(req,res) { 
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -2625,7 +2626,7 @@ function deleteSeries(req,res) {
 		res.status(400).send({message:"bad request. filters missing"})
 		return
 	}
-	crud.deleteSeries(filter)
+	crud.deleteSeries(filter,user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(400).send({message:"bad request"})
@@ -2670,6 +2671,7 @@ function getObservacionesGuardadas(req,res) {
 
 function getObservaciones(req,res) {
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -2683,7 +2685,7 @@ function getObservaciones(req,res) {
 		res.status(400).send({message:"query error",error:"Faltan parámetros: tipo, series_id, timestart, timeend"})
 		return
 	}
-	crud.getObservacionesRTS(tipo,filter,options,undefined,filter.user_id)
+	crud.getObservacionesRTS(tipo,filter,options,undefined,user_id)
 	.then(result=>{
 		console.log("Results: " + result.length)
 		send_output(options,result,res)
@@ -2741,6 +2743,7 @@ function getObservacion(req,res) {
 
 function getObservacionesTimestart(req,res) {
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -2754,7 +2757,7 @@ function getObservacionesTimestart(req,res) {
 		res.status(400).send({message:"query error",error:"Missing parameters: either var_id or series_id or fuentes_id must be specified"})
 		return
 	}
-	crud.getObservacionesTimestart(tipo,filter,options,filter.user_id)
+	crud.getObservacionesTimestart(tipo,filter,options,user_id)
 	.then(result=>{
 		console.log("Results: " + result.length)
 		if(options.cume_dist) {
@@ -2784,7 +2787,8 @@ function getObservacionesTimestart(req,res) {
 
 function getObservacionesDia(req,res) {
 	try {
-		var {user_id, ...filter} = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2829,7 +2833,8 @@ function getObservacionesDia(req,res) {
 function deleteObservaciones(req,res) { 
 
 	try {
-		var {user_id, ...filter} = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2881,7 +2886,8 @@ function deleteObservacion(req,res) {   // by id+tipo
 	//~ console.log("deleteObservacion")
 	//~ console.log(req.body)
 	try {
-		var filter = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2892,7 +2898,7 @@ function deleteObservacion(req,res) {   // by id+tipo
 		res.status(400).send({message:"Error: Missing arguments",required_arguments:["tipo","id"],recieved_arguments:filter})
 		return
 	}
-	crud.deleteObservacion(filter.tipo,filter.id, undefined, filter.user_id)
+	crud.deleteObservacion(filter.tipo,filter.id, undefined, user_id)
 	.then(obs=>{
 		if(obs) {
 			console.debug("Deleted: id " + obs.id)
@@ -2910,23 +2916,15 @@ function deleteObservacion(req,res) {   // by id+tipo
 function deleteObservacionesById(req,res) {
 	//~ console.log(req.body)
 	try {
-		var filter = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	}
-	//~ if (! req.body.observaciones) {
-		//~ res.status(400).send({message:"Error: Missing observaciones"})
-		//~ return
-	//~ }
-	crud.deleteObservacionesById(req.body.tipo, req.body.id, undefined, undefined, filter.user_id)
-
-	//~ var promises = req.body.observaciones.map(o=> crud.deleteObservacion(o.tipo,o.id))
-	//~ Promise.all(promises)
-
-
+	crud.deleteObservacionesById(req.body.tipo, req.body.id, undefined, undefined, user_id)
 	.then(obs=>{
 		console.log("got crud response")
 		send_output(options,obs,res)
@@ -2940,6 +2938,7 @@ function deleteObservacionesById(req,res) {
 
 function upsertObservaciones(req,res) { 
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -2976,7 +2975,7 @@ function upsertObservaciones(req,res) {
 	crud.upsertObservaciones(observaciones.map(o => {
 		var obs = new CRUD.observacion(o)
 		return obs
-	}),filter.tipo,filter.series_id,options, undefined, filter.user_id)
+	}),filter.tipo,filter.series_id,options, undefined, user_id)
 	.then(result=>{
 		console.log("Upserted: " + result.length)
 		send_output(options,result,res)
@@ -2988,7 +2987,7 @@ function upsertObservaciones(req,res) {
 
 function upsertObservacionesCSV(req,res) {
 	try {
-		var filter = getFilter(req)
+		var user_id = getUserId(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3000,7 +2999,7 @@ function upsertObservacionesCSV(req,res) {
 		return
 	}
 	var observaciones = csv2obs(req.body.tipo, req.body.series_id, req.body.csvfile)
-	crud.upsertObservaciones(observaciones, undefined, undefined, undefined, undefined, filter.user_id)
+	crud.upsertObservaciones(observaciones, undefined, undefined, undefined, undefined, user_id)
 	.then(result=>{
 		console.log("Upserted: " + result.length)
 		send_output(options,result,res)
@@ -3017,8 +3016,9 @@ function upsertObservacion(req,res) {
 	//	observacion: {timestart: isodatetime, timeend: isodatetime, valor: real, tipo: "puntual"|"areal", series_id: int}
 	//}
 	try {
+		var user_id = getUserId(req)
+		var filter =  getFilter(req)
 		var options = getOptions(req)
-		var filter = getFilter(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
@@ -3041,24 +3041,24 @@ function upsertObservacion(req,res) {
 		res.status(400).send({message:"Invalid parameters"})
 		return
 	}
-	crud.upsertObservacion(observacion)
+	crud.upsertObservacion(observacion, undefined, undefined, user_id)
 	.then(obs=>{
 		if(obs) {
 			console.log("Upserted id: " + obs.id)
 			send_output(options,obs,res)
 		} else {
-			res.status(400).send({message:"no se insertó observación"})
+			handleCrudError(e, res)
 		}
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(400).send({message:"Bad request",error:e.toString()})
+		handleCrudError(e, res)
 	})
 }
 
 function updateObservacionById(req,res) {
 	try {
-		var filter = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3077,7 +3077,7 @@ function updateObservacionById(req,res) {
 			})
 		}
 	}
-	crud.updateObservacionById(filter, filter.user_id)
+	crud.updateObservacionById(filter, user_id)
 	.then(updated=>{
 		//~ console.log({updated:updated})
 		if(!updated) {
@@ -3367,14 +3367,15 @@ function getRegularSeries (req,res) {
 	// <tipo> <series_id> <dt> <timestart> <timeend>')
   //~ .description('Get serie temporal regular de Observaciones by tipo, series_id, dt, timestart, timeend')
 	try {
-		var filter = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req);
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	} 
-	crud.getRegularSeries(filter.tipo,filter.series_id,options.dt,filter.timestart,filter.timeend,{t_offset:filter.t_offset, aggFunction:filter.agg_func,inst:filter.inst,timeSupport:filter.time_support,precision:filter.precision},undefined,undefined,undefined,undefined,undefined,filter.user_id) // options: t_offset,aggFunction,inst,timeSupport,precision
+	crud.getRegularSeries(filter.tipo,filter.series_id,options.dt,filter.timestart,filter.timeend,{t_offset:filter.t_offset, aggFunction:filter.agg_func,inst:filter.inst,timeSupport:filter.time_support,precision:filter.precision},undefined,undefined,undefined,undefined,undefined,user_id) // options: t_offset,aggFunction,inst,timeSupport,precision
 	.then(result=>{
 		send_output(options,result,res)
 	})
@@ -3387,6 +3388,7 @@ function getMultipleRegularSeries (req,res) {
 	// <tipo> <series_id> <dt> <timestart> <timeend>')
   //~ .description('Get 2d array de series temporales regulares de Observaciones, tipo, series_id (multiple), dt, timestart, timeend')
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -3404,7 +3406,7 @@ function getMultipleRegularSeries (req,res) {
 	var series = filter.series_id.map(s=>{
 		return { tipo: filter.tipo, id: s}
 	})
-	crud.getMultipleRegularSeries(series,filter.dt,filter.timestart,filter.timeend,{t_offset:filter.t_offset, aggFunction:filter.agg_func,inst:filter.inst,timeSupport:filter.time_support,precision:filter.precision},filter.user_id) // options: t_offset,aggFunction,inst,timeSupport,precision
+	crud.getMultipleRegularSeries(series,filter.dt,filter.timestart,filter.timeend,{t_offset:filter.t_offset, aggFunction:filter.agg_func,inst:filter.inst,timeSupport:filter.time_support,precision:filter.precision},user_id) // options: t_offset,aggFunction,inst,timeSupport,precision
 	.then(result=>{
 		if(options.csv) {
 			var csv = result.map(r=>{
@@ -3422,6 +3424,7 @@ function getMultipleRegularSeries (req,res) {
 
 function getCampo (req,res) {
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -3442,7 +3445,7 @@ function getCampo (req,res) {
 		return
 	} 
 	console.log({filter:filter,options:options})
-	crud.getCampo(filter.var_id,filter.timestart,filter.timeend,filter,options,filter.user_id)
+	crud.getCampo(filter.var_id,filter.timestart,filter.timeend,filter,options,user_id)
 	.then(result=>{
 		send_output(options,result,res)
 	})
@@ -3453,6 +3456,7 @@ function getCampo (req,res) {
 
 function getCampoSerie (req,res) {
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -3473,7 +3477,7 @@ function getCampoSerie (req,res) {
 		return
 	} 
 	console.log({filter:filter,options:options})
-	crud.getCampoSerie(filter.var_id,filter.timestart,filter.timeend,filter,options,filter.user_id)
+	crud.getCampoSerie(filter.var_id,filter.timestart,filter.timeend,filter,options,user_id)
 	.then(result=>{
 		send_output(options,result,res)
 	})
@@ -3486,7 +3490,8 @@ function getCampoSerie (req,res) {
 
 function getAsociaciones(req,res) {
 	try {
-		var {user_id, ...filter} = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req);
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3507,8 +3512,7 @@ function getAsociaciones(req,res) {
 
 function upsertAsociaciones(req,res) {
 	try {
-		var {user_id, ...filter} = getFilter(req)
-		var options = getOptions(req)
+		var user_id = getUserId(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
@@ -3538,7 +3542,8 @@ function upsertAsociaciones(req,res) {
 
 function runAsociaciones(req,res) {
 	try {
-		var {user_id, ...filter} = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req);
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3557,8 +3562,8 @@ function runAsociaciones(req,res) {
 
 function getAsociacion(req,res) {
 	try {
-		var {user_id, ...filter} = getFilter(req)
-		var options = getOptions(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
@@ -3579,8 +3584,7 @@ function getAsociacion(req,res) {
 
 async function upsertAsociacion(req,res) {
 	try {
-		var {user_id, ...filter} = getFilter(req)
-		var options = getOptions(req)
+		var user_id = getUserId(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
@@ -3607,7 +3611,8 @@ async function upsertAsociacion(req,res) {
 
 function runAsociacion(req,res) {
 	try {
-		var {user_id, ...filter} = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req);
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3629,8 +3634,8 @@ function runAsociacion(req,res) {
 
 async function deleteAsociacion(req,res) {
 	try {
-		var {user_id, ...filter} = getFilter(req)
-		var options = getOptions(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
@@ -3653,8 +3658,8 @@ async function deleteAsociacion(req,res) {
 
 function deleteAsociaciones(req,res) {
 	try {
-		var {user_id, ...filter} = getFilter(req)
-		var options = getOptions(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
@@ -3681,6 +3686,7 @@ function deleteAsociaciones(req,res) {
 
 function getSeriesBySiteAndVar(req,res) {  //	estacion_id,var_id,timestart,timeend,includeProno=true)
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -3728,7 +3734,7 @@ function getSeriesBySiteAndVar(req,res) {  //	estacion_id,var_id,timestart,timee
 		filter.tipo,
 		options.from_view,
 		options.get_cal_stats,
-		filter.user_id
+		user_id
 	)
 	.then(result=>{
 		if(!result) {
@@ -4043,14 +4049,14 @@ function updateCuantilesDiarios(req,res) {
 
 function getCuantilesDiariosSuavizados(req,res) {
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
-		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	}
-	crud.getCuantilesDiariosSuavizados(filter.tipo,filter.series_id,filter.timestart,filter.timeend,filter.range,filter.t_offset,filter.precision)
+	crud.getCuantilesDiariosSuavizados(filter.tipo,filter.series_id,filter.timestart,filter.timeend,filter.range,filter.t_offset,filter.precision, undefined, user_id)
 	.then(result=>{
 		if(filter.format == "csv") {
 			res.setHeader('content-type','text/plain')
@@ -4060,8 +4066,7 @@ function getCuantilesDiariosSuavizados(req,res) {
 		}
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(400).send(e)
+		handleCrudError(e)
 	})
 }
 
@@ -4091,8 +4096,8 @@ function getMonthlyStats(req,res) {
 
 function getCuantilDiarioSuavizado(req,res) {
 	try {
-		var filter = getFilter(req)
-		var options = getOptions(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
@@ -4104,7 +4109,7 @@ function getCuantilDiarioSuavizado(req,res) {
 		return
 	}
 	if(filter.cuantil.toLowerCase() == 'all') {
-		crud.calcPercentilesDiarios(filter.tipo,filter.series_id,filter.timestart,filter.timeend,filter.range,filter.t_offset,filter.precision,filter.public)
+		crud.calcPercentilesDiarios(filter.tipo,filter.series_id,filter.timestart,filter.timeend,filter.range,filter.t_offset,filter.precision,filter.public,undefined, user_id)
 		.then(result=>{
 			if(filter.format == "csv") {
 				res.setHeader('content-type','text/plain')
@@ -4122,7 +4127,7 @@ function getCuantilDiarioSuavizado(req,res) {
 			res.status(400).send(e)
 		})
 	} else {
-		crud.getCuantilDiarioSuavizado(filter.tipo,filter.series_id,filter.cuantil,filter.timestart,filter.timeend,filter.range,filter.t_offset,filter.precision,filter.public)
+		crud.getCuantilDiarioSuavizado(filter.tipo,filter.series_id,filter.cuantil,filter.timestart,filter.timeend,filter.range,filter.t_offset,filter.precision,filter.public,user_id)
 		.then(result=>{
 			if(filter.format == "csv") {
 				res.setHeader('content-type','text/plain')
@@ -4132,15 +4137,15 @@ function getCuantilDiarioSuavizado(req,res) {
 			}
 		})
 		.catch(e=>{
-			console.error(e)
-			res.status(400).send(e)
+			handleCrudError(e, res)
 		})
 	}
 }
 
 function upsertPercentilesDiarios(req,res) {
 	try {
-		var filter = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req);
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4155,13 +4160,13 @@ function upsertPercentilesDiarios(req,res) {
 	//~ console.log(filter)
 	var promise
 	if(options.no_update) {
-		promise = crud.getPercentilesDiarios(filter.tipo,filter.series_id)
+		promise = crud.getPercentilesDiarios(filter.tipo,filter.series_id,undefined, undefined, undefined, user_id)
 		.then(result=>{
 			if(result.length==0) {
 				console.log("No percentiles found, running calcPercentilesDiarios")
 				return 	crud.calcPercentilesDiarios(filter.tipo,filter.series_id,filter.timestart,filter.timeend,filter.range,filter.t_offset,filter.precision)
 				.then(result=>{
-					return crud.upsertPercentilesDiarios(filter.tipo,filter.series_id,result)
+					return crud.upsertPercentilesDiarios(filter.tipo,filter.series_id,result,user_id)
 				})
 			} else {
 				console.log("Found "+result.length+" percentiles")
@@ -4169,9 +4174,9 @@ function upsertPercentilesDiarios(req,res) {
 			}
 		})
 	} else {
-		promise = crud.calcPercentilesDiarios(filter.tipo,filter.series_id,filter.timestart,filter.timeend,filter.range,filter.t_offset,filter.precision)
+		promise = crud.calcPercentilesDiarios(filter.tipo,filter.series_id,filter.timestart,filter.timeend,filter.range,filter.t_offset,filter.precision,undefined, undefined, user_id)
 		.then(result=>{
-			return crud.upsertPercentilesDiarios(filter.tipo,filter.series_id,result)
+			return crud.upsertPercentilesDiarios(filter.tipo,filter.series_id,result,user_id)
 		})
 	}
 	promise
@@ -4188,14 +4193,14 @@ function upsertPercentilesDiarios(req,res) {
 		}
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(400).send(e)
+		handleCrudError(e, res)
 	})
 }
 
 function getPercentilesDiarios(req,res) {
 	try {
-		var filter = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4206,7 +4211,7 @@ function getPercentilesDiarios(req,res) {
 		var date = new Date(filter.date)
 		filter.doy = Math.round((date - new Date(date.getFullYear(),0,1)) /24/3600/1000 + 0.5)
 	} 
-	crud.getPercentilesDiarios(filter.tipo,filter.series_id,filter.percentil,filter.doy,filter.public)
+	crud.getPercentilesDiarios(filter.tipo,filter.series_id,filter.percentil,filter.doy,filter.public,user_id)
 	.then(result=>{
 		if(filter.format == "csv") {
 			res.setHeader('content-type','text/plain')
@@ -4218,21 +4223,21 @@ function getPercentilesDiarios(req,res) {
 			res.send(result)
 		}
 	}).catch(e=>{
-		console.error(e)
-		res.status(400).send(e)
+		handleCrudError(e, res)
 	})
 }
 
 function getPercentilesDiariosBetweenDates(req,res) {
 	try {
-		var filter = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req);
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	}
-	crud.getPercentilesDiariosBetweenDates(filter.tipo,filter.series_id,filter.percentil,filter.timestart,filter.timeend,filter.public, options.inverted)
+	crud.getPercentilesDiariosBetweenDates(filter.tipo,filter.series_id,filter.percentil,filter.timestart,filter.timeend,filter.public, options.inverted, user_id)
 	.then(result=>{
 		//~ if(filter.format == "csv") {
 			//~ res.setHeader('content-type','text/plain')
@@ -4312,14 +4317,15 @@ function upsertCuantilesDiariosSuavizados(req,res) {
 
 function getDailyDoyStats(req,res) {
 	try {
-		var filter = getFilter(req)
+		var user_id = getUserId(req)
+		var filter =  getFilter(req);
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	}
-	crud.getDailyDoyStats(filter.tipo,filter.series_id,filter.public)
+	crud.getDailyDoyStats(filter.tipo,filter.series_id,filter.public,user_id)
 	.then(result=>{
 		if(filter.format == "csv") {
 			res.setHeader('content-type','text/plain')
@@ -4329,8 +4335,7 @@ function getDailyDoyStats(req,res) {
 		}
 	})
 	.catch(e=>{
-		console.error(e)
-		res.status(400).send(e)
+		handleCrudError(e, res)
 	})
 }
 
@@ -7327,6 +7332,10 @@ async function send_output(options,data,res,property_name) {
 // 	})
 // }
 
+function getUserId(req) {
+	return (req.user) ? req.user.id : undefined
+}
+
 function getFilter(req) {
 	var filter = {}
 	if(req.body) {
@@ -7752,12 +7761,6 @@ function getFilter(req) {
 		}
 	}
 	
-	if(req.user) {
-		if(req.user.id) {
-			filter.user_id = req.user.id
-		}
-	}
-
 	return filter
 }
 

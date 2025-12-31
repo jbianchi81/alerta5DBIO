@@ -569,13 +569,14 @@ internal.estacion = class extends baseModel {
 			return false
 		}
 	}
-	static async read(filter={},options) {
-		const {user_id, filter_} = filter
+
+	static async read(filter={}, options, user_id) {
 		if(filter.id && !Array.isArray(filter.id)) {
 			return internal.CRUD.getEstacion(filter.id,filter.public, options,user_id)
 		}
-		return internal.CRUD.getEstaciones(filter_,options,undefined,user_id)
+		return internal.CRUD.getEstaciones(filter,options,undefined,user_id)
 	}
+
 	async create(options) {
 		const created = await internal.CRUD.upsertEstacion(this,options)
 		this.id = created.id
@@ -3096,7 +3097,7 @@ function assignPercentileCategory(value, categories) {
  * @param {SerieOptions} options - Output formatting and sorting options.
  * @returns {string} SQL query
  */
-internal.serie.build_read_query = function(filter={},options={}) {
+internal.serie.build_read_query = function(filter={},options={},user_id) {
 	// var model = apidoc.serie
 	var valid_filters
 	var table
@@ -3646,7 +3647,7 @@ internal.serie.build_read_query = function(filter={},options={}) {
 		table = "series"
 
 		// ACCESS LEVEL
-		const [access_join, access_level] = internal.red.getUserAccessClause(filter.user_id,"redes.id")
+		const [access_join, access_level] = internal.red.getUserAccessClause(user_id,"redes.id")
 
 		join_clauses = [...join_clauses,...[
 			`JOIN estaciones 
@@ -7709,53 +7710,59 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async deleteEstaciones(filter) {
+	static async deleteEstaciones(filter,user_id) {
 		if(filter.id) {
 			filter.estacion_id = filter.id
 			delete filter.id
 		}
-		return this.getEstaciones(filter)
-		.then(estaciones=>{
-			if(estaciones.length == 0) {
-				return []
-			}
-			var ids = estaciones.map(e=>e.id)
-			return global.pool.query("\
-				DELETE FROM estaciones \
-				WHERE unid IN (" + ids.join(",") + ")\
-				RETURNING *,st_x(geom) geom_x,st_y(geom) geom_y")
-			.then(result=>{
-				if(result.rows.length == 0) {
-					return []
-				} 
-				return result.rows.map(row=>{
-					const geometry = new internal.geometry("Point", [row.geom_x, row.geom_y])
-					const estacion = new internal.estacion({
-						id: row.unid,
-						nombre: row.nombre,
-						id_externo: row.id_externo,
-						geom: geometry,
-						tabla: row.tabla,
-						distrito: row.distrito,
-						pais: row.pais,
-						rio: row.rio,
-						has_obs: row.has_obs,
-						tipo: row.tipo,
-						automatica: row.automatica,
-						habilitar: row.habilitar,
-						propietario: row.propietario,
-						abreviatura: row.abrev,
-						URL: row.URL,
-						localidad: row.localidad,
-						real: row.real,
-						altitud: row.altitud,
-						public: row.public,
-						cero_ign: row.cero_ign
-					})
-					estacion.id = row.unid
-					return estacion
-				})
+		const estaciones = await this.getEstaciones(filter, undefined, undefined, user_id)
+		if(estaciones.length == 0) {
+			return []
+		}
+		var ids = estaciones.map(e=>e.id)
+		const [access_join, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
+		const result = await global.pool.query(`
+				DELETE FROM estaciones
+				USING ( SELECT
+						redes.id, 
+						redes.nombre, 
+						redes.tabla_id 
+				  	FROM redes
+					${access_join}
+					WHERE ${access_level}='write'
+				) r
+				WHERE r.tabla_id = estaciones.tabla  
+				AND unid IN (${ids.join(",")})
+				RETURNING *,st_x(geom) geom_x,st_y(geom) geom_y`)
+		if(!result.rows.length) {
+			return []
+		} 
+		return result.rows.map(row=>{
+			const geometry = new internal.geometry("Point", [row.geom_x, row.geom_y])
+			const estacion = new internal.estacion({
+				id: row.unid,
+				nombre: row.nombre,
+				id_externo: row.id_externo,
+				geom: geometry,
+				tabla: row.tabla,
+				distrito: row.distrito,
+				pais: row.pais,
+				rio: row.rio,
+				has_obs: row.has_obs,
+				tipo: row.tipo,
+				automatica: row.automatica,
+				habilitar: row.habilitar,
+				propietario: row.propietario,
+				abreviatura: row.abrev,
+				URL: row.URL,
+				localidad: row.localidad,
+				real: row.real,
+				altitud: row.altitud,
+				public: row.public,
+				cero_ign: row.cero_ign
 			})
+			estacion.id = row.unid
+			return estacion
 		})
 	}
 
@@ -7792,16 +7799,17 @@ internal.CRUD = class {
 		return estacion
 	}
 
-	static async getEstacionesWithPagination(filter={},options={},req) {
-		filter.limit = filter.limit ?? config.pagination.default_limit
+	static async getEstacionesWithPagination(filter={},options={},req,user_id) {
+		const default_limit = (config.pagination) ? config.pagination.default_limit : 1000000000
+		const max_limit = (config.pagination) ? config.pagination.max_limit : 1000000000
 		filter.limit = parseInt(filter.limit)
-		if (filter.limit > config.pagination.max_limit) {
-			throw(new Error("limit exceeds maximum records per page (" + config.pagination.max_limit) + ")")
+		filter.limit = filter.limit ?? default_limit
+		if (filter.limit > max_limit) {
+			throw(new Error("limit exceeds maximum records per page (" + max_limit) + ")")
 		}
 		filter.offset = filter.offset ?? 0
 		filter.offset = parseInt(filter.offset)
-		const {user_id, ...filter_} = filter
-		const result = await internal.CRUD.getEstaciones(filter_,options,undefined, user_id)
+		const result = await internal.CRUD.getEstaciones(filter,options,undefined, user_id)
 		var is_last_page = (result.length < filter.limit)
 		if(is_last_page) {
 			return {
@@ -9524,22 +9532,38 @@ internal.CRUD = class {
 		}
 	}
 	
-	static async deleteSeries(filter) {
+	static async deleteSeries(filter,user_id) {
 		var series_table = (filter.tipo) ? (filter.tipo == "puntual") ? "series" : (filter.tipo == "areal") ? "series_areal" : (filter.tipo == "rast" || filter.tipo == "raster") ? "series_rast" : "puntual" : "puntual"
-		return this.getSeries(filter.tipo,filter)
-		.then(series=>{
-			if(series.length == 0) {
-				return []
-			}
-			var ids = series.map(s=>s.id)
-			return global.pool.query("\
-				DELETE FROM " + series_table + "\
-				WHERE id IN (" + ids.join(",") + ")\
-				RETURNING *")
-			.then(result=>{
-				return result.rows
-			})
-		})
+		const series = await this.getSeries(filter.tipo,filter,undefined, undefined, undefined, undefined, user_id)
+		if(series.length == 0) {
+			return []
+		}
+		var ids = series.map(s=>s.id)
+		if(user_id && series_table == "series") {
+			const [access_join, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
+			var result = await global.pool.query(`
+				DELETE FROM series
+				USING (
+					SELECT 
+						estaciones.unid,
+						redes.id as red_id,
+						redes.nombre,
+						redes.tabla_id
+					FROM estaciones
+					JOIN redes ON redes.tabla_id=estaciones.tabla
+					${access_join}
+					WHERE ${access_level}='write'
+				) e
+				WHERE series.estacion_id=e.unid
+				AND series.id IN (${ids.join(",")})
+				RETURNING *`)
+		} else {
+			var result = await global.pool.query(`
+				DELETE FROM ${series_table}
+				WHERE id IN (${ids.join(",")})
+				RETURNING *`)
+		}
+		return result.rows
 	}
 	
 	static async deleteSeries_Old(filter) {   // ELIMINAR
@@ -10297,7 +10321,7 @@ internal.CRUD = class {
 	 * @param {ExpressRequest} req - Express request object
 	 * @returns {internal.serie[]} matched series
 	 */
-	static async getSeries(tipo,filter={},options={},client,req) {
+	static async getSeries(tipo,filter={},options={},client,req,user_id) {
 		// console.debug({options:options})
 		// console.debug({filter:filter})
 		if(tipo) {
@@ -10309,7 +10333,7 @@ internal.CRUD = class {
 			release_client = true
 		}
 		try {
-			var query = internal.serie.build_read_query(filter,options)
+			var query = internal.serie.build_read_query(filter,options, user_id)
 		}
 		catch(e) {
 			if(release_client) {
@@ -10612,7 +10636,7 @@ internal.CRUD = class {
 		})
 	}
 
-	static async upsertObservacion(observacion,no_update,client) {
+	static async upsertObservacion(observacion,no_update,client, user_id) {
 		//~ console.log(observacion)
 		if (!(observacion instanceof internal.observacion)) {
 			//~ console.log("create observacion")
@@ -10631,6 +10655,12 @@ internal.CRUD = class {
 			const val_type = (Array.isArray(observacion.valor)) ? "numarr" : "num"
 			const obs_tabla = (observacion.tipo == "areal") ? "observaciones_areal" : "observaciones"
 			const val_tabla = (observacion.tipo == "areal") ? (val_type == "numarr") ? "valores_numarr_areal" : "valores_num_areal" : (val_type == "numarr") ? "valores_numarr" : "valores_num"
+			if(user_id && obs_tabla == "observaciones") {
+				const has_access = await this.hasAccess(undefined, undefined, user_id, true, observacion.series_id, "puntual")
+				if(!has_access) {
+					throw new AuthError("Usuario no tiene acceso de escritura a la serie")
+				}
+			}
 			var on_conflict_clause_obs = (no_update) ? " NOTHING " : (config.crud.update_observaciones_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\
 							descripcion=excluded.descripcion,\
 							unit_id=excluded.unit_id,\
@@ -16418,13 +16448,13 @@ DO UPDATE SET
 	
 	// ESTADISTICAS
 	
-	static async getCuantilesDiariosSuavizados(tipo="puntual",series_id,timestart='1974-01-01',timeend='2020-01-01',range=15,t_offset='0 hours', precision=3,isPublic) {
+	static async getCuantilesDiariosSuavizados(tipo="puntual",series_id,timestart='1974-01-01',timeend='2020-01-01',range=15,t_offset='0 hours', precision=3,isPublic,user_id) {
 		if(!series_id) {
 			return Promise.reject("missing series_id")
 		}
 		var obs_t = ( tipo.toLowerCase() == "areal" ) ? "observaciones_areal" : "observaciones"
 		var val_t = ( tipo.toLowerCase() == "areal" ) ? "valores_num_areal" : "valores_num"
-		return this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic)
+		return this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic,undefined, undefined, user_id)
 		.then(serie=>{
 			return global.pool.query("WITH s AS (\
 				SELECT generate_series($1::date,$3::date,'1 days'::interval) d\
@@ -16479,19 +16509,20 @@ DO UPDATE SET
 	   })
 	}
 	
-	static async getCuantilDiarioSuavizado(tipo="puntual",series_id,cuantil,timestart='1974-01-01',timeend='2020-01-01',range=15,t_offset='0 hours', precision=3,isPublic) {
+	static async getCuantilDiarioSuavizado(tipo="puntual",series_id,cuantil,timestart='1974-01-01',timeend='2020-01-01',range=15,t_offset='0 hours', precision=3,isPublic,user_id) {
 		if(!series_id) {
 			return Promise.reject("missing series_id")
 		}
 		if(!cuantil) {
 			return Promise.reject("missing cuantil (0-1)")
 		}
-		return this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic)
-		.then(series=>{
-			//~ console.log("got series_id:"+series_id+", tipo:"+tipo)
-			var obs_t = ( tipo.toLowerCase() == "areal" ) ? "observaciones_areal" : "observaciones"
-			var val_t = ( tipo.toLowerCase() == "areal" ) ? "valores_num_areal" : "valores_num"
-			return global.pool.query("WITH s AS (\
+		const serie = await this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic,undefined, undefined, user_id)
+		if(!serie) {
+			throw new NotFoundError("No se encontró la serie")
+		}
+		var obs_t = ( tipo.toLowerCase() == "areal" ) ? "observaciones_areal" : "observaciones"
+		var val_t = ( tipo.toLowerCase() == "areal" ) ? "valores_num_areal" : "valores_num"
+		const result = await global.pool.query("WITH s AS (\
 				SELECT generate_series($1::date,$3::date,'1 days'::interval) d\
 				), obs AS (\
 				SELECT timestart,timeend,valor\
@@ -16529,14 +16560,10 @@ DO UPDATE SET
 		from wfunc\
 		group by doy\
 		order by doy",[timestart,t_offset, timeend, '1 days', series_id, range, precision, tipo, cuantil])
-	   })
-	   .then(result=>{
-		   if(!result.rows) {
-			   throw("Nothing found")
-			   return
-		   }
-		   return result.rows
-	   })
+		if(!result.rows.length) {
+			throw new NotFoundError("No se encontraron observaciones")
+		}
+		return result.rows
 	}
 	
 	static async upsertDailyDoyStats2(tipo,series_id,timestart,timeend,range,t_offset,precision,is_public) {
@@ -16575,18 +16602,16 @@ DO UPDATE SET
 	 })
     }
     
-    static async getDailyDoyStats(tipo="puntual",series_id,isPublic) {
-		return this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic)
-		.then(serie=>{
-			return global.pool.query("SELECT * FROM series_doy_stats WHERE tipo=$1 AND series_id=$2 ORDER BY doy",[tipo,series_id])
-		})
-		.then(result=>{
-			if(!result.rows) {
-				throw("Nothing found")
-				return
-			}
-			return new internal.dailyStatsList(result.rows)
-		})
+    static async getDailyDoyStats(tipo="puntual",series_id,isPublic, user_id) {
+		const serie = await this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic,undefined, undefined, user_id)
+		if(!serie) {
+			throw new NotFoundError("Serie no encontrada")
+		}
+		const result = await global.pool.query("SELECT * FROM series_doy_stats WHERE tipo=$1 AND series_id=$2 ORDER BY doy",[tipo,series_id])
+		if(!result.rows.length) {
+			throw new NotFoundError("No se encontraron stats diarios")
+		}
+		return new internal.dailyStatsList(result.rows)
 	}
     
 	static async upsertMonthlyStats(tipo,series_id) {
@@ -16689,16 +16714,18 @@ DO UPDATE SET
 	}
 
 	//~ getCuantilesDiariosSuavizadosTodos
-	static async calcPercentilesDiarios(tipo="puntual",series_id,timestart='1974-01-01',timeend='2020-01-01',range=15,t_offset='0 hours', precision=3,isPublic,update=false) {
+	static async calcPercentilesDiarios(tipo="puntual",series_id,timestart='1974-01-01',timeend='2020-01-01',range=15,t_offset='0 hours', precision=3,isPublic,update=false, user_id) {
 		if(!series_id) {
 			return Promise.reject("missing series_id")
 		}
-		return this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic)
-		.then(serie=>{
-			var obs_t = ( tipo.toLowerCase() == "areal" ) ? "observaciones_areal" : "observaciones"
-			var val_t = ( tipo.toLowerCase() == "areal" ) ? "valores_num_areal" : "valores_num"
-			// queries for daily means
-			return global.pool.query("WITH s AS (\
+		const serie = await this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic,undefined, undefined, user_id)
+		if(!serie) {
+			throw new NotFoundError("Serie no encontrada")
+		}
+		var obs_t = ( tipo.toLowerCase() == "areal" ) ? "observaciones_areal" : "observaciones"
+		var val_t = ( tipo.toLowerCase() == "areal" ) ? "valores_num_areal" : "valores_num"
+		// queries for daily means
+		const result = await global.pool.query("WITH s AS (\
 				SELECT generate_series($1::date,$3::date,'1 days'::interval) d\
 				), obs AS (\
 				SELECT timestart,timeend,valor\
@@ -16715,61 +16742,50 @@ DO UPDATE SET
 					   FROM s\
 					   JOIN obs ON (s.d::date=(obs.timestart-$2::interval)::date)\
 					   GROUP BY s.d+$2::interval, s.d+'1 days'::interval+$2::interval",[timestart,t_offset,timeend,series_id])
-		})
-		.then(result=>{
-			if(!result.rows) {
-				throw("No observations found")
-				return
-			}
-			if(result.rows.length==0){
-				throw("No observations found")
-				return
-			}
-			var obs_diarias=result.rows
-			//~ var doys = []
-			var percentiles = []
-			for(var doy=1; doy<=366;doy++) {
-				var obs = obs_diarias.filter(d=> this.is_within_doy_range(d.timestart,doy,range))
-				var valores = obs.map(o=>parseFloat(o.valor)).sort((a,b)=>a-b)
-				//~ console.log(valores.join(","))
-				var dates = obs.map(o=>o.timestart).sort()
-				var obslength=obs.length
-				var timestart = dates[0]
-				var timeend=dates[obslength-1]
-				for(var percentil=1;percentil<=99;percentil++) {
-					var index = obslength*percentil/100
-					var value
-					if(Math.round(index,0) == index) {
-						value = (valores[index-1] + valores[index])/2
-					} else {
-						value = valores[Math.round(index)-1]
-					}
-					//~ value = (precision != 0) ? 1/(10 ** precision) * Math.round(value * 10 ** precision) : value
-					var v = this.roundTo(value,precision) // value.toString().replace(/^(\d+\.\d\d\d)\d+$/,"$1") // .replace(/\.\d+$/,x=> x.substring(0,precision+1))
-					//~ console.log({percentil:percentil,value:v})
-					//~ var v = value
-					//~ console.log(typeof v)
-					percentiles.push(new internal.doy_percentil({doy:doy,percentil:percentil/100,valor:v,window_size:range,timestart:timestart,timeend:timeend,count:obslength}))
+		if(!result.rows.length) {
+			throw new NotFoundError("No observations found")
+		}
+		var obs_diarias=result.rows
+		//~ var doys = []
+		var percentiles = []
+		for(var doy=1; doy<=366;doy++) {
+			var obs = obs_diarias.filter(d=> this.is_within_doy_range(d.timestart,doy,range))
+			var valores = obs.map(o=>parseFloat(o.valor)).sort((a,b)=>a-b)
+			var dates = obs.map(o=>o.timestart).sort()
+			var obslength=obs.length
+			var timestart = dates[0]
+			var timeend=dates[obslength-1]
+			for(var percentil=1;percentil<=99;percentil++) {
+				var index = obslength*percentil/100
+				var value
+				if(Math.round(index,0) == index) {
+					value = (valores[index-1] + valores[index])/2
+				} else {
+					value = valores[Math.round(index)-1]
 				}
-				//~ doys.push({doy:doy,count:obslength,percentiles:percentiles})
+				var v = this.roundTo(value,precision) 
+				percentiles.push(new internal.doy_percentil({doy:doy,percentil:percentil/100,valor:v,window_size:range,timestart:timestart,timeend:timeend,count:obslength}))
 			}
-			return percentiles // doys
-		})
-		.then(percentiles=>{
-			if(update) {
-				return this.upsertPercentilesDiarios(tipo,series_id,percentiles)
-			} else {
-				return percentiles
-			}
-		})
+		}
+		if(update) {
+			return this.upsertPercentilesDiarios(tipo,series_id,percentiles,user_id)
+		} else {
+			return percentiles
+		}
 	}
 	
-	static async upsertPercentilesDiarios(tipo="puntual",series_id,percentiles) {
+	static async upsertPercentilesDiarios(tipo="puntual",series_id,percentiles,user_id) {
 		if(!series_id) {
 			return Promise.reject("Missing series_id")
 		}
 		if(percentiles.length==0) {
 			return Promise.reject("missing percentiles, length 0")
+		}
+		if(tipo=="puntual" && user_id) {
+			const has_access = await this.hasAccess(undefined, undefined, user_id, true, series_id, tipo)
+			if(!has_access) {
+				throw new AuthError("El usuario no tiene acceso de escritura para la serie puntual id=" + series_id)
+			}
 		}
 		var rows = percentiles.map(d=> {
 			var d_clean = {}
@@ -16798,98 +16814,90 @@ DO UPDATE SET
 		})
 	}
 	
-	static async getPercentilesDiarios(tipo="puntual",series_id,percentil,doy,isPublic) {
+	static async getPercentilesDiarios(tipo="puntual",series_id,percentil,doy,isPublic,user_id) {
 		if(!series_id) {
 			return Promise.reject("Missing series_id")
 		}
-		return this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic)
-		.then(serie=>{
-			var doy_filter = ""
-			if(doy) {
-				if(Array.isArray(doy)) {
-					doy_filter = " AND series_doy_percentiles.doy IN (" + doy.map(d=>parseInt(d)).join(",") + ")"
-				} else {
-					doy_filter = " AND series_doy_percentiles.doy = " + parseInt(doy)
-				}
+		const serie = await this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic,undefined, undefined, user_id)
+		if(!serie) {
+			throw new NotFoundError("No se encontró la serie")
+		}
+		var doy_filter = ""
+		if(doy) {
+			if(Array.isArray(doy)) {
+				doy_filter = " AND series_doy_percentiles.doy IN (" + doy.map(d=>parseInt(d)).join(",") + ")"
+			} else {
+				doy_filter = " AND series_doy_percentiles.doy = " + parseInt(doy)
 			}
-			var promise
-			if(percentil) {
-				if(Array.isArray(percentil)) {
-					if(Array.isArray(series_id)) {
-						promise = global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id IN (" + series_id.map(s=>parseInt(s)).join(",") + ") AND percentil IN (" + percentil.map(p=>parseFloat(p)).join(",") + ") " + doy_filter + " ORDER BY percentil,doy",[tipo])
-					} else {					
-						promise = global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2 AND percentil IN (" + percentil.map(p=>parseFloat(p)).join(",") + ") " + doy_filter + " ORDER BY percentil,doy",[tipo,series_id])
-					}
-				} else {
-					if(Array.isArray(series_id)) {
-						promise = global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id IN (" + series_id.map(s=>parseInt(s)).join(",") + ") AND percentil=$2  " + doy_filter + " ORDER BY percentil,doy",[tipo,percentil])
-					} else {
-						promise = global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2 AND percentil=$3  " + doy_filter + " ORDER BY percentil,doy",[tipo,series_id,percentil])
-					}
+		}
+		var result
+		if(percentil) {
+			if(Array.isArray(percentil)) {
+				if(Array.isArray(series_id)) {
+					result = await global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id IN (" + series_id.map(s=>parseInt(s)).join(",") + ") AND percentil IN (" + percentil.map(p=>parseFloat(p)).join(",") + ") " + doy_filter + " ORDER BY percentil,doy",[tipo])
+				} else {					
+					result = await global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2 AND percentil IN (" + percentil.map(p=>parseFloat(p)).join(",") + ") " + doy_filter + " ORDER BY percentil,doy",[tipo,series_id])
 				}
 			} else {
-				promise = global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2  " + doy_filter + " ORDER BY percentil,doy",[tipo,series_id])
+				if(Array.isArray(series_id)) {
+					result = await global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id IN (" + series_id.map(s=>parseInt(s)).join(",") + ") AND percentil=$2  " + doy_filter + " ORDER BY percentil,doy",[tipo,percentil])
+				} else {
+					result = await global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2 AND percentil=$3  " + doy_filter + " ORDER BY percentil,doy",[tipo,series_id,percentil])
+				}
 			}
-			return promise
-		})
-		.then(result=>{
-			if(!result.rows) {
-				throw("Nothing found")
-				return
-			}
-			return result.rows.map(r=>new internal.doy_percentil(r))
-		})
+		} else {
+			result = await global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2  " + doy_filter + " ORDER BY percentil,doy",[tipo,series_id])
+		}
+		if(!result.rows.length) {
+			throw new NotFoundError("No se encontraron observaciones")
+		}
+		return result.rows.map(r=>new internal.doy_percentil(r))
 	}
 	
-	static async getPercentilesDiariosBetweenDates(tipo="puntual",series_id,percentil,timestart,timeend,isPublic, inverted) {
+	static async getPercentilesDiariosBetweenDates(tipo="puntual",series_id,percentil,timestart,timeend,isPublic, inverted, user_id) {
 		if(!series_id || !timestart || !timeend) {
 			return Promise.reject("Missing series_id, timestart or timeend")
 		}
-		return this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic)
-		.then(serie=>{
-			var percentil_filter = ""
-			if(percentil) {
-				if(Array.isArray(percentil)) {
-					if(inverted) {
-						percentil = percentil.map(p => 1 - p)
-					}
-					percentil_filter = " AND percentil IN (" + percentil.map(p=>`ROUND(${parseFloat(p)}::numeric,2)`).join(",") + ")"
-					//~ promise = global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2  ORDER BY percentil,doy",[tipo,series_id])
-				} else {
-					if(inverted) {
-						percentil = 1 - percentil
-					}
-					percentil_filter = `AND percentil::numeric=ROUND(${parseFloat(percentil)}::numeric,2)::numeric`
-					//~ promise = global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2 AND percentil=$3  ORDER BY percentil,doy",[tipo,series_id,percentil])
+		const serie = await this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic,undefined, undefined, user_id)
+		if(!serie) {
+			throw new NotFoundError("No se encontró la serie")
+		}
+		var percentil_filter = ""
+		if(percentil) {
+			if(Array.isArray(percentil)) {
+				if(inverted) {
+					percentil = percentil.map(p => 1 - p)
 				}
-			} 
-			return global.pool.query(`WITH dates as (
-				SELECT generate_series($1::date,$2::date,'1 days'::interval) date
-				), data as (
-				SELECT series_doy_percentiles.percentil AS percentil,
-						 json_build_object('date',dates.date,'doy',series_doy_percentiles.doy,'tipo',series_doy_percentiles.tipo,'series_id',series_doy_percentiles.series_id,'valor',series_doy_percentiles.valor) AS data
-				FROM dates, series_doy_percentiles
-				WHERE extract(doy from dates.date)=series_doy_percentiles.doy
-				AND series_doy_percentiles.tipo=$3
-				AND series_doy_percentiles.series_id=$4
-				${percentil_filter}
-				ORDER BY percentil,dates.date
-				) SELECT 
-				 	ROUND((${(inverted) ? "1 - " : ""} data.percentil)::numeric,2) AS percentil,
-					array_agg(data) AS data 
-					FROM DATA
-					GROUP BY percentil
-					ORDER BY percentil`,
-					[timestart,timeend,tipo,series_id])
-		})
-		.then(result=>{
-			if(!result.rows) {
-				throw("Nothing found")
-				return
+				percentil_filter = " AND percentil IN (" + percentil.map(p=>`ROUND(${parseFloat(p)}::numeric,2)`).join(",") + ")"
+			} else {
+				if(inverted) {
+					percentil = 1 - percentil
+				}
+				percentil_filter = `AND percentil::numeric=ROUND(${parseFloat(percentil)}::numeric,2)::numeric`
 			}
-			// console.log("found " + result.rows.length + " percentile arrays")
-			return result.rows // .map(r=>new internal.doy_percentil(r))
-		})
+		} 
+		const result = await global.pool.query(`WITH dates as (
+			SELECT generate_series($1::date,$2::date,'1 days'::interval) date
+			), data as (
+			SELECT series_doy_percentiles.percentil AS percentil,
+						json_build_object('date',dates.date,'doy',series_doy_percentiles.doy,'tipo',series_doy_percentiles.tipo,'series_id',series_doy_percentiles.series_id,'valor',series_doy_percentiles.valor) AS data
+			FROM dates, series_doy_percentiles
+			WHERE extract(doy from dates.date)=series_doy_percentiles.doy
+			AND series_doy_percentiles.tipo=$3
+			AND series_doy_percentiles.series_id=$4
+			${percentil_filter}
+			ORDER BY percentil,dates.date
+			) SELECT 
+				ROUND((${(inverted) ? "1 - " : ""} data.percentil)::numeric,2) AS percentil,
+				array_agg(data) AS data 
+				FROM DATA
+				GROUP BY percentil
+				ORDER BY percentil`,
+				[timestart,timeend,tipo,series_id])
+		if(!result.rows.length) {
+			throw new NotFoundError("No se encontraron observaciones")
+		}
+		return result.rows // .map(r=>new internal.doy_percentil(r))
 	}
 	
 	static async matchPercentil(obs) {
