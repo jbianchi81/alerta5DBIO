@@ -3,9 +3,35 @@ import assert from "node:assert/strict";
 import request from "supertest";
 import app from "../app/rest.mjs";
 
-const writer_token = "token"
-const other_writer_token = "token_1"
-const admin_token = "token_3"
+const writer = {
+  name: "writer_name",
+  role: "writer",
+  password: "writer_password",
+  token: "writer_token" // role writer
+}
+const noaccess = {
+  name: "noaccess_name",
+  role: "writer",
+  password: "noaccess_password",
+  token: "noaccess_token" // role writer
+}
+
+const admin_token = "token_3" // debe preexistir
+
+test("crea usuarios", async ()=> {
+  const res0 = await request(app)
+    .put(`/users/${writer.name}`)
+    .send(writer)
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res0.body)
+  const res_no = await request(app)
+    .put(`/users/${noaccess.name}`)
+    .send(noaccess)
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res_no.body)
+})
 
 test("POST areas group", async() => {
   const res = await request(app)
@@ -17,7 +43,7 @@ test("POST areas group", async() => {
       }
     ])
     .set("Content-Type", "application/json")
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 200);
   assert(Array.isArray(res.body))
   assert.equal(res.body.length,1)
@@ -42,7 +68,7 @@ test("POST /obs/areal/areas within group user unauthorized", async() => {
         }
     ])
     .set("Content-Type", "application/json")
-    .set("Authorization", `Bearer ${other_writer_token}`);
+    .set("Authorization", `Bearer ${noaccess.token}`);
   assert.equal(res.statusCode, 401);
 })
 
@@ -56,7 +82,7 @@ test("POST /obs/areal/areas within group", async () => {
       group_id: 123
     })
     .set("Content-Type", "application/json")
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 200);
   assert(Array.isArray(res.body));
   assert.equal(res.body.length,1)
@@ -76,7 +102,7 @@ test("POST add member to group other user unauthorized", async() => {
       }
     ])
     .set("Content-Type", "application/json")
-    .set("Authorization", `Bearer ${other_writer_token}`);
+    .set("Authorization", `Bearer ${noaccess.token}`);
   assert.equal(res.statusCode, 401);
 })
 
@@ -91,7 +117,7 @@ test("POST add member to group", async() => {
       }
     ])
     .set("Content-Type", "application/json")
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 200);
   assert(Array.isArray(res.body))
   assert.equal(res.body.length,1)
@@ -106,7 +132,7 @@ test("POST add member to group", async() => {
 test("GET areas group", async() => {
   const res = await request(app)
     .get("/obs/areal/area_groups/123")
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 200);
   assert(!Array.isArray(res.body))
   assert("id" in res.body)
@@ -135,21 +161,21 @@ test("GET areas group", async() => {
 test("GET areas group other user unauthorized", async() => {
   const res = await request(app)
     .get("/obs/areal/area_groups/123")
-    .set("Authorization", `Bearer ${other_writer_token}`);
+    .set("Authorization", `Bearer ${noaccess.token}`);
   assert.equal(res.statusCode, 401);
 })
 
 test("GET areas group fail not found", async() => {
   const res = await request(app)
     .get("/obs/areal/area_groups/124")
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 404);
 })
 
 test("GET areas group members", async() => {
   const res = await request(app)
     .get("/obs/areal/area_groups/123/members")
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 200);
   assert(Array.isArray(res.body))
   assert.equal(res.body.length,1)
@@ -171,7 +197,7 @@ test("GET areas group members", async() => {
 test("GET areas group members other user unauthorized", async() => {
   const res = await request(app)
     .get("/obs/areal/area_groups/123/members")
-    .set("Authorization", `Bearer ${other_writer_token}`);
+    .set("Authorization", `Bearer ${noaccess.token}`);
   assert.equal(res.statusCode, 401);
 })
 
@@ -189,7 +215,7 @@ test("POST fuente grant write access to creator", async() => {
         }
       ])
       .set("Content-Type", "application/json")
-      .set("Authorization", `Bearer ${writer_token}`);
+      .set("Authorization", `Bearer ${writer.token}`);
     assert.equal(res.statusCode, 200);
     assert(Array.isArray(res.body))
     assert.equal(res.body.length,1)
@@ -216,7 +242,7 @@ test("POST serie of owned fuente", async() => {
         }
       ])
       .set("Content-Type", "application/json")
-      .set("Authorization", `Bearer ${writer_token}`);
+      .set("Authorization", `Bearer ${writer.token}`);
     assert.equal(res.statusCode, 200);
     assert(Array.isArray(res.body))
     assert.equal(res.body.length,1)
@@ -243,7 +269,7 @@ test("POST serie of owned fuente fail unauthorized", async() => {
         }
       ])
       .set("Content-Type", "application/json")
-      .set("Authorization", `Bearer ${other_writer_token}`);
+      .set("Authorization", `Bearer ${noaccess.token}`);
     assert.equal(res.statusCode, 401);
 })
 
@@ -252,14 +278,14 @@ test("POST serie of owned fuente fail unauthorized", async() => {
 test("DELETE areas group member other user unauthorized", async() => {
   const res = await request(app)
     .delete("/obs/areal/area_groups/123/members/876358")
-    .set("Authorization", `Bearer ${other_writer_token}`);
+    .set("Authorization", `Bearer ${noaccess.token}`);
   assert.equal(res.statusCode, 401);
 })
 
 test("DELETE areas group member", async() => {
   const res = await request(app)
     .delete("/obs/areal/area_groups/123/members/876358")
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 200);
   assert(!Array.isArray(res.body))
   assert("id" in res.body)
@@ -269,14 +295,14 @@ test("DELETE areas group member", async() => {
 test("DELETE areas group other user unauthorized", async() => {
   const res = await request(app)
     .delete("/obs/areal/area_groups/123")
-    .set("Authorization", `Bearer ${other_writer_token}`);
+    .set("Authorization", `Bearer ${noaccess.token}`);
   assert.equal(res.statusCode, 401);
 })
 
 test("DELETE areas group", async() => {
   const res = await request(app)
     .delete("/obs/areal/area_groups/123")
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 200);
   assert(!Array.isArray(res.body))
   assert("id" in res.body)
@@ -288,17 +314,28 @@ test("DELETE areas group", async() => {
 test("GET areas group not found", async() => {
   const res = await request(app)
     .get("/obs/areal/area_groups/123")
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 404)
 })
-
 
 test("DELETE /obs/areal/areas  w/ write access", async () => {
   const res = await request(app)
     .delete("/obs/areal/areas/876358")
-    .set("Authorization", `Bearer ${writer_token}`);
+    .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 200);
   assert(!Array.isArray(res.body));
   assert.equal(res.body.id,876358)
   assert.equal(res.body.nombre,"test write")
 });
+
+
+test("elimina usuarios", async ()=> {
+  const res0 = await request(app)
+    .delete(`/users/${writer.name}`)
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res0.body)
+  const res_no = await request(app)
+    .delete(`/users/${noaccess.name}`)
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res_no.body)
+})

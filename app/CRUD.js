@@ -44,7 +44,7 @@ const {SerieFilter, SerieOptions} = require('./serie_types')
 const { escapeIdentifier, escapeLiteral } = require('pg');
 const { options } = require('marked');
 
-const {AuthError, NotFoundError, BadRequestError, ConflictError} = require('./custom_errors.js')
+const {AuthError, NotFoundError, BadRequestError, ConflictError} = require('./custom_errors.js');
 
 const apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
 var schemas = apidoc.components.schemas
@@ -4965,16 +4965,16 @@ internal.observaciones = class extends BaseArray {
 	 * @param {Boolean} options.delete - if true, it deletes records from operational tables (they may be restored with .restore())
 	 * @returns {internal.observaciones}
 	 */
-	static async archive(filter={},options={}) {
+	static async archive(filter={},options={},user_id) {
 		if(options.delete) {
 			const delete_options = {
 				save: true,
 				no_send_data: options.no_send_data,
 				no_update: options.no_update
 			}
-			return internal.CRUD.deleteObservaciones2(filter.tipo,filter,delete_options)
+			return internal.CRUD.deleteObservaciones2(filter.tipo,filter,delete_options,user_id)
 		}
-		return internal.CRUD.guardarObservaciones(filter.tipo,filter,options={})
+		return internal.CRUD.guardarObservaciones(filter.tipo,filter,options={},user_id)
 	}
 	// restore
 	/**
@@ -11473,8 +11473,8 @@ internal.CRUD = class {
 		}
 	}
 	
-	static async deleteObservaciones2(tipo,filter,options) {
-		var stmt = this.build_delete_observaciones_query(tipo,filter,options)
+	static async deleteObservaciones2(tipo,filter,options,user_id) {
+		var stmt = this.build_delete_observaciones_query(tipo,filter,options,user_id)
 		return global.pool.query(stmt)
 		.then(result=>{
 			return (options && options.no_send_data) ? result.rows.length : new internal.observaciones(result.rows)
@@ -11594,6 +11594,7 @@ internal.CRUD = class {
 				client = await global.pool.connect()
 				try {
 					await client.query('BEGIN')
+					// await client.query(`ALTER TABLE ${obs_tabla} DISABLE TRIGGER ALL`)
 				} catch (e) {
 					client.release()
 					throw new Error(e)
@@ -11671,6 +11672,7 @@ internal.CRUD = class {
 					}
 				}
 				if(release_client) {
+					// await client.query(`ALTER TABLE ${obs_tabla} ENABLE TRIGGER ALL`)
 					await client.query("COMMIT")
 					client.release()
 				}
@@ -11688,7 +11690,6 @@ internal.CRUD = class {
 					unit_id:{type:"integer",table:series_tabla},
 					time: {type: "time", column:"timestart"},
 					time_not: {type: "time", column:"timestart", not: true}
-
 				}
 
 				if(obs_tabla == "observaciones" && user_id) {
@@ -11849,6 +11850,7 @@ internal.CRUD = class {
 				// 	console.info("No se eliminó ningun valor")
 				// }
 				if(release_client) {
+					// await client.query(`ALTER TABLE ${obs_tabla} ENABLE TRIGGER ALL`)
 					await client.query("COMMIT")
 					client.release()
 				}
@@ -12069,10 +12071,23 @@ internal.CRUD = class {
 		return filter_string
 	}
 
-	static async getObservacionesGuardadas(tipo,filter,options) {
+	static async getObservacionesGuardadas(tipo,filter,options,user_id) {
 		const filter_string = this.getObservacionesGuardadasFilterString(tipo,filter,options)
 		const observaciones_table = (tipo) ? (tipo == "areal") ? "observaciones_areal_guardadas" : (tipo == "raster" || tipo == "rast") ? "observaciones_rast_guardadas" : "observaciones_guardadas" : "observaciones_guardadas"
-		const stmt = `SELECT * FROM ${observaciones_table} WHERE 1=1 ${filter_string} ORDER BY series_id,timestart`
+		var stmt
+		if(user_id && observaciones_table == "observaciones_guardadas") {
+			const [access_join, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
+			stmt = `SELECT observaciones_guardadas.* FROM observaciones_guardadas
+				JOIN series ON series.id=observaciones_guardadas.series_id
+				JOIN estaciones ON estaciones.unid=series.estacion_id
+				JOIN redes ON redes.tabla_id=estaciones.tabla
+				${access_join}
+				WHERE 1=1 
+				${filter_string}
+				ORDER BY series_id,timestart`
+		} else {
+			stmt = `SELECT * FROM ${observaciones_table} WHERE 1=1 ${filter_string} ORDER BY series_id,timestart`
+		}
 		// console.log(stmt)
 		const result = await global.pool.query(stmt)
 		return new internal.observacionesGuardadas(result.rows)
@@ -12172,7 +12187,7 @@ internal.CRUD = class {
 		})
 	}
 
-	static build_delete_observaciones_query(tipo,filter,options={}) {
+	static build_delete_observaciones_query(tipo,filter,options={},user_id) {
 		tipo = this.getTipo(tipo)
 		var filter_string = this.getObservacionesFilterString(tipo,filter,options) 
 		//~ console.log({filter_string:filter_string})
@@ -12192,20 +12207,27 @@ internal.CRUD = class {
 		} else {
 			const obs_tabla = (tipo == "areal") ? "observaciones_areal" : "observaciones"
 			const val_tabla = (tipo == "areal") ? (options.obs_type && options.obs_type.toLowerCase() == 'numarr') ?"valores_numarr_areal" : "valores_num_areal" : (options.obs_type && options.obs_type.toLowerCase() == 'numarr') ? "valores_numarr" : "valores_num"
-			const val_using_clause = (tipo == "areal") ? "USING observaciones_areal JOIN series_areal ON (observaciones_areal.series_id=series_areal.id)" : "USING observaciones JOIN series ON (observaciones.series_id=series.id) JOIN estaciones ON (series.estacion_id=estaciones.unid) JOIN redes ON (estaciones.tabla = redes.tabla_id)"
-			const obs_using_clause = (tipo == "areal") ? "USING series_areal WHERE observaciones_areal.series_id=series_areal.id" : "USING series JOIN estaciones ON (series.estacion_id=estaciones.unid) JOIN redes ON (estaciones.tabla = redes.tabla_id) WHERE observaciones.series_id=series.id"
+			const [access_join, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
+			const val_using_clause = (tipo == "areal") ? "USING observaciones_areal JOIN series_areal ON (observaciones_areal.series_id=series_areal.id)" : `USING observaciones JOIN series ON (observaciones.series_id=series.id) JOIN estaciones ON (series.estacion_id=estaciones.unid) JOIN redes ON (estaciones.tabla = redes.tabla_id) ${access_join}`
+			const obs_using_clause = (tipo == "areal") ? "USING series_areal WHERE observaciones_areal.series_id=series_areal.id" : `USING series JOIN estaciones ON (series.estacion_id=estaciones.unid) JOIN redes ON (estaciones.tabla = redes.tabla_id) ${access_join} WHERE observaciones.series_id=series.id AND ${access_level}='write'`
 			const returning_clause = (options.no_send_data  && !options.save) ? "RETURNING 1 as d" : "RETURNING %s.id,%s.series_id,%s.timestart,%s.timeend,%s.nombre,%s.descripcion,%s.unit_id,%s.timeupdate".replace(/%s/g,obs_tabla)
 			var select_deleted_clause = (options.no_send_data && !options.save) ? "SELECT count(d) from deleted_obs" : "SELECT deleted_obs.id,deleted_obs.series_id,deleted_obs.timestart,deleted_obs.timeend,deleted_obs.nombre,deleted_obs.descripcion,deleted_obs.unit_id,deleted_obs.timeupdate,deleted_val.valor FROM deleted_val JOIN deleted_obs ON (deleted_val.obs_id=deleted_obs.id) WHERE deleted_val.valor IS NOT NULL"
 			if(options.save) {
 				select_deleted_clause = this.build_save_query(tipo,select_deleted_clause,options)
 			}
 
-			stmt = "WITH deleted_val AS (DELETE FROM " + val_tabla + " " + val_using_clause + " \
-						WHERE " + obs_tabla + ".id=" + val_tabla + ".obs_id " + filter_string + " \
-						RETURNING obs_id,valor),\
-						deleted_obs AS (DELETE FROM " + obs_tabla + " " + obs_using_clause + "\
-						" + filter_string + " \
-						" + returning_clause + ") " + select_deleted_clause
+			stmt = `WITH deleted_val AS (
+					DELETE FROM ${val_tabla} ${val_using_clause}
+					WHERE ${obs_tabla}.id=${val_tabla}.obs_id ${filter_string}
+					AND ${access_level}='write'
+					RETURNING obs_id, valor
+				),
+				deleted_obs AS (
+					DELETE FROM ${obs_tabla} ${obs_using_clause}
+					${filter_string}
+					${returning_clause}
+				)
+				${select_deleted_clause}`
 		}
 		return stmt
 	}
@@ -12241,7 +12263,7 @@ internal.CRUD = class {
 
 	}
 
-	static build_observaciones_query(tipo,filter={},options) {
+	static build_observaciones_query(tipo,filter={},options,user_id,writer=false) {
 		tipo = this.getTipo(tipo)
 		var filter_string = this.getObservacionesFilterString(tipo,filter,options) 
 		// console.debug({filter_string:filter_string})
@@ -12432,6 +12454,7 @@ internal.CRUD = class {
 			}
 		} else {
 			var valtablename = (options && options.obs_type && options.obs_type.toLowerCase() == 'numarr') ? "valores_numarr" : "valores_num"
+			const [access_join, access_level] = internal.red.getUserAccessClause(user_id,"redes.id")
 			stmt =  `SELECT 
 				observaciones.id,
 				observaciones.series_id,
@@ -12442,27 +12465,28 @@ internal.CRUD = class {
 				observaciones.unit_id,
 				observaciones.timeupdate,
 				${valtablename}.valor 
-			FROM observaciones, ${valtablename},series,estaciones,redes 
-			WHERE observaciones.series_id=series.id 
-			AND series.estacion_id=estaciones.unid 
-			AND estaciones.tabla=redes.tabla_id 
-			AND observaciones.id=${valtablename}.obs_id 
+			FROM observaciones
+			JOIN  ${valtablename} ON observaciones.id=${valtablename}.obs_id 
+			JOIN series ON observaciones.series_id=series.id 
+			JOIN estaciones ON series.estacion_id=estaciones.unid 
+			JOIN redes ON estaciones.tabla=redes.tabla_id 
+			WHERE 1=1
+			${(writer) ? `${access_level}='write'` : ""}
 			${filter_string}
 			ORDER BY timestart`
-			// ${filter_clause}`
 		}
 		return stmt
 	}
 
-	static async restoreObservaciones(tipo,filter,options={}) {
-		var stmt = this.buildRestoreObservacionesQuery(tipo,filter,options)
+	static async restoreObservaciones(tipo,filter,options={},user_id) {
+		var stmt = this.buildRestoreObservacionesQuery(tipo,filter,options,user_id)
 		return global.pool.query(stmt)
 		.then(result=>{
 			return (options.no_send_data) ? result.rows.length : new internal.observaciones(result.rows)
 		})
 	}
 
-	static buildRestoreObservacionesQuery(tipo,filter,options={}) {
+	static buildRestoreObservacionesQuery(tipo,filter,options={},user_id) {
 		tipo = this.getTipo(tipo)
 		var filter_string = this.getObservacionesGuardadasFilterString(tipo,filter,options)
 		var stmt
@@ -12484,33 +12508,36 @@ internal.CRUD = class {
 				RETURNING id,series_id,timestart,timeend,timeupdate, valor\
 			) " + select_return_clause
 		} else if (tipo == "puntual") {
+			const [access_join, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
 			var select_return_clause = (options.no_send_data) ? "SELECT count(id) AS count FROM restored_obs" : "SELECT restored_obs.id, restored_obs.series_id, restored_obs.timestart, restored_obs.timeend, restored_obs.nombre, restored_obs.descripcion, restored_obs.unit_id, restored_obs.timeupdate, restored_val.valor\
 			FROM restored_obs\
 			JOIN restored_val ON (restored_obs.id=restored_val.obs_id)"
-			stmt = "WITH deleted_obs AS (\
-				DELETE FROM observaciones_guardadas \
-				USING series \
-				JOIN estaciones ON (series.estacion_id=estaciones.unid) \
-				JOIN redes ON (estaciones.tabla=redes.tabla_id) \
-				WHERE observaciones_guardadas.series_id=series.id\
-				" + filter_string + " \
-				RETURNING observaciones_guardadas.id, observaciones_guardadas.series_id, observaciones_guardadas.timestart, observaciones_guardadas.timeend, observaciones_guardadas.nombre, observaciones_guardadas.descripcion, observaciones_guardadas.unit_id, observaciones_guardadas.timeupdate, observaciones_guardadas.valor\
-			), restored_obs AS (\
-				INSERT INTO observaciones (series_id,timestart,timeend,nombre,descripcion,unit_id,timeupdate)\
-					SELECT deleted_obs.series_id, deleted_obs.timestart, deleted_obs.timeend, deleted_obs.nombre, deleted_obs.descripcion, deleted_obs.unit_id, deleted_obs.timeupdate\
-					FROM deleted_obs\
-				ON CONFLICT (series_id,timestart,timeend)\
-				DO UPDATE SET nombre=excluded.nombre, descripcion=excluded.descripcion, unit_id=excluded.unit_id, timeupdate=excluded.timeupdate\
+			stmt = `WITH deleted_obs AS (
+				DELETE FROM observaciones_guardadas 
+				USING series 
+				JOIN estaciones ON (series.estacion_id=estaciones.unid)
+				JOIN redes ON (estaciones.tabla=redes.tabla_id) 
+				${access_join}
+				WHERE observaciones_guardadas.series_id=series.id
+				${filter_string}
+				AND ${access_level}='write'
+				RETURNING observaciones_guardadas.id, observaciones_guardadas.series_id, observaciones_guardadas.timestart, observaciones_guardadas.timeend, observaciones_guardadas.nombre, observaciones_guardadas.descripcion, observaciones_guardadas.unit_id, observaciones_guardadas.timeupdate, observaciones_guardadas.valor
+			), restored_obs AS (
+				INSERT INTO observaciones (series_id,timestart,timeend,nombre,descripcion,unit_id,timeupdate)
+					SELECT deleted_obs.series_id, deleted_obs.timestart, deleted_obs.timeend, deleted_obs.nombre, deleted_obs.descripcion, deleted_obs.unit_id, deleted_obs.timeupdate
+					FROM deleted_obs
+				ON CONFLICT (series_id,timestart,timeend)
+				DO UPDATE SET nombre=excluded.nombre, descripcion=excluded.descripcion, unit_id=excluded.unit_id, timeupdate=excluded.timeupdate
 				RETURNING id,series_id,timestart,timeend,nombre,descripcion,unit_id,timeupdate\
-			), restored_val AS (\
-				INSERT INTO valores_num (obs_id,valor)\
-					SELECT restored_obs.id, deleted_obs.valor\
-					FROM restored_obs\
-					JOIN deleted_obs ON (restored_obs.series_id=deleted_obs.series_id AND restored_obs.timestart=deleted_obs.timestart AND restored_obs.timeend=deleted_obs.timeend)\
-					ON CONFLICT (obs_id) \
-					DO UPDATE SET valor=excluded.valor  \
-					RETURNING obs_id,valor\
-			) " + select_return_clause
+			), restored_val AS (
+				INSERT INTO valores_num (obs_id,valor)
+					SELECT restored_obs.id, deleted_obs.valor
+					FROM restored_obs
+					JOIN deleted_obs ON (restored_obs.series_id=deleted_obs.series_id AND restored_obs.timestart=deleted_obs.timestart AND restored_obs.timeend=deleted_obs.timeend)
+					ON CONFLICT (obs_id) 
+					DO UPDATE SET valor=excluded.valor  
+					RETURNING obs_id,valor
+			) ${select_return_clause}`
 		} else { // AREAL 
 			var select_return_clause = (options.no_send_data) ? "SELECT count(id) AS count FROM restored_obs" : "SELECT restored_obs.id, restored_obs.series_id, restored_obs.timestart, restored_obs.timeend, restored_obs.nombre, restored_obs.descripcion, restored_obs.unit_id, restored_obs.timeupdate, restored_val.valor\
 			FROM restored_obs\
@@ -12541,15 +12568,15 @@ internal.CRUD = class {
 		return stmt
 	}
 
-	static async guardarObservaciones(tipo,filter,options={}) {
+	static async guardarObservaciones(tipo,filter,options={},user_id) {
 		if(!filter || !filter.series_id) {
 			console.log("no series_id")
-			return this.guardarObservacionesPartedBySerie(tipo,filter,options)
+			return this.guardarObservacionesPartedBySerie(tipo,filter,options,user_id)
 		}
 		tipo = this.getTipo(tipo)
 		console.log("guardar observaciones series_id:" + filter.series_id)
 		try {
-			var select_stmt = this.build_observaciones_query(tipo,filter,options)
+			var select_stmt = this.build_observaciones_query(tipo,filter,options,user_id,true)
 			var insert_stmt
 			var returning_clause = (options.no_send_data) ? " RETURNING 1 AS d" : " RETURNING *"
 			var on_conflict_clause = (options.no_update) ? " ON CONFLICT (series_id, timestart, timeend) DO NOTHING" : " ON CONFLICT (series_id, timestart, timeend) DO UPDATE SET timeupdate=excluded.timeupdate, valor=excluded.valor"
@@ -12573,7 +12600,7 @@ internal.CRUD = class {
 		}
 	}
 
-	static async guardarObservacionesPartedBySerie(tipo="puntual",filter={},options) {
+	static async guardarObservacionesPartedBySerie(tipo="puntual",filter={},options,user_id) {
 		var series_filter = {...filter}
 		delete series_filter.timestart
 		delete series_filter.timeend
@@ -12584,7 +12611,7 @@ internal.CRUD = class {
 			for (var serie of series) {
 				var this_serie_filter = {...filter}
 				this_serie_filter.series_id = serie.id
-				var result = await this.guardarObservaciones(tipo,this_serie_filter,options)
+				var result = await this.guardarObservaciones(tipo,this_serie_filter,options,user_id)
 				guardadas.push(...result)
 			}
 			return guardadas

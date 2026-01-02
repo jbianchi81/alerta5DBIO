@@ -89,6 +89,7 @@ app.use( bodyParser.json({limit: '50mb'}) );       // to support JSON-encoded bo
 app.use(express.urlencoded())
 app.use('/planillas',auth.isWriter);
 app.use('/groups',auth.isAdmin, groupRouterModule.default)
+app.use('/area_groups',auth.isAuthenticated, areaGroupRouterModule.default)
 app.use(express.static('public', {
 	setHeaders: function (res, path, stat) {
 		res.set('x-timestamp', Date.now())
@@ -454,6 +455,7 @@ app.get('/obs/areal/areas/:id',auth.isPublic,getArea)
 app.put('/obs/areal/areas/:id',auth.isAdmin,upsertArea)
 app.delete('/obs/areal/areas/:id',auth.isAdmin,deleteArea)
 
+
 app.get('/obs/:tipo/series',auth.isPublic,getSeries)
 app.post('/obs/:tipo/series',auth.isWriter,upsertSeries)
 app.delete('/obs/:tipo/series',auth.isWriter,deleteSeries)
@@ -466,6 +468,7 @@ app.get('/obs/:tipo/observaciones',auth.isPublic,getObservaciones)
 app.post('/obs/:tipo/series/:series_id/observaciones',auth.isWriter,upsertObservaciones) // app.post('/upsertObservacionesCSV',auth.isWriter, upsertObservacionesCSV)
 app.post('/obs/:tipo/observaciones',auth.isWriter,upsertObservaciones)
 app.delete('/obs/:tipo/series/:series_id/observaciones',auth.isWriter,deleteObservaciones) //  by datetime range (timestart timeend), series_id, tipo // app.post('/deleteObservacionesById',auth.isWriter, deleteObservacionesById)   // by tipo, id list
+app.patch('/obs/:tipo/series/:series_id/observaciones', auth.isWriter,archivarObservaciones)
 app.delete('/obs/:tipo/observaciones',auth.isWriter,deleteObservaciones)
 app.get('/obs/:tipo/series/:series_id/observaciones/:id',auth.isPublic,getObservacion)
 app.get('/obs/:tipo/observaciones/:id',auth.isPublic,getObservacion)
@@ -2642,8 +2645,75 @@ function deleteSeries(req,res) {
 
 // OBSERVACIONES GUARDADAS (ARCHIVADAS)
 
+function archivarObservaciones(req,res) {
+	try {
+		var user_id = getUserId(req)
+		var filter = getFilter(req)
+		var options = getOptions(req)
+	} catch (e) {
+		console.error(e)
+		res.status(400).send({message:"query error",error:e.toString()})
+		return
+	}
+	if(!filter.series_id) {
+		handleCrudError(new BadRequestError("Falta series_id"),res)
+		return
+	}
+	var tipo = (filter.tipo) ? filter.tipo : "puntual"
+	if(!req.body) {
+		handleCrudError(new BadRequestError("Falta cuerpo del mensaje"),res)
+		return
+	}
+	if("archived" in req.body) {
+		if(!req.body.timestart) {
+			handleCrudError(new BadRequestError("Falta timestart"),res)
+			return
+		}
+		if(!req.body.timeend) {
+			handleCrudError(new BadRequestError("Falta timeend"), res)
+			return
+		}
+		if(req.body.archived) {
+			CRUD.observaciones.archive(
+				{
+					tipo: filter.tipo,
+					series_id: filter.series_id,
+					timestart: new Date(req.body.timestart),
+					timeend: new Date(req.body.timeend)
+				},
+				{delete:true, ...options},
+				user_id
+			).then(result=> {
+				res.status(200).send(result)
+			})
+			.catch(e => {
+				handleCrudError(e, res)
+			})
+		} else {
+			// restaurar
+			crud.restoreObservaciones(
+				filter.tipo,
+				{
+					series_id: filter.series_id,
+					timestart: new Date(req.body.timestart),
+					timeend: new Date(req.body.timeend)
+				},
+				options,
+				user_id
+			).then(result=> {
+				res.status(200).send(result)
+			}).catch(e=>{
+				handleCrudError(e, res)
+			})
+		}
+	} else {
+		handleCrudError(new BadRequestError("Falta 'archived'"))
+	}
+}
+
 function getObservacionesGuardadas(req,res) {
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -2657,7 +2727,7 @@ function getObservacionesGuardadas(req,res) {
 		res.status(400).send({message:"query error",error:"Faltan parámetros: tipo, series_id, timestart, timeend"})
 		return
 	}
-	crud.getObservacionesGuardadas(tipo,filter,options)
+	crud.getObservacionesGuardadas(tipo,filter,options,user_id)
 	.then(result=>{
 		console.log("Results: " + result.length)
 		send_output(options,result,res)

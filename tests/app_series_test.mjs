@@ -481,6 +481,166 @@ const estacion_id = 2948
     assert.equal(res.statusCode, 404);
   });
 
+  // obs guardadas
+  
+    // archivar
+  test("PATCH observaciones archivar no auth", async ()=> {
+    var res = await request(app)
+      .patch(`/obs/puntual/series/${serie.id}/observaciones`)
+      .send({
+        archived: true,
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+      assert.equal(res.statusCode, 200);
+      assert.ok(Array.isArray(res.body))
+      assert.equal(res.body.length,0)
+  })
+
+  test("PATCH observaciones archivar noaccess", async ()=> {
+    var res = await request(app)
+      .patch(`/obs/puntual/series/${serie.id}/observaciones`)
+      .send({
+        archived: true,
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${noaccess.token}`);
+      assert.equal(res.statusCode, 200);
+      assert.ok(Array.isArray(res.body))
+      assert.equal(res.body.length,0)
+  })
+
+  test("PATCH observaciones archivar", async ()=> {
+    var res = await request(app)
+      .patch(`/obs/puntual/series/${serie.id}/observaciones`)
+      .send({
+        archived: true,
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${writer.token}`);
+      assert.equal(res.statusCode, 200);
+      assert.ok(Array.isArray(res.body))
+      assert.equal(res.body.length,3)
+
+    // chequea que se hayan eliminado
+    res = await request(app)
+      .get(`/obs/puntual/series/${serie.id}/observaciones`)
+      .query({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,0)
+  });
+
+    // leer
+  test("GET /obs/puntual/series/:id/observacionesArchivadas noaccess", async () => {
+    const res = await request(app)
+      .get(`/obs/puntual/series/${serie.id}/observacionesArchivadas`)
+      .query({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,0)
+  });
+
+  test("GET /obs/puntual/series/:id/observacionesArchivadas reader", async () => {
+    const res = await request(app)
+      .get(`/obs/puntual/series/${serie.id}/observacionesArchivadas`)
+      .query({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,3)
+  });
+
+  test("GET /obs/puntual/series/:id/observacionesArchivadas", async () => {
+    const res = await request(app)
+      .get(`/obs/puntual/series/${serie.id}/observacionesArchivadas`)
+      .query({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,3)
+  });
+
+    // restaurar
+  test("PATCH observaciones restaurar noauth", async ()=> {
+    var res = await request(app)
+      .patch(`/obs/puntual/series/${serie.id}/observaciones`)
+      .send({
+        archived: false,
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${reader_of_red_10.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,0)
+  })
+
+  test("PATCH observaciones restaurar noaccess", async ()=> {
+    var res = await request(app)
+      .patch(`/obs/puntual/series/${serie.id}/observaciones`)
+      .send({
+        archived: false,
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${noaccess.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,0)
+  })
+
+
+  test("PATCH observaciones restaurar", async ()=> {
+    var res = await request(app)
+      .patch(`/obs/puntual/series/${serie.id}/observaciones`)
+      .send({
+        archived: false,
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Content-Type", "application/json")
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,3)
+
+    // chequea que se hayan restaurado
+    res = await request(app)
+      .get(`/obs/puntual/series/${serie.id}/observaciones`)
+      .query({
+        timestart: "2000-01-01T03:00:00.000Z",
+        timeend: "2000-01-04T03:00:00.000Z"
+      })
+      .set("Authorization", `Bearer ${writer.token}`);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Array.isArray(res.body))
+    assert.equal(res.body.length,3)
+  });
+
+
   // legacy create obs
     // unauth
   test("POST /upsertObservacion reader fail", async() => {
