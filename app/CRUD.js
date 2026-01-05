@@ -46,6 +46,8 @@ const { options } = require('marked');
 
 const {AuthError, NotFoundError, BadRequestError, ConflictError} = require('./custom_errors.js');
 
+const {AreaGroup} = require('./models/area_group.js')
+
 const apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
 var schemas = apidoc.components.schemas
 traverse(schemas,changeRef)
@@ -7988,7 +7990,7 @@ internal.CRUD = class {
 			
 	// AREA //
 	
-	static async upsertArea(area) {
+	static async upsertArea(area, user_id) {
 		if(!area.id) {
 			await area.getId(global.pool)
 		}
@@ -7997,6 +7999,12 @@ internal.CRUD = class {
 				type: "Polygon",
 				coordinates: area.geom.coordinates[0]
 			})
+		}
+		if(area.group_id && user_id) {
+			const has_access = await AreaGroup.hasAccess(user_id, area.group_id, true)
+			if(!has_access) {
+				throw new AuthError("El usuario no tiene acceso de escritura para el grupo de áreas indicado")
+			}
 		}
 		const result = await global.pool.query(this.upsertAreaQuery(area))
 		if(result.rows.length<=0) {
@@ -8114,13 +8122,13 @@ internal.CRUD = class {
 		//~ return Promise.all(promises)
 	//~ }
 	
-	static async upsertAreas(areas) {
+	static async upsertAreas(areas, user_id) {
 		const created_areas = []
 		for(const area of areas) {
 			if(!area.geom) {
 				throw new Error("Invalid area: missing geom")
 			}
-			const created_area = await this.upsertArea(area)
+			const created_area = await this.upsertArea(area, user_id)
 			if(created_area) {
 				created_areas.push(created_area)
 			}

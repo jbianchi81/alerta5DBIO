@@ -3,6 +3,8 @@
 import setGlobal from 'a5base/setGlobal'
 
 import {Area} from '../a5_types'
+import { BadRequestError, NotFoundError } from '../custom_errors'
+import { control_filter2 } from '../utils2'
 
 const g = setGlobal()
 
@@ -10,6 +12,7 @@ export interface AreaGroupRecord {
     id : number
     name : string
     owner_id : number
+    areas?: Area[]
 }
 
 export interface AreaGroupCreateParams {
@@ -23,12 +26,24 @@ export interface AreaGroupUpdateParams {
     owner_id : string
 }
 
+export interface AccessParams {
+  name : string
+  access : "write" | "read"
+}
+
 export class AreaGroup {
   
   id : number
   name : string
   owner_id : number
-  areas : Area[]
+  areas : Area[] | undefined
+
+  constructor(params : AreaGroupRecord) {
+    this.id = params.id
+    this.name = params.name
+    this.owner_id = params.owner_id
+    this.areas = params.areas
+  }
 
   static async list(filter: {name?: string, id?: number, owner_id?: number}={}): Promise<AreaGroupRecord[]> {
     let result : any
@@ -49,9 +64,21 @@ export class AreaGroup {
   }
 
   static async read(id: number): Promise<AreaGroupRecord | null> {
-    const q = `SELECT id, name, owner_id FROM area_groups WHERE id = $1`;
+    const q = `SELECT 
+      area_groups.id, 
+      area_groups.name, 
+      area_groups.owner_id, 
+      json_array_agg(
+      json_build_object(
+      'id', areas_pluvio.unid, 
+      'nombre', areas_pluvio.nombre
+      )) AS areas
+      FROM area_groups 
+      LEFT OUTER JOIN areas_pluvio ON area_groups.id=areas_pluvio.group_id
+      WHERE area_groups.id = $1
+      GROUP BY area_groups.id, area_groups.name, area_groups.owner_id`;
     const result = await g.pool.query(q, [id]);
-    // TODO add areas
+    
     return (result.rows[0] as AreaGroupRecord) || null;
   }
 
@@ -102,6 +129,81 @@ export class AreaGroup {
     const result = await g.pool.query(q, [id]);
     return (result.rows[0] as AreaGroupRecord) || null;
   }
+
+  static async grantAccess(id : number, user_groups : AccessParams[]) {
+    // Check all user_group names exist
+    const group_names = user_groups.map(ug => ug.name).filter(ug => ug)
+    if (group_names.length === 0) throw new BadRequestError("Falta 'name' en items");
+
+    const checkUserGroups = await g.pool.query(
+      `SELECT name FROM groups WHERE name = ANY($1)`,
+      [group_names]
+    );
+
+    if (checkUserGroups.rows.length !== user_groups.length) {
+      throw new NotFoundError("GROUP_NOT_FOUND");
+    }
+
+    const results = []
+    var i = 0
+    for(const user_group of user_groups) {
+      if(!user_group.name) {
+        throw new BadRequestError("Falta 'name' en item " + i)
+      }
+      const granted = await this.grantAccessOne(id, user_group.name, user_group.access ?? "read")
+      results.push(granted)
+      i = i + 1 
+    }
+    return results   
+  }
+
+  static async grantAccessOne(id : number, name : string, access : "read" | "write") {
+    const q  = `INSERT INTO user_area_groups_access (ag_id, group_name, access) VALUES ($1, $2, $3) ON CONFLICT (group_name, ag_id) DO UPDATE SET access=excluded.access RETURNING group_name, ag_id`
+    const result = await g.pool.query(q, [id, name, access]);
+    if(!result.rows.length) {
+      throw new Error("No se insertó fila en user_area_groups_access")
+    }
+    return result.rows[0] as AccessParams
+  }
+
+  static async listAccess(id : number, filter : {name? : string, access?: "read" | "write"}) : Promise<AccessParams[]> {
+    if(!id) {
+      throw new BadRequestError("Falta id")
+    }
+    const filter_string = control_filter2({name: {type: "string"}, access: {type: "string"}}, filter)
+    const q = `SELECT group_name AS name, access FROM user_area_groups_access WHERE ag_id=$1 ${filter_string}`
+    const results = await g.pool.query(q, [id])
+    return results.rows as AccessParams[]
+  }
+
+  static async readAccess(id : number, group_name : string) : Promise<AccessParams|null> {
+    if(!id) {
+      throw new BadRequestError("Falta id")
+    }
+    if(!group_name) {
+      throw new BadRequestError("Falta group_name")
+    }
+    const q = `SELECT group_name AS name, access FROM user_area_groups_access WHERE ag_id=$1 AND group_name=$2`
+    const results = await g.pool.query(q, [id, group_name])
+    return (results.rows[0] as AccessParams) || null
+  }
+
+  static async hasAccess(user_id : number, ag_id : number, write : boolean=false) : Promise<boolean> {
+    var q = `SELECT EXISTS (
+      SELECT 1 
+      FROM user_area_access 
+      WHERE user_id=$1 
+      AND ag_id=$2 
+      ${(write) ? "AND effective_access='write'" : ""})`
+    const result = await g.pool.query(q, [user_id, ag_id])
+    if(result.rows.length && result.rows[0].exists) {
+			return true
+		} else {
+			return false
+		}
+  }
+
+
 
   // static async addMember(id : number, area : Area) {
 

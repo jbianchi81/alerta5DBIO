@@ -9,6 +9,12 @@ const writer = {
   password: "writer_password",
   token: "writer_token" // role writer
 }
+const reader = {
+  name: "reader_name",
+  role: "writer",
+  password: "reader_password",
+  token: "reader_token" // role writer
+}
 const noaccess = {
   name: "noaccess_name",
   role: "writer",
@@ -18,6 +24,9 @@ const noaccess = {
 
 const admin_token = "token_3" // debe preexistir
 
+const group_name = "gr"
+const read_group_name = "read_gr"
+
 test("crea usuarios", async ()=> {
   const res0 = await request(app)
     .put(`/users/${writer.name}`)
@@ -25,12 +34,59 @@ test("crea usuarios", async ()=> {
     .set("Content-Type", "application/json")
     .set("Authorization", `Bearer ${admin_token}`);
   console.log(res0.body)
+  const res_r = await request(app)
+    .put(`/users/${reader.name}`)
+    .send(reader)
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res_r.body)
   const res_no = await request(app)
     .put(`/users/${noaccess.name}`)
     .send(noaccess)
     .set("Content-Type", "application/json")
     .set("Authorization", `Bearer ${admin_token}`);
   console.log(res_no.body)
+})
+
+test("crea grupo de usuarios y agrega usuario", async ()=> {
+  var res0 = await request(app)
+    .post("/groups")
+    .send([
+      {
+        name: group_name
+      },
+      {
+        name: read_group_name
+      }
+    ])
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res0.body)
+  assert.equal(res0.statusCode,200)
+  // add member
+  res0 = await request(app)
+    .put(`/groups/${group_name}/members`)
+    .send(
+      [{
+          user_name: writer.name
+      }]
+    )
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res0.body)
+  assert.equal(res0.statusCode,200)
+  // add member reader
+  res0 = await request(app)
+    .put(`/groups/${read_group_name}/members`)
+    .send(
+      [{
+          user_name: reader.name
+      }]
+    )
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res0.body)
+  assert.equal(res0.statusCode,200)
 })
 
 test("POST areas group", async() => {
@@ -54,6 +110,55 @@ test("POST areas group", async() => {
   // ownership must be granted to creator
   assert("owner_id" in res.body[0])
   assert.equal(res.body[0].owner_id, 1)  
+})
+
+test("grant access to ag to ug", async () => {
+  const res = await request(app)
+    .post(`/obs/areal/area_groups/${123}/access`)
+      .send([{
+        name: group_name,
+        access: "write"
+      },{
+        name: read_group_name,
+        access: "read"
+      }])
+    .set("Content-Type", "application/json")
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res.body)
+  assert.equal(res.statusCode,200)
+  assert.ok(Array.isArray(res.body))
+  assert.equal(res.body.length,2)
+  for(const item of res.body) {
+    assert.ok("name" in item)
+    assert.ok("access" in item)
+    assert.ok([group_name, read_group_name].indexOf(item.name) >= 0)
+  }
+})
+
+test("list access rights", async() => {
+  const res = await request(app)
+    .get(`/obs/areal/area_groups/${123}/access`)
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res.body)
+  assert.ok(Array.isArray(res.body))
+  assert.length(res.body,2)
+  for(const item of res.body) {
+    assert.ok("name" in item)
+    assert.ok("access" in item)
+    assert.ok([group_name, read_group_name].indexOf(item.name) >= 0)
+  }
+})
+
+test("read access rights", async() => {
+  const res = await request(app)
+    .get(`/obs/areal/area_groups/${123}/access/${group_name}`)
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res.body)
+  assert.ok(!Array.isArray(res.body))
+  assert.ok("name" in res.body)
+  assert.equal(res.body.name,group_name)
+  assert.ok("access" in res.body)
+  assert.equal(res.body.access,"write") 
 })
 
 test("POST /obs/areal/areas within group user unauthorized", async() => {
@@ -93,7 +198,7 @@ test("POST /obs/areal/areas within group", async () => {
 
 test("POST add member to group other user unauthorized", async() => {
   const res = await request(app)
-    .post("/obs/areal/area_groups/123/members")
+    .post("/obs/areal/area_groups/123/areas")
     .send([
       {
         id: 876360,
@@ -106,9 +211,9 @@ test("POST add member to group other user unauthorized", async() => {
   assert.equal(res.statusCode, 401);
 })
 
-test("POST add member to group", async() => {
+test("POST add area to group", async() => {
   const res = await request(app)
-    .post("/obs/areal/area_groups/123/members")
+    .post("/obs/areal/area_groups/123/areas")
     .send([
       {
         id: 876360,
@@ -172,9 +277,9 @@ test("GET areas group fail not found", async() => {
   assert.equal(res.statusCode, 404);
 })
 
-test("GET areas group members", async() => {
+test("GET areas group areas", async() => {
   const res = await request(app)
-    .get("/obs/areal/area_groups/123/members")
+    .get("/obs/areal/area_groups/123/areas")
     .set("Authorization", `Bearer ${writer.token}`);
   assert.equal(res.statusCode, 200);
   assert(Array.isArray(res.body))
@@ -194,9 +299,9 @@ test("GET areas group members", async() => {
 
 })
 
-test("GET areas group members other user unauthorized", async() => {
+test("GET areas group areas other user unauthorized", async() => {
   const res = await request(app)
-    .get("/obs/areal/area_groups/123/members")
+    .get("/obs/areal/area_groups/123/areas")
     .set("Authorization", `Bearer ${noaccess.token}`);
   assert.equal(res.statusCode, 401);
 })
@@ -292,6 +397,24 @@ test("DELETE areas group member", async() => {
   assert.equal(res.body.id, 876358)
 })
 
+test("delete access rights", async() => {
+  var res = await request(app)
+    .delete(`/obs/areal/area_groups/${123}/access/${group_name}`)
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res.body)
+  assert.equal(res.statusCode,200)
+  assert.ok(!Array.isArray(res.body))
+  assert.ok("name" in res.body)
+  assert.equal(res.body.name,group_name)
+  assert.ok("access" in res.body)
+  assert.equal(res.body.access,"write") 
+  // confirm deleted
+  res = await request(app)
+    .get(`/obs/areal/area_groups/${123}/access/${group_name}`)
+    .set("Authorization", `Bearer ${admin_token}`);
+  assert.equal(res.statusCode,404)
+})
+
 test("DELETE areas group other user unauthorized", async() => {
   const res = await request(app)
     .delete("/obs/areal/area_groups/123")
@@ -328,14 +451,29 @@ test("DELETE /obs/areal/areas  w/ write access", async () => {
   assert.equal(res.body.nombre,"test write")
 });
 
+test("elimina grupo de usuarios", async ()=> {
+  var res = await request(app)
+    .delete(`/groups/${group_name}`)
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res.body)
+  assert.equal(res.statusCode, 200)
+})
+
 
 test("elimina usuarios", async ()=> {
-  const res0 = await request(app)
+  var res = await request(app)
     .delete(`/users/${writer.name}`)
     .set("Authorization", `Bearer ${admin_token}`);
-  console.log(res0.body)
-  const res_no = await request(app)
+  console.log(res.body)
+  assert.equal(res.statusCode, 200)
+  var res = await request(app)
+    .delete(`/users/${reader.name}`)
+    .set("Authorization", `Bearer ${admin_token}`);
+  console.log(res.body)
+  assert.equal(res.statusCode, 200)
+  res = await request(app)
     .delete(`/users/${noaccess.name}`)
     .set("Authorization", `Bearer ${admin_token}`);
-  console.log(res_no.body)
+  console.log(res.body)
+  assert.equal(res.statusCode, 200)
 })

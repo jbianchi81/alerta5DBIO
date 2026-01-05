@@ -1,143 +1,218 @@
+// models/AreaGroup.ts
 
-import {Geometry} from '../geometry_types'
-import {control_filter2} from '../utils2'
-import {baseModel} from 'a5base'
+import setGlobal from 'a5base/setGlobal'
 
-export interface ListFilter {
+// import {Area as AreaType} from '../a5_types'
+import { BadRequestError, AuthError } from '../custom_errors'
+import { control_filter2 } from '../utils2'
+// import { Geometry as GeomType } from '../geometry_types'
+import { Geometry, GeometryDict } from 'a5base/geometry'
+import { AreaGroup } from './area_group'
+
+const g = setGlobal()
+
+interface AreaParams {
     id? : number
-    unid? : number
-    nombre? : string
-    geom? : Geometry
-    exutorio? : Geometry
+    nombre : string 
+    geom : GeometryDict
+    exutorio? : {geom: GeometryDict} | GeometryDict
     exutorio_id? : number
-    activar? : boolean
-    mostrar? : boolean
-    tabla_id?: string
-    limit?: number
-    offset?: number
+    ae? : number
+    rho? : number
+    wp? : number
+    activar?: boolean
+    mostrar?: boolean
+    area?: number
+    group_id?: number
 }
 
-export default class Area extends baseModel {
-    id : number
+export default class Area {
+
+    id? : number
     nombre : string
     geom : Geometry
-    exutorio : GeometryObject
-    exutorio_id : number
-    ae : number
-    rho : number
-    wp : number
-    activar : boolean
-    mostrar : boolean
-    area : number
+    exutorio? : Geometry
+    exutorio_id? : number
+    ae? : number
+    rho? : number
+    wp? : number
+    activar?: boolean
+    mostrar?: boolean
+    area?: number
+    group_id?: number
 
-    constructor(args : any) {
-        super()
-        this.id = arguments[0].id
-        this.nombre = arguments[0].nombre
-        this.geom = (arguments[0].geom) ? new GeometryObject(arguments[0].geom) : undefined
-        this.exutorio = (arguments[0].exutorio) ? (arguments[0].exutorio.geom) ? new GeometryObject(arguments[0].exutorio.geom) : (arguments[0].exutorio.type && arguments[0].exutorio.coordinates) ? new GeometryObject(arguments[0].exutorio) : null : null
-        this.exutorio_id = arguments[0].exutorio_id
-        this.ae = arguments[0].ae
-        this.rho = arguments[0].rho
-        this.wp = arguments[0].wp
-        this.activar = arguments[0].activar
-        this.mostrar = arguments[0].mostrar
-        this.area = arguments[0].area
+    constructor(params : AreaParams) {
+        this.id = params.id
+        this.nombre = params.nombre
+        this.geom = new Geometry(params.geom)
+        this.exutorio = (params.exutorio) ? ("geom" in params.exutorio) ? new Geometry(params.exutorio.geom) : (params.exutorio.type && params.exutorio.coordinates) ? new Geometry(params.exutorio) : undefined : undefined
+        this.exutorio_id = params.exutorio_id
+        this.ae = params.ae
+        this.rho = params.rho
+        this.wp = params.wp
+        this.activar = params.activar
+        this.mostrar = params.mostrar
+        this.area = params.area
+        this.group_id = params.group_id
+    }
+
+    static async create(areas : AreaParams[], user_id? : number) : Promise<Area[]> {
+		const created_areas = []
+		for(const area of areas) {
+			if(!area.geom) {
+				throw new BadRequestError("Invalid area: missing geom")
+			}
+			const created_area = await this.createOne(area, user_id)
+			if(created_area) {
+				created_areas.push(created_area)
+			}
+		}
+		return created_areas
 	}
 
-    static async list(filter : ListFilter={},options : {no_geom?: boolean} = {}) {
-		if(filter.id) {
-			filter.unid = filter.id
-			delete filter.id
-		}
-		const valid_filters = {
-			nombre: {
-				type: "regex_string"
-			},
-			unid: {
-				type: "integer"
-			}, 
-			geom: {
-				type: "geometry",
-			},
-			exutorio: {
-				type: "geometry"
-			},
-			exutorio_id: {
-				type: "integer"
-			},
-			activar: {
-				type: "boolean"
-			},
-			mostrar: {
-				type: "boolean"
-			}
-		}
-		var filter_string = control_filter2(valid_filters,filter,"areas_pluvio")
-		if(!filter_string) {
-			throw("Invalid filters")
-		}
-		var join_type = "LEFT"
-		var tabla_id_filter = ""
-		if(filter.tabla_id) {
-			if(/[';]/.test(filter.tabla_id)) {
-				throw("Invalid filter value")
-			}
-			join_type = "RIGHT"
-			tabla_id_filter +=  ` AND estaciones.tabla='${filter.tabla_id}'`
-		}
-		var pagination_clause = (filter.limit) ? `LIMIT ${filter.limit}` : ""
-		pagination_clause += (filter.offset) ? ` OFFSET ${filter.offset}`: ""
-		//~ console.log("filter_string:" + filter_string)
-		if(options && options.no_geom) {
-			const stmt = "SELECT \
-				areas_pluvio.unid id, \
-				areas_pluvio.nombre, \
-				st_astext(areas_pluvio.exutorio) exutorio, \
-				areas_pluvio.exutorio_id, \
-				areas_pluvio.area, \
-				areas_pluvio.ae, \
-				areas_pluvio.rho, \
-				areas_pluvio.wp, \
-				areas_pluvio.activar, \
-				areas_pluvio.mostrar \
-			FROM areas_pluvio \
-			" + join_type + " JOIN estaciones ON (estaciones.unid=areas_pluvio.exutorio_id" + tabla_id_filter + ") \
-			WHERE areas_pluvio.geom IS NOT NULL " + filter_string + " ORDER BY areas_pluvio.id\
-			" + pagination_clause
-			// console.debug(stmt)
-			return global.pool.query(stmt)
-			.then(res=>{
-				return res.rows.map(r=>{
-					if(r.exutorio) {
-						r.exutorio = new GeometryObject(r.exutorio)
-					}
-					return r
-				})
-			})
-		} else {
-			const stmt = "SELECT \
-				areas_pluvio.unid id, \
-				areas_pluvio.nombre, \
-				st_astext(areas_pluvio.geom) geom, \
-				st_astext(areas_pluvio.exutorio) exutorio, \
-				areas_pluvio.exutorio_id, \
-				areas_pluvio.area, \
-				areas_pluvio.ae, \
-				areas_pluvio.rho, \
-				areas_pluvio.wp, \
-				areas_pluvio.activar, \
-				areas_pluvio.mostrar \
-			FROM areas_pluvio \
-			" + join_type + " JOIN estaciones ON (estaciones.unid=areas_pluvio.exutorio_id" + tabla_id_filter + ") \
-			WHERE areas_pluvio.geom IS NOT NULL " + filter_string + " ORDER BY id\
-			" + pagination_clause
-			// console.debug(stmt)
-			const res = await global.pool.query(stmt)
-            var areas = res.rows.map((row : any) =>{
-                return new this(row) 
+    static async createOne(area_params :AreaParams, user_id?: number) : Promise<Area|null> {
+        const area = new this(area_params)
+        if(!area.id) {
+            await area.getId()
+        }
+        if(area.geom && area.geom.type && area.geom.type == "MultiPolygon") {
+            area.geom = new Geometry({
+                type: "Polygon",
+                coordinates: area.geom.coordinates[0]
             })
-            return areas
+        }
+        if(area.group_id && user_id) {
+            const has_access = await AreaGroup.hasAccess(user_id, area.group_id, true)
+            if(!has_access) {
+                throw new AuthError("El usuario no tiene acceso de escritura para el grupo de áreas indicado")
+            }
+        }
+        const q  = this.upsertAreaQuery(area)
+        const result = await g.pool.query(q)
+        if(result.rows.length<=0) {
+            throw new Error ("Area upsert failed: no rows returned")
+        }
+        console.info("Upserted areas_pluvio.unid=" + result.rows[0].id)
+        //~ console.log(result.rows[0])
+        return new this(result.rows[0])
+    }
+
+    async getId() {
+		var res = await (g.pool as any).query(`
+            SELECT unid 
+            FROM areas_pluvio 
+            WHERE nombre = $1
+            AND geom = st_geomfromtext($2,4326)
+            `,[this.nombre, this.geom.toString()])
+        if (res.rows.length>0) {
+            this.id = res.rows[0].unid
+            return
+        } else {
+            res = await (g.pool as any).query(`
+                SELECT max(unid)+1 AS id
+                FROM areas_pluvio
+                `)
+            this.id = res.rows[0].id
+        }
+	}
+
+    static upsertAreaQuery(area : Area)  {
+		var query = ""
+		var params = []
+		if(area.exutorio) {
+			if(area.id) {
+				query = `
+				INSERT INTO areas_pluvio (unid, nombre, geom, exutorio, exutorio_id, ae, rho, wp, activar, mostrar) 
+				VALUES ($1, $2, ST_GeomFromText($3,4326), ST_GeomFromText($4,4326), $5, $6, $7, $8, $9, $10)
+				ON CONFLICT (unid) DO UPDATE SET 
+					nombre=excluded.nombre, 
+					geom=excluded.geom, 
+					exutorio=excluded.exutorio, 
+					exutorio_id=excluded.exutorio_id, 
+					area = excluded.area, 
+					ae = excluded.ae, 
+					rho = excluded.rho, 
+					wp = excluded.wp, 
+					activar = excluded.activar, 
+					mostrar = excluded.mostrar 
+				RETURNING 
+					unid AS id, 
+					nombre, 
+					st_astext(geom) AS geom, 
+					st_astext(exutorio) AS exutorio, 
+					exutorio_id, 
+					area, 
+					ae, 
+					rho, 
+					wp, 
+					activar, 
+					mostrar`
+				params = [area.id,area.nombre,area.geom.toString(),area.exutorio.toString(),area.exutorio_id, area.ae, area.rho, area.wp, area.activar, area.mostrar]
+			} else {
+				query = "\
+				INSERT INTO areas_pluvio (nombre, geom, exutorio, exutorio_id, ae, rho, wp, activar, mostrar) \
+				VALUES ($1, ST_GeomFromText($2,4326), ST_GeomFromText($3,4326), $4, $5, $6, $7, $8, $9)\
+				RETURNING \
+					unid AS id, \
+					nombre, \
+					st_astext(geom) AS geom, \
+					st_astext(exutorio) AS exutorio, \
+					exutorio_id, \
+					area, \
+					ae, \
+					rho, \
+					wp, \
+					activar, \
+					mostrar"
+				params = [area.nombre, area.geom.toString(), area.exutorio.toString(), area.exutorio_id, area.ae, area.rho, area.wp, area.activar, area.mostrar]
+			}
+		} else {
+			if(area.id) {
+				query = "\
+				INSERT INTO areas_pluvio (unid, nombre, geom, exutorio_id, ae, rho, wp, activar, mostrar) \
+				VALUES ($1, $2, ST_GeomFromText($3,4326), $4, $5, $6, $7, $8, $9)\
+				ON CONFLICT (unid) DO UPDATE SET \
+					nombre=excluded.nombre,\
+					geom=excluded.geom,\
+					exutorio_id=excluded.exutorio_id, \
+					area = excluded.area, \
+					ae = excluded.ae, \
+					rho = excluded.rho, \
+					wp = excluded.wp, \
+					activar = excluded.activar, \
+					mostrar = excluded.mostrar \
+				RETURNING \
+					unid AS id, \
+					nombre, \
+					st_astext(geom) AS geom, \
+					st_astext(exutorio) AS exutorio, \
+					exutorio_id, \
+					area, \
+					ae, \
+					rho, \
+					wp, \
+					activar, \
+					mostrar"
+				params = [area.id,area.nombre,area.geom.toString(),area.exutorio_id, area.ae, area.rho, area.wp, area.activar, area.mostrar]
+			} else {
+				query = "\
+				INSERT INTO areas_pluvio (nombre, geom, exutorio_id, ae, rho, wp, activar, mostrar) \
+				VALUES ($1, ST_GeomFromText($2,4326), $3, $4, $5, $6, $7, $8)\
+				RETURNING \
+					unid AS id, \
+					nombre, \
+					st_astext(geom) AS geom, \
+					st_astext(exutorio) AS exutorio, \
+					exutorio_id, \
+					area, \
+					ae, \
+					rho, \
+					wp, \
+					activar, \
+					mostrar"
+				params = [area.nombre, area.geom.toString(), area.exutorio_id, area.ae, area.rho, area.wp, area.activar, area.mostrar]
+			}
 		}
+		return pasteIntoSQLQuery(query,params)
 	}
 }

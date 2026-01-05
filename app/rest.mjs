@@ -68,6 +68,7 @@ if(config.enable_cors) {
 
 // GROUPS
 import groupRouterModule from './routes/groups.js'
+import areaGroupRouterModule from './routes/area_groups.js'
 
 // AUTHENTICATION
 if(config.rest.auth_database) {
@@ -89,7 +90,7 @@ app.use( bodyParser.json({limit: '50mb'}) );       // to support JSON-encoded bo
 app.use(express.urlencoded())
 app.use('/planillas',auth.isWriter);
 app.use('/groups',auth.isAdmin, groupRouterModule.default)
-app.use('/area_groups',auth.isAuthenticated, areaGroupRouterModule.default)
+app.use('/areal/area_groups',auth.isAdmin, areaGroupRouterModule.default)
 app.use(express.static('public', {
 	setHeaders: function (res, path, stat) {
 		res.set('x-timestamp', Date.now())
@@ -114,22 +115,7 @@ const { default: axios } = require('axios')
 
 
 // CRUD ERROR HANDLING //
-const { AuthError, NotFoundError, BadRequestError, ConflictError } = require('./custom_errors.js')
-
-function handleCrudError(e, res) {
-	console.error(e)
-	if(e instanceof AuthError) {
-		res.status(401).send({message:"Unauthorized", error: e.toString()})
-	} else if(e instanceof NotFoundError) {
-		res.status(404).send({message:"Not found", error: e.toString()})
-	} else if (e instanceof BadRequestError) {
-		res.status(400).send({message:"Bad request", error: e.toString()})
-	} else if (e instanceof ConflictError) {
-		res.status(409).send({message:"Conflict", error: e.toString()})
-	} else {
-		res.status(500).send({message:"Server error",error:e.toString()})
-	}
-}
+const { BadRequestError, handleCrudError } = require('./custom_errors.js')
 
 // CONTROLLER //
 
@@ -2292,6 +2278,7 @@ function getArea(req,res) {
 
 function upsertAreas(req,res) { 
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -2320,7 +2307,7 @@ function upsertAreas(req,res) {
 	crud.upsertAreas(areas.map(v => {
 		var area = new CRUD.area(v)
 		return area
-	}))
+	}), user_id)
 	.then(result=>{
 		if(!result) {
 			console.error("nothing upserted")
