@@ -22,7 +22,7 @@ export class RedGroup {
     const ids = redes.map(m => m.red_id);
     if (ids.length === 0) return [];
 
-    const checkRedes = await g.pool.query(
+    const checkRedes = await (g.pool as any).query(
       `SELECT id FROM redes WHERE id = ANY($1)`,
       [ids]
     );
@@ -32,7 +32,7 @@ export class RedGroup {
     }
 
     // Delete existing redes for group
-    await g.pool.query(
+    await (g.pool as any).query(
       `DELETE FROM red_group_access WHERE group_name = $1`,
       [group_name]
     );
@@ -41,7 +41,7 @@ export class RedGroup {
     const inserted: RedGroupRecord[] = [];
 
     for (const r of redes) {
-      const result = await g.pool.query(
+      const result = await (g.pool as any).query(
         `
         INSERT INTO red_group_access (red_id, group_name, access)
         VALUES ($1, $2, $3)
@@ -56,13 +56,13 @@ export class RedGroup {
   }
 
   /** Add users to group */
-  static async add(group_name : number, redes: { red_id: number, access: 'read' | 'write' }[]
+  static async add(group_name : string, redes: { red_id: number, access: 'read' | 'write' }[]
   ): Promise<RedGroupRecord[]> {
     // Check all user_ids exist
     const ids = redes.map(m => m.red_id);
     if (ids.length === 0) return [];
 
-    const checkUsers = await g.pool.query(
+    const checkUsers = await (g.pool as any).query(
       `SELECT id FROM redes WHERE id = ANY($1)`,
       [ids]
     );
@@ -75,7 +75,7 @@ export class RedGroup {
     const inserted: RedGroupRecord[] = [];
 
     for (const r of redes) {
-      const result = await g.pool.query(
+      const result = await (g.pool as any).query(
         `
         INSERT INTO red_group_access (red_id, group_name, access)
         VALUES ($1, $2, $3)
@@ -92,8 +92,8 @@ export class RedGroup {
 
 
   /** List redes of a group */
-  static async list(group_name: number): Promise<RedGroupRecord[]> {
-    const result = await g.pool.query(
+  static async list(group_name: string): Promise<RedGroupRecord[]> {
+    const result = await (g.pool as any).query(
       `SELECT red_id, group_name, access FROM red_group_access WHERE group_name = $1 ORDER BY red_id`,
       [group_name]
     );
@@ -102,22 +102,22 @@ export class RedGroup {
 
   /** Read membership */
   static async read(
-    group_id: number,
+    group_name: string,
     red_id: number
   ): Promise<RedGroupRecord | null> {
-    const result = await g.pool.query(
+    const result = await (g.pool as any).query(
       `SELECT red_id, group_name, access FROM red_group_access WHERE group_name = $1 AND red_id = $2`,
-      [group_id, red_id]
+      [group_name, red_id]
     );
     return (result.rows[0] as RedGroupRecord) || null;
   }
 
   /** Delete membership */
   static async delete(
-    group_name: number,
+    group_name: string,
     red_id: number
   ): Promise<RedGroupRecord | null> {
-    const result = await g.pool.query(
+    const result = await (g.pool as any).query(
       `
       DELETE FROM red_group_access
         WHERE group_name = $1 AND red_id = $2

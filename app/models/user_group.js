@@ -81,10 +81,10 @@ class UserGroup {
         });
     }
     /** Read membership */
-    static read(group_id, user_id, user_name) {
+    static read(group_name, user_id, user_name) {
         return __awaiter(this, void 0, void 0, function* () {
             let filter;
-            const params = [group_id];
+            const params = [group_name];
             if (user_id) {
                 filter = `AND user_groups.user_id = $2`;
                 params.push(user_id);

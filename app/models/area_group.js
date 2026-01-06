@@ -25,8 +25,8 @@ class AreaGroup {
         this.owner_id = params.owner_id;
         this.areas = params.areas;
     }
-    static list(filter = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    static list() {
+        return __awaiter(this, arguments, void 0, function* (filter = {}) {
             let result;
             if (filter.id) {
                 const q = `SELECT id,name,owner_id FROM area_groups WHERE id=$1`;
@@ -47,36 +47,40 @@ class AreaGroup {
             return result.rows;
         });
     }
-    static read(id) {
+    static read(id, user_id) {
         return __awaiter(this, void 0, void 0, function* () {
+            const access_join = (user_id) ? `JOIN user_area_access ON (ag_id=area_groups.id AND user_id=${user_id})` : "";
+            const access_level = (user_id) ? "user_area_access.effective_access" : "'write'";
             const q = `SELECT 
       area_groups.id, 
       area_groups.name, 
       area_groups.owner_id, 
-      json_array_agg(
+      json_agg(
       json_build_object(
       'id', areas_pluvio.unid, 
       'nombre', areas_pluvio.nombre
-      )) AS areas
-      FROM area_groups 
+      )) AS areas,
+      ${access_level} AS access_level
+      FROM area_groups
+      ${access_join} 
       LEFT OUTER JOIN areas_pluvio ON area_groups.id=areas_pluvio.group_id
       WHERE area_groups.id = $1
-      GROUP BY area_groups.id, area_groups.name, area_groups.owner_id`;
+      GROUP BY area_groups.id, area_groups.name, area_groups.owner_id, access_level`;
             const result = yield g.pool.query(q, [id]);
             return result.rows[0] || null;
         });
     }
-    static create(params) {
+    static create(params, user_id) {
         return __awaiter(this, void 0, void 0, function* () {
             if (Array.isArray(params)) {
                 const results = [];
                 for (const p of params) {
-                    results.push(yield this.createOne(p));
+                    results.push(yield this.createOne(Object.assign(Object.assign({}, p), { owner_id: user_id !== null && user_id !== void 0 ? user_id : p.owner_id })));
                 }
                 return results;
             }
             else {
-                return [yield this.createOne(params)];
+                return [yield this.createOne(Object.assign(Object.assign({}, params), { owner_id: user_id !== null && user_id !== void 0 ? user_id : params.owner_id }))];
             }
         });
     }
@@ -117,8 +121,8 @@ class AreaGroup {
         });
     }
     static grantAccess(id, user_groups) {
-        var _a;
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             // Check all user_group names exist
             const group_names = user_groups.map(ug => ug.name).filter(ug => ug);
             if (group_names.length === 0)
@@ -142,10 +146,20 @@ class AreaGroup {
     }
     static grantAccessOne(id, name, access) {
         return __awaiter(this, void 0, void 0, function* () {
-            const q = `INSERT INTO user_area_groups_access (ag_id, group_name, access) VALUES ($1, $2, $3) ON CONFLICT (group_name, ag_id) DO UPDATE SET access=excluded.access RETURNING group_name, ag_id`;
+            const q = `INSERT INTO user_area_groups_access (ag_id, group_name, access) VALUES ($1, $2, $3) ON CONFLICT (group_name, ag_id) DO UPDATE SET access=excluded.access RETURNING group_name AS name, access`;
             const result = yield g.pool.query(q, [id, name, access]);
             if (!result.rows.length) {
                 throw new Error("No se insertó fila en user_area_groups_access");
+            }
+            return result.rows[0];
+        });
+    }
+    static removeAccessOne(id, name) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const q = `DELETE FROM user_area_groups_access WHERE ag_id=$1 and group_name=$2 RETURNING group_name as name, access`;
+            const result = yield g.pool.query(q, [id, name]);
+            if (!result.rows.length) {
+                throw new Error("No se encontró el registro en user_area_groups_access");
             }
             return result.rows[0];
         });
@@ -174,8 +188,8 @@ class AreaGroup {
             return results.rows[0] || null;
         });
     }
-    static hasAccess(user_id, ag_id, write = false) {
-        return __awaiter(this, void 0, void 0, function* () {
+    static hasAccess(user_id_1, ag_id_1) {
+        return __awaiter(this, arguments, void 0, function* (user_id, ag_id, write = false) {
             var q = `SELECT EXISTS (
       SELECT 1 
       FROM user_area_access 

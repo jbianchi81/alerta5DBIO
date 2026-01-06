@@ -15,13 +15,23 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -35,13 +45,34 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.pasteIntoSQLQuery = exports.interval_key_map = exports.intervalFromString = exports.createInterval = exports.control_filter2 = exports.assertValidDateTruncField = exports.not_null = exports.listFilesSync = exports.runCommandAndParseJSON = void 0;
+exports.interval_key_map = exports.not_null = void 0;
+exports.isIntervalKey = isIntervalKey;
+exports.runCommandAndParseJSON = runCommandAndParseJSON;
+exports.listFilesSync = listFilesSync;
+exports.assertValidDateTruncField = assertValidDateTruncField;
+exports.control_filter2 = control_filter2;
+exports.createInterval = createInterval;
+exports.intervalFromString = intervalFromString;
+exports.pasteIntoSQLQuery = pasteIntoSQLQuery;
 const child_process_1 = require("child_process");
 const util_1 = require("util");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const postgres_interval_1 = __importDefault(require("postgres-interval"));
+const pg_1 = require("pg");
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
+const INTERVAL_KEYS = [
+    "years",
+    "months",
+    "days",
+    "hours",
+    "minutes",
+    "seconds"
+];
+//    ^? "years" | "months" | "days" | "hours" | "minutes" | "seconds"
+function isIntervalKey(key) {
+    return INTERVAL_KEYS.includes(key);
+}
 function runCommandAndParseJSON(cmd) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -56,14 +87,12 @@ function runCommandAndParseJSON(cmd) {
         }
     });
 }
-exports.runCommandAndParseJSON = runCommandAndParseJSON;
 function listFilesSync(dir) {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     return entries
         .filter(entry => entry.isFile())
         .map(entry => path.join(dir, entry.name));
 }
-exports.listFilesSync = listFilesSync;
 class not_null extends Object {
 }
 exports.not_null = not_null;
@@ -86,7 +115,6 @@ function assertValidDateTruncField(field) {
         throw (new Error("Invalid date_trunc field: " + field));
     }
 }
-exports.assertValidDateTruncField = assertValidDateTruncField;
 function control_filter2(valid_filters, filter, default_table, crud, throw_on_error = false) {
     // valid_filters = { column1: { table: "table_name", type: "data_type", required: bool, column: "column_name"}, ... }  
     // filter = { column1: "value1", column2: "value2", ....}
@@ -309,7 +337,6 @@ function control_filter2(valid_filters, filter, default_table, crud, throw_on_er
         return filter_string;
     }
 }
-exports.control_filter2 = control_filter2;
 function createInterval(value) {
     if (!value) {
         return; //  parsePGinterval()
@@ -374,7 +401,6 @@ function createInterval(value) {
         return;
     }
 }
-exports.createInterval = createInterval;
 function isJson(str) {
     try {
         JSON.parse(str);
@@ -393,6 +419,9 @@ function intervalFromString(interval_string) {
             if (!key) {
                 throw ("Invalid interval key " + kvp[i + 1].toLowerCase());
             }
+            if (!isIntervalKey(key)) {
+                throw new Error(`Invalid interval field: ${key}`);
+            }
             interval[key] = parseInt(kvp[i]);
         }
     }
@@ -402,7 +431,6 @@ function intervalFromString(interval_string) {
     // Object.assign(interval,JSON.parse(value))
     return interval;
 }
-exports.intervalFromString = intervalFromString;
 exports.interval_key_map = {
     milliseconds: "milliseconds",
     millisecond: "milliseconds",
@@ -425,7 +453,7 @@ function pasteIntoSQLQuery(query, params) {
         var value;
         switch (typeof params[i]) {
             case "string":
-                value = escapeLiteral(params[i]);
+                value = (0, pg_1.escapeLiteral)(params[i]);
                 break;
             case "number":
                 value = parseFloat(params[i]);
@@ -441,29 +469,28 @@ function pasteIntoSQLQuery(query, params) {
                     // if(/';/.test(params[i].join(","))) {
                     // 	throw("Invalid value: contains invalid characters")
                     // }
-                    value = escapeLiteral(`{${params[i].join(",")}}`); // .map(v=> (typeof v == "number") ? v : "'" + v.toString() + "'")
+                    value = (0, pg_1.escapeLiteral)(`{${params[i].join(",")}}`); // .map(v=> (typeof v == "number") ? v : "'" + v.toString() + "'")
                 }
                 else if (params[i] === null) {
                     value = "NULL";
                 }
                 else if (params[i].constructor && params[i].constructor.name == 'PostgresInterval') {
-                    value = `${escapeLiteral(params[i].toPostgres())}::interval`;
+                    value = `${(0, pg_1.escapeLiteral)(params[i].toPostgres())}::interval`;
                 }
                 else {
-                    value = escapeLiteral(params[i].toString());
+                    value = (0, pg_1.escapeLiteral)(params[i].toString());
                 }
                 break;
             case "undefined":
                 value = "NULL";
                 break;
             default:
-                value = escapeLiteral(params[i].toString());
+                value = (0, pg_1.escapeLiteral)(params[i].toString());
         }
-        var I = parseInt(i) + 1;
+        var I = i + 1;
         var placeholder = "\\$" + I.toString();
         // console.log({placeholder:placeholder,value:value})
-        query = query.replace(new RegExp(placeholder, "g"), value);
+        query = query.replace(new RegExp(placeholder, "g"), value.toString());
     }
     return query;
 }
-exports.pasteIntoSQLQuery = pasteIntoSQLQuery;

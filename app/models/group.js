@@ -17,8 +17,8 @@ exports.Group = void 0;
 const setGlobal_1 = __importDefault(require("a5base/setGlobal"));
 const g = (0, setGlobal_1.default)();
 class Group {
-    static list(filter = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    static list() {
+        return __awaiter(this, arguments, void 0, function* (filter = {}) {
             let result;
             if (filter.name) {
                 const q = `SELECT name FROM groups WHERE name=$1 ORDER BY name`;

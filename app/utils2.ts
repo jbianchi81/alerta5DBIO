@@ -3,8 +3,28 @@ import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
 import parsePGinterval  from 'postgres-interval'
+import { escapeIdentifier, escapeLiteral } from 'pg'
 
 const execAsync = promisify(exec);
+
+
+const INTERVAL_KEYS = [
+  "years",
+  "months",
+  "days",
+  "hours",
+  "minutes",
+  "seconds"
+] as const
+
+type IntervalKey = typeof INTERVAL_KEYS[number]
+//    ^? "years" | "months" | "days" | "hours" | "minutes" | "seconds"
+
+export function isIntervalKey(
+  key: string
+): key is IntervalKey {
+  return (INTERVAL_KEYS as readonly string[]).includes(key)
+}
 
 export async function runCommandAndParseJSON(cmd: string): Promise<any> {
   try {
@@ -27,7 +47,7 @@ export function listFilesSync(dir: string): string[] {
     .map(entry => path.join(dir, entry.name));
 }
 
-interface QueryFilter {
+export interface QueryFilter {
   table?: string
   type?: "string" | "regex_string" | "boolean" | "boolean_only_true" | "boolean_only_false" | "geometry" | "date" | "timestamp" | "timestart" | "timeend" | "greater_or_equal_date" | "smaller_or_equal_date" | "numeric_interval" | "numeric_min" | "numeric_max" | "integer" | "number" | "float" | "interval" | "jsonpath"
   required?: boolean
@@ -324,6 +344,9 @@ export function intervalFromString(interval_string : string) {
 			if(!key) {
 				throw("Invalid interval key " + kvp[i+1].toLowerCase())
 			}
+      if (!isIntervalKey(key)) {
+        throw new Error(`Invalid interval field: ${key}`)
+      }
 			interval[key] = parseInt(kvp[i])
 		}
 	} else {
@@ -333,7 +356,7 @@ export function intervalFromString(interval_string : string) {
 	return interval
 }
 
-export const interval_key_map = {
+export const interval_key_map : Record<string, string> = {
 	milliseconds: "milliseconds",
 	millisecond: "milliseconds",
 	seconds: "seconds",
@@ -386,10 +409,10 @@ export function pasteIntoSQLQuery(query : string, params : any[]) : string {
         default:
           value = escapeLiteral(params[i].toString())
       }
-      var I = parseInt(i)+1
+      var I = i+1
       var placeholder = "\\$" + I.toString()
       // console.log({placeholder:placeholder,value:value})
-      query = query.replace(new RegExp(placeholder,"g"), value)
+      query = query.replace(new RegExp(placeholder,"g"), value.toString())
     }
     return query
   }

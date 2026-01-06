@@ -22,7 +22,7 @@ export class UserGroup {
     const user_names = members.map(m => m.user_name);
     if (user_names.length === 0) return [];
 
-    const checkUsers = await g.pool.query(
+    const checkUsers = await (g.pool as any).query(
       `SELECT name FROM users WHERE name = ANY($1)`,
       [user_names]
     );
@@ -32,7 +32,7 @@ export class UserGroup {
     }
 
     // Delete existing members for group
-    await g.pool.query(
+    await (g.pool as any).query(
       `DELETE FROM user_groups WHERE group_name = $1`,
       [group_name]
     );
@@ -41,7 +41,7 @@ export class UserGroup {
     const inserted: UserGroupRecord[] = [];
 
     for (const m of members) {
-      const result = await g.pool.query(
+      const result = await (g.pool as any).query(
         `
         INSERT INTO user_groups (user_id, group_name)
         SELECT users.id, $2
@@ -58,13 +58,13 @@ export class UserGroup {
   }
 
   /** Add users to group */
-  static async add(group_name : number, members: { user_name: string }[]
+  static async add(group_name : string, members: { user_name: string }[]
   ): Promise<UserGroupRecord[]> {
     // Check all user_ids exist
     const user_names = members.map(m => m.user_name);
     if (user_names.length === 0) return [];
 
-    const checkUsers = await g.pool.query(
+    const checkUsers = await (g.pool as any).query(
       `SELECT name FROM users WHERE name = ANY($1)`,
       [user_names]
     );
@@ -77,7 +77,7 @@ export class UserGroup {
     const inserted: UserGroupRecord[] = [];
 
     for (const m of members) {
-      const result = await g.pool.query(
+      const result = await (g.pool as any).query(
         `
         INSERT INTO user_groups (user_id, group_name)
         SELECT users.id, $2
@@ -96,8 +96,8 @@ export class UserGroup {
 
 
   /** List members of a group */
-  static async list(group_name: number): Promise<UserGroupRecord[]> {
-    const result = await g.pool.query(
+  static async list(group_name: string): Promise<UserGroupRecord[]> {
+    const result = await (g.pool as any).query(
       `SELECT user_groups.user_id, users.name AS user_name, user_groups.group_name FROM user_groups JOIN users on users.id=user_groups.user_id WHERE user_groups.group_name = $1 ORDER BY user_groups.user_id`,
       [group_name]
     );
@@ -106,12 +106,12 @@ export class UserGroup {
 
   /** Read membership */
   static async read(
-    group_id: number,
+    group_name: string,
     user_id?: number,
     user_name?: string
   ): Promise<UserGroupRecord | null> {
     let filter : string
-    const params : any[] = [group_id]
+    const params : any[] = [group_name]
     if(user_id) {
       filter = `AND user_groups.user_id = $2`
       params.push(user_id)
@@ -121,7 +121,7 @@ export class UserGroup {
     } else {
       filter = ""
     }
-    const result = await g.pool.query(
+    const result = await (g.pool as any).query(
       `SELECT user_groups.user_id, users.name as user_name, user_groups.group_name 
         FROM user_groups 
         JOIN users ON users.id=user_groups.user_id
@@ -134,13 +134,13 @@ export class UserGroup {
 
   /** Delete membership */
   static async delete(
-    group_name: number,
+    group_name: string,
     user_id?: number,
     user_name?: string
   ): Promise<UserGroupRecord | null> {
     let result : any
     if(user_id) {
-      result = await g.pool.query(
+      result = await (g.pool as any).query(
         `
         DELETE FROM user_groups
           USING users
@@ -152,7 +152,7 @@ export class UserGroup {
         [group_name, user_id]
       );
     } else if(user_name) {
-      result = await g.pool.query(
+      result = await (g.pool as any).query(
         `
         DELETE FROM user_groups
         USING users

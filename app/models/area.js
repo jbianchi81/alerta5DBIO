@@ -13,13 +13,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.isGeometryDict = isGeometryDict;
 const setGlobal_1 = __importDefault(require("a5base/setGlobal"));
 // import {Area as AreaType} from '../a5_types'
 const custom_errors_1 = require("../custom_errors");
+const utils2_1 = require("../utils2");
 // import { Geometry as GeomType } from '../geometry_types'
 const geometry_1 = require("a5base/geometry");
 const area_group_1 = require("./area_group");
 const g = (0, setGlobal_1.default)();
+const node_querystring_1 = require("node:querystring");
 class Area {
     constructor(params) {
         this.id = params.id;
@@ -57,10 +60,8 @@ class Area {
                 yield area.getId();
             }
             if (area.geom && area.geom.type && area.geom.type == "MultiPolygon") {
-                area.geom = new geometry_1.Geometry({
-                    type: "Polygon",
-                    coordinates: area.geom.coordinates[0]
-                });
+                assertPosition3D(area.geom.coordinates);
+                area.geom = new geometry_1.Geometry("Polygon", area.geom.coordinates[0]);
             }
             if (area.group_id && user_id) {
                 const has_access = yield area_group_1.AreaGroup.hasAccess(user_id, area.group_id, true);
@@ -70,11 +71,10 @@ class Area {
             }
             const q = this.upsertAreaQuery(area);
             const result = yield g.pool.query(q);
-            if (result.rows.length <= 0) {
+            if (!result.rows.length) {
                 throw new Error("Area upsert failed: no rows returned");
             }
             console.info("Upserted areas_pluvio.unid=" + result.rows[0].id);
-            //~ console.log(result.rows[0])
             return new this(result.rows[0]);
         });
     }
@@ -105,8 +105,8 @@ class Area {
         if (area.exutorio) {
             if (area.id) {
                 query = `
-				INSERT INTO areas_pluvio (unid, nombre, geom, exutorio, exutorio_id, ae, rho, wp, activar, mostrar) 
-				VALUES ($1, $2, ST_GeomFromText($3,4326), ST_GeomFromText($4,4326), $5, $6, $7, $8, $9, $10)
+				INSERT INTO areas_pluvio (unid, nombre, geom, exutorio, exutorio_id, ae, rho, wp, activar, mostrar, group_id) 
+				VALUES ($1, $2, ST_GeomFromText($3,4326), ST_GeomFromText($4,4326), $5, $6, $7, $8, $9, $10, $11)
 				ON CONFLICT (unid) DO UPDATE SET 
 					nombre=excluded.nombre, 
 					geom=excluded.geom, 
@@ -117,7 +117,8 @@ class Area {
 					rho = excluded.rho, 
 					wp = excluded.wp, 
 					activar = excluded.activar, 
-					mostrar = excluded.mostrar 
+					mostrar = excluded.mostrar,
+					group_id = excluded.group_id
 				RETURNING 
 					unid AS id, 
 					nombre, 
@@ -129,77 +130,350 @@ class Area {
 					rho, 
 					wp, 
 					activar, 
-					mostrar`;
-                params = [area.id, area.nombre, area.geom.toString(), area.exutorio.toString(), area.exutorio_id, area.ae, area.rho, area.wp, area.activar, area.mostrar];
+					mostrar,
+					group_id`;
+                params = [area.id, area.nombre, area.geom.toString(), area.exutorio.toString(), area.exutorio_id, area.ae, area.rho, area.wp, area.activar, area.mostrar, area.group_id];
             }
             else {
-                query = "\
-				INSERT INTO areas_pluvio (nombre, geom, exutorio, exutorio_id, ae, rho, wp, activar, mostrar) \
-				VALUES ($1, ST_GeomFromText($2,4326), ST_GeomFromText($3,4326), $4, $5, $6, $7, $8, $9)\
-				RETURNING \
-					unid AS id, \
-					nombre, \
-					st_astext(geom) AS geom, \
-					st_astext(exutorio) AS exutorio, \
-					exutorio_id, \
-					area, \
-					ae, \
-					rho, \
-					wp, \
-					activar, \
-					mostrar";
-                params = [area.nombre, area.geom.toString(), area.exutorio.toString(), area.exutorio_id, area.ae, area.rho, area.wp, area.activar, area.mostrar];
+                query = `
+				INSERT INTO areas_pluvio (nombre, geom, exutorio, exutorio_id, ae, rho, wp, activar, mostrar, group_id) 
+				VALUES ($1, ST_GeomFromText($2,4326), ST_GeomFromText($3,4326), $4, $5, $6, $7, $8, $9, $10)
+				RETURNING 
+					unid AS id, 
+					nombre, 
+					st_astext(geom) AS geom, 
+					st_astext(exutorio) AS exutorio, 
+					exutorio_id, 
+					area, 
+					ae, 
+					rho, 
+					wp, 
+					activar, 
+					mostrar,
+					group_id`;
+                params = [area.nombre, area.geom.toString(), area.exutorio.toString(), area.exutorio_id, area.ae, area.rho, area.wp, area.activar, area.mostrar, area.group_id];
             }
         }
         else {
             if (area.id) {
-                query = "\
-				INSERT INTO areas_pluvio (unid, nombre, geom, exutorio_id, ae, rho, wp, activar, mostrar) \
-				VALUES ($1, $2, ST_GeomFromText($3,4326), $4, $5, $6, $7, $8, $9)\
-				ON CONFLICT (unid) DO UPDATE SET \
-					nombre=excluded.nombre,\
-					geom=excluded.geom,\
-					exutorio_id=excluded.exutorio_id, \
-					area = excluded.area, \
-					ae = excluded.ae, \
-					rho = excluded.rho, \
-					wp = excluded.wp, \
-					activar = excluded.activar, \
-					mostrar = excluded.mostrar \
-				RETURNING \
-					unid AS id, \
-					nombre, \
-					st_astext(geom) AS geom, \
-					st_astext(exutorio) AS exutorio, \
-					exutorio_id, \
-					area, \
-					ae, \
-					rho, \
-					wp, \
-					activar, \
-					mostrar";
-                params = [area.id, area.nombre, area.geom.toString(), area.exutorio_id, area.ae, area.rho, area.wp, area.activar, area.mostrar];
+                query = `
+				INSERT INTO areas_pluvio (unid, nombre, geom, exutorio_id, ae, rho, wp, activar, mostrar, group_id) 
+				VALUES ($1, $2, ST_GeomFromText($3,4326), $4, $5, $6, $7, $8, $9, $10)
+				ON CONFLICT (unid) DO UPDATE SET 
+					nombre=excluded.nombre,
+					geom=excluded.geom,
+					exutorio_id=excluded.exutorio_id, 
+					area = excluded.area, 
+					ae = excluded.ae, 
+					rho = excluded.rho, 
+					wp = excluded.wp, 
+					activar = excluded.activar, 
+					mostrar = excluded.mostrar,
+					group_id = excluded.group_id 
+				RETURNING 
+					unid AS id, 
+					nombre, 
+					st_astext(geom) AS geom, 
+					st_astext(exutorio) AS exutorio, 
+					exutorio_id, 
+					area, 
+					ae, 
+					rho, 
+					wp, 
+					activar, 
+					mostrar,
+					group_id`;
+                params = [area.id, area.nombre, area.geom.toString(), area.exutorio_id, area.ae, area.rho, area.wp, area.activar, area.mostrar, area.group_id];
             }
             else {
-                query = "\
-				INSERT INTO areas_pluvio (nombre, geom, exutorio_id, ae, rho, wp, activar, mostrar) \
-				VALUES ($1, ST_GeomFromText($2,4326), $3, $4, $5, $6, $7, $8)\
-				RETURNING \
-					unid AS id, \
-					nombre, \
-					st_astext(geom) AS geom, \
-					st_astext(exutorio) AS exutorio, \
-					exutorio_id, \
-					area, \
-					ae, \
-					rho, \
-					wp, \
-					activar, \
-					mostrar";
-                params = [area.nombre, area.geom.toString(), area.exutorio_id, area.ae, area.rho, area.wp, area.activar, area.mostrar];
+                query = `
+				INSERT INTO areas_pluvio (nombre, geom, exutorio_id, ae, rho, wp, activar, mostrar, group_id) 
+				VALUES ($1, ST_GeomFromText($2,4326), $3, $4, $5, $6, $7, $8, $9)
+				RETURNING 
+					unid AS id, 
+					nombre, 
+					st_astext(geom) AS geom, 
+					st_astext(exutorio) AS exutorio, 
+					exutorio_id, 
+					area, 
+					ae, 
+					rho, 
+					wp, 
+					activar, 
+					mostrar,
+					areas_pluvio.group_id`;
+                params = [area.nombre, area.geom.toString(), area.exutorio_id, area.ae, area.rho, area.wp, area.activar, area.mostrar, area.group_id];
             }
         }
-        return pasteIntoSQLQuery(query, params);
+        return (0, utils2_1.pasteIntoSQLQuery)(query, params);
+    }
+    static list() {
+        return __awaiter(this, arguments, void 0, function* (filter = {}, options = {}, user_id) {
+            if (filter.id) {
+                filter.unid = filter.id;
+                delete filter.id;
+            }
+            const valid_filters = {
+                nombre: {
+                    type: "regex_string"
+                },
+                unid: {
+                    type: "integer"
+                },
+                geom: {
+                    type: "geometry",
+                },
+                exutorio: {
+                    type: "geometry"
+                },
+                exutorio_id: {
+                    type: "integer"
+                },
+                activar: {
+                    type: "boolean"
+                },
+                mostrar: {
+                    type: "boolean"
+                },
+                group_id: {
+                    type: "integer"
+                }
+            };
+            var filter_string = (0, utils2_1.control_filter2)(valid_filters, filter, "areas_pluvio");
+            if (!filter_string) {
+                throw ("Invalid filters");
+            }
+            var join_type = "LEFT";
+            var tabla_id_filter = "";
+            if (filter.tabla_id) {
+                if (/[';]/.test(filter.tabla_id)) {
+                    throw ("Invalid filter value");
+                }
+                join_type = "RIGHT";
+                tabla_id_filter += ` AND estaciones.tabla='${filter.tabla_id}'`;
+            }
+            var pagination_clause = (filter.limit) ? `LIMIT ${filter.limit}` : "";
+            pagination_clause += (filter.offset) ? ` OFFSET ${filter.offset}` : "";
+            const access_join = (user_id) ? `JOIN user_area_access ON (areas_pluvio.group_id=user_area_access.ag_id AND user_id=${user_id})` : "";
+            if (options && options.no_geom) {
+                const stmt = `SELECT 
+					areas_pluvio.unid id, 
+					areas_pluvio.nombre, 
+					st_astext(areas_pluvio.exutorio) exutorio, 
+					areas_pluvio.exutorio_id, 
+					areas_pluvio.area, 
+					areas_pluvio.ae, 
+					areas_pluvio.rho, 
+					areas_pluvio.wp, 
+					areas_pluvio.activar, 
+					areas_pluvio.mostrar,
+					areas_pluvio.group_id
+				FROM areas_pluvio 
+				${join_type} JOIN estaciones ON (estaciones.unid=areas_pluvio.exutorio_id ${tabla_id_filter})
+				${access_join}
+				WHERE areas_pluvio.geom IS NOT NULL ${filter_string} ORDER BY areas_pluvio.id
+				${pagination_clause}`;
+                const res = yield g.pool.query(stmt);
+                const areas = res.rows.map((r) => {
+                    if (r.exutorio) {
+                        r.exutorio = new geometry_1.Geometry(r.exutorio);
+                    }
+                    return r;
+                });
+                return areas;
+            }
+            else {
+                const stmt = `SELECT 
+					areas_pluvio.unid id, 
+					areas_pluvio.nombre, 
+					st_astext(areas_pluvio.geom) geom, 
+					st_astext(areas_pluvio.exutorio) exutorio, 
+					areas_pluvio.exutorio_id, 
+					areas_pluvio.area, 
+					areas_pluvio.ae, 
+					areas_pluvio.rho, 
+					areas_pluvio.wp, 
+					areas_pluvio.activar, 
+					areas_pluvio.mostrar,
+					areas_pluvio.group_id 
+				FROM areas_pluvio 
+				${join_type} JOIN estaciones ON (estaciones.unid=areas_pluvio.exutorio_id ${tabla_id_filter})
+				${access_join}
+				WHERE areas_pluvio.geom IS NOT NULL ${filter_string} ORDER BY id
+				${pagination_clause}`;
+                const res = yield g.pool.query(stmt);
+                const areas = res.rows.map((r) => {
+                    return new this(r);
+                });
+                return areas;
+            }
+        });
+    }
+    static delete(filter, user_id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (filter.area_id && !filter.id) {
+                filter.id = filter.area_id;
+            }
+            const matches = yield this.list(filter, { no_geom: true }, user_id);
+            if (!matches) {
+                console.warn("No matches to delete");
+                return [];
+            }
+            const results = [];
+            for (var area of matches) {
+                try {
+                    if (!area.id) {
+                        throw new Error("Falta area.id");
+                    }
+                    console.debug("Try delete area.id=" + area.id);
+                    var result = yield this.deleteOne(area.id);
+                }
+                catch (e) {
+                    throw (e);
+                }
+                results.push(result);
+            }
+            return results;
+        });
+    }
+    static deleteOne(id, user_id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const group_join = (user_id) ? `USING user_area_access WHERE areas_pluvio.group_id=user_area_access.ag_id and user_id=${user_id} and effective_access='write'` : "WHERE 1=1";
+            const result = yield g.pool.query(`
+			DELETE FROM areas_pluvio
+			${group_join}
+			AND unid=$1
+			RETURNING areas_pluvio.unid id, 
+			areas_pluvio.nombre, 
+			st_astext(ST_ForcePolygonCCW(areas_pluvio.geom)) AS geom, 
+			st_astext(areas_pluvio.exutorio) AS exutorio,
+			areas_pluvio.exutorio_id, 
+			areas_pluvio.area, 
+			areas_pluvio.ae, 
+			areas_pluvio.rho, 
+			areas_pluvio.wp, 
+			areas_pluvio.activar, 
+			areas_pluvio.mostrar,
+			areas_pluvio.group_id`, [id]);
+            if (!result.rows.length) {
+                throw new custom_errors_1.NotFoundError("unid not found");
+            }
+            console.log("Deleted areas_pluvio.unid=" + result.rows[0].id);
+            return new this(result.rows[0]);
+        });
+    }
+    delete() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this.id) {
+                throw Error("Falta id");
+            }
+            return Area.deleteOne(this.id);
+        });
+    }
+    static read(id_1) {
+        return __awaiter(this, arguments, void 0, function* (id, options = {}, user_id) {
+            const results = yield Area.list({ id: id }, options, user_id);
+            if (!results.length) {
+                throw new custom_errors_1.NotFoundError("No se encontró área con el id especificado");
+            }
+            return results[0];
+        });
+    }
+    static listWithPagination() {
+        return __awaiter(this, arguments, void 0, function* (filter = {}, options = {}, req, user_id) {
+            var _a, _b, _c;
+            const config_pagination = (_a = g.config.pagination) !== null && _a !== void 0 ? _a : { default_limit: 1000, max_limit: 10000 };
+            filter.limit = (_b = filter.limit) !== null && _b !== void 0 ? _b : config_pagination.default_limit;
+            filter.limit = parseInt(filter.limit.toString());
+            if (filter.limit > config_pagination.max_limit) {
+                throw (new Error("limit exceeds maximum records per page (" + config_pagination.max_limit) + ")");
+            }
+            filter.offset = (_c = filter.offset) !== null && _c !== void 0 ? _c : 0;
+            filter.offset = parseInt(filter.offset.toString());
+            const result = yield this.list(filter, options, user_id);
+            var is_last_page = (result.length < filter.limit);
+            if (is_last_page) {
+                return {
+                    areas: result,
+                    is_last_page: true
+                };
+            }
+            else {
+                // var query_arguments = {...filter,...options}
+                // if(query_arguments.geom && isGeometryDict(query_arguments.geom)) {
+                // 	query_arguments.geom = "a" // new Geometry(query_arguments.geom).toString()
+                // }
+                // query_arguments.offset = filter.offset + filter.limit 
+                const offset = filter.offset + filter.limit;
+                const query_arguments = serializeFilter(Object.assign(Object.assign({}, filter), { offset: offset }), options);
+                var next_page_url = (req) ? `${req.protocol}://${req.get('host')}${req.path}?${(0, node_querystring_1.stringify)(query_arguments)}` : `obs/areal/areas?${(0, node_querystring_1.stringify)(query_arguments)}`;
+                return {
+                    areas: result,
+                    is_last_page: false,
+                    next_page: next_page_url
+                };
+            }
+        });
     }
 }
 exports.default = Area;
+function serializeFilter(filter, options) {
+    const out = {};
+    for (const [key, value] of Object.entries(filter)) {
+        if (value == null)
+            continue;
+        if (key === "geom" && isGeometryDict(value)) {
+            out.geom = new geometry_1.Geometry(value).toString(); // ✅ WKT (if you have it)
+        }
+        else {
+            out[key] = String(value);
+        }
+    }
+    for (const [key, value] of Object.entries(options)) {
+        if (value == null)
+            continue;
+        out[key] = String(value);
+    }
+    return out;
+}
+function assertPosition3D(value) {
+    if (!Array.isArray(value)) {
+        throw new custom_errors_1.BadRequestError("Expected Position[][][]");
+    }
+    for (const polygon of value) {
+        if (!Array.isArray(polygon)) {
+            throw new custom_errors_1.BadRequestError("Expected Position[][][]");
+        }
+        for (const ring of polygon) {
+            if (!Array.isArray(ring)) {
+                throw new custom_errors_1.BadRequestError("Expected Position[][][]");
+            }
+            for (const pos of ring) {
+                if (!Array.isArray(pos) ||
+                    (pos.length !== 2 && pos.length !== 3) ||
+                    pos.some((n) => typeof n !== "number")) {
+                    throw new custom_errors_1.BadRequestError("Invalid Position");
+                }
+            }
+        }
+    }
+}
+function isGeometryDict(value) {
+    if (typeof value !== "object" || value === null) {
+        return false;
+    }
+    if (typeof value.type !== "string") {
+        return false;
+    }
+    switch (value.type) {
+        case "Point":
+        case "MultiPoint":
+        case "LineString":
+        case "MultiLineString":
+        case "Polygon":
+        case "MultiPolygon":
+            return "coordinates" in value;
+        default:
+            return false;
+    }
+}

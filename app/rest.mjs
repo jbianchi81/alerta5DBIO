@@ -22,6 +22,9 @@ const config = global.config // require('config');
 const CRUD = require('./CRUD')
 const crud = CRUD.CRUD // new CRUD.CRUD(global.pool,config)
 
+import AreaModule from './models/area.js'
+const Area = AreaModule.default
+
 const series2waterml2 = require('./series2waterml2')
 
 const accessors = require('./accessors')
@@ -90,7 +93,7 @@ app.use( bodyParser.json({limit: '50mb'}) );       // to support JSON-encoded bo
 app.use(express.urlencoded())
 app.use('/planillas',auth.isWriter);
 app.use('/groups',auth.isAdmin, groupRouterModule.default)
-app.use('/areal/area_groups',auth.isAdmin, areaGroupRouterModule.default)
+app.use('/obs/areal/groups',auth.isAuthenticated, areaGroupRouterModule.default)
 app.use(express.static('public', {
 	setHeaders: function (res, path, stat) {
 		res.set('x-timestamp', Date.now())
@@ -436,10 +439,10 @@ app.get('/obs/raster/cubos/:id',auth.isAuthenticated,getCubeSerie)
 app.get('/obs/raster/cubos/:id/observaciones',auth.isAuthenticated,getRastFromCube)
 
 app.get('/obs/areal/areas',auth.isPublic,getAreas)
-app.post('/obs/areal/areas',auth.isAdmin,upsertAreas)
+app.post('/obs/areal/areas',auth.isWriter,upsertAreas)
 app.get('/obs/areal/areas/:id',auth.isPublic,getArea)
-app.put('/obs/areal/areas/:id',auth.isAdmin,upsertArea)
-app.delete('/obs/areal/areas/:id',auth.isAdmin,deleteArea)
+app.put('/obs/areal/areas/:id',auth.isWriter,upsertArea)
+app.delete('/obs/areal/areas/:id',auth.isWriter,deleteArea)
 
 
 app.get('/obs/:tipo/series',auth.isPublic,getSeries)
@@ -2224,6 +2227,7 @@ function getAreas(req,res) {
   //~ .command('getAreas')
   //~ .description('Get areas from observations database')
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -2232,13 +2236,13 @@ function getAreas(req,res) {
 		return
 	}
 	if(!options.no_geom || options.pagination) {
-		var promise = crud.getAreasWithPagination(filter,options,req)
+		var promise = Area.listWithPagination(filter,options,req, user_id)
 		.then(result=>{
 			console.info("Results: " + result.areas.length)
 			send_output(options,result,res,"areas")
 		})
 	} else {
-		var promise = crud.getAreas(filter,options)
+		var promise = Area.list(filter, options, user_id)
 		.then(result=>{
 			console.info("Results: " + result.length)
 			send_output(options,result,res)
@@ -2251,6 +2255,7 @@ function getAreas(req,res) {
 
 function getArea(req,res) {
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -2262,7 +2267,7 @@ function getArea(req,res) {
 		res.status(400).send({message:"bad request: missing id"})
 		return
 	}
-	crud.getArea(filter.id,options)
+	Area.read(filter.id,options,user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(404).send({message:"area not found"})
@@ -2279,7 +2284,6 @@ function getArea(req,res) {
 function upsertAreas(req,res) { 
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2304,8 +2308,8 @@ function upsertAreas(req,res) {
 		res.status(400).send({message:"query error",error:"Atributo 'areas debe ser un array'"})
 		return
 	}
-	crud.upsertAreas(areas.map(v => {
-		var area = new CRUD.area(v)
+	Area.create(areas.map(v => {
+		var area = new Area(v)
 		return area
 	}), user_id)
 	.then(result=>{
@@ -2324,6 +2328,7 @@ function upsertAreas(req,res) {
 
 function upsertArea(req,res) {
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -2344,7 +2349,7 @@ function upsertArea(req,res) {
 	if(filter.id) {
 		area.id = filter.id
 	}
-	crud.upsertArea(new CRUD.area(area))
+	Area.createOne(new Area(area), user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(400).send({message:"bad request"})
@@ -2360,6 +2365,7 @@ function upsertArea(req,res) {
 
 function deleteArea(req,res) { 
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -2371,7 +2377,7 @@ function deleteArea(req,res) {
 		res.status(400).send({message:"query error",error:"Falta atributo 'id'"})
 		return
 	}
-	crud.deleteArea(filter.id)
+	Area.deleteOne(filter.id, user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(400).send({message:"bad request"})

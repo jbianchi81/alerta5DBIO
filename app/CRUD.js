@@ -938,7 +938,7 @@ internal.area = class extends baseModel  {
 	}
 }
 
-internal.area_group = require('./area_group').default
+internal.area_group = require('./routes/area_groups.js').default
 
 internal.escena = class extends baseModel  {
 	constructor() {

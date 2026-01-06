@@ -1,5 +1,18 @@
-import {Response} from 'express'
+import Express from 'express'
 import {DatabaseError} from 'pg'
+
+declare global {
+  namespace Express {
+    interface User {
+      id: number
+      name: string
+      role: string
+    }
+    interface Request {
+      user?: User
+    }
+  }
+}
 
 export class AuthError extends Error {
   constructor(message : string) {
@@ -29,32 +42,54 @@ export class ConflictError extends Error {
   }
 }
 
-export function handleCrudError(e : Error, res : Response) {
+export function handleCrudError(e : Error, res : Express.Response) {
   console.error(e)
   if(e instanceof AuthError) {
-    res.status(401).send({message:"Unauthorized", error: e.toString()})
+    return res.status(401).send({message:"Unauthorized", error: e.toString()})
   } else if(e instanceof NotFoundError) {
-    res.status(404).send({message:"Not found", error: e.toString()})
+    return res.status(404).send({message:"Not found", error: e.toString()})
   } else if (e instanceof BadRequestError) {
-    res.status(400).send({message:"Bad request", error: e.toString()})
+    return res.status(400).send({message:"Bad request", error: e.toString()})
   } else if (e instanceof ConflictError) {
-    res.status(409).send({message:"Conflict", error: e.toString()})
+    return res.status(409).send({message:"Conflict", error: e.toString()})
   } else if (e instanceof DatabaseError) {
     if(e.code) {
       switch (e.code) {
+        case "23502":
+          // not-null violation
+          return res.status(400).send({message: "Not-null constraint violation", error: e.toString()})
         case "23503":
           // foreign_key_violation
-          res.status(400).send({message:"Referenced row does not exist",error:e.toString()})
+          return res.status(409).send({message:"Foreign key constraint violation",error:e.toString()})
         case "23505":
           // unique_violation
-          res.status(409).send({message:"Duplicate key", error:e.toString()})
+          return res.status(409).send({message:"Duplicate key", error:e.toString()})
         default:
-          res.status(500).send({message:"Database error",error:e.toString()})
+          return res.status(500).send({message:"Database error",error:e.toString()})
       }
     } else {
-      res.status(500).send({message:"Database error",error:e.toString()})
+      return res.status(500).send({message:"Database error",error:e.toString()})
     }
   } else {
-    res.status(500).send({message:"Server error", error: e.toString()})
+    return res.status(500).send({message:"Server error", error: e.toString()})
   }
+}
+
+export function assertIsAdmin(req : Express.Request) {
+  if(!req) {
+    throw new AuthError("Unauthorized")
+  }
+  if(!req.user) {
+    throw new AuthError("Unauthorized")
+  }
+  if(!req.user.role) {
+    throw new AuthError("Unauthorized")
+  }
+  if(req.user.role != "admin") {
+    throw new AuthError("Unauthorized")
+  }
+}
+
+export function getUserId(req : Express.Request) {
+	return (req.user) ? req.user.id : undefined
 }

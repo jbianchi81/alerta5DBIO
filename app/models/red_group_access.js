@@ -77,9 +77,9 @@ class RedGroup {
         });
     }
     /** Read membership */
-    static read(group_id, red_id) {
+    static read(group_name, red_id) {
         return __awaiter(this, void 0, void 0, function* () {
-            const result = yield g.pool.query(`SELECT red_id, group_name, access FROM red_group_access WHERE group_name = $1 AND red_id = $2`, [group_id, red_id]);
+            const result = yield g.pool.query(`SELECT red_id, group_name, access FROM red_group_access WHERE group_name = $1 AND red_id = $2`, [group_name, red_id]);
             return result.rows[0] || null;
         });
     }
