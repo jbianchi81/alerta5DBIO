@@ -1028,6 +1028,7 @@ function deleteRed(req,res) {
 function getFuentes(req,res) {
 	// Get fuentes from observations database 
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -1035,7 +1036,7 @@ function getFuentes(req,res) {
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	}
-	crud.getFuentes(filter)
+	crud.getFuentes(filter, user_id)
 	.then(result=>{
 		console.log("Results: " + result.length)
 		send_output(options,result,res)
@@ -1047,8 +1048,7 @@ function getFuentes(req,res) {
   
 function upsertFuentes(req,res) {
 	try {
-		var filter = getFilter(req)
-		var options = getOptions(req)
+	    var user_id = getUserId(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
@@ -1071,6 +1071,9 @@ function upsertFuentes(req,res) {
 		res.status(400).send({message:"query error",error:"Atributo 'fuentes' debe ser un array'"})
 		return
 	}
+	for(const f of fuentes) {
+		f.owner_id = f.owner_id ?? user_id
+	}
 	crud.upsertFuentes(fuentes)
 	.then(result=>{
 		console.log("upserted " + result.length + " registros")
@@ -1085,6 +1088,7 @@ function upsertFuentes(req,res) {
 function getFuente(req,res) {
 	// Get fuentes from observations database 
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -1096,7 +1100,7 @@ function getFuente(req,res) {
 		res.status(400).send({"message":"missing id"})
 		return
 	}
-	crud.getFuente(filter.id,filter.public)
+	crud.getFuente(filter.id,filter.public,user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(404).send({message:"fuente not found"})
@@ -2468,6 +2472,7 @@ function getSerie(req,res) {
 
 function upsertSeries(req,res) { 
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req)
 		var options = getOptions(req)
 	} catch (e) {
@@ -2515,7 +2520,7 @@ function upsertSeries(req,res) {
 			return
 		}
 	}
-	crud.upsertSeries(series,options.series_metadata,undefined, undefined, undefined, undefined, options.update_obs, (req.user) ? req.user.id : undefined)
+	crud.upsertSeries(series,options.series_metadata,undefined, undefined, undefined, undefined, options.update_obs, user_id)
 	.then(result=>{
 		if(!result) {
 			console.error("nothing upserted")

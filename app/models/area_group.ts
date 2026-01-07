@@ -218,6 +218,21 @@ export class AreaGroup {
 		}
   }
 
+  static getUserAccessClause(user_id : number, ag_field="areas_pluvio.group_id",write=false) : string {
+    if(!user_id) {
+      return ""
+    }
+    return `LEFT JOIN user_area_access 
+      ON ${ag_field}=user_area_access.ag_id
+      AND (
+        (
+          user_area_access.user_id=${user_id} 
+          ${(write) ? `AND user_area_access.effective_access='write'` : ""}
+        )
+        OR user_area_access.ag_id IS NULL
+      )`
+  }
+
 
 
   // static async addMember(id : number, area : Area) {

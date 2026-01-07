@@ -216,14 +216,17 @@ internal.red = class extends baseModel  {
 		return deleted
 	}
 
-	static getUserAccessClause(user_id, red_id_field="redes.id") {
-		return (user_id) ? [
-			pasteIntoSQLQuery(` JOIN (SELECT user_red_access.red_id, user_red_access.effective_access FROM user_red_access WHERE user_id=$1) ura ON ${red_id_field}=ura.red_id `,[user_id]),
+	static getUserAccessClause(user_id, source_id_field="redes.id") {
+		if(!user_id) {
+			return [
+				"",
+				"'write'"
+			]
+		}
+		return [
+			pasteIntoSQLQuery(` JOIN (SELECT user_red_access.red_id, user_red_access.effective_access FROM user_red_access WHERE user_id=$1) ura ON ${source_id_field}=ura.red_id `,[user_id]),
 			"ura.effective_access"
-		] : [
-			"",
-			"'write'"
-		]
+		] 
 	}
 }
 
@@ -1433,6 +1436,7 @@ internal.fuente = class extends baseModel {
 					this.abstract = arg_arr[20]
 					this.source = arg_arr[21]
 					this.public = arg_arr[22]
+					this.owner_id = arg_arr[23]
 				} else {
 					// console.log("new fuente argument length 1 type not string")
 					this.id = arguments[0].id
@@ -1459,6 +1463,7 @@ internal.fuente = class extends baseModel {
 					this.source = arguments[0].source
 					this.public = arguments[0].public
 					this.constraints = arguments[0].constraints
+					this.owner_id = arguments[0].owner_id
 				}
 				break;
 			default:
@@ -1485,6 +1490,7 @@ internal.fuente = class extends baseModel {
 				this.abstract = arguments[19]
 				this.source = arguments[20]
 				this.public = arguments[21]
+				this.owner_id = arguments[22]
 				break;
 		}
 	}
@@ -1566,7 +1572,8 @@ internal.fuente = class extends baseModel {
 			abstract: this.abstract, // (this.abstract) ? this.abstract : null,
 			source: this.source, // (this.source) ? this.source : null,
 			public: this.public, // (this.public != null) ? Boolean(this.public) : null,
-			constraints: this.constraints // (this.constraints) ? this.constraints : null
+			constraints: this.constraints, // (this.constraints) ? this.constraints : null
+			owner_id: this.owner_id
 		}
 	}
 	static async read(filter={},options) {
@@ -1702,6 +1709,19 @@ internal.fuente = class extends baseModel {
 		const stmt = `DROP TABLE IF EXISTS ${schema_name}.${data_table}`
 		await global.pool.query(stmt)
 		return
+	}
+
+	static getUserAccessClause(user_id, source_id_field="fuentes.id") {
+		if(!user_id) {
+			return [
+				"",
+				"'write'"
+			]
+		}
+		return [
+			pasteIntoSQLQuery(` JOIN (SELECT user_fuentes_access.fuentes_id, user_fuentes_access.effective_access FROM user_fuentes_access WHERE user_id=$1) ura ON ${source_id_field}=ura.fuentes_id `,[user_id]),
+			"ura.effective_access"
+		]
 	}
 }
 
@@ -3413,11 +3433,16 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 			id_externo:{table: "estaciones"}
 		}}
 		table = "series_areal"
+
+		// ACCESS LEVEL
+		const [access_join, access_level] = internal.fuente.getUserAccessClause(user_id,"fuentes.id")
+
 		join_clauses = [...join_clauses,...[
 			`JOIN fuentes 
 				ON (fuentes.id=series.fuentes_id)`,
 			`JOIN areas_pluvio 
 				ON (areas_pluvio.unid=series.area_id)`,
+			access_join,
 			`LEFT JOIN estaciones 
 				ON (estaciones.unid = areas_pluvio.exutorio_id)`,
 			`LEFT JOIN redes
@@ -3521,11 +3546,16 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 			fuentes_id:{table: "series"}
 		}}
 		table = "series_rast"
+
+		// ACCESS LEVEL
+		const [access_join, access_level] = internal.fuente.getUserAccessClause(user_id,"fuentes.id")
+
 		join_clauses = [...join_clauses,...[
 			`JOIN fuentes 
 				ON (fuentes.id=series.fuentes_id)`,
 			`JOIN escenas 
-				ON (escenas.id=series.escena_id)`
+				ON (escenas.id=series.escena_id)`,
+			access_join
 		]]
 		if(options.no_metadata) {
 			select_fields = [...select_fields,...[
@@ -7459,20 +7489,31 @@ internal.CRUD = class {
 			return true
 		}
 		if(series_id) {
-			if(tipo.toLowerCase() != "puntual") {
-				// areal y raster no implementado
-				return true
-			}
-			var query = pasteIntoSQLQuery(`SELECT EXISTS (
-				SELECT 1
-					FROM user_red_access 
-					JOIN (SELECT unid,tabla FROM estaciones) AS e  
-					ON e.tabla=user_red_access.tabla_id
-					JOIN (SELECT estacion_id,id from series WHERE id=$1) AS s
-					ON s.estacion_id=e.unid
-					WHERE user_id=$2 
-					AND max_priority>=$3
-			)`,[series_id,user_id,max_priority])
+			if(tipo.toLowerCase() == "puntual") {
+		
+				var query = pasteIntoSQLQuery(`SELECT EXISTS (
+					SELECT 1
+						FROM user_red_access 
+						JOIN (SELECT unid,tabla FROM estaciones) AS e  
+						ON e.tabla=user_red_access.tabla_id
+						JOIN (SELECT estacion_id,id from series WHERE id=$1) AS s
+						ON s.estacion_id=e.unid
+						WHERE user_id=$2 
+						AND max_priority>=$3
+				)`,[series_id,user_id,max_priority])
+			} else {
+				const series_table = (tipo=="areal") ? "series_areal" : "series_rast"
+				var query = pasteIntoSQLQuery(`SELECT EXISTS (
+					SELECT 1
+						FROM user_fuentes_access 
+						JOIN (SELECT fuentes.id FROM fuentes) AS f  
+						ON f.id=user_fuentes_access.fuentes_id
+						JOIN (SELECT id,fuentes_id FROM ${series_table} WHERE id=$1) AS s
+						ON s.fuentes_id=f.id
+						WHERE user_id=$2 
+						AND max_priority>=$3
+				)`,[series_id,user_id,max_priority])
+			}	
 		} else if(estacion_id) {
 			var query = pasteIntoSQLQuery(`SELECT EXISTS (
 				SELECT 1
@@ -8913,8 +8954,8 @@ internal.CRUD = class {
 
 	static upsertFuenteQuery(fuente) {
 		var query = "\
-			INSERT INTO fuentes (id, nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, def_extent, date_column, def_pixeltype, abstract, source) \
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, st_setsrid(st_geomfromtext($18),4326), $19, $20, $21, $22)\
+			INSERT INTO fuentes (id, nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, def_extent, date_column, def_pixeltype, abstract, source, owner_id) \
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, st_setsrid(st_geomfromtext($18),4326), $19, $20, $21, $22, $23)\
 			ON CONFLICT (id) DO UPDATE SET \
 				id=excluded.id, \
 				nombre=excluded.nombre, \
@@ -8937,9 +8978,10 @@ internal.CRUD = class {
 				date_column=excluded.date_column,\
 				def_pixeltype=excluded.def_pixeltype,\
 				abstract=excluded.abstract,\
-				source=excluded.source\
-			RETURNING id,nombre,data_table,data_column,tipo,def_proc_id,def_dt,hora_corte,def_unit_id,def_var_id,fd_column,mad_table,scale_factor,data_offset,def_pixel_height,def_pixel_width,def_srid,ST_AsGeoJson(def_extent)::json AS def_extent,date_column,def_pixeltype,abstract,source,public"
-		var params = [fuente.id, fuente.nombre, fuente.data_table, fuente.data_column, fuente.tipo, fuente.def_proc_id, fuente.def_dt, fuente.hora_corte, fuente.def_unit_id, fuente.def_var_id, fuente.fd_column, fuente.mad_table, fuente.scale_factor, fuente.data_offset, fuente.def_pixel_height, fuente.def_pixel_width, fuente.def_srid, (fuente.def_extent) ? fuente.def_extent.toString() : null, fuente.date_column, fuente.def_pixeltype, fuente.abstract, fuente.source]
+				source=excluded.source,\
+				owner_id=excluded.owner_id\
+			RETURNING id,nombre,data_table,data_column,tipo,def_proc_id,def_dt,hora_corte,def_unit_id,def_var_id,fd_column,mad_table,scale_factor,data_offset,def_pixel_height,def_pixel_width,def_srid,ST_AsGeoJson(def_extent)::json AS def_extent,date_column,def_pixeltype,abstract,source,public,owner_id"
+		var params = [fuente.id, fuente.nombre, fuente.data_table, fuente.data_column, fuente.tipo, fuente.def_proc_id, fuente.def_dt, fuente.hora_corte, fuente.def_unit_id, fuente.def_var_id, fuente.fd_column, fuente.mad_table, fuente.scale_factor, fuente.data_offset, fuente.def_pixel_height, fuente.def_pixel_width, fuente.def_srid, (fuente.def_extent) ? fuente.def_extent.toString() : null, fuente.date_column, fuente.def_pixeltype, fuente.abstract, fuente.source, fuente.owner_id]
 		return internal.utils.pasteIntoSQLQuery(query,params)
 	}
 	
@@ -8970,20 +9012,43 @@ internal.CRUD = class {
 		return new internal.fuente(result.rows[0])
 	}
 
-	static async getFuente(id,isPublic) {
-		const query = "\
-		SELECT id, nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, st_asgeojson(def_extent)::json def_extent, date_column, def_pixeltype, abstract, source,public\
-		FROM fuentes\
-		WHERE id=$1"
-		// console.log(query)
+	static async getFuente(id,isPublic,user_id) {
+		const access_join = (user_id) ? `JOIN user_fuentes_access ON (user_fuentes_access.fuentes_id=fuentes.id AND user_id=${user_id})` : ""
+		const query = `SELECT 
+			fuentes.id, 
+			fuentes.nombre, 
+			fuentes.data_table, 
+			fuentes.data_column, 
+			fuentes.tipo, 
+			fuentes.def_proc_id, 
+			fuentes.def_dt, 
+			fuentes.hora_corte, 
+			fuentes.def_unit_id, 
+			fuentes.def_var_id, 
+			fuentes.fd_column, 
+			fuentes.mad_table, 
+			fuentes.scale_factor, 
+			fuentes.data_offset, 
+			fuentes.def_pixel_height, 
+			fuentes.def_pixel_width, 
+			fuentes.def_srid, 
+			st_asgeojson(fuentes.def_extent)::json def_extent, 
+			fuentes.date_column, 
+			fuentes.def_pixeltype, 
+			fuentes.abstract, 
+			fuentes.source,
+			fuentes.public,
+			fuentes.owner_id
+		FROM fuentes
+		${access_join}
+		WHERE fuentes.id=$1`
 		var result = await global.pool.query(query,[id])
 		if(result.rows.length<=0) {
-			console.log("fuentes no encontrado")
-			return
+			throw new NotFoundError("fuentes no encontrado")
 		}
 		if (isPublic) {
 			if (!result.rows[0].public) {
-				throw("El usuario no posee autorización para acceder a esta fuente")
+				throw new AuthError("El usuario no posee autorización para acceder a esta fuente")
 			}
 		}
 		// nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, def_extent, date_column, def_pixeltype, abstract, source
@@ -8994,7 +9059,7 @@ internal.CRUD = class {
 		return fuente
 	}
 	
-	static async getFuentes(filter) {
+	static async getFuentes(filter, user_id) {
 		if(filter && filter.geom) {
 			filter.def_extent = filter.geom
 		}
@@ -9004,29 +9069,75 @@ internal.CRUD = class {
 			return Promise.reject(new Error("invalid filter value"))
 		}
 		console.log("filter_string:" + filter_string)
-		var query = "SELECT id, nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, st_asgeojson(def_extent)::json def_extent, date_column, def_pixeltype, abstract, source, public\
-		FROM fuentes \
-		WHERE 1=1 " + filter_string + " ORDER BY id"
+		const access_join = (user_id) ? `JOIN user_fuentes_access ON (user_fuentes_access.fuentes_id=fuentes.id AND user_id=${user_id})` : ""
 		if(filter.is_table) {
-			query = "SELECT id, nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, st_asgeojson(def_extent)::json def_extent, date_column, def_pixeltype, abstract, source, public\
-			FROM fuentes, pg_catalog.pg_tables\
-			WHERE fuentes.data_table=pg_catalog.pg_tables.tablename " + filter_string + " ORDER BY id"
+			query = `SELECT 
+				fuentes.id, 
+				fuentes.nombre, 
+				fuentes.data_table,
+				fuentes.data_column, 
+				fuentes.tipo, 
+				fuentes.def_proc_id, 
+				fuentes.def_dt, 
+				fuentes.hora_corte, 
+				fuentes.def_unit_id, 
+				fuentes.def_var_id, 
+				fuentes.fd_column, 
+				fuentes.mad_table, 
+				fuentes.scale_factor, 
+				fuentes.data_offset, 
+				fuentes.def_pixel_height, 
+				fuentes.def_pixel_width, 
+				fuentes.def_srid, 
+				st_asgeojson(fuentes.def_extent)::json def_extent, 
+				fuentes.date_column, 
+				fuentes.def_pixeltype, 
+				fuentes.abstract, 
+				fuentes.source, 
+				fuentes.public,
+				fuentes.owner_id
+			FROM fuentes
+			JOIN pg_catalog.pg_tables ON fuentes.data_table=pg_catalog.pg_tables.tablename
+			${access_join}
+			${filter_string}
+			ORDER BY id`
+		} else {
+		var query = `SELECT 
+				fuentes.id, 
+				fuentes.nombre, 
+				fuentes.data_table, 
+				fuentes.data_column, 
+				fuentes.tipo, 
+				fuentes.def_proc_id, 
+				fuentes.def_dt, 
+				fuentes.hora_corte, 
+				fuentes.def_unit_id, 
+				fuentes.def_var_id, 
+				fuentes.fd_column, 
+				fuentes.mad_table, 
+				fuentes.scale_factor, 
+				fuentes.data_offset, 
+				fuentes.def_pixel_height, 
+				fuentes.def_pixel_width, 
+				fuentes.def_srid, 
+				st_asgeojson(fuentes.def_extent)::json def_extent, 
+				fuentes.date_column, 
+				fuentes.def_pixeltype, 
+				fuentes.abstract, 
+				fuentes.source, 
+				fuentes.public,
+				fuentes.owner_id
+			FROM fuentes
+			${access_join}
+			WHERE 1=1 ${filter_string} ORDER BY id`
 		}
-		return global.pool.query(query)
-		.then(res=>{
-			//~ console.log(res)
-			var fuentes = res.rows.map(row=>{
-				const fuente = new internal.fuente(row) //(row.id, row.nombre, row.data_table, row.data_column, row.tipo, row.def_proc_id, row.def_dt, row.hora_corte, row.def_unit_id, row.def_var_id, row.fd_column, row.mad_table, row.scale_factor, row.data_offset, row.def_pixel_height, row.def_pixel_width, row.def_srid, row.def_extent, row.date_column, row.def_pixeltype, row.abstract, row.source)
-				fuente.id = row.id
-				return fuente
-				console.log(fuente.toString())
-			})
-			return fuentes
+		const res = await global.pool.query(query)
+		var fuentes = res.rows.map(row=>{
+			const fuente = new internal.fuente(row)
+			fuente.id = row.id
+			return fuente
 		})
-		.catch(e=>{
-			console.error(e)
-			return null
-		})
+		return fuentes
 	}
 	
 	static async getFuentesAll(filter={}, user_id) {
@@ -9077,6 +9188,10 @@ internal.CRUD = class {
 		if(serie.id) { // if id is given, looks for a match
 			const serie_match = await internal.serie.read({tipo:serie.tipo,id:serie.id})
 			if(serie_match) {  // if exists, updates
+				const has_access = await this.hasAccess(undefined, undefined, user_id, true, serie_match.id, serie_match.tipo)
+				if(!has_access) {
+					throw new AuthError("Usuario no tiene acceso de escritura a la serie especificada")
+				}	
 				return serie_match.update(serie)
 			} else {
 				console.log("serie " + serie.tipo + " " + serie.id + " not found. Creating")
@@ -9290,6 +9405,12 @@ internal.CRUD = class {
 						serie_props.fuente = new internal.fuente(result.rows[0])
 					} else {				
 						serie_props["fuente"] = (serie.fuente.id != null) ? await internal.fuente.read({id:serie.fuente.id}) : {}
+						if(user_id && serie.fuente.id) {
+							const has_access = await Fuente.hasAccess(user_id, serie.fuente.id, true)
+							if(!has_access) {
+								throw AuthError("El usuario no tiene acceso de escritura para la fuente indicada")
+							}
+						}
 					}
 				} 
 				if (all || upsert_estacion) {
@@ -9305,6 +9426,12 @@ internal.CRUD = class {
 					} else if (serie.estacion instanceof internal.area) {
 						//~ console.log("estacion is internal.area")
 						// promises.push(this.upsertArea(serie.estacion))
+						if(user_id && serie.estacion.group_id) {
+							const has_access = await AreaGroup.hasAccess(user_id, serie.estacion.group_id, true)
+							if(!has_access) {
+								throw AuthError("El usuario no tiene acceso de escritura para el grupo de áreas indicado")
+							}
+						}
 						var result = await client.query(this.upsertAreaQuery(serie.estacion))
 						serie_props.estacion = new internal.area(result.rows[0])
 					} else if (serie.estacion instanceof internal.escena) {
@@ -9342,6 +9469,12 @@ internal.CRUD = class {
 						if(!serie_props.estacion) {
 							console.error("area " + serie.estacion.id + " not found. Skipping serie upsert")
 							continue
+						}
+						if(user_id && serie_props.estacion.group_id) {
+							const has_access = await AreaGroup.hasAccess(user_id, serie.estacion.group_id, true)
+							if(!has_access) {
+								throw AuthError("El usuario no tiene acceso de escritura para el grupo de áreas indicado")
+							}
 						}
 					} else if (serie.estacion instanceof internal.escena) {
 						serie_props.estacion = await internal.escena.read({id:serie.estacion.id})
@@ -9547,24 +9680,64 @@ internal.CRUD = class {
 			return []
 		}
 		var ids = series.map(s=>s.id)
-		if(user_id && series_table == "series") {
-			const [access_join, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
-			var result = await global.pool.query(`
-				DELETE FROM series
-				USING (
-					SELECT 
-						estaciones.unid,
-						redes.id as red_id,
-						redes.nombre,
-						redes.tabla_id
-					FROM estaciones
-					JOIN redes ON redes.tabla_id=estaciones.tabla
-					${access_join}
-					WHERE ${access_level}='write'
-				) e
-				WHERE series.estacion_id=e.unid
-				AND series.id IN (${ids.join(",")})
-				RETURNING *`)
+		if(user_id) {
+			if(series_table == "series") {
+				const [access_join, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
+				var result = await global.pool.query(`
+					DELETE FROM series
+					USING (
+						SELECT 
+							estaciones.unid,
+							redes.id as red_id,
+							redes.nombre,
+							redes.tabla_id
+						FROM estaciones
+						JOIN redes ON redes.tabla_id=estaciones.tabla
+						${access_join}
+						WHERE ${access_level}='write'
+					) e
+					WHERE series.estacion_id=e.unid
+					AND series.id IN (${ids.join(",")})
+					RETURNING *`)
+			} else if(series_table == "series_areal") {
+				const [access_join, access_level] = internal.fuente.getUserAccessClause(user_id, "fuentes.id")
+				const area_access_join = AreaGroup.getUserAccessClause(user_id, "areas_pluvio.group_id", true)
+				var result = await global.pool.query(`
+					DELETE FROM series_areal
+					USING (
+						SELECT
+							fuentes.id
+							FROM fuentes
+							${access_join}
+							WHERE ${access_level}='write'
+					) f,
+					(
+						SELECT 
+							areas_pluvio.unid,
+							user_area_access.ag_id					
+						FROM areas_pluvio
+						${area_access_join}
+					) a
+					WHERE f.id=series_areal.fuentes_id
+					AND series_areal.area_id=a.unid
+					AND series_areal.id IN (${ids.join(",")})
+					RETURNING *`)
+			} else {
+				// rast
+				const [access_join, access_level] = internal.fuente.getUserAccessClause(user_id, "fuentes.id")
+				var result = await global.pool.query(`
+					DELETE FROM series_rast
+					USING (
+						SELECT
+							fuentes.id
+							FROM fuentes
+							${access_join}
+							WHERE ${access_level}='write'
+					) f
+					WHERE f.id=series_rast.fuentes_id
+					AND series_rast.id IN (${ids.join(",")})
+					RETURNING *`)
+			}
 		} else {
 			var result = await global.pool.query(`
 				DELETE FROM ${series_table}
@@ -9642,9 +9815,26 @@ internal.CRUD = class {
 			release_client = true
 		}
 		if(tipo == "areal") {
-			var result = await client.query("\
-			SELECT series_areal.id,series_areal.area_id,series_areal.var_id,series_areal.proc_id,series_areal.unit_id,series_areal.fuentes_id,fuentes.public,series_areal_date_range.timestart,series_areal_date_range.timeend,series_areal_date_range.count FROM series_areal join fuentes on (series_areal.fuentes_id=fuentes.id) left join series_areal_date_range on (series_areal.id=series_areal_date_range.series_id)\
-			WHERE series_areal.id=$1",[id])
+			const [access_join, access_level] = internal.fuente.getUserAccessClause(user_id, "fuentes.id")
+			const area_access_join = AreaGroup.getUserAccessClause(user_id, "areas_pluvio.group_id")
+			var result = await client.query(`SELECT 
+				series_areal.id,
+				series_areal.area_id,
+				series_areal.var_id,
+				series_areal.proc_id,
+				series_areal.unit_id,
+				series_areal.fuentes_id,
+				fuentes.public,
+				series_areal_date_range.timestart,
+				series_areal_date_range.timeend,
+				series_areal_date_range.count 
+				FROM series_areal 
+				JOIN fuentes ON (series_areal.fuentes_id=fuentes.id) 
+				JOIN areas_pluvio ON (series_areal.area_id=areas_pluvio.unid)
+				${access_join}
+				${area_access_join}
+				LEFT JOIN series_areal_date_range ON (series_areal.id=series_areal_date_range.series_id)
+			WHERE series_areal.id=$1`,[id])
 			if(result.rows.length<=0) {
 				console.log("crud.getSerie: serie no encontrada")
 				if(release_client) {
@@ -9704,9 +9894,25 @@ internal.CRUD = class {
 			}
 			return serie
 		} else if (tipo=="rast" || tipo=="raster") {
-			var result = await client.query("\
-			SELECT series_rast.id,series_rast.escena_id,series_rast.var_id,series_rast.proc_id,series_rast.unit_id,series_rast.fuentes_id,fuentes.public,series_rast_date_range.timestart,series_rast_date_range.timeend,series_rast_date_range.count FROM series_rast JOIN fuentes ON (series_rast.fuentes_id=fuentes.id) left join series_rast_date_range on (series_rast.id=series_rast_date_range.series_id)\
-			WHERE series_rast.id=$1",[id])
+			const [access_join, access_level] = internal.fuente.getUserAccessClause(user_id, "fuentes.id")
+			var result = await client.query(`SELECT
+					series_rast.id,
+					series_rast.escena_id,
+					series_rast.var_id,
+					series_rast.proc_id,
+					series_rast.unit_id,
+					series_rast.fuentes_id,
+					fuentes.public,
+					series_rast_date_range.timestart,
+					series_rast_date_range.timeend,
+					series_rast_date_range.count 
+				FROM series_rast 
+				JOIN fuentes 
+					ON (series_rast.fuentes_id=fuentes.id) 
+				${access_join}
+				LEFT JOIN series_rast_date_range
+					ON (series_rast.id=series_rast_date_range.series_id)
+				WHERE series_rast.id=$1`,[id])
 			if(result.rows.length<=0) {
 				console.log("serie no encontrada")
 				if(release_client) {
