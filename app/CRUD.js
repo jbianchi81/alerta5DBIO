@@ -46,7 +46,9 @@ const { options } = require('marked');
 
 const {AuthError, NotFoundError, BadRequestError, ConflictError} = require('./custom_errors.js');
 
-const {AreaGroup} = require('./models/area_group.js')
+const  AreaGroup = require('./models/area_group.js').default
+const Area = require('./models/area.js').default
+const Fuente = require('./models/fuente.js').default
 
 const apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
 var schemas = apidoc.components.schemas
@@ -7513,6 +7515,12 @@ internal.CRUD = class {
 						WHERE user_id=$2 
 						AND max_priority>=$3
 				)`,[series_id,user_id,max_priority])
+				if(series_table == "series_areal") {
+					const has_access_areal = await Area.hasAccessSerie(user_id, series_id, write)
+					if(!has_access_areal) {
+						return false
+					}
+				} 
 			}	
 		} else if(estacion_id) {
 			var query = pasteIntoSQLQuery(`SELECT EXISTS (
@@ -9173,16 +9181,32 @@ internal.CRUD = class {
 			serie.tipo = "puntual"
 		}
 		serie.tipo = serie.tipo.toLowerCase()
-		if(serie.tipo == "puntual" && user_id) {
+		if(user_id) {
 			if(!serie.estacion) {
 				throw new BadRequestError("Falta estacion")
 			}
 			if(!serie.estacion.id) {
 				throw new BadRequestError("Falta estacion.id")
 			}
-			const has_access = await this.hasAccess(serie.estacion.id, undefined, user_id, true)
-			if(!has_access) {
-				throw new AuthError("Usuario no tiene acceso de escritura a la red especificada")
+			if(serie.tipo == "puntual") {
+				const has_access = await this.hasAccess(serie.estacion.id, undefined, user_id, true)
+				if(!has_access) {
+					throw new AuthError("Usuario no tiene acceso de escritura a la red especificada")
+				}
+			} else {
+				if(!serie.fuente || !serie.fuente.id) {
+					throw new BadRequestError("Falta fuente.id")
+				}
+				const has_access_fuente = await Fuente.hasAccess(user_id, serie.fuente.id, true)
+				if(!has_access_fuente) {
+					throw new AuthError("Usuario no tiene acceso de escritura a la fuente especificada")
+				}
+				if(serie.tipo == "areal") {
+					const has_access = await Area.hasAccess(user_id, serie.estacion.id, true)
+					if(!has_access) {
+						throw new AuthError("Usuario no tiene acceso de escritura al área especificada")
+					}
+				}
 			}
 		}
 		if(serie.id) { // if id is given, looks for a match
@@ -9613,6 +9637,17 @@ internal.CRUD = class {
 	}
 	
 	static async deleteSerie(tipo,id,user_id) {
+		if(user_id) {
+			const serie = await this.getSerie(tipo,id,undefined,undefined,undefined,undefined,undefined,undefined,user_id)
+			if(!serie) {
+				console.log("id not found")
+				return
+			}
+			const has_access = await this.hasAccess(undefined, undefined, user_id, true, id, tipo)
+			if(!has_access) {
+				throw new AuthError("El usuario no tiene permiso de escritura sobre la serie tipo=" + tipo + ", id=" + id)
+			}
+		}
 		if(tipo == "areal") {
 			return global.pool.query("\
 				DELETE FROM series_areal\
@@ -9644,32 +9679,16 @@ internal.CRUD = class {
 				throw(e)
 			})
 		} else {
-			if(user_id) {
-				const serie = await this.getSerie("puntual",id,undefined,undefined,undefined,undefined,undefined,undefined,user_id)
-				if(!serie) {
-					console.log("id not found")
-					return
-				}
-			}
-			const has_access = await this.hasAccess(undefined, undefined, user_id, true, id, "puntual")
-			if(!has_access) {
-				throw new AuthError("El usuario no tiene permiso de escritura sobre la serie tipo=puntual, id=" + id)
-			}
-			return global.pool.query(`
+			const result = await global.pool.query(`
 				DELETE FROM series
 				WHERE id=$1
-				RETURNING 'puntual' AS tipo,*`,[id]
-			).then(result=>{
-				if(result.rows.length<=0) {
-					console.log("id not found")
-					return
-				}
-				console.log("Deleted series.id=" + result.rows[0].id)
-				return new internal.serie(result.rows[0])
-			}).catch(e=>{
-				throw(e)
-				//~ console.error(e)
-			})
+				RETURNING 'puntual' AS tipo,*`,[id])
+			if(result.rows.length<=0) {
+				console.log("id not found")
+				return
+			}
+			console.log("Deleted series.id=" + result.rows[0].id)
+			return new internal.serie(result.rows[0])
 		}
 	}
 	

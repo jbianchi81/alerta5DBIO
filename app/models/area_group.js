@@ -13,7 +13,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AreaGroup = void 0;
 const setGlobal_1 = __importDefault(require("a5base/setGlobal"));
 const custom_errors_1 = require("../custom_errors");
 const utils2_1 = require("../utils2");
@@ -25,8 +24,8 @@ class AreaGroup {
         this.owner_id = params.owner_id;
         this.areas = params.areas;
     }
-    static list(filter = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    static list() {
+        return __awaiter(this, arguments, void 0, function* (filter = {}) {
             let result;
             if (filter.id) {
                 const q = `SELECT id,name,owner_id FROM area_groups WHERE id=$1`;
@@ -121,8 +120,8 @@ class AreaGroup {
         });
     }
     static grantAccess(id, user_groups) {
-        var _a;
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             // Check all user_group names exist
             const group_names = user_groups.map(ug => ug.name).filter(ug => ug);
             if (group_names.length === 0)
@@ -188,8 +187,8 @@ class AreaGroup {
             return results.rows[0] || null;
         });
     }
-    static hasAccess(user_id, ag_id, write = false) {
-        return __awaiter(this, void 0, void 0, function* () {
+    static hasAccess(user_id_1, ag_id_1) {
+        return __awaiter(this, arguments, void 0, function* (user_id, ag_id, write = false) {
             var q = `SELECT EXISTS (
       SELECT 1 
       FROM user_area_access 
@@ -220,4 +219,4 @@ class AreaGroup {
       )`;
     }
 }
-exports.AreaGroup = AreaGroup;
+exports.default = AreaGroup;

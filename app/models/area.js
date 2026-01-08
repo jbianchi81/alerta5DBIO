@@ -20,7 +20,7 @@ const custom_errors_1 = require("../custom_errors");
 const utils2_1 = require("../utils2");
 // import { Geometry as GeomType } from '../geometry_types'
 const geometry_1 = require("a5base/geometry");
-const area_group_1 = require("./area_group");
+const area_group_1 = __importDefault(require("./area_group"));
 const g = (0, setGlobal_1.default)();
 const node_querystring_1 = require("node:querystring");
 class Area {
@@ -64,7 +64,7 @@ class Area {
                 area.geom = new geometry_1.Geometry("Polygon", area.geom.coordinates[0]);
             }
             if (area.group_id && user_id) {
-                const has_access = yield area_group_1.AreaGroup.hasAccess(user_id, area.group_id, true);
+                const has_access = yield area_group_1.default.hasAccess(user_id, area.group_id, true);
                 if (!has_access) {
                     throw new custom_errors_1.AuthError("El usuario no tiene acceso de escritura para el grupo de áreas indicado");
                 }
@@ -412,6 +412,65 @@ class Area {
                     is_last_page: false,
                     next_page: next_page_url
                 };
+            }
+        });
+    }
+    static hasAccess(user_id_1, area_id_1) {
+        return __awaiter(this, arguments, void 0, function* (user_id, area_id, write = false) {
+            const max_priority = (write) ? 2 : 1;
+            var query = (0, utils2_1.pasteIntoSQLQuery)(`SELECT EXISTS (
+			SELECT 1
+				FROM areas_pluvio
+			WHERE unid=$3
+			AND group_id IS NULL 
+			UNION ALL
+			SELECT 1
+				FROM areas_pluvio
+				JOIN user_area_access 
+				ON 
+					areas_pluvio.group_id=user_area_access.ag_id 
+					AND user_id=$1
+					AND max_priority>=$2				
+				WHERE areas_pluvio.unid=$3
+		)`, [user_id, max_priority, area_id]);
+            const result = yield g.pool.query(query);
+            if (result.rows.length && result.rows[0].exists) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        });
+    }
+    static hasAccessSerie(user_id_1, series_id_1) {
+        return __awaiter(this, arguments, void 0, function* (user_id, series_id, write = false) {
+            const max_priority = (write) ? 2 : 1;
+            var query = (0, utils2_1.pasteIntoSQLQuery)(`WITH s AS (
+				SELECT area_id 
+				FROM series_areal 
+				WHERE id=$1
+			)
+			SELECT EXISTS (
+			SELECT 1
+				FROM areas_pluvio
+				JOIN s ON s.area_id=areas_pluvio.unid
+			WHERE group_id IS NULL 
+			UNION ALL
+			SELECT 1
+				FROM areas_pluvio
+				JOIN s ON s.area_id=areas_pluvio.unid
+				JOIN user_area_access 
+				ON 
+					areas_pluvio.group_id=user_area_access.ag_id 
+					AND user_id=$2
+					AND max_priority>=$3
+		)`, [series_id, user_id, max_priority]);
+            const result = yield g.pool.query(query);
+            if (result.rows.length && result.rows[0].exists) {
+                return true;
+            }
+            else {
+                return false;
             }
         });
     }

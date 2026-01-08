@@ -32,7 +32,7 @@ export interface AccessParams {
   access : "write" | "read"
 }
 
-export class AreaGroup {
+export default class AreaGroup {
   
   id : number
   name : string

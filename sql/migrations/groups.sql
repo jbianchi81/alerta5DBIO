@@ -106,6 +106,7 @@ SELECT
     ag_id,
     ag_name,
     ag_owner_id,
+    MAX(priority) as max_priority,
     -- effective access is the MAX priority converted back to ENUM
     CASE MAX(priority)
         WHEN 2 THEN 'write'

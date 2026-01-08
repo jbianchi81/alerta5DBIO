@@ -8,7 +8,7 @@ import { control_filter2, pasteIntoSQLQuery, QueryFilter } from '../utils2'
 // import { Geometry as GeomType } from '../geometry_types'
 import { Geometry, GeometryDict } from 'a5base/geometry'
 import { Position } from 'geojson'
-import { AreaGroup } from './area_group'
+import AreaGroup from './area_group'
 import { Request } from 'express'
 const g = setGlobal()
 import { stringify } from 'node:querystring';
@@ -430,14 +430,70 @@ export default class Area {
 			const offset = filter.offset + filter.limit
 			const query_arguments = serializeFilter({...filter, offset: offset}, options)
 			var next_page_url = (req) ? `${req.protocol}://${req.get('host')}${req.path}?${stringify(query_arguments)}` : `obs/areal/areas?${stringify(query_arguments)}`
-				return {
-					areas: result,
-					is_last_page: false,
-					next_page: next_page_url
-				}
+			return {
+				areas: result,
+				is_last_page: false,
+				next_page: next_page_url
 			}
-	
 		}
+	}
+
+	static async hasAccess(user_id : number,area_id : number,write : boolean=false) {
+		const max_priority = (write) ? 2 : 1
+		var query = pasteIntoSQLQuery(`SELECT EXISTS (
+			SELECT 1
+				FROM areas_pluvio
+			WHERE unid=$3
+			AND group_id IS NULL 
+			UNION ALL
+			SELECT 1
+				FROM areas_pluvio
+				JOIN user_area_access 
+				ON 
+					areas_pluvio.group_id=user_area_access.ag_id 
+					AND user_id=$1
+					AND max_priority>=$2				
+				WHERE areas_pluvio.unid=$3
+		)`,[user_id,max_priority,area_id])
+		const result = await (g.pool as any).query(query)
+		if(result.rows.length && result.rows[0].exists) {
+			return true
+		} else {
+			return false
+		}
+	}
+
+	static async hasAccessSerie(user_id : number,series_id : number,write : boolean=false) {
+		const max_priority = (write) ? 2 : 1
+		var query = pasteIntoSQLQuery(`WITH s AS (
+				SELECT area_id 
+				FROM series_areal 
+				WHERE id=$1
+			)
+			SELECT EXISTS (
+			SELECT 1
+				FROM areas_pluvio
+				JOIN s ON s.area_id=areas_pluvio.unid
+			WHERE group_id IS NULL 
+			UNION ALL
+			SELECT 1
+				FROM areas_pluvio
+				JOIN s ON s.area_id=areas_pluvio.unid
+				JOIN user_area_access 
+				ON 
+					areas_pluvio.group_id=user_area_access.ag_id 
+					AND user_id=$2
+					AND max_priority>=$3
+		)`,[series_id,user_id,max_priority])
+		const result = await (g.pool as any).query(query)
+		if(result.rows.length && result.rows[0].exists) {
+			return true
+		} else {
+			return false
+		}
+	}
+
+
 }
 
 function serializeFilter(filter: AreasFilter, options : {no_geom?: boolean}): Record<string, string> {
