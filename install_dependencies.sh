@@ -5,4 +5,4 @@ npm install session-file-store commander@14.0.1 formidable@1.2.2 passport-local 
 npm install @turf/helpers @turf/bbox-polygon @turf/boolean-point-in-polygon xmlbuilder2 moment-timezone 
 npm install geo-tz @lhncbc/ucum-lhc JSONStream jsonschema @turf/points-within-polygon @turf/turf passport
 npm install marked yaml colors csv-string tmp wkx cors duckdb-lambda-x86 luxon
-npm install geojson-validation csv-parse csv-parser jsdom node-fetch@2.6.11 a5base@1.0.7 supertest
+npm install geojson-validation csv-parse csv-parser jsdom node-fetch@2.6.11 a5base@1.0.8 supertest

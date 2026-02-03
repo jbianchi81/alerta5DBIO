@@ -179,6 +179,7 @@ app.post('/getSeriesBySiteAndVar',auth.isPublic, getSeriesBySiteAndVar)
 //~ app.get('/secciones',seccionesView)
 app.get('/secciones',auth.isPublicView, (req,res)=>{
 	var params = (req.query) ? req.query : {}
+	params = (res.locals) ? {...params, ...res.locals} : params
 	if(req.user) {
 		if(req.user.username) {
 			params.loggedAs = req.user.username
@@ -208,6 +209,7 @@ app.get('/secciones',auth.isPublicView, (req,res)=>{
 // })
 app.get('/metadatos',auth.isPublicView,(req,res)=>{
 	var params = (req.query) ? req.query : {}
+	params = (res.locals) ? {...params, ...res.locals} : params
 	if(req.user) {
 		if(req.user.username) {
 			params.loggedAs = req.user.username
@@ -276,6 +278,7 @@ app.post('/postTelex',auth.isWriter,postTelex)
 app.get('/postTelex',auth.isWriterView,postTelexForm)
 app.get('/cargarPlanillas',auth.isWriterView,(req,res)=> {
 	var params = (req.query) ? req.query : {}
+	params = (res.locals) ? {...params, ...res.locals} : params
 	if(req.user) {
 		if(req.user.username) {
 			params.loggedAs = req.user.username
@@ -870,7 +873,7 @@ function getRedes(req,res) {
 	// Get redes from observations database 
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -923,7 +926,7 @@ function getRed(req,res) {
   
 function upsertRedes(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -960,7 +963,7 @@ function upsertRedes(req,res) {
 
 async function updateRed(req, res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -998,7 +1001,7 @@ async function updateRed(req, res) {
 
 function deleteRed(req,res) { 
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1029,7 +1032,7 @@ function getFuentes(req,res) {
 	// Get fuentes from observations database 
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1089,7 +1092,7 @@ function getFuente(req,res) {
 	// Get fuentes from observations database 
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1116,7 +1119,7 @@ function getFuente(req,res) {
 
 async function updateFuente(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1158,7 +1161,7 @@ async function updateFuente(req,res) {
 
 function deleteFuente(req,res) { 
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1210,7 +1213,7 @@ function getFuentesAll(req,res) {
 
 function getVariables(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1229,7 +1232,7 @@ function getVariables(req,res) {
 
 function getVariable(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1261,7 +1264,7 @@ function upsertVariables(req,res) {
 	//	observaciones: [{timestart: isodatetime, timeend: isodatetime, valor: real, tipo: "puntual"|"areal", series_id: int},...]
 	//}
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1305,7 +1308,7 @@ function upsertVariable(req,res) {
 	//	observaciones: [{timestart: isodatetime, timeend: isodatetime, valor: real, tipo: "puntual"|"areal", series_id: int},...]
 	//}
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1345,7 +1348,7 @@ function deleteVariable(req,res) {
 	//	observaciones: [{timestart: isodatetime, timeend: isodatetime, valor: real, tipo: "puntual"|"areal", series_id: int},...]
 	//}
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1374,7 +1377,7 @@ function deleteVariable(req,res) {
 
 function getProcedimientos(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1393,7 +1396,7 @@ function getProcedimientos(req,res) {
 
 function getProcedimiento(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1420,7 +1423,7 @@ function getProcedimiento(req,res) {
 
 function upsertProcedimientos(req,res) { 
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1461,7 +1464,7 @@ function upsertProcedimientos(req,res) {
 
 function upsertProcedimiento(req,res) { 
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1498,7 +1501,7 @@ function upsertProcedimiento(req,res) {
 
 function deleteProcedimiento(req,res) { 
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1527,7 +1530,7 @@ function deleteProcedimiento(req,res) {
 
 function getUnidades(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1546,7 +1549,7 @@ function getUnidades(req,res) {
 
 function getUnidad(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1573,7 +1576,7 @@ function getUnidad(req,res) {
 
 function upsertUnidades(req,res) { 
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1620,7 +1623,7 @@ function upsertUnidades(req,res) {
 
 function upsertUnidad(req,res) { 
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1665,7 +1668,7 @@ function upsertUnidad(req,res) {
 
 function deleteUnidades(req,res) { 
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1842,7 +1845,7 @@ function upsertEstaciones(req,res) {
 function upsertEstacion(req,res) { 
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1879,7 +1882,7 @@ function upsertEstacion(req,res) {
 function updateEstacion(req,res) { 
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1930,7 +1933,7 @@ function updateEstacion(req,res) {
 function deleteEstacion(req,res) { 
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1958,7 +1961,7 @@ function deleteEstacion(req,res) {
 function deleteEstaciones(req,res) { 
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -1991,7 +1994,7 @@ function getEscenas(req,res) {
   //~ .alias('e')
   //~ .description('Get escenas from observations database')
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2010,7 +2013,7 @@ function getEscenas(req,res) {
 
 function getEscena(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2037,7 +2040,7 @@ function getEscena(req,res) {
 
 function upsertEscenas(req,res) { 
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2081,7 +2084,7 @@ function upsertEscenas(req,res) {
 
 function upsertEscena(req,res) { 
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2114,7 +2117,7 @@ function upsertEscena(req,res) {
 
 function deleteEscena(req,res) { 
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2143,7 +2146,7 @@ function deleteEscena(req,res) {
 
 function getCubeSerie(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2167,7 +2170,7 @@ function getCubeSerie(req,res) {
 
 function getCubeSeries(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2191,7 +2194,7 @@ function getCubeSeries(req,res) {
 
 function getRastFromCube(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2232,7 +2235,7 @@ function getAreas(req,res) {
   //~ .description('Get areas from observations database')
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2260,7 +2263,7 @@ function getAreas(req,res) {
 function getArea(req,res) {
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2333,7 +2336,7 @@ function upsertAreas(req,res) {
 function upsertArea(req,res) {
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2370,7 +2373,7 @@ function upsertArea(req,res) {
 function deleteArea(req,res) { 
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2402,7 +2405,7 @@ function getSeries(req,res) {
   //~ .description('Get series from observations database')
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2438,7 +2441,7 @@ function getSerie(req,res) {
   //~ .description('Get series from observations database')
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2473,7 +2476,7 @@ function getSerie(req,res) {
 function upsertSeries(req,res) { 
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2538,7 +2541,7 @@ function upsertSeries(req,res) {
 function upsertSerie(req,res) {
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2578,7 +2581,7 @@ function upsertSerie(req,res) {
 function deleteSerie(req,res) { 
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2610,7 +2613,7 @@ function deleteSerie(req,res) {
 function deleteSeries(req,res) { 
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2646,7 +2649,7 @@ function deleteSeries(req,res) {
 function archivarObservaciones(req,res) {
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2712,7 +2715,7 @@ function archivarObservaciones(req,res) {
 function getObservacionesGuardadas(req,res) {
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2740,7 +2743,7 @@ function getObservacionesGuardadas(req,res) {
 function getObservaciones(req,res) {
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2765,7 +2768,7 @@ function getObservaciones(req,res) {
 
 function getObservacion(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -2812,7 +2815,7 @@ function getObservacion(req,res) {
 function getObservacionesTimestart(req,res) {
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3007,7 +3010,7 @@ function deleteObservacionesById(req,res) {
 function upsertObservaciones(req,res) { 
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3182,7 +3185,7 @@ function updateObservacionById(req,res) {
 
 function getRastObs(req,res) {      // GENERA ARCHIVOS GTIFF Y DEVUELVE LISTADO JSON CON LOS LINKS
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3233,7 +3236,7 @@ function getRastObs(req,res) {      // GENERA ARCHIVOS GTIFF Y DEVUELVE LISTADO 
 
 async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL Y ENVIA JSON CON LISTADO DE URLS Y METADATOS //
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3332,7 +3335,7 @@ function rastExtractByArea(req,res) {
   //~ .description('Get serie temporal agregada espacialmente de Observaciones by series_id, timestart, timeend y area (id or box)')
 	// options : agg_func no_insert format no_send_data
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3457,7 +3460,7 @@ function getMultipleRegularSeries (req,res) {
   //~ .description('Get 2d array de series temporales regulares de Observaciones, tipo, series_id (multiple), dt, timestart, timeend')
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3493,7 +3496,7 @@ function getMultipleRegularSeries (req,res) {
 function getCampo (req,res) {
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3525,7 +3528,7 @@ function getCampo (req,res) {
 function getCampoSerie (req,res) {
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3755,7 +3758,7 @@ function deleteAsociaciones(req,res) {
 function getSeriesBySiteAndVar(req,res) {  //	estacion_id,var_id,timestart,timeend,includeProno=true)
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3846,7 +3849,7 @@ function getSeriesBySiteAndVar(req,res) {  //	estacion_id,var_id,timestart,timee
 
 function getMonitoredVars (req,res) { 
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -3867,7 +3870,7 @@ function getMonitoredVars (req,res) {
 
 function getMonitoredFuentes (req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4031,7 +4034,7 @@ function getMonitoredFuentes (req,res) {
 
 function getObsDiarios(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4056,7 +4059,7 @@ function getObsDiarios(req,res) {
 
 function updateObsDiarios(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4074,7 +4077,7 @@ function updateObsDiarios(req,res) {
 
 function getCuantilesDiarios(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4099,7 +4102,7 @@ function getCuantilesDiarios(req,res) {
 
 function updateCuantilesDiarios(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4118,7 +4121,7 @@ function updateCuantilesDiarios(req,res) {
 function getCuantilesDiariosSuavizados(req,res) {
 	try {
 		var user_id = getUserId(req)
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
@@ -4140,7 +4143,7 @@ function getCuantilesDiariosSuavizados(req,res) {
 
 function getMonthlyStats(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4324,7 +4327,7 @@ function getPercentilesDiariosBetweenDates(req,res) {
 
 function upsertMonthlyStats(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4347,7 +4350,7 @@ function upsertMonthlyStats(req,res) {
 }
 function upsertCuantilesDiariosSuavizados(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4409,7 +4412,7 @@ function getDailyDoyStats(req,res) {
 
 function getPercentiles(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4436,7 +4439,7 @@ function getPercentiles(req,res) {
 
 //~ function updateCuantilesDiariosSuavizados(req,res) {
 	//~ try {
-		//~ var filter = getFilter(req)
+		//~ var filter = getFilter(req,res.locals)
 		//~ var options = getOptions(req)
 	//~ } catch (e) {
 		//~ console.error(e)
@@ -4456,7 +4459,7 @@ function getPercentiles(req,res) {
 
 function getPaises (req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4474,7 +4477,7 @@ function getPaises (req,res) {
 }
 function getPais (req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4505,7 +4508,7 @@ function getPais (req,res) {
 
 function getTipoEstaciones (req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4527,7 +4530,7 @@ function getTipoEstaciones (req,res) {
 
 function getModelos (req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4548,7 +4551,7 @@ function getModelos (req,res) {
 }
 function getModelo (req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4578,7 +4581,7 @@ function getModelo (req,res) {
 
 function getCalibradosGrupos (req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4598,7 +4601,7 @@ function getCalibradosGrupos (req,res) {
 
 function getCalibrados (req,res) {  // devuelve un array de objetos Calibrado
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4621,7 +4624,7 @@ function getCalibrados (req,res) {  // devuelve un array de objetos Calibrado
 
 function getCalibrado (req,res) {     // Requiere id, devuelve un objeto Calibrado
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4653,7 +4656,7 @@ function getCalibrado (req,res) {     // Requiere id, devuelve un objeto Calibra
 
 function deleteCalibrado(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4707,7 +4710,7 @@ function upsertCalibrado(req,res) {
 
 function getForzantes(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4730,7 +4733,7 @@ function getForzantes(req,res) {
 
 function upsertForzantes(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4753,7 +4756,7 @@ function upsertForzantes(req,res) {
 
 // function deleteForzantes(req,res) {
 // 	try {
-// 		var filter = getFilter(req)
+// 		var filter = getFilter(req,res.locals)
 // 		var options = getOptions(req)
 // 	} catch (e) {
 // 		console.error(e)
@@ -4775,7 +4778,7 @@ function upsertForzantes(req,res) {
 
 function getForzante(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4801,7 +4804,7 @@ function getForzante(req,res) {
 
 function upsertForzante(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4831,7 +4834,7 @@ function upsertForzante(req,res) {
 
 function deleteForzantes(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4853,7 +4856,7 @@ function deleteForzantes(req,res) {
 
 function deleteForzante(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4881,7 +4884,7 @@ function deleteForzante(req,res) {
 function getPronosticos(req,res) {
 	//~ console.log({query:req.query,body:req.body})
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4907,7 +4910,7 @@ function getPronosticos(req,res) {
 
 function getPronostico(req,res) {   // requiere id de corrida, devuelve objeto Corrida
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -4977,7 +4980,7 @@ function getPronostico(req,res) {   // requiere id de corrida, devuelve objeto C
 
 function deletePronostico(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -5042,7 +5045,7 @@ async function upsertPronostico(req,res) {
 function getCorridasGuardadas(req,res) {
 	console.log({query:req.query,body:req.body})
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -5129,7 +5132,7 @@ function testAccessor(req,res) {
 		return
 	}
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -5168,7 +5171,7 @@ function getFromAccessor(req,res) {
 		return
 	}
     try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e.toString())
@@ -5211,7 +5214,7 @@ function getAllFromAccessor(req,res) {
 		return
 	}
     try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e.toString())
@@ -5244,7 +5247,7 @@ function updateFromAccessor(req,res) {
 		return
 	}
     try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		if(config.verbose) {
@@ -5292,7 +5295,7 @@ function updateAllFromAccessor(req,res) {
 		return
 	}
     try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -5324,7 +5327,7 @@ function getSitesFromAccessor(req,res) {
 		return
 	}
     try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e.toString())
@@ -5359,7 +5362,7 @@ function updateSitesFromAccessor(req,res) {
 		return
 	}
     try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -5395,7 +5398,7 @@ function getSeriesFromAccessor(req,res) {
 		return
 	}
     try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e.toString())
@@ -5430,7 +5433,7 @@ function uploadToAccessor(req,res) {
 		return
 	}
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -5510,7 +5513,7 @@ function uploadToAccessor(req,res) {
 // 		return
 // 	}
 // 	try {
-// 		var filter = getFilter(req)
+// 		var filter = getFilter(req,res.locals)
 // 		var options = getOptions(req)
 // 	} catch (e) {
 // 		console.error(e)
@@ -5537,7 +5540,7 @@ function updateSeriesFromAccessor(req,res) {
 		return
 	}
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -5573,7 +5576,7 @@ function getParaguay09 (req,res) {
   //~ .description("Scrap file Paraguay_09.xls")
   //~ .action(options=>{
     try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -5665,7 +5668,7 @@ function postParaguay09 (req,res) {
 
 function getPrefe (req,res) {  // getPrefe?estacion_id=&timestart=&timeend=
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -5696,7 +5699,7 @@ function getPrefe (req,res) {  // getPrefe?estacion_id=&timestart=&timeend=
 
 function getPrefeAndUpdate (req,res) {  // getPrefe?estacion_id=&timestart=&timeend=
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -5735,7 +5738,7 @@ function getPrefeAndUpdate (req,res) {  // getPrefe?estacion_id=&timestart=&time
 
 function getFromSource(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -5756,7 +5759,7 @@ function getFromSource(req,res) {
 
 function getRedesAccessors(req,res) {
 try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -5776,7 +5779,7 @@ try {
 }
 function getTelex(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -5865,7 +5868,7 @@ function postTelex (req,res) {
 function getTabprono(req,res) {
 	// forecast_date,dow,file
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -5953,7 +5956,7 @@ function postTabprono(req,res) {
 	
 function getONS(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -5973,7 +5976,7 @@ function getONS(req,res) {
 
 function postONS(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -6005,7 +6008,7 @@ function postONS(req,res) {
 
 function makeONSTables (req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -6064,7 +6067,7 @@ function makeONSTables (req,res) {
 					
 function getDadosANA(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -6191,7 +6194,7 @@ function getDadosANA(req,res) {
 	
 function getSitesANA(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -6227,7 +6230,7 @@ function getSitesANA(req,res) {
 
 function getSQPESMN(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -6260,7 +6263,7 @@ function getSQPESMN(req,res) {
 
 function thinObs(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -6285,7 +6288,7 @@ function thinObs(req,res) {
 
 function pruneObs(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -6603,7 +6606,7 @@ function geoserverCreatePointsStyle() {
 
 function geojson2rast(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -6647,7 +6650,7 @@ function geojson2rast(req,res) {
 
 function read_pp_cdp(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -6685,7 +6688,7 @@ function read_pp_cdp(req,res) {
 }
 function get_pp_cdp(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -6715,7 +6718,7 @@ function get_pp_cdp(req,res) {
 }
 function upsert_pp_cdp(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -6745,7 +6748,7 @@ function upsert_pp_cdp(req,res) {
 }
 function get_pp_cdp_semanal(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -6775,7 +6778,7 @@ function get_pp_cdp_semanal(req,res) {
 }
 function get_pp_cdp_batch(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -6870,7 +6873,7 @@ function get_pp_cdp_product(req,res) {
 }	
 //~ function upsert_pp_cdp_semanal(req,res) {
 	//~ try {
-		//~ var filter = getFilter(req)
+		//~ var filter = getFilter(req,res.locals)
 		//~ var options = getOptions(req)
 	//~ } catch (e) {
 		//~ console.error(e)
@@ -6898,7 +6901,7 @@ function get_pp_cdp_product(req,res) {
 
 function getColeccionesRaster (req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error("Bad filter or options")
@@ -6917,7 +6920,7 @@ function getColeccionesRaster (req,res) {
 
 function getGridded (req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -6935,7 +6938,7 @@ function getGridded (req,res) {
 
 function runGridded (req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -6955,7 +6958,7 @@ function runGridded (req,res) {
 
 function getAlturasMareaFull(req,res) {
 	try {
-		var filter = getFilter(req)
+		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
 		console.error(e)
@@ -7404,7 +7407,7 @@ function getUserId(req) {
 	return (req.user) ? req.user.id : undefined
 }
 
-function getFilter(req) {
+function getFilter(req,locals) {
 	var filter = {}
 	if(req.body) {
 		if(req.body.nombre) {
@@ -7828,7 +7831,11 @@ function getFilter(req) {
 			filter.col_id = req.params.col_id
 		}
 	}
-	
+	if(locals) {
+		if(locals.public) {
+			filter.public = locals.public
+		}
+	}	
 	return filter
 }
 

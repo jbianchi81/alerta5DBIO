@@ -11,7 +11,7 @@ DROP TABLE IF EXISTS red_group_access;
 DROP TABLE IF EXISTS user_groups;
 DROP TABLE IF EXISTS groups;
 
--- CREATE TYPE access_level AS ENUM ('read', 'write');
+CREATE TYPE access_level AS ENUM ('read', 'write');
 
 CREATE TABLE groups (
     name VARCHAR NOT NULL PRIMARY KEY
@@ -71,7 +71,7 @@ CREATE TABLE area_groups (
     owner_id INTEGER NOT NULL REFERENCES users(id)
 );
 
-ALTER TABLE areas_pluvio ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES area_groups(id);
+ALTER TABLE areas_pluvio ADD COLUMN  group_id INTEGER REFERENCES area_groups(id);
 
 CREATE TABLE user_area_groups_access (
     ag_id    INTEGER NOT NULL REFERENCES area_groups(id) ON DELETE CASCADE,
@@ -115,7 +115,7 @@ SELECT
 FROM access_join
 GROUP BY user_id, user_name, ag_id, ag_name, ag_owner_id;
 
-ALTER TABLE fuentes ADD COLUMN IF NOT EXISTS owner_id INTEGER REFERENCES users(id);
+ALTER TABLE fuentes ADD COLUMN  owner_id INTEGER REFERENCES users(id);
 
 CREATE TABLE user_groups_fuentes_access (
     fuentes_id    INTEGER NOT NULL REFERENCES fuentes(id) ON DELETE CASCADE,

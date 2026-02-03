@@ -7,7 +7,7 @@
     "@turf/helpers": "^6.5.0",
     "@turf/points-within-polygon": "^6.5.0",
     "@turf/turf": "^6.5.0",
-    "a5base": "^1.0.7",
+    "a5base": "^1.0.8",
     "axios": "^0.27.2",
     "basic-ftp": "^5.0.5",
     "child-process-promise": "^2.2.1",
