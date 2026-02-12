@@ -6381,18 +6381,40 @@ internal.a5 = class {
 		// console.debug(url)
 		// console.debug(params)
 		console.debug({uri: axios.getUri({url, params})});
-		const response = await axios.get(url,{
+		var response = await axios.get(url,{
 			headers: {"Authorization": "Bearer " + this.config.token},
 			params: params
 		})
+		var series
 		if(Array.isArray(response.data)) {
-			var series = response.data.map(serie=>{
+			series = response.data.map(serie=>{
 				return new CRUD.serie(serie)
 			})
 		} else if(Object.keys(response.data).indexOf("rows") >= 0) {
-			var series = response.data.rows.map(serie=>{
-				return new CRUD.serie(serie)
-			})
+			series = []
+			let last = false
+			while(last == false) { 
+				series.push(...response.data.rows.map(serie=>{
+					return new CRUD.serie(serie)
+				}))
+				if(response.data.is_last_page) {
+					last = true
+				} else {
+					if(!response.data.next_offset) {
+						throw new Error("Missing next_offset in paginated response")
+					}
+					response = await axios.get(
+						url,
+						{
+							headers: {"Authorization": "Bearer " + this.config.token},
+							params: {
+								...params,
+								offset: response.data.next_offset	
+							}
+						}
+					)
+				}
+			}
 		} else {
 			throw("Series response not undestood")
 		}
