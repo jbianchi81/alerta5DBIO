@@ -6403,14 +6403,16 @@ internal.a5 = class {
 					if(!response.data.next_offset) {
 						throw new Error("Missing next_offset in paginated response")
 					}
+					const params_w_offset = {
+								...params,
+								offset: response.data.next_offset	
+							}
+					console.debug({uri: axios.getUri({url, params_w_offset})});
 					response = await axios.get(
 						url,
 						{
 							headers: {"Authorization": "Bearer " + this.config.token},
-							params: {
-								...params,
-								offset: response.data.next_offset	
-							}
+							params: params_w_offset
 						}
 					)
 				}
