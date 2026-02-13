@@ -2123,6 +2123,35 @@ internal.UpdatePronosticoFromAccessorProcedure = class extends internal.CrudProc
     }
 }
 
+internal.DeleteRemoteFromAccessorProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "DeleteRemoteFromAccessorProcedure"
+        if(!arguments[0]) {
+            throw("Missing arguments")
+        }
+        if(!arguments[0].accessor_id) {
+            throw("Missing accessor_id")
+        }
+        this.accessor_id = arguments[0].accessor_id
+        this.filter = arguments[0].filter
+        if(this.filter.timestart) {
+            this.filter.timestart = timeSteps.DateFromDateOrInterval(this.filter.timestart)
+        }
+        if(this.filter.timeend) {
+            this.filter.timeend = timeSteps.DateFromDateOrInterval(this.filter.timeend)
+        }
+        // this.options = arguments[0].options
+    }
+    async run() {
+        var accessor = await Accessors.new(this.accessor_id)
+        this.result = await accessor.deleteRemote(this.filter,this.options)
+        return this.result
+    }
+}
+
+
+
 internal.MapAccessorTableFromCSVProcedure = class extends internal.CrudProcedure {
     constructor() {
         super(...arguments)
@@ -3649,6 +3678,7 @@ const availableCrudProcedures = {
     "DeleteSitesFromAccessorProcedure": internal.DeleteSitesFromAccessorProcedure,
     "GetPronosticoFromAccessorProcedure":internal.GetPronosticoFromAccessorProcedure,
     "UpdatePronosticoFromAccessorProcedure": internal.UpdatePronosticoFromAccessorProcedure,
+    "DeleteRemoteFromAccessorProcedure": internal.DeleteRemoteFromAccessorProcedure,
     "MapAccessorTableFromCSVProcedure": internal.MapAccessorTableFromCSVProcedure,
     "ComputeQuantilesProcedure": internal.ComputeQuantilesProcedure,
     "GetAggregatePronosticosProcedure": internal.GetAggregatePronosticosProcedure,

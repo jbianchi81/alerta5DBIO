@@ -118,6 +118,9 @@
                     },
                     {
                         "$ref": "downloadthreddsprocedure.json"
+                    },
+                    {
+                        "$ref": "deleteremotefromaccessorprocedure.json"
                     }
                 ]
             }

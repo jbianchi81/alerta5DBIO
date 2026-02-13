@@ -560,6 +560,13 @@ internal.Accessor = class {
 		}
 	}
 
+	async deleteRemote(filter={}) {
+		if(!this.engine.deleteRemote) {
+			throw new Error("deleteRemote no definido para el accessor")
+		}
+		return this.engine.deleteRemote(filter)
+	}
+
 	//~ this.testConnect = 
 		//~ switch (type.toLowerCase()) {
 			//~ case "gfs":
