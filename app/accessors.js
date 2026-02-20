@@ -48,6 +48,7 @@ internal.hidrowebservice_historico = require('./accessors/hidrowebservice_histor
 internal.fewspirestwebservice = require('./accessors/fewspirestwebservice').Client
 internal.dados_ons = require('./accessors/dados_ons').Client
 internal.gpm = require('./accessors/gpm').Client
+internal.gpm_3h = internal.gpm
 internal.dinac_convencional = require('./accessors/dinac_convencional').Client
 internal.hidroinformatica = require('./accessors/hidroinformatica').Client
 internal.hidroestimador = require('./accessors/hidroestimador').Client
@@ -55,6 +56,7 @@ internal.caru = require('./accessors/caru').Client
 internal.ctp_ultimas_alturas = require('./accessors/ctp_ultimas_alturas').Client
 internal.persiann = require('./accessors/persiann').Client
 internal.pilcomayo = require('./accessors/pilcomayo').Client
+internal.emas = require('./accessors/emas').Client
 
 // Promise.allSettled polyfill
 
@@ -151,6 +153,30 @@ internal.getAccessor = async function (name,classname,config) {
 
 
 internal.Accessor = class {
+
+	async create() {
+		if(this.engine.createAccessor) {
+			return this.engine.createAccessor()
+		} else {
+			const acc = await CRUD.accessor({
+				class: this.clase,
+				name: this.clase,
+				url: this.url,
+				series_tipo: this.series_tipo,
+				series_source_id: this.series_source_id,
+				series_id: this.series_id,
+				title: this.title,
+				upload_fields: this.upload_fields,
+				config: this.config
+			})
+			return acc.create()
+		}
+	}
+
+	async delete() {
+		return CRUD.accessor.delete({name: this.name})
+	}
+
 	constructor(fields={}) { // clase, url, series_tipo, series_source_id,config,series_id) {
 		if(!fields.class) {
 			throw("Missing class")
@@ -532,6 +558,13 @@ internal.Accessor = class {
 		for(corrida of pronosticos) {
 			await corrida.delete()
 		}
+	}
+
+	async deleteRemote(filter={}) {
+		if(!this.engine.deleteRemote) {
+			throw new Error("deleteRemote no definido para el accessor")
+		}
+		return this.engine.deleteRemote(filter)
 	}
 
 	//~ this.testConnect = 
@@ -4898,6 +4931,149 @@ internal.sat2 = class {
                 //~ "149": {"var_id":37, "unit_id":11, "proc_id":1},           // nivel nieve
                 //~ "14": {"var_id":14, "unit_id":33, "proc_id":1}            // radiacion
 			},
+			"direct_mappings": {
+				"99": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"100": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"101": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"102": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"104": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"105": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"106": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"107": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"109": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"110": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"111": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"112": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"113": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"114": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"115": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"116": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"117": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"118": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"119": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"120": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"121": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"122": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"123": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"124": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"125": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"126": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"127": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"128": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"129": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"130": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"131": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"132": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"133": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"134": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"135": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"136": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"137": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"138": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"139": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"140": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"141": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"142": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"143": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"144": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"145": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"146": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				],
+				"1046": [
+					{ "idSensor": 7, "var_id": 27, "unit_id": 9	}
+				]
+			},
 			"derived_series": [
 				{
 					"source_series": {
@@ -5142,10 +5318,37 @@ internal.sat2 = class {
 		return idSensores
 	}
 
+	getDirectMappings(id_externo,var_id,unit_id) {
+		if(!this.config.direct_mappings) {
+			// console.debug("Direct mappings not set")
+			return
+		}
+		if(!(id_externo in this.config.direct_mappings)) {
+			// console.debug("id_externo not found in direct mappings")
+			return
+		}
+		const direct_mappings = this.config.direct_mappings[id_externo].filter(m => m.var_id == var_id && m.unit_id == unit_id)
+		if(!direct_mappings.length) {
+			// console.debug("id_Externo found but no direct mappings for var_id and unit_id")
+			return
+		}
+		return direct_mappings.map(m => {
+			return {idEquipo: Number(id_externo), idSensor: m.idSensor}
+		})
+	}
+
 	async getSeriesMappings(series_id) {
 		// returns {idEquipo:"", idSensor:""}
-		return crud.getSerie("puntual",series_id)
-		.then(serie=>{
+		try {
+			const serie = await crud.getSerie("puntual",series_id)
+
+			// mapeo directo
+			const direct_mappings = this.getDirectMappings(serie.estacion.id_externo,serie.var.id,serie.unidades.id)
+			if(direct_mappings) {
+				return direct_mappings
+			}
+
+			// mapeo por id sensor y unidades
 			var idSensores = this.getIdSensores(serie.var.id,serie.unidades.id)
 			if(!idSensores) {
 				console.error("No se encontraron sensores que coincidan con var_id y unit_id")
@@ -5157,11 +5360,11 @@ internal.sat2 = class {
 					"idSensor": idSensor
 				}
 			})
-		})
-		.catch(e=>{
-			console.error("Serie no encontrada")
+		}
+		catch (e) {
+			console.error("Serie no encontrada:" + e.toString())
 			return
-		})
+		}
 	}
 
 	async getData(series_id,timestart,timeend) {
@@ -5181,11 +5384,12 @@ internal.sat2 = class {
 			for(var mapping of series_mappings) {
 				var historicos = await this.RecuperarHistoricosDeEquipoPorSensor(mapping.idEquipo,mapping.idSensor,timestart,timeend,cookieJar)
 				observaciones.push(...historicos.body.map(observacion=>{
+					const timestart = new Date(observacion.fecha)
 					return {
 						tipo: "puntual",
 						series_id: series_id,
-						timestart: observacion.fecha,
-						timeend: observacion.fecha,
+						timestart: timestart,
+						timeend: timestart,
 						valor: observacion.valor
 					}
 				}))
@@ -5219,7 +5423,7 @@ internal.sat2 = class {
 		const estaciones = await crud.getEstaciones(estaciones_filter)													// GETESTACIONES DE DB
 		const observaciones = []
 		for(const estacion of estaciones) {
-			//~ console.log({estacion:estacion})
+			// console.debug({estacion_id:estacion.id})
 			var seriesFilter = {...estaciones_filter}
 			seriesFilter.estacion_id = estacion.id
 			seriesFilter.proc_id = 1
@@ -5228,13 +5432,19 @@ internal.sat2 = class {
 			// console.debug({series_length: series.length})
 			for(const serie of series) {
 				//~ console.log({serie:serie})
-				//~ console.log({var_id: serie.var.id})
-				var idSensores = this.getIdSensores(serie.var.id,serie.unidades.id)
-				if(!idSensores) {
-					//~ console.log("idSensor not found")
-					continue
+				// console.debug({var_id: serie.var.id})
+				const direct_mappings = this.getDirectMappings(serie.estacion.id_externo,serie.var.id,serie.unidades.id)
+				if(direct_mappings) {
+					var idSensores = direct_mappings.map(m => m.idSensor)
+				} else {
+					var idSensores = this.getIdSensores(serie.var.id,serie.unidades.id)
+					if(!idSensores) {
+						// console.debug("idSensor not found")
+						continue
+					}
 				}
-				for(const idSensor of idSensores) {						// DESCARGA DATOS DE EQUIPO POR SENSOR DE API 
+				for(const idSensor of idSensores) {						
+					// DESCARGA DATOS DE EQUIPO POR SENSOR DE API 
 					if(filter.id_sensor) {
 						if(Array.isArray(filter.id_sensor)) {
 							if(filter.id_sensor.indexOf(idSensor.toString()) < 0) {
@@ -5257,11 +5467,12 @@ internal.sat2 = class {
 					const obs = crud.removeDuplicates(
 						historicos.body.map(
 							observacion=>{
+								const timestart = new Date(observacion.fecha)
 								return {
 									tipo: "puntual",
 									series_id: serie.id,
-									timestart: observacion.fecha,
-									timeend: observacion.fecha,
+									timestart: timestart,
+									timeend: timestart,
 									valor: observacion.valor
 								}
 					}))
@@ -6177,18 +6388,42 @@ internal.a5 = class {
 		// console.debug(url)
 		// console.debug(params)
 		console.debug({uri: axios.getUri({url, params})});
-		const response = await axios.get(url,{
+		var response = await axios.get(url,{
 			headers: {"Authorization": "Bearer " + this.config.token},
 			params: params
 		})
+		var series
 		if(Array.isArray(response.data)) {
-			var series = response.data.map(serie=>{
+			series = response.data.map(serie=>{
 				return new CRUD.serie(serie)
 			})
 		} else if(Object.keys(response.data).indexOf("rows") >= 0) {
-			var series = response.data.rows.map(serie=>{
-				return new CRUD.serie(serie)
-			})
+			series = []
+			let last = false
+			while(last == false) { 
+				series.push(...response.data.rows.map(serie=>{
+					return new CRUD.serie(serie)
+				}))
+				if(response.data.is_last_page) {
+					last = true
+				} else {
+					if(!response.data.next_offset) {
+						throw new Error("Missing next_offset in paginated response")
+					}
+					const params_w_offset = {
+								...params,
+								offset: response.data.next_offset	
+							}
+					console.debug({uri: axios.getUri({url, params_w_offset})});
+					response = await axios.get(
+						url,
+						{
+							headers: {"Authorization": "Bearer " + this.config.token},
+							params: params_w_offset
+						}
+					)
+				}
+			}
 		} else {
 			throw("Series response not undestood")
 		}
@@ -7453,7 +7688,8 @@ internal.acumar = class {
 	}
 
 	parseMercobras(data) {
-		var columns = ["tempmedia","tempmax","tempmin","humrel","puntorocio","velvientomedia","dirviento","recviento","velvientomax","dirvientomax","sensterm","indcalor","indthw","presion","precip","intprecip","graddcalor","graddfrio","tempint","humint","rocioint","incalint","emcint","densintaire","muestviento","txviento","recepiss","intarc"]
+		// var columns = ["tempmedia","tempmax","tempmin","humrel","puntorocio","velvientomedia","dirviento","recviento","velvientomax","dirvientomax","sensterm","indcalor","indthw","presion","precip","intprecip","graddcalor","graddfrio","tempint","humint","rocioint","incalint","emcint","densintaire","muestviento","txviento","recepiss","intarc"] // cambio dic 2025
+		var columns = ["tempmedia","tempmax","tempmin","humrel","puntorocio","velvientomedia","dirviento","recviento","velvientomax","dirvientomax","sensterm","indcalor","indthw","indthsw","presion","precip","intprecip","radsolar","enersolar","maxradsolar","indiceuv","dosisuv","uvmax","graddcalor","graddfrio","tempint","humint","rocioint","incalint","emcint","densintaire","et","muestviento","txviento","recepiss","intarc"]
 		columns = columns.map(c=>{
 			var index = this.config.columns.map(col=>col.name).indexOf(c)
 			if(index>=0) {

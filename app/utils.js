@@ -351,6 +351,12 @@ internal.control_filter2 = function (valid_filters, filter, default_table, crud,
 				}
 				const jsonpath_expression = valid_filters[key].expression.replace("$0",filter[key])
 				filter_string += ` AND jsonb_path_exists(${fullkey}, '${jsonpath_expression}')` 
+			} else if (valid_filters[key].type == "custom") {
+				if (!valid_filters[key].expression) {
+					throw new Error("Missing expression for valid_filter " + key)
+				}
+				const custom_expression = valid_filters[key].expression.replace("$0",fullkey).replace("$1",filter[key])
+				filter_string += ` AND ${custom_expression}` 
 			} else {
 				if(Array.isArray(filter[key])) {
 					filter_string += " AND "+ fullkey + " IN (" + filter[key].join(",") + ")"

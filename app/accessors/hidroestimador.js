@@ -109,7 +109,29 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     }
     getFilesList(filter) {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.ftp_client.list(this.config.remote_path);
+            const files_info_all = yield this.ftp_client.list(this.config.remote_path);
+            const files_list = [];
+            for (const f of files_info_all) {
+                if (!f.isFile) {
+                    // not a file
+                    continue;
+                }
+                if (!this.file_pattern.test(f.name)) {
+                    // doesn't match pattern
+                    continue;
+                }
+                const timestart = this.parseDateFromFilename(f.name);
+                if (filter.timestart && timestart.getTime() < filter.timestart.getTime()) {
+                    // before date range
+                    continue;
+                }
+                if (filter.timeend && timestart.getTime() > filter.timeend.getTime()) {
+                    // after date range
+                    continue;
+                }
+                files_list.push(`${this.config.remote_path}/${f.name}`);
+            }
+            return files_list;
         });
     }
     get(filter, options) {
@@ -141,16 +163,11 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 }
             }
             var files_list = yield this.getFilesList(filter);
-            files_list = files_list.filter(f => f.isFile).filter(f => this.file_pattern.test(f.name));
-            if (!files_list || !files_list.length) {
+            if (!files_list.length) {
                 console.error("accessors/hidroestimador: No files found");
                 return [];
             }
-            var remote_paths = [];
-            for (var item of files_list) {
-                remote_paths.push(`${this.config.remote_path}/${item.name}`);
-            }
-            const downloaded_files = yield this.downloadFiles(remote_paths);
+            const downloaded_files = yield this.downloadFiles(files_list);
             const observaciones = yield this.rast2obsList(downloaded_files);
             for (const file of downloaded_files) {
                 (0, fs_1.unlinkSync)(file);
@@ -234,6 +251,38 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 });
             }
             return observaciones;
+        });
+    }
+    deleteRemote(filter) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!filter.timestart) {
+                throw new Error("Falta filter.timestart");
+                //     filter.timestart = new Date(new Date().getTime() - 30 * 24 * 3600 * 1000)
+            }
+            if (!filter.timeend) {
+                throw new Error("Falta filter.timeend");
+                //     filter.timeend = new Date(new Date().getTime() - 15 * 24 * 3600 * 1000)
+            }
+            if (!this.ftp_client) {
+                yield this.accessServer();
+            }
+            var files_list = yield this.getFilesList(filter);
+            if (!files_list || !files_list.length) {
+                console.error("accessors/hidroestimador: No files found");
+                return [];
+            }
+            const deleted = [];
+            for (const file of files_list) {
+                try {
+                    yield this.ftp_client.remove(file);
+                    console.log(`File ${file} removed successfully`);
+                    deleted.push(file);
+                }
+                catch (_a) {
+                    console.error(`Failed to remove file ${file}`);
+                }
+            }
+            return deleted;
         });
     }
 }

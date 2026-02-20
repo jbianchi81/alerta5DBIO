@@ -25,17 +25,39 @@ internal.accessor_feature_of_interest = class extends baseModel {
 		escena_id: {type: "integer"},
         network_id: {type: "string"},
 		pais: {
-			type: "jsonpath",
+			type: "custom",
 			column: "result",
-			expression: `$.parameter[*] ? (@.name == "country" && @.value == "$0")`,
+			expression: `EXISTS (
+				SELECT 1
+				FROM jsonb_array_elements($0->'parameter') elem
+				WHERE elem->>'name' = 'country'
+				AND elem->>'value' = '$1'
+			)`,
 			alias: "country"
 		},
+		// pais: {
+		// 	type: "jsonpath",
+		// 	column: "result",
+		// 	expression: `$.parameter[*] ? (@.name == "country" && @.value == "$0")`,
+		// 	alias: "country"
+		// },
 		propietario: {
-			type: "jsonpath",
+			type: "custom",
 			column: "result",
-			expression: `$.parameter[*] ? (@.name == "sourceId" && @.value == "$0")`,
-			alias: "provider"
+			expression: `EXISTS (
+				SELECT 1
+				FROM jsonb_array_elements($0->'parameter') elem
+				WHERE elem->>'name' = 'sourceId'
+				AND elem->>'value' = '$1'
+			)`,
+			alias: "country"
 		}
+		// propietario: {
+		// 	type: "jsonpath",
+		// 	column: "result",
+		// 	expression: `$.parameter[*] ? (@.name == "sourceId" && @.value == "$0")`,
+		// 	alias: "provider"
+		// }
 	}
 	// static _additional_filters = {
 	// 	pais: {

@@ -1982,6 +1982,27 @@ internal.ReadVariablesFromAccessorProcedure = class extends internal.CrudProcedu
     }
 }
 
+internal.CreateAccessorProcedure  = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "CreateAccessorProcedure"
+        if(!arguments[0]) {
+            throw("Missing arguments")
+        }
+        if(!arguments[0].class) {
+            throw("Missing class")
+        }
+        this.class = arguments[0].class
+        this.name = arguments[0].name ?? this.class
+    }
+    async run() {
+        const client = new Accessors.Accessor({class:this.class, name: this.name})
+        const accessor = await client.create()
+        this.result = accessor
+        console.log("Created accesor " + this.class)
+        return this.result
+    }
+}
 
 internal.TestAccessorProcedure  = class  extends internal.CrudProcedure {
     constructor() {
@@ -2101,6 +2122,35 @@ internal.UpdatePronosticoFromAccessorProcedure = class extends internal.CrudProc
         return this.result
     }
 }
+
+internal.DeleteRemoteFromAccessorProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "DeleteRemoteFromAccessorProcedure"
+        if(!arguments[0]) {
+            throw("Missing arguments")
+        }
+        if(!arguments[0].accessor_id) {
+            throw("Missing accessor_id")
+        }
+        this.accessor_id = arguments[0].accessor_id
+        this.filter = arguments[0].filter
+        if(this.filter.timestart) {
+            this.filter.timestart = timeSteps.DateFromDateOrInterval(this.filter.timestart)
+        }
+        if(this.filter.timeend) {
+            this.filter.timeend = timeSteps.DateFromDateOrInterval(this.filter.timeend)
+        }
+        // this.options = arguments[0].options
+    }
+    async run() {
+        var accessor = await Accessors.new(this.accessor_id)
+        this.result = await accessor.deleteRemote(this.filter,this.options)
+        return this.result
+    }
+}
+
+
 
 internal.MapAccessorTableFromCSVProcedure = class extends internal.CrudProcedure {
     constructor() {
@@ -3618,6 +3668,7 @@ const availableCrudProcedures = {
     "UpdateCubeFromSeriesProcedure": internal.UpdateCubeFromSeriesProcedure,
     "UpdateSerieRastFromCubeProcedure": internal.UpdateSerieRastFromCubeProcedure,
     "GetPpCdpBatchProcedure": internal.GetPpCdpBatchProcedure,
+    "CreateAccessorProcedure": internal.CreateAccessorProcedure,
     "TestAccessorProcedure": internal.TestAccessorProcedure,
     "UpdateFromAccessorProcedure":internal.UpdateFromAccessorProcedure,
     "DeleteFromAccessorProcedure": internal.DeleteFromAccessorProcedure,
@@ -3627,6 +3678,7 @@ const availableCrudProcedures = {
     "DeleteSitesFromAccessorProcedure": internal.DeleteSitesFromAccessorProcedure,
     "GetPronosticoFromAccessorProcedure":internal.GetPronosticoFromAccessorProcedure,
     "UpdatePronosticoFromAccessorProcedure": internal.UpdatePronosticoFromAccessorProcedure,
+    "DeleteRemoteFromAccessorProcedure": internal.DeleteRemoteFromAccessorProcedure,
     "MapAccessorTableFromCSVProcedure": internal.MapAccessorTableFromCSVProcedure,
     "ComputeQuantilesProcedure": internal.ComputeQuantilesProcedure,
     "GetAggregatePronosticosProcedure": internal.GetAggregatePronosticosProcedure,

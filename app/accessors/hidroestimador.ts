@@ -125,8 +125,31 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         console.debug(response.message)
     }
 
-    async getFilesList(filter: ObservacionesFilter) : Promise<FileInfo[]> {
-        return this.ftp_client.list(this.config.remote_path)
+    async getFilesList(filter: {timestart?: Date, timeend?: Date}) : Promise<string[]> {
+        const files_info_all = await this.ftp_client.list(this.config.remote_path)
+        const files_list : string[] = [] 
+        for(const f of files_info_all) {
+            if(!f.isFile) {
+                // not a file
+                continue
+            }
+            if(!this.file_pattern.test(f.name)) {
+                // doesn't match pattern
+                continue
+            }
+            const timestart = this.parseDateFromFilename(f.name)
+            if(filter.timestart && timestart.getTime() < filter.timestart.getTime()) {
+                // before date range
+                continue
+            }
+            if(filter.timeend && timestart.getTime() > filter.timeend.getTime()) {
+                // after date range
+                continue
+            }
+            files_list.push(`${this.config.remote_path}/${f.name}`)
+        }
+        
+        return files_list
     }
 
     async get(filter: ObservacionesFilter, options: Object): Promise<Array<Observacion>> {
@@ -154,17 +177,13 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
             }
         }
         var files_list = await this.getFilesList(filter)
-        files_list = files_list.filter(f => f.isFile).filter(f=> this.file_pattern.test(f.name))
         
-        if (!files_list || !files_list.length) {
+        if (!files_list.length) {
             console.error("accessors/hidroestimador: No files found")
             return []
         }
-        var remote_paths = []
-        for (var item of files_list) {
-            remote_paths.push(`${this.config.remote_path}/${item.name}`)
-        }
-        const downloaded_files = await this.downloadFiles(remote_paths)
+        
+        const downloaded_files = await this.downloadFiles(files_list)
         const observaciones = await this.rast2obsList(downloaded_files)
         for (const file of downloaded_files) {
             unlinkSync(file)
@@ -246,105 +265,36 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         return observaciones
     }
 
-    // printMaps(timestart: Date, timeend: Date) {
-    //     return this.callPrintMaps(timestart, timeend, false)
-    // }
-
-    // async callPrintMaps(timestart: Date, timeend: Date, skip_print: boolean) {
-    //     var mapset = sprintf("%04d", Math.floor(Math.random() * 10000))
-    //     var location = sprintf("%s/%s", global.config.grass.location, mapset) // sprintf("%s/GISDATABASE/WGS84/%s",process.env.HOME,mapset)
-    //     var batchjob = path.resolve(__dirname, "../py/print_precip_map.py")
-    //     if (timestart) {
-    //         // console.log("callPrintMaps: timestart: " + timestart.toISOString().replace("Z",""))
-    //         process.env.timestart = timestart.toISOString().replace("Z", "")
-    //     }
-    //     if (timeend) {
-    //         // console.log("callPrintMaps: timeend: " + timeend.toISOString().replace("Z",""))
-    //         process.env.timeend = timeend.toISOString().replace("Z", "")
-    //     }
-    //     if (skip_print) {
-    //         process.env.skip_print = "True"
-    //     }
-    //     var command = sprintf("grass %s -c --exec %s", location, batchjob)
-    //     const result = await exec(command)
-    //     // console.log("batch job called")
-    //     var stdout = result.stdout
-    //     var stderr = result.stderr
-    //     if (stdout) {
-    //         console.log(stdout)
-    //     }
-    //     if (stderr) {
-    //         console.error(stderr)
-    //     }
-    //     process.env.timestart = undefined
-    //     process.env.timeend = undefined
-    //     process.env.skip_print = undefined
-    // }
-
-    // async printMapSemanal(timestart: Date, timeend: Date) {
-    //     const location = path.resolve("data/gpm/semanal") // this.config.mes_local_path
-    //     var ts = new Date(timestart.getTime())
-    //     var te = new Date(timestart.getTime())
-    //     te.setUTCDate(te.getUTCDate() + 7)
-    //     var results = []
-    //     while (te <= timeend) {
-    //         console.log({ ts: ts.toISOString(), te: te.toISOString() })
-    //         try {
-    //             var serie = await rastExtract(13, ts, te, { funcion: "SUM", min_count: 7 })
-    //             if (!serie.observaciones || !serie.observaciones.length) {
-    //                 throw ("No se encontraron suficientes observaciones")
-    //             }
-    //             var result = await print_rast(
-    //                 {
-    //                     prefix: "",
-    //                     location: location,
-    //                     patron_nombre: "gpm_semanal.YYYYMMDD.HHMMSS.tif"
-    //                 },
-    //                 undefined,
-    //                 serie.observaciones[0]
-    //             )
-    //             results.push(result)
-    //         } catch (e) {
-    //             console.error(e)
-    //         }
-    //         ts.setUTCDate(ts.getUTCDate() + 1)
-    //         te.setUTCDate(te.getUTCDate() + 1)
-    //     }
-    //     var new_timeend = new Date(timeend)
-    //     new_timeend.setDate(new_timeend.getDate() - 7)
-    //     await this.printSemanalPNG(timestart, new_timeend, false)
-    //     return results
-    // }
-    // async printSemanalPNG(timestart: Date, timeend: Date, skip_print: boolean) {
-    //     var mapset = sprintf("%04d", Math.floor(Math.random() * 10000))
-    //     var location = sprintf("%s/%s", global.config.grass.location, mapset) // sprintf("%s/GISDATABASE/WGS84/%s",process.env.HOME,mapset)
-    //     var batchjob = path.resolve(__dirname, "../py/print_precip_map.py")
-    //     if (timestart) {
-    //         // console.log("callPrintMaps: timestart: " + timestart.toISOString().replace("Z",""))
-    //         process.env.timestart = timestart.toISOString().replace("Z", "")
-    //     }
-    //     if (timeend) {
-    //         // console.log("callPrintMaps: timeend: " + timeend.toISOString().replace("Z",""))
-    //         process.env.timeend = timeend.toISOString().replace("Z", "")
-    //     }
-    //     if (skip_print) {
-    //         process.env.skip_print = "True"
-    //     }
-    //     process.env.base_path = "data/gpm/semanal" // this.config.local_path
-    //     process.env.type = "semanal"
-    //     var command = sprintf("grass %s -c --exec %s", location, batchjob)
-    //     const result = await exec(command)
-    //     // console.log("batch job called")
-    //     var stdout = result.stdout
-    //     var stderr = result.stderr
-    //     if (stdout) {
-    //         console.log(stdout)
-    //     }
-    //     if (stderr) {
-    //         console.error(stderr)
-    //     }
-    //     process.env.timestart = undefined
-    //     process.env.timeend = undefined
-    //     process.env.skip_print = undefined
-    // }
+    async deleteRemote( filter : {
+            timestart : Date, 
+            timeend : Date
+        }) : Promise<string[]> {
+        if(!filter.timestart) {
+            throw new Error("Falta filter.timestart")
+            //     filter.timestart = new Date(new Date().getTime() - 30 * 24 * 3600 * 1000)
+        }
+        if(!filter.timeend) {
+            throw new Error("Falta filter.timeend")
+            //     filter.timeend = new Date(new Date().getTime() - 15 * 24 * 3600 * 1000)
+        }
+        if(!this.ftp_client) {
+            await this.accessServer()
+        }
+        var files_list = await this.getFilesList(filter)
+        if (!files_list || !files_list.length) {
+            console.error("accessors/hidroestimador: No files found")
+            return []
+        }
+        const deleted = []
+        for(const file of files_list) {
+            try {
+                await this.ftp_client.remove(file)
+                console.log(`File ${file} removed successfully`)
+                deleted.push(file)
+            } catch {
+                console.error(`Failed to remove file ${file}`)
+            }
+        }
+        return deleted
+    }
 }

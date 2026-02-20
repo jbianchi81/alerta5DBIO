@@ -102,6 +102,9 @@
                         "$ref": "updateserierastfromcubeprocedure.json"
                     },
                     {
+                        "$ref": "createaccessorprocedure.json"
+                    },
+                    {
                         "$ref": "testaccessorprocedure.json"
                     },
                     {
@@ -115,6 +118,9 @@
                     },
                     {
                         "$ref": "downloadthreddsprocedure.json"
+                    },
+                    {
+                        "$ref": "deleteremotefromaccessorprocedure.json"
                     }
                 ]
             }

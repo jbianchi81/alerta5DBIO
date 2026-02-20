@@ -294,7 +294,8 @@ internal.estacion = class extends baseModel {
 		ubicacion: {type: "string"},
 		drainage_basin: {type: "object"},
 		tabla: {foreign_key: true, type: "string", table: "redes", column: "tabla_id"},
-		red: {type: internal.red}
+		red: {type: internal.red},
+		series: {type: "array", items: internal.serie}
 	}
 	constructor() {
 		switch(arguments.length) {
@@ -7429,6 +7430,9 @@ internal.CRUD = class {
 	}
 
 	static upsertEstacionQuery(estacion,options={}) {
+		if(!estacion.geom) {
+			throw new Error("Missing required geom field")
+		}
 		var onconflictaction = (options.no_update) ? "DO NOTHING" : (options.no_update_id || !estacion.id) ? "DO UPDATE SET \
 				nombre=excluded.nombre,\
 				geom=excluded.geom,\
@@ -9401,10 +9405,11 @@ internal.CRUD = class {
 					if(!serie.var.id) {
 						throw(new Error("var.id missing"))
 					}
-					serie_props["var"] = await internal.var.read(serie.var.id)
-					if(!serie_props["var"]) {
+					serie_props["var"] = await internal.var.read({id:serie.var.id})
+					if(!serie_props["var"].length) {
 						throw(new Error("var " + serie.var.id + " not found"))
 					}
+					serie_props["var"] = serie_props["var"][0]
 					if(!serie.procedimiento.id) {
 						throw(new Error("procedimiento.id missing"))
 					}
@@ -10854,12 +10859,12 @@ internal.CRUD = class {
 	static removeDuplicates(observaciones) {   // elimina observaciones con timestart duplicado
 		// var timestarts = []
 		// console.log("sorting...")
-		observaciones.sort((a,b) => (a.timestart - b.timestart))
+		observaciones.sort((a,b) => (a.timestart.getTime() - b.timestart.getTime()))
 		// console.log("done")
 		var previous_timestart = new Date("1800-01-01")
 		// console.log("filtering...")
 		return observaciones.filter(o=>{ 
-			if(o.timestart - previous_timestart == 0) {
+			if(o.timestart.getTime() - previous_timestart.getTime() == 0) {
 				console.log("removing duplicate observacion, timestart:"+o.timestart)
 				return false
 			} else {
@@ -11833,7 +11838,6 @@ internal.CRUD = class {
 					throw new Error(e)
 				}
 			}
-			console.debug("release_client: " + release_client.toString())
 			var result_rows = []
 			let [access_join_clause, access_level] = ["", "'write'"]
 			if(filter.id) {
@@ -11989,7 +11993,7 @@ internal.CRUD = class {
 						)
 					}
 				}
-				const invalid_filter_keys = Object.keys(filter).filter(key => (Object.keys(valid_filters).indexOf(key) < 0))
+				const invalid_filter_keys = Object.keys(filter).filter(key => filter[key]).filter(key => (Object.keys(valid_filters).indexOf(key) < 0))
 				if(invalid_filter_keys.length) {
 					throw(new Error("Invalid filter keys: " + invalid_filter_keys.toString()))
 				}
@@ -12069,12 +12073,12 @@ internal.CRUD = class {
 						}
 						console.debug(`page: ${page}, deleted_rows: ${deleted_rows}`)
 					} catch (e) {
-						if(release_client) {
-							console.debug("ROLLBACK")
-							await client.query("ROLLBACK")
-							console.debug("releasing client")
-							client.release()
-						}
+						// if(release_client) {
+						// 	console.debug("ROLLBACK")
+						// 	await client.query("ROLLBACK")
+						// 	console.debug("releasing client")
+						// 	await client.release()
+						// }
 						throw(e)
 					}
 				} while (deleted_rows > 0)

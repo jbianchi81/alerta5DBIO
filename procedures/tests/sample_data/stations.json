@@ -1,0 +1,990 @@
+[
+    {
+        "id": 907,
+        "nombre": "larroque",
+        "id_externo": "ema-larroque",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -58.9947222222222,
+                -33.0444444444444
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-larroque",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 908,
+        "nombre": "villaguay",
+        "id_externo": "ema-villaguay",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -59.0972222222222,
+                -31.8575
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-villaguay",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 909,
+        "nombre": "saucedeluna",
+        "id_externo": "ema-sauceluna",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -59.2219444444444,
+                -31.2383333333333
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": true,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": false,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-sauceluna",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 910,
+        "nombre": "gualeguay",
+        "id_externo": "ema-gualeguay",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -59.3125,
+                -33.1625
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": true,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": false,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-gualeguay",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 911,
+        "nombre": "sansalvador",
+        "id_externo": "ema-sansalvador",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -58.52472,
+                -31.62222
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-sansalvador",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 912,
+        "nombre": "galarza",
+        "id_externo": "ema-galarza",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -59.3941666666667,
+                -32.7288888888889
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-galarza",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 913,
+        "nombre": "feliciano",
+        "id_externo": "ema-feliciano",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -58.7544,
+                -30.37583
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-feliciano",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 914,
+        "nombre": "macia",
+        "id_externo": "ema-macia",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -59.399925,
+                -32.1728527777778
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": true,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-macia",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 915,
+        "nombre": "bovril",
+        "id_externo": "ema-bovril",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -59.4486111111111,
+                -31.3397222222222
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-bovril",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 916,
+        "nombre": "lapaz",
+        "id_externo": "ema-lapaz",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -59.6,
+                -30.7
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": false,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-lapaz",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 917,
+        "nombre": "nogoya",
+        "id_externo": "ema-nogoya",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -59.7991666666667,
+                -32.3908333333333
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-nogoya",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 918,
+        "nombre": "hasenkamp",
+        "id_externo": "ema-hasenkamp",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -59.8419444444444,
+                -31.5108333333333
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-hasenkamp",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 919,
+        "nombre": "viale",
+        "id_externo": "ema-viale",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -60.0177777777778,
+                -31.8688888888889
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-viale",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 920,
+        "nombre": "victoria",
+        "id_externo": "ema-victoria",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -60.1391666666667,
+                -32.6127777777778
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-victoria",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 921,
+        "nombre": "villaurquiza",
+        "id_externo": "ema-vurquiza",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -60.3,
+                -31.6
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-villaurquiza",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 922,
+        "nombre": "crespo",
+        "id_externo": "ema-crespo",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -60.3172222222222,
+                -32.0275
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": false,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-crespo",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 923,
+        "nombre": "parana",
+        "id_externo": "ema-parana",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -60.5308333333333,
+                -31.7219444444444
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-parana",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 924,
+        "nombre": "villaelisa",
+        "id_externo": "ema-velisa",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -58.4,
+                -32.167
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": null,
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 925,
+        "nombre": "sjdelafrontera",
+        "id_externo": "ema-sanjose",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -58.315,
+                -30.357
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": null,
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 926,
+        "nombre": "cuchilla",
+        "id_externo": "ema-cuchilla",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -59.26,
+                -33.197
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": null,
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 927,
+        "nombre": "colon",
+        "id_externo": "ema-colon",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -58.1459416666667,
+                -32.2261611111111
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-colon",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 928,
+        "nombre": "concepciondeluruguay",
+        "id_externo": "ema-curuguay",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -58.3,
+                -32.5
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": true,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-curuguay",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 929,
+        "nombre": "gualeguaychu",
+        "id_externo": "ema-gualeguaychu",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -58.5041666666667,
+                -33.0144444444444
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": true,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-gualeguaychu",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 930,
+        "nombre": "villaparanacito",
+        "id_externo": "ema-villaparanacito",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -58.6602777777778,
+                -33.7116666666667
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": null,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-villaparanacito",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 931,
+        "nombre": "basavilbaso",
+        "id_externo": "ema-basavilbaso",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -58.8866666666667,
+                -32.3733333333333
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": true,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": false,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-basavilbaso",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    },
+    {
+        "id": 932,
+        "nombre": "urdinarrain",
+        "id_externo": "ema-urdinarrain",
+        "geom": {
+            "type": "Point",
+            "coordinates": [
+                -58.8918,
+                -32.6790694444444
+            ]
+        },
+        "tabla": "emas",
+        "provincia": "ENTRERIOS",
+        "pais": "Argentina",
+        "rio": null,
+        "has_obs": true,
+        "tipo": "M",
+        "automatica": true,
+        "habilitar": true,
+        "propietario": "DPHER",
+        "abreviatura": null,
+        "URL": "http://www.hidraulica.gob.ar/ema/ema-urdinarrain",
+        "localidad": null,
+        "real": true,
+        "nivel_alerta": null,
+        "nivel_evacuacion": null,
+        "nivel_aguas_bajas": null,
+        "altitud": null,
+        "public": true,
+        "cero_ign": null,
+        "red": {
+            "id": 16,
+            "tabla_id": "emas",
+            "nombre": "red EMAs Entre Ríos",
+            "public": true,
+            "public_his_plata": true
+        }
+    }
+]
