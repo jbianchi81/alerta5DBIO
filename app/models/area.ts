@@ -334,6 +334,9 @@ export default class Area {
 				${pagination_clause}`
 			const res = await (g.pool as any).query(stmt)
 			const areas = res.rows.map((r: any) => {
+				if (r.exutorio) {
+					r.exutorio = new Geometry(r.exutorio)
+				}
 				return new this(r)
 			})
 			return areas

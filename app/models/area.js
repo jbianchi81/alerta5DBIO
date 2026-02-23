@@ -13,7 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isGeometryDict = isGeometryDict;
+exports.isGeometryDict = void 0;
 const setGlobal_1 = __importDefault(require("a5base/setGlobal"));
 // import {Area as AreaType} from '../a5_types'
 const custom_errors_1 = require("../custom_errors");
@@ -207,8 +207,8 @@ class Area {
         }
         return (0, utils2_1.pasteIntoSQLQuery)(query, params);
     }
-    static list() {
-        return __awaiter(this, arguments, void 0, function* (filter = {}, options = {}, user_id) {
+    static list(filter = {}, options = {}, user_id) {
+        return __awaiter(this, void 0, void 0, function* () {
             if (filter.id) {
                 filter.unid = filter.id;
                 delete filter.id;
@@ -303,6 +303,9 @@ class Area {
 				${pagination_clause}`;
                 const res = yield g.pool.query(stmt);
                 const areas = res.rows.map((r) => {
+                    if (r.exutorio) {
+                        r.exutorio = new geometry_1.Geometry(r.exutorio);
+                    }
                     return new this(r);
                 });
                 return areas;
@@ -370,8 +373,8 @@ class Area {
             return Area.deleteOne(this.id);
         });
     }
-    static read(id_1) {
-        return __awaiter(this, arguments, void 0, function* (id, options = {}, user_id) {
+    static read(id, options = {}, user_id) {
+        return __awaiter(this, void 0, void 0, function* () {
             const results = yield Area.list({ id: id }, options, user_id);
             if (!results.length) {
                 throw new custom_errors_1.NotFoundError("No se encontró área con el id especificado");
@@ -379,9 +382,9 @@ class Area {
             return results[0];
         });
     }
-    static listWithPagination() {
-        return __awaiter(this, arguments, void 0, function* (filter = {}, options = {}, req, user_id) {
-            var _a, _b, _c;
+    static listWithPagination(filter = {}, options = {}, req, user_id) {
+        var _a, _b, _c;
+        return __awaiter(this, void 0, void 0, function* () {
             const config_pagination = (_a = g.config.pagination) !== null && _a !== void 0 ? _a : { default_limit: 1000, max_limit: 10000 };
             filter.limit = (_b = filter.limit) !== null && _b !== void 0 ? _b : config_pagination.default_limit;
             filter.limit = parseInt(filter.limit.toString());
@@ -415,8 +418,8 @@ class Area {
             }
         });
     }
-    static hasAccess(user_id_1, area_id_1) {
-        return __awaiter(this, arguments, void 0, function* (user_id, area_id, write = false) {
+    static hasAccess(user_id, area_id, write = false) {
+        return __awaiter(this, void 0, void 0, function* () {
             const max_priority = (write) ? 2 : 1;
             var query = (0, utils2_1.pasteIntoSQLQuery)(`SELECT EXISTS (
 			SELECT 1
@@ -442,8 +445,8 @@ class Area {
             }
         });
     }
-    static hasAccessSerie(user_id_1, series_id_1) {
-        return __awaiter(this, arguments, void 0, function* (user_id, series_id, write = false) {
+    static hasAccessSerie(user_id, series_id, write = false) {
+        return __awaiter(this, void 0, void 0, function* () {
             const max_priority = (write) ? 2 : 1;
             var query = (0, utils2_1.pasteIntoSQLQuery)(`WITH s AS (
 				SELECT area_id 
@@ -536,3 +539,4 @@ function isGeometryDict(value) {
             return false;
     }
 }
+exports.isGeometryDict = isGeometryDict;
