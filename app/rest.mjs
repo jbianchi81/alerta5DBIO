@@ -580,7 +580,8 @@ app.post('/login',passport.authenticate('local'),(req,res)=>{
 		}
 	}
 	if(req.headers['content-type'] == "application/x-www-form-urlencoded" || req.headers['content-type'] == "multipart/form-data") {
-		var path = (req.query) ? (req.query.path) ? req.query.path.startsWith("/") ? req.query.path : "/" + req.query.path : "secciones"  : "secciones"
+		// var path = (req.query) ? (req.query.path) ? req.query.path.startsWith("/") ? req.query.path : "/" + req.query.path : "secciones"  : "secciones"
+		var path = (req.query) ? (req.query.path) ? req.query.path : "secciones"  : "secciones"
 		if(config.verbose) {
 			console.log("redirecting to " + path)
 		}
