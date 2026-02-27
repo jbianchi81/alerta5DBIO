@@ -15982,7 +15982,7 @@ internal.CRUD = class {
 				source_series_id: {type: "number"}, 
 				source_estacion_id: {type: "number", table: "s_source", column: "sitio_id"}, 
 				dest_estacion_id: {type: "number", table: "s_dest", column: "sitio_id"}, 
-				source_fuentes_id: {type: "string", table: "s_source", column: "proc_id"}, 
+				source_fuentes_id: {type: "string", table: "s_source", column: "fuentes_id"}, 
 				source_var_id: {type: "number", table: "s_source", column: "var_id"},  
 				source_proc_id: {type: "number", table: "s_source", column: "proc_id"}, 
 				dest_tipo: {type: "string"}, 
