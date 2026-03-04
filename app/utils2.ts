@@ -4,9 +4,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import parsePGinterval  from 'postgres-interval'
 import { escapeIdentifier, escapeLiteral } from 'pg'
+import { access, readFile } from 'fs/promises';
+
 
 const execAsync = promisify(exec);
-
 
 const INTERVAL_KEYS = [
   "years",
@@ -416,3 +417,72 @@ export function pasteIntoSQLQuery(query : string, params : any[]) : string {
     }
     return query
   }
+
+export function parseMarkdownTable(md : string) : any[] {
+  const lines = md
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l.startsWith('|'));
+
+  if (lines.length < 2) return [];
+
+  const headers = lines[0]
+    .split('|')
+    .slice(1, -1)
+    .map(h => h.trim());
+
+  return lines.slice(2).map(row => {
+    const values = row
+      .split('|')
+      .slice(1, -1)
+      .map(v => v.trim());
+
+    return headers.reduce((obj : any, header : string, i : number) => {
+      obj[header] = values[i] ?? null;
+      return obj;
+    }, {});
+  });
+}
+
+export async function readIfExists(path : string) {
+  try {
+    await access(path, fs.constants.F_OK); // check existence
+    const content = await readFile(path, 'utf8');
+    return content;
+  } catch (err:unknown) {
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as NodeJS.ErrnoException).code === "ENOENT"
+    ) {
+      throw new Error(`File ${path} does not exist`); // file does not exist
+    }
+    throw err; // other error
+  }
+}
+
+
+export function parseDDMMYYYY(dateStr: string): Date {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dateStr);
+  if (!match) throw("Bad date string: expected DD/MM/YYYY")
+
+  const [, dd, mm, yyyy] = match;
+
+  const day = Number(dd);
+  const month = Number(mm) - 1; // JS months are 0-based
+  const year = Number(yyyy);
+
+  const date = new Date(year, month, day);
+
+  // Validate (prevents 32/01/2024 becoming Feb 1)
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month ||
+    date.getDate() !== day
+  ) {
+    throw new Error("Invalid date")
+  }
+
+  return date;
+}

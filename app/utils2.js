@@ -15,23 +15,13 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -45,21 +35,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.interval_key_map = exports.not_null = void 0;
-exports.isIntervalKey = isIntervalKey;
-exports.runCommandAndParseJSON = runCommandAndParseJSON;
-exports.listFilesSync = listFilesSync;
-exports.assertValidDateTruncField = assertValidDateTruncField;
-exports.control_filter2 = control_filter2;
-exports.createInterval = createInterval;
-exports.intervalFromString = intervalFromString;
-exports.pasteIntoSQLQuery = pasteIntoSQLQuery;
+exports.parseDDMMYYYY = exports.readIfExists = exports.parseMarkdownTable = exports.pasteIntoSQLQuery = exports.interval_key_map = exports.intervalFromString = exports.createInterval = exports.control_filter2 = exports.assertValidDateTruncField = exports.not_null = exports.listFilesSync = exports.runCommandAndParseJSON = exports.isIntervalKey = void 0;
 const child_process_1 = require("child_process");
 const util_1 = require("util");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const postgres_interval_1 = __importDefault(require("postgres-interval"));
 const pg_1 = require("pg");
+const promises_1 = require("fs/promises");
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
 const INTERVAL_KEYS = [
     "years",
@@ -73,6 +56,7 @@ const INTERVAL_KEYS = [
 function isIntervalKey(key) {
     return INTERVAL_KEYS.includes(key);
 }
+exports.isIntervalKey = isIntervalKey;
 function runCommandAndParseJSON(cmd) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -87,12 +71,14 @@ function runCommandAndParseJSON(cmd) {
         }
     });
 }
+exports.runCommandAndParseJSON = runCommandAndParseJSON;
 function listFilesSync(dir) {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     return entries
         .filter(entry => entry.isFile())
         .map(entry => path.join(dir, entry.name));
 }
+exports.listFilesSync = listFilesSync;
 class not_null extends Object {
 }
 exports.not_null = not_null;
@@ -115,6 +101,7 @@ function assertValidDateTruncField(field) {
         throw (new Error("Invalid date_trunc field: " + field));
     }
 }
+exports.assertValidDateTruncField = assertValidDateTruncField;
 function control_filter2(valid_filters, filter, default_table, crud, throw_on_error = false) {
     // valid_filters = { column1: { table: "table_name", type: "data_type", required: bool, column: "column_name"}, ... }  
     // filter = { column1: "value1", column2: "value2", ....}
@@ -337,6 +324,7 @@ function control_filter2(valid_filters, filter, default_table, crud, throw_on_er
         return filter_string;
     }
 }
+exports.control_filter2 = control_filter2;
 function createInterval(value) {
     if (!value) {
         return; //  parsePGinterval()
@@ -401,6 +389,7 @@ function createInterval(value) {
         return;
     }
 }
+exports.createInterval = createInterval;
 function isJson(str) {
     try {
         JSON.parse(str);
@@ -431,6 +420,7 @@ function intervalFromString(interval_string) {
     // Object.assign(interval,JSON.parse(value))
     return interval;
 }
+exports.intervalFromString = intervalFromString;
 exports.interval_key_map = {
     milliseconds: "milliseconds",
     millisecond: "milliseconds",
@@ -494,3 +484,65 @@ function pasteIntoSQLQuery(query, params) {
     }
     return query;
 }
+exports.pasteIntoSQLQuery = pasteIntoSQLQuery;
+function parseMarkdownTable(md) {
+    const lines = md
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l.startsWith('|'));
+    if (lines.length < 2)
+        return [];
+    const headers = lines[0]
+        .split('|')
+        .slice(1, -1)
+        .map(h => h.trim());
+    return lines.slice(2).map(row => {
+        const values = row
+            .split('|')
+            .slice(1, -1)
+            .map(v => v.trim());
+        return headers.reduce((obj, header, i) => {
+            var _a;
+            obj[header] = (_a = values[i]) !== null && _a !== void 0 ? _a : null;
+            return obj;
+        }, {});
+    });
+}
+exports.parseMarkdownTable = parseMarkdownTable;
+function readIfExists(path) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            yield (0, promises_1.access)(path, fs.constants.F_OK); // check existence
+            const content = yield (0, promises_1.readFile)(path, 'utf8');
+            return content;
+        }
+        catch (err) {
+            if (typeof err === "object" &&
+                err !== null &&
+                "code" in err &&
+                err.code === "ENOENT") {
+                throw new Error(`File ${path} does not exist`); // file does not exist
+            }
+            throw err; // other error
+        }
+    });
+}
+exports.readIfExists = readIfExists;
+function parseDDMMYYYY(dateStr) {
+    const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dateStr);
+    if (!match)
+        throw ("Bad date string: expected DD/MM/YYYY");
+    const [, dd, mm, yyyy] = match;
+    const day = Number(dd);
+    const month = Number(mm) - 1; // JS months are 0-based
+    const year = Number(yyyy);
+    const date = new Date(year, month, day);
+    // Validate (prevents 32/01/2024 becoming Feb 1)
+    if (date.getFullYear() !== year ||
+        date.getMonth() !== month ||
+        date.getDate() !== day) {
+        throw new Error("Invalid date");
+    }
+    return date;
+}
+exports.parseDDMMYYYY = parseDDMMYYYY;
