@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Client = void 0;
 const utils2_1 = require("../utils2");
 const abstract_accessor_engine_1 = require("./abstract_accessor_engine");
+const CRUD_js_1 = require("../CRUD.js");
 class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     constructor(config) {
         super(config);
@@ -112,9 +113,16 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             };
         });
     }
-    getPronostico(filter) {
+    getPronostico() {
+        return __awaiter(this, arguments, void 0, function* (filter = {}) {
+            return this.readMdTableFile(filter.file || this.config.file);
+        });
+    }
+    updatePronostico(filter) {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.readMdTableFile(this.config.file);
+            const corrida = yield this.getPronostico(filter);
+            const c_cor = new CRUD_js_1.corrida(corrida);
+            return c_cor.create();
         });
     }
 }

@@ -57,6 +57,7 @@ internal.ctp_ultimas_alturas = require('./accessors/ctp_ultimas_alturas').Client
 internal.persiann = require('./accessors/persiann').Client
 internal.pilcomayo = require('./accessors/pilcomayo').Client
 internal.emas = require('./accessors/emas').Client
+internal.sgb_sace_report = require('./accessors/sgb_sace_report').Client
 
 // Promise.allSettled polyfill
 
@@ -177,7 +178,7 @@ internal.Accessor = class {
 		return CRUD.accessor.delete({name: this.name})
 	}
 
-	constructor(fields={}) { // clase, url, series_tipo, series_source_id,config,series_id) {
+	constructor(fields={}) { // class, url, series_tipo, series_source_id,config,series_id) {
 		if(!fields.class) {
 			throw("Missing class")
 		}

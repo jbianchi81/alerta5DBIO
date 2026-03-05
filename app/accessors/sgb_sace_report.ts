@@ -1,6 +1,7 @@
 import {parseMarkdownTable, readIfExists, parseDDMMYYYY} from '../utils2'
 import {AbstractAccessorEngine, AccessorEngine} from './abstract_accessor_engine'
-import { Pronostico } from '../a5_types'
+import { Pronostico, SerieProno, Corrida } from '../a5_types'
+import {corrida as Crud_corrida} from '../CRUD.js'
 
 type ClientConfig = {
     url : string // not used
@@ -13,20 +14,6 @@ type ClientConfig = {
     cal_id: number
     scale: number // convert to meters
     precision: number // round to
-}
-
-type SerieProno = {
-    series_table: "series" | "series_areal" | "series_rast"
-    series_id : number
-    cor_id?: number
-    pronosticos: Pronostico[]
-}
-
-type Corrida = {
-    forecast_date : Date
-    series: SerieProno[]
-    cal_id: number
-
 }
 
 export class Client extends AbstractAccessorEngine implements AccessorEngine {
@@ -135,7 +122,13 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         }
     }
 
-    async getPronostico(filter : {}) : Promise<Corrida> {
-        return this.readMdTableFile(this.config.file)
+    async getPronostico(filter : {file?: string}={}) : Promise<Corrida> {
+        return this.readMdTableFile(filter.file || this.config.file)
+    }
+
+    async updatePronostico(filter : {}) : Promise<Corrida> {
+        const corrida = await this.getPronostico(filter)
+        const c_cor = new Crud_corrida(corrida)
+        return c_cor.create()
     }
 }

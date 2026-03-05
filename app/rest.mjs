@@ -5491,10 +5491,15 @@ function uploadToAccessor(req,res) {
 				console.log("se copió el archivo " + local_file_path)
 				filter.file = local_file_path
 				if(options.no_update) {
+					if (accessor.engine.config.is_prono) {
+						return accessor.getPronostico(filter,options)
+					}
 					return accessor.engine.get(filter,options)
-				} else {
-					return accessor.engine.update(filter,options)
 				}
+				if(accessor.engine.config.is_prono) {
+					return accessor.updatePronostico(filter,options)
+				} 
+				return accessor.engine.update(filter,options)
 			})
 			.then(result=>{
 				send_output(options,result,res)

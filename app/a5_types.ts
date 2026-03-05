@@ -308,3 +308,17 @@ export interface Interval {
     getKey() : string
     getValue() : number
 }
+
+export type SerieProno = {
+    series_table: "series" | "series_areal" | "series_rast"
+    series_id : number
+    cor_id?: number
+    pronosticos: Pronostico[]
+}
+
+export type Corrida = {
+    forecast_date : Date
+    series: SerieProno[]
+    cal_id: number
+
+}
