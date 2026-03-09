@@ -97,6 +97,108 @@ function flatten(arr) {
   }, []);
 }
 
+function parseCsvStringRow(cls, csv_string, sep, header, metadata={}) {
+    var data = CSV.parse(csv_string,sep)[0]
+	const parsed = {}
+	for(var i in header) {
+		// console.log(header[i])
+		if(data[i] != null) {
+			if(typeof data[i] == 'string') {
+				if(/^\s*$/.test(data[i])) {
+					// console.log("skips empty string")
+					continue
+				} else if(/^\s*null\s*$/.test(data[i])) {
+					// console.log("skips string='null'")
+					continue
+				} else {
+					if(header[i].split(".").length > 1) {
+						// console.log("set deep value")
+						setDeepValue(parsed,header[i],data[i])
+					} else if(header[i] == "valor" && isNumeric(data[i])) {
+						parsed[header[i]] = parseFloat(data[i])
+					} else {
+						// console.log("set string value")
+						parsed[header[i]] = data[i]		
+					}
+				}
+			} else {
+				// console.log("set non string value")
+				parsed[header[i]] = data[i]
+			}
+		} else {
+			// console.log("skip null")
+		}
+	}
+	// console.log(observacion)
+	return new cls({...parsed, ...metadata})
+}
+
+function fromCSV(cls, csv_string, sep, has_header, instantiate_by_block=false) {
+	const data = []
+	const metadata = {}
+	var lines = (Array.isArray(csv_string)) ? csv_string : csv_string.split("\n")
+	var header_flag = (has_header) ? (Array.isArray(has_header)) ? true : false : true
+	var header = (Array.isArray(has_header)) ? has_header : undefined
+	const current_block = []
+	for(var i in lines) {
+		if(/^\s*#/.test(lines[i])) {
+			// line is comment, check if it contains metadata
+			var content = lines[i].replace(/^\s*#+\s*/,"").split("=")
+			if(content.length>=2) {
+				// check if current block is loaded, then instantiate and reset
+				if(current_block.length) {
+					if(!cls.fromCSV) {
+						throw new Error("Missing fromCSV method in this class")
+					}
+					data.push(cls.fromCSV(current_block,sep,header,metadata))
+					current_block.length = 0
+					
+				}
+				// save metadata key value pair
+				content = content.map(s=>s.replace(/^\s+/,"").replace(/\s+$/,""))
+				metadata[content[0]] = content[1]
+			}
+		} else if(/^\s*$/.test(lines[i])) {
+			// empty line, skip
+			continue
+		} else {
+			// first non-comment, non-empty line must be the header
+			if(header_flag === false) {
+				header_flag = true
+				header = CSV.parse(lines[i],sep)[0]
+				continue
+			}
+			// rest is data
+			if(instantiate_by_block) {
+				current_block.push(lines[i])
+				continue
+			}
+			if(cls.fromCSV) {
+				var parsed_row = cls.fromCSV(lines[i],sep,header,metadata)
+			} else {
+				var parsed_row = parseCsvStringRow(cls, lines[i], sep, header, metadata)
+			}
+			data.push(parsed_row)
+		}
+	}
+	if(current_block.length) {
+		if(!cls.fromCSV) {
+			throw new Error("Missing fromCSV method in this class")
+		}
+		data.push(cls.fromCSV(current_block,sep,header, metadata))
+		current_block.length = 0
+	}
+	return [data, metadata]
+}
+
+function pick(obj, keys) {
+  return Object.fromEntries(
+    keys
+      .filter(k => k in obj)
+      .map(k => [k, obj[k]])
+  );
+}
+
 internal.geometry = class extends Geometry  {}
 
 internal.red = class extends baseModel  {
@@ -4260,44 +4362,16 @@ internal.observacion = class extends baseModel {
 	// 		valor: this.valor
 	// 	})
 	// }
+
+	static csv_headers = ["id","tipo","series_id","timestart","timeend","nombre","descripcion","unit_id","timeupdate","valor","stats.percentage_of_average","stats.rank","stats.count","stats.month","stats.historical_monthly_mean","stats.weibull_percentile","stats.percentile_category.name","stats.percentile_category.range.0","stats.percentile_category.range.1","stats.percentile_category.number"]
+
 	/**
 	 * parses csv string into new observacion. Takes only first line of csv_string
 	 */
-	static fromCSV(csv_string,sep=",",header=["id","tipo","series_id","timestart","timeend","nombre","descripcion","unit_id","timeupdate","valor","stats.percentage_of_average","stats.rank","stats.count","stats.month","stats.historical_monthly_mean","stats.weibull_percentile","stats.percentile_category.name","stats.percentile_category.range.0","stats.percentile_category.range.1","stats.percentile_category.number"]) {
-		var data = CSV.parse(csv_string,sep)[0]
-		const observacion = {}
-		for(var i in header) {
-			// console.log(header[i])
-			if(data[i] != null) {
-				if(typeof data[i] == 'string') {
-				    if(/^\s*$/.test(data[i])) {
-						// console.log("skips empty string")
-						continue
-					} else if(/^\s*null\s*$/.test(data[i])) {
-						// console.log("skips string='null'")
-						continue
-					} else {
-						if(header[i].split(".").length > 1) {
-							// console.log("set deep value")
-							setDeepValue(observacion,header[i],data[i])
-						} else if(header[i] == "valor" && isNumeric(data[i])) {
-							observacion[header[i]] = parseFloat(data[i])
-						} else {
-							// console.log("set string value")
-							observacion[header[i]] = data[i]		
-						}
-					}
-				} else {
-					// console.log("set non string value")
-					observacion[header[i]] = data[i]
-				}
-			} else {
-				// console.log("skip null")
-			}
-		}
-		// console.log(observacion)
-		return new this(observacion)
+	static fromCSV(csv_string,sep=",",header=this.csv_headers) {
+		return parseCsvStringRow(this, csv_string, sep, header)
 	}
+
 	toCSV(options={}) {
 		var sep = options.sep ?? ","
 		var format_string_1 = ",%.2f,%d,%d,%d,%.2f,%.2f,%s,%.2f,%.2f,%d".replace(/\,/g,sep)
@@ -4635,38 +4709,8 @@ internal.observaciones = class extends BaseArray {
         return this.map(o=>o.toString()).join("\n")
     }
 	static fromCSV(csv_string,sep=",",has_header=true) {
-		const data = []
-		const metadata = {}
-		var lines = csv_string.split("\n")
-		var header_flag = (has_header) ? false : true
-		var header
-		for(var i in lines) {
-			if(/^\s*#/.test(lines[i])) {
-				// line is comment, check if it contains metadata
-				var content = lines[i].replace(/^\s*#+\s*/,"").split("=")
-				if(content.length>=2) {
-					// save metadata key value pair
-					content = content.map(s=>s.replace(/^\s+/,"").replace(/\s+$/,""))
-					metadata[content[0]] = content[1]
-				}
-			} else if(/^\s*$/.test(lines[i])) {
-				// empty line, skip
-				continue
-			} else {
-				// first non-comment, non-empty line must be the header
-				if(header_flag === false) {
-					header_flag = true
-					header = CSV.parse(lines[i],sep)[0]
-					continue
-				}
-				// rest is data
-				data.push(internal.observacion.fromCSV(lines[i],sep,header))
-
-			}
-		}
-		metadata.header = header
-		return new this(data,{metadata:metadata})
-
+		const [data, metadata] = fromCSV(internal.observacion, csv_string, sep, has_header)
+		return new this(data, {metadata: metadata})
 	}
     /**
 	 * Returns csv string representing this object
@@ -6145,6 +6189,16 @@ internal.corrida = class extends baseModel {
 		return this.id + "," + this.forecast_date
 	}
 
+	static metadata_fields = ["cal_id", "forecast_date", "id"]
+	
+	static complex = true
+
+	static fromCSV(csv_string,sep=",",has_header=true) {
+		var [series, metadata] = fromCSV(internal.SerieTemporalSim, csv_string, sep, has_header, true)
+		metadata = pick(metadata, this.metadata_fields)
+		return new this({...metadata, series: series})
+	}
+
 	/**
 	 * 
 	 * @param {internal.corrida[]|internal.corrida} corridas 
@@ -6609,7 +6663,16 @@ internal.SerieTemporalSim = class extends baseModel {
 	} 
 	toCSV() {
 		return "# series_table=" + this.series_table + "\n# series_id=" + this.series_id + "\n\n" + this.pronosticos.map(p=>p.toCSV()).join("\n")
+	}
+
+	static metadata_fields = ["series_table", "series_id", "qualifier"]
+
+	static fromCSV(csv_string, sep=",", header=false, metadata={}) {
+		metadata = pick(metadata, this.metadata_fields)
+		const pronosticos = fromCSV(internal.pronostico, csv_string, sep, header)
+		return new this({...metadata, pronosticos: pronosticos})
 	} 
+
 	toCSVless() {
 		return this.id + "," + this.forecast_date
 	}
@@ -6773,6 +6836,15 @@ internal.pronostico = class extends baseModel {
 	toCSVless() {
 		return this.id + "," + this.timestart.toISOString() + "," + this.timeend.toISOString() + "," + this.valor + "," + this.qualifier
 	}
+
+	static csv_headers = ["id","timestart","timeend","valor","qualifier"]
+	static metadata_fields = ["series_id","series_table","qualifier"] 
+
+	static fromCSV(csv_string, sep, header=this.csv_headers, metadata={}) {
+		metadata = pick(metadata, this.metadata_fields)
+		return parseCsvStringRow(this, csv_string, sep, header, metadata)
+	}
+
 	toRaster(output_file) {
 		if(this.valor != null) {
 			fs.writeFileSync(output_file,new Buffer.from(this.valor))
