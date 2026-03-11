@@ -6171,6 +6171,9 @@ internal.output = class extends baseModel {
 }
 
 internal.corrida = class extends baseModel {
+
+	static complex = true
+
 	constructor() {
         super()
 		var m = arguments[0]
@@ -6193,10 +6196,85 @@ internal.corrida = class extends baseModel {
 	
 	static complex = true
 
-	static fromCSV(csv_string,sep=",",has_header=true) {
-		var [series, metadata] = fromCSV(internal.SerieTemporalSim, csv_string, sep, has_header, true)
-		metadata = pick(metadata, this.metadata_fields)
-		return new this({...metadata, series: series})
+	static parseCSV(text, sep=",") {
+		const lines = text.split(/\r?\n/);
+
+		const result = {
+			cal_id: null,
+			forecast_date: null,
+			series: []
+		};
+
+		let currentSeries = null;
+		let header = null;
+
+		for (const raw of lines) {
+			const line = raw.trim();
+			if (!line) continue;
+
+			// comment metadata
+			if (line.startsWith("#")) {
+				const [k, v] = line.slice(1).split("=").map(s => s.trim());
+
+				if (k === "cal_id") result.cal_id = Number(v);
+				else if (k === "forecast_date") result.forecast_date = new Date(v);
+
+				else if (k === "series_table") {
+					if(!currentSeries) {
+						currentSeries = {
+							series_table: v,
+							series_id: null,
+							pronosticos: []
+						};
+						result.series.push(currentSeries);
+					} else {
+						currentSeries.series_table = v
+					}
+				}
+
+				else if (k === "series_id") {
+					if(!currentSeries) {
+						currentSeries = {
+							series_table: null,
+							series_id: v,
+							pronosticos: []
+						};
+						result.series.push(currentSeries);
+					} else {
+						currentSeries.series_id = Number(v);
+					}
+				}
+
+				continue;
+			}
+
+			// header line
+			if (line.startsWith("timestart")) {
+				header = line.split(sep);
+				continue;
+			}
+
+			// csv row
+			if (header && currentSeries) {
+				const [timestart, timeend, valor] = line.split(sep);
+
+				currentSeries.pronosticos.push({
+					timestart: new Date(timestart),
+					timeend: new Date(timeend),
+					valor: Number(valor)
+				});
+			}
+		}
+
+		return result;
+	}
+
+	static fromCSV(csv_string,sep=",") {
+		// var [series, metadata] = fromCSV(internal.SerieTemporalSim, csv_string, sep, has_header, true)
+		// metadata = pick(metadata, this.metadata_fields)
+		// return new this({...metadata, series: series})
+		const c = this.parseCSV(csv_string, sep)
+		return new this(c)
 	}
 
 	/**
