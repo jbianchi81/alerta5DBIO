@@ -12404,7 +12404,7 @@ internal.CRUD = class {
 			} else if(filter.series_id) { // toma dt y t_offset de 
 				const series_id_filter = (Array.isArray(filter.series_id)) ? filter.series_id[0] : filter.series_id
 				try {
-					var serie = await this.getSerie(filter.tipo,series_id_filter)
+					var serie = await this.getSerie(filter.tipo,series_id_filter, undefined, undefined, undefined, undefined, undefined, client)
 					options.dt = serie.var.dt
 					options.t_offset = serie.var.t_offset
 				} catch(e) {
@@ -14339,7 +14339,7 @@ internal.CRUD = class {
 				return Promise.reject("If cal_id is set, forecast_date must be defined")
 			}
 		}
-		var serie = await this.getSerie(tipo,series_id)
+		var serie = await this.getSerie(tipo,series_id, undefined, undefined, undefined, undefined, undefined, client)
 		if(!serie) {
 			console.error("serie not found")
 			return
@@ -14959,34 +14959,33 @@ internal.CRUD = class {
 	static async getMultipleRegularSeries(series,dt="1 days",timestart,timeend,options) {
 		// series: [{tipo:...,id:...},{..},...]
 		// returns 2d array with dates in rows and series in columns
-		return Promise.all(series.map(s=>{
-			return this.getSerie((s.tipo) ? s.tipo : "puntual",{id:s.id})
-		}))
-		.then(seriesData=>{
-			seriesData = seriesData.map(s=>s[0])
-			var header0 = ["series_id"]
-			var header1 = ["estacion"]
-			var header2 = ["variable"]
-			return Promise.all(seriesData.map(s=>{
-				header0.push(s.id)
-				header1.push(s.estacion.nombre)
-				header2.push(s.var.nombre)
-				return this.getRegularSeries( (s.tipo) ? s.tipo : "puntual",s.id,dt,timestart,timeend,options)
-			}))
-			.then(regularSeries=>{
-				var multipleRegularSeries = [header0,header1,header2]
-				if(regularSeries.length>0) {
-					regularSeries[0].forEach((r,i)=>{
-						var row = [r.timestart.toISOString()]
-						regularSeries.forEach(s=>{
-							row.push(s[i].valor)
-						})
-						multipleRegularSeries.push(row)
-					})
-				}
-				return multipleRegularSeries
+		var seriesData = []
+		for (const s of series) {
+			const serie = await this.getSerie((s.tipo) ? s.tipo : "puntual",{id:s.id})
+			seriesData.push(serie)
+		}
+		seriesData = seriesData.map(s=>s[0])
+		var header0 = ["series_id"]
+		var header1 = ["estacion"]
+		var header2 = ["variable"]
+		var regularSeries = []
+		for (const s of seriesData) {
+			header0.push(s.id)
+			header1.push(s.estacion.nombre)
+			header2.push(s.var.nombre)
+			const rs = await this.getRegularSeries( (s.tipo) ? s.tipo : "puntual",s.id,dt,timestart,timeend,options)
+		}
+		var multipleRegularSeries = [header0,header1,header2]
+		if(regularSeries.length>0) {
+			regularSeries[0].forEach((r,i)=>{
+				var row = [r.timestart.toISOString()]
+				regularSeries.forEach(s=>{
+					row.push(s[i].valor)
+				})
+				multipleRegularSeries.push(row)
 			})
-		})
+		}
+		return multipleRegularSeries
 	}
 	
 	// getCampo2: obtiene set de series regulares de una variable puntual para un periodo y paso temporal dados, opcionalmente filtrado por recorte espacial (geom), procedimiento, array de ids de estación, id o array de id de red 
@@ -19361,7 +19360,7 @@ ORDER BY cal.cal_id`
 											AND series.id=coalesce($7,series.id)\
 											AND pronosticos_guardados.cor_id=$1\
 											ORDER BY pronosticos_guardados.series_id,pronosticos_guardados.timestart",[r.id,timestart,timeend,qualifier,estacion_id,var_id,series_id])
-				.then(result=>{
+				.then(async result=>{
 					if(result.rows) {
 						var series = {}
 						if(group_by_qualifier) {   // one series element for each series_id+qualifier combination
@@ -19383,18 +19382,12 @@ ORDER BY cal.cal_id`
 						var series_data = Object.keys(series).sort().map(k=>series[k]) 
 						var corrida = {cor_id:r.id,cal_id:r.cal_id,forecast_date:r.date,series:series_data}
 						if(series_metadata) {
-							var promises = []
-							corrida.series.forEach(serie=>{
-								promises.push(this.getSerie("puntual",serie.series_id)
-								.then(result=>{
-									serie.metadata = result
-									return
-								}))
-							})
-							return Promise.all(promises)
-							.then(()=>{
-								return corrida
-							})
+							var series = []
+							for(const serie of corrida.series) {
+								const s = await this.getSerie("puntual",serie.series_id)
+								serie.metadata = s
+							}
+							return corrida
 						} else {
 							return corrida
 						}
