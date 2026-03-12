@@ -12439,7 +12439,12 @@ internal.CRUD = class {
 		return (t == "areal") ? "valores_num_areal" : (t == "rast" || t == "raster") ? "observaciones_rast" : "valores_num"
 	}
 
-	static async getObservacionesDateRange(tipo,filter,options) {
+	static async getObservacionesDateRange(tipo,filter,options, client) {
+		var release_client = false
+		if(!client) {
+			release_client = true
+			client = await global.pool.connect()
+		}
 		var tipo = this.getTipo(tipo)
 		var obs_table = this.getObsTable(tipo)
 		var filter_string = this.getObservacionesFilterString(tipo,filter,options) 
@@ -12448,21 +12453,44 @@ internal.CRUD = class {
 			throw "invalid filter value"
 		}
 		try {
-			var result = await global.pool.query("SELECT min(timestart),max(timestart) FROM " + obs_table + " WHERE 1=1 " + filter_string)
+			var result = await client.query("SELECT min(timestart),max(timestart) FROM " + obs_table + " WHERE 1=1 " + filter_string)
 			return result.rows[0]
 		} catch(e) {
 			throw(e)
+		} finally {
+			if(release_client) {
+				client.release()
+			}
 		}
+
 	}
 	
-	static async getObservacionesRTS(tipo,filter={},options={},serie) {
+	static async getObservacionesRTS(tipo,filter={},options={},serie, client) {
+		
+		var release_client = false
+		if(!client) {
+			release_client = true
+			client = await global.pool.connect()
+		}
 		//~ console.log({options:options})
 		if(options.skip_nulls || !filter.series_id || Array.isArray(filter.series_id)) {
-			return this.getObservaciones(tipo,filter,options)
+			try {
+				const observaciones = await this.getObservaciones(tipo,filter,options,client)
+				return observaciones
+			} catch(e) {
+				throw(e)
+			} finally {
+				if(release_client) {
+					client.release()
+				}
+			}
 		}
 		if(!filter.timestart || !filter.timeend) {
 			if(!filter.timeupdate) {
 				// return Promise.reject("Faltan parametros: series_id, timestart, timeend, timeupdate")
+				if(release_client) {
+					client.release()
+				}
 				throw("Faltan parametros: series_id, timestart, timeend, timeupdate")
 			}
 		}
@@ -12471,33 +12499,57 @@ internal.CRUD = class {
 			if(filter.public && !serie.estacion.public) {
 				console.log("usuario no autorizado para acceder a la serie seleccionada")
 				// return Promise.reject("usuario no autorizado para acceder a la serie seleccionada")
+				if(release_client) {
+					client.release()
+				}
 				throw("usuario no autorizado para acceder a la serie seleccionada")
 			}
 			serie_result = serie
 		} else {
 			try {
-				serie_result = await this.getSerie(tipo,filter.series_id,undefined,undefined,undefined,filter.public) // tipo,id,timestart,timeend,options={},isPublic
+				serie_result = await this.getSerie(tipo,filter.series_id,undefined,undefined,undefined,filter.public,undefined, client) // tipo,id,timestart,timeend,options={},isPublic
 			} catch(e) {
+				if(release_client) {
+					client.release()
+				}
 				throw(e)
 			}
 		}
 		serie = serie_result
 		if(!serie) {
+			if(release_client) {
+				client.release()
+			}
 			throw("Serie no encontrada")
 		}
 		if(!serie.var.timeSupport) {
 			// console.log("no timeSupport")
 			var getObsFilter = {...filter}
 			getObsFilter.series_id = serie.id
-			return this.getObservaciones(tipo,getObsFilter)
+			try {
+				const observaciones = await this.getObservaciones(tipo,getObsFilter,undefined, client)
+				return observaciones
+			} catch(e) {
+				throw(e)
+			} finally {
+				if(release_client) {
+					client.release()
+				}
+			}
 		} 
 		try {
-			var dateRange = await this.getObservacionesDateRange(tipo,{series_id:serie.id,timestart:filter.timestart,timeend:filter.timeend},{include_partial_time_intersection: options.include_partial_time_intersection})
+			var dateRange = await this.getObservacionesDateRange(tipo,{series_id:serie.id,timestart:filter.timestart,timeend:filter.timeend},{include_partial_time_intersection: options.include_partial_time_intersection}, client)
 		} catch(e) {
+			if(release_client) {
+				client.release()
+			}
 			throw(e)
 		}
 		if(!dateRange.min) {
 			console.error("No observaciones found in date range")
+			if(release_client) {
+				client.release()
+			}
 			return []
 		}
 		var timestart = dateRange.min // new Date(filter.timestart)
@@ -12509,7 +12561,16 @@ internal.CRUD = class {
 			if(!options.obs_type && serie.var.type) {
 				options.obs_type = serie.var.type
 			}
-			return  this.getObservaciones(tipo,{series_id:serie.id,timestart:timestart,timeend:timeend,timeupdate:filter.timeupdate},options)
+			try {
+				const observaciones = this.getObservaciones(tipo,{series_id:serie.id,timestart:timestart,timeend:timeend,timeupdate:filter.timeupdate},options, client)
+				return observaciones
+			} catch(e) {
+				throw(e)
+			} finally {
+				if(release_client) {
+					client.release()
+				}
+			}
 		}
 		var interval_string = timeSteps.interval2string(serie.var.timeSupport)
 		const obs_tabla = this.getObsTable(tipo)
@@ -12548,8 +12609,11 @@ internal.CRUD = class {
 		query += "ORDER BY seq.date"
 		// console.log(internal.utils.pasteIntoSQLQuery(query,[serie.id,interval_string,t_offset, timestart, timeend]))
 		try {
-			var result = await global.pool.query(query, query_params)
+			var result = await client.query(query, query_params)
 		} catch(e){
+			if(release_client) {
+				client.release()
+			}
 			throw(e)
 		}
 		var count = result.rows.map(r=>{
@@ -12557,6 +12621,9 @@ internal.CRUD = class {
 		}).reduce((a,b)=>a+b)
 		if(count == 0) {
 			console.log("No se encontraron registros")
+			if(release_client) {
+				client.release()
+			}
 			return []
 		}
 		//~ console.log({options:options})
@@ -12577,6 +12644,9 @@ internal.CRUD = class {
 			}
 		}
 		//~ console.log(observaciones)
+		if(release_client) {
+			client.release()
+		}
 		return observaciones
 	}
 	
