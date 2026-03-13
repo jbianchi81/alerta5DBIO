@@ -44,6 +44,8 @@ const {SerieFilter, SerieOptions} = require('./serie_types')
 const { escapeIdentifier, escapeLiteral } = require('pg');
 const { options } = require('marked');
 
+const {withClient, withTransaction} = require('./db')
+
 const apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
 var schemas = apidoc.components.schemas
 traverse(schemas,changeRef)
@@ -605,74 +607,78 @@ internal.estacion = class extends baseModel {
 		return internal.CRUD.deleteEstaciones(filter)
 	}
 	// retrieve drainage basins as a geoJSON FeatureCollection
-	static async getDrainageBasins(filter={}) {
-		const valid_filters = {
-			"estacion_id": {
-				"type": "integer",
-				"table": "estaciones",
-				"column": "unid"
-			},
-			"area_id": {
-				"type": "integer",
-				"table": "areas_pluvio",
-				"column": "unid"
-			}
-		}
-		const filter_string = control_filter2(valid_filters, filter, "estaciones")
-		const result = await global.pool.query(`
-		with a as ( 
-			select 
-				areas_pluvio.unid as area_id, 
-				estaciones.unid as estacion_id, 
-				areas_pluvio.area,
-				row_number() over (
-					partition by estaciones.unid
-					order by area desc
-				) as row_number
-			from areas_pluvio 
-			join estaciones 
-				on estaciones.unid=areas_pluvio.exutorio_id
-			WHERE 1=1 ${filter_string}
-		)
-		select 
-			a.estacion_id,
-			a.area_id,
-			a.area,
-			areas_pluvio.nombre as area_name,
-			st_asgeojson(areas_pluvio.geom)::json as geom
-		from a join areas_pluvio
-			on a.area_id=areas_pluvio.unid
-		where a.row_number = 1
-		order by a.estacion_id;`)
-		return {
-			type: "FeatureCollection",
-			features: result.rows.map(r=>{
-				return {
-					type: "Feature",
-					geometry: r.geom,
-					properties: {
-						estacion_id: r.estacion_id,
-						area_id: r.area_id,
-						area_name: r.area_name,
-						area: r.area,
-						area_units: "m^2"
-					}
+	static async getDrainageBasins(filter={}, client) {
+		return withClient(client, async (client) => {
+			const valid_filters = {
+				"estacion_id": {
+					"type": "integer",
+					"table": "estaciones",
+					"column": "unid"
+				},
+				"area_id": {
+					"type": "integer",
+					"table": "areas_pluvio",
+					"column": "unid"
 				}
-			})
-		}
+			}
+			const filter_string = control_filter2(valid_filters, filter, "estaciones")
+			const result = await client.query(`
+			with a as ( 
+				select 
+					areas_pluvio.unid as area_id, 
+					estaciones.unid as estacion_id, 
+					areas_pluvio.area,
+					row_number() over (
+						partition by estaciones.unid
+						order by area desc
+					) as row_number
+				from areas_pluvio 
+				join estaciones 
+					on estaciones.unid=areas_pluvio.exutorio_id
+				WHERE 1=1 ${filter_string}
+			)
+			select 
+				a.estacion_id,
+				a.area_id,
+				a.area,
+				areas_pluvio.nombre as area_name,
+				st_asgeojson(areas_pluvio.geom)::json as geom
+			from a join areas_pluvio
+				on a.area_id=areas_pluvio.unid
+			where a.row_number = 1
+			order by a.estacion_id;`)
+			return {
+				type: "FeatureCollection",
+				features: result.rows.map(r=>{
+					return {
+						type: "Feature",
+						geometry: r.geom,
+						properties: {
+							estacion_id: r.estacion_id,
+							area_id: r.area_id,
+							area_name: r.area_name,
+							area: r.area,
+							area_units: "m^2"
+						}
+					}
+				})
+			}
+		})
 	}
-	async getDrainageBasin() {
-		if(!this.id) {
-			console.warn("Estacion property id not defined: can't retrieve drainage basin")
-			this.drainage_basin = null
-			return
-		}
-		const collection = await this.constructor.getDrainageBasins({estacion_id:this.id})
-		if(!collection.features.length) {
-			this.drainage_basin = null
-		} else {
-			this.drainage_basin = collection.features[0]
-		}
+	async getDrainageBasin(client) {
+		return withClient(client, async (client) => {
+			if(!this.id) {
+				console.warn("Estacion property id not defined: can't retrieve drainage basin")
+				this.drainage_basin = null
+				return
+			}
+			const collection = await this.constructor.getDrainageBasins({estacion_id:this.id}, client)
+			if(!collection.features.length) {
+				this.drainage_basin = null
+			} else {
+				this.drainage_basin = collection.features[0]
+			}
+		})
 	}
 }
 
@@ -2038,66 +2044,69 @@ internal.serie = class extends baseModel {
 		}
 	}
 	
-	async getStats() {
-		if(!this.id) {
-			console.error("Se necesita el id de serie para obtener las estadísticas")
+	async getStats(client) {
+		return withClient(client, async (client) => {
+
+			if(!this.id) {
+				console.error("Se necesita el id de serie para obtener las estadísticas")
+				return this
+			}
+			if(this.tipo == "areal") {
+				const rows = await executeQueryReturnRows("\
+					SELECT min(timestart) begintime,max(timestart) endtime, count(timestart) count, min(valor) minValor, max(valor) maxValor FROM observaciones_areal,valores_num_areal WHERE series_id=$1  AND observaciones_areal.id=valores_num_areal.obs_id\
+				",[this.id], client)
+				if (rows.length>0) {
+					this.beginTime = rows[0].begintime
+					this.endTime = rows[0].endtime
+					this.count = rows[0].count
+					this.minValor = rows[0].minvalor
+					this.maxValor = rows[0].maxvalor
+				} else {
+					this.count = 0
+				}
+			} else if (this.tipo == "rast" || this.tipo == "raster") {
+				const rows = executeQueryReturnRows("\
+					WITH stats as (\
+						SELECT min(timestart) begintime,\
+						max(timestart) endtime, \
+						count(timestart) count, \
+						ST_SummaryStatsAgg(valor,1,true) stats \
+					FROM observaciones_rast WHERE series_id=$1\
+					)\
+					SELECT begintime, \
+						endtime, \
+						count, \
+						round((stats).sum::numeric, 3) sum,\
+							round((stats).mean::numeric, 3) mean,\
+							round((stats).stddev::numeric, 3) stddev,\
+							round((stats).min::numeric, 3) min,\
+							round((stats).max::numeric, 3) max\
+					FROM stats\
+					",[this.id], client)
+				if (rows.length>0) {
+					this.beginTime = rows[0].begintime
+					this.endTime = rows[0].endtime
+					this.count = rows[0].count
+					this.rastStats = {sum: rows[0].sum, mean: rows[0].mean, stddev: rows[0].stddev, min: rows[0].min, max: rows[0].max} 
+				} else {
+					this.count = 0
+				}
+			} else {
+				const rows = await executeQueryReturnRows("\
+					SELECT min(timestart) begintime,max(timestart) endtime, count(timestart) count, min(valor) minValor, max(valor) maxValor FROM observaciones,valores_num WHERE series_id=$1 AND observaciones.id=valores_num.obs_id\
+				",[this.id], client)
+				if (rows.length>0) {
+					this.beginTime = rows[0].begintime
+					this.endTime = rows[0].endtime
+					this.count = rows[0].count
+					this.minValor = rows[0].minvalor
+					this.maxValor = rows[0].maxvalor
+				} else {
+					this.count = 0
+				}
+			}
 			return this
-		}
-		if(this.tipo == "areal") {
-			const rows = await executeQueryReturnRows("\
-				SELECT min(timestart) begintime,max(timestart) endtime, count(timestart) count, min(valor) minValor, max(valor) maxValor FROM observaciones_areal,valores_num_areal WHERE series_id=$1  AND observaciones_areal.id=valores_num_areal.obs_id\
-			",[this.id])
-			if (rows.length>0) {
-				this.beginTime = rows[0].begintime
-				this.endTime = rows[0].endtime
-				this.count = rows[0].count
-				this.minValor = rows[0].minvalor
-				this.maxValor = rows[0].maxvalor
-			} else {
-				this.count = 0
-			}
-		} else if (this.tipo == "rast" || this.tipo == "raster") {
-			const rows = executeQueryReturnRows("\
-				WITH stats as (\
-					SELECT min(timestart) begintime,\
-					max(timestart) endtime, \
-					count(timestart) count, \
-					ST_SummaryStatsAgg(valor,1,true) stats \
-				FROM observaciones_rast WHERE series_id=$1\
-				)\
-				SELECT begintime, \
-					   endtime, \
-					   count, \
-					   round((stats).sum::numeric, 3) sum,\
-						round((stats).mean::numeric, 3) mean,\
-						round((stats).stddev::numeric, 3) stddev,\
-						round((stats).min::numeric, 3) min,\
-						round((stats).max::numeric, 3) max\
-				FROM stats\
-				",[this.id])
-			if (rows.length>0) {
-				this.beginTime = rows[0].begintime
-				this.endTime = rows[0].endtime
-				this.count = rows[0].count
-				this.rastStats = {sum: rows[0].sum, mean: rows[0].mean, stddev: rows[0].stddev, min: rows[0].min, max: rows[0].max} 
-			} else {
-				this.count = 0
-			}
-		} else {
-			const rows = await executeQueryReturnRows("\
-				SELECT min(timestart) begintime,max(timestart) endtime, count(timestart) count, min(valor) minValor, max(valor) maxValor FROM observaciones,valores_num WHERE series_id=$1 AND observaciones.id=valores_num.obs_id\
-			",[this.id])
-			if (rows.length>0) {
-				this.beginTime = rows[0].begintime
-				this.endTime = rows[0].endtime
-				this.count = rows[0].count
-				this.minValor = rows[0].minvalor
-				this.maxValor = rows[0].maxvalor
-			} else {
-				this.count = 0
-			}
-		}
-		return this
+		})
 	}
 	
 		
@@ -4102,16 +4111,12 @@ internal.observacion = class extends baseModel {
 	}
 	async getId(pool,client) {
 		var release_client = false
-		if(!client) {
+		if(pool && !client) {
 			release_client = true
-			if(pool) {
-				client = await pool.connect()
-			} else {
-				client = await global.pool.connect()
-			}
+			client = await pool.connect()
 		}
-		if(this.tipo == "areal") {
-			try {
+		const result = await withClient(client, async (client) => {
+			if(this.tipo == "areal") {
 				var res = await client.query("\
 					SELECT id FROM observaciones_areal WHERE series_id=$1 AND timestart=$2 AND timeend=$3\
 				",[this.series_id, this.timestart, this.timeend])
@@ -4126,17 +4131,7 @@ internal.observacion = class extends baseModel {
 					this.id = res.rows[0].id
 					return this.id
 				}
-			}
-			catch(e) {
-				throw(e)
-			}
-			finally {
-				if(release_client) {
-					client.release()
-				}
-			}
-		} else if (this.tipo == "rast") {
-			try {
+			} else if (this.tipo == "rast") {
 				var res = await client.query("\
 					SELECT id FROM observaciones_rast WHERE series_id=$1 AND timestart=$2 AND timeend=$3\
 				",[this.series_id, this.timestart, this.timeend])
@@ -4151,17 +4146,7 @@ internal.observacion = class extends baseModel {
 					this.id = res.rows[0].id
 					return this.id
 				}
-			}
-			catch(e) {
-					throw(e)
-				}
-			finally {
-				if(release_client) {
-					client.release()
-				}
-			}
-		} else {
-			try {
+			} else {
 				var res = await client.query("\
 					SELECT id FROM observaciones WHERE series_id=$1 AND timestart=$2 AND timeend=$3\
 				",[this.series_id, this.timestart, this.timeend])
@@ -4177,15 +4162,11 @@ internal.observacion = class extends baseModel {
 					return
 				}
 			}
-			catch(e) {
-				throw(e)
-			}
-			finally {
-				if(release_client) {
-					client.release()
-				}
-			}
+		})
+		if(release_client) {
+			client.release()
 		}
+		return result
 	}
 	
 	// rasterToJSON() {
@@ -6145,60 +6126,71 @@ internal.corrida = class extends baseModel {
 		}
 	}
 
-	async create() {
-		const created = await internal.CRUD.upsertCorrida(this)
-		if(created) {
-			Object.assign(this,created)
-			await this.updateSeriesDateRangeByCorId()
-			return created
-		}
-		return
+	async create(client) {
+		return withClient(client, async (client) => {
+			const created = await internal.CRUD.upsertCorrida(this, undefined, client)
+			if(created) {
+				Object.assign(this,created)
+				await this.updateSeriesDateRangeByCorId(client)
+				return created
+			}
+			return
+		})
 	}
-	static async read(filter={},options={}) {
-		const corridas = await internal.CRUD.getPronosticos(
-			filter.cor_id ?? filter.id,
-			filter.cal_id,
-			filter.forecast_timestart,
-			filter.forecast_timeend,
-			filter.forecast_date,
-			filter.timestart,
-			filter.timeend,
-			filter.qualifier,
-			filter.estacion_id,
-			filter.var_id,
-			(options.concat) ? true : options.includeProno,
-			filter.isPublic,
-			filter.series_id,
-			options.series_metadata,
-			filter.cal_grupo_id,
-			(filter.qualifier) ? true : options.group_by_qualifier,
-			filter.model_id,filter.tipo,
-			undefined,
-			(options.concat) ? 1 : undefined
-		)
-		if(options.concat) {
-			return this.concat(corridas, filter.series_id, filter.tipo, filter.qualifier, filter.forecast_timestart, filter.forecast_timeend, options.group_by_qualifier)
-		}
-		return corridas
+	static async read(filter={},options={}, client) {
+		return withClient(client, async (client) => {
+			const corridas = await internal.CRUD.getPronosticos(
+				filter.cor_id ?? filter.id,
+				filter.cal_id,
+				filter.forecast_timestart,
+				filter.forecast_timeend,
+				filter.forecast_date,
+				filter.timestart,
+				filter.timeend,
+				filter.qualifier,
+				filter.estacion_id,
+				filter.var_id,
+				(options.concat) ? true : options.includeProno,
+				filter.isPublic,
+				filter.series_id,
+				options.series_metadata,
+				filter.cal_grupo_id,
+				(filter.qualifier) ? true : options.group_by_qualifier,
+				filter.model_id,filter.tipo,
+				undefined,
+				(options.concat) ? 1 : undefined,
+				undefined,
+				client
+			)
+			if(options.concat) {
+				return this.concat(corridas, filter.series_id, filter.tipo, filter.qualifier, filter.forecast_timestart, filter.forecast_timeend, options.group_by_qualifier)
+			}
+			return corridas
+		})
 	}
 	static async delete(filter={},options={}) {
 		return internal.CRUD.deleteCorridas(filter,options)
 	}
-	async getSeries(filter={},options={}) {
-		filter.cor_id = this.id
-		return internal.CRUD.getCorridaSeries(
-			filter,
-			options.series_metadata,
-			options.group_by_qualifier,
-			options.limit
-		)
+	async getSeries(filter={},options={}, client) {
+		return withClient(client, async (client) => {
+			filter.cor_id = this.id
+			return internal.CRUD.getCorridaSeries(
+				filter,
+				options.series_metadata,
+				options.group_by_qualifier,
+				options.limit,
+				client
+			)
+		})
 	}
-	async setSeries(series,filter={},options={}) {
-		if(series) {
-			this.series = series
-		} else {
-			this.series = await this.getSeries(filter,options)
-		}
+	async setSeries(series,filter={},options={}, client) {
+		return withClient(client, async (client) => {
+			if(series) {
+				this.series = series
+			} else {
+				this.series = await this.getSeries(filter,options, client)
+			}
+		})
 	}
 	async setPronosticos(filter={},options={}) {
 		for(var serie of this.series) {
@@ -6417,8 +6409,10 @@ internal.corrida = class extends baseModel {
 		}
 	}
 
-	async updateSeriesDateRangeByCorId() {
-		await internal.CRUD.updateSeriesPronoDateRangeByCorId(this.id)
+	async updateSeriesDateRangeByCorId(client) {
+		return withClient(client, async (client) => {
+			await internal.CRUD.updateSeriesPronoDateRangeByCorId(this.id, client)
+		})
 	}
 
 	async updateSeriesDateRange(filter={}) {
@@ -7683,35 +7677,37 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getEstacion(id,isPublic,options={}) {
-		const stmt = "\
-		SELECT estaciones.nombre, estaciones.id_externo, st_x(estaciones.geom) geom_x, st_y(estaciones.geom) geom_y, estaciones.tabla,  estaciones.distrito, estaciones.pais, estaciones.rio, estaciones.has_obs, estaciones.tipo, estaciones.automatica, estaciones.habilitar, estaciones.propietario, estaciones.abrev, estaciones.URL, estaciones.localidad, estaciones.real, estaciones.id, estaciones.unid, nivel_alerta.valor nivel_alerta, nivel_evacuacion.valor nivel_evacuacion, nivel_aguas_bajas.valor nivel_aguas_bajas, estaciones.cero_ign, estaciones.altitud, redes.public, redes.nombre as red_nombre, redes.id as red_id\
-		FROM estaciones\
-		LEFT OUTER JOIN redes ON (estaciones.tabla = redes.tabla_id) \
-		LEFT OUTER JOIN alturas_alerta nivel_alerta ON (estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado='a') \
-		LEFT OUTER JOIN alturas_alerta nivel_evacuacion ON (estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado='e') \
-		LEFT OUTER JOIN alturas_alerta nivel_aguas_bajas ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b') \
-		WHERE estaciones.unid=$1 \
-		AND estaciones.geom IS NOT NULL"
-		// console.debug(pasteIntoSQLQuery(stmt, [id]))
-		const result = await global.pool.query(stmt, [id])
-		if(result.rows.length<=0) {
-			console.log("estacion no encontrada")
-			return
-		}
-		if(isPublic) {
-			if(!result.rows[0].public) {
-				console.log("estacion no es public")
-				throw("el usuario no posee autorización para acceder a esta estación")
+	static async getEstacion(id,isPublic,options={},client) {
+		return withClient(client, async (client) => {
+			const stmt = "\
+			SELECT estaciones.nombre, estaciones.id_externo, st_x(estaciones.geom) geom_x, st_y(estaciones.geom) geom_y, estaciones.tabla,  estaciones.distrito, estaciones.pais, estaciones.rio, estaciones.has_obs, estaciones.tipo, estaciones.automatica, estaciones.habilitar, estaciones.propietario, estaciones.abrev, estaciones.URL, estaciones.localidad, estaciones.real, estaciones.id, estaciones.unid, nivel_alerta.valor nivel_alerta, nivel_evacuacion.valor nivel_evacuacion, nivel_aguas_bajas.valor nivel_aguas_bajas, estaciones.cero_ign, estaciones.altitud, redes.public, redes.nombre as red_nombre, redes.id as red_id\
+			FROM estaciones\
+			LEFT OUTER JOIN redes ON (estaciones.tabla = redes.tabla_id) \
+			LEFT OUTER JOIN alturas_alerta nivel_alerta ON (estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado='a') \
+			LEFT OUTER JOIN alturas_alerta nivel_evacuacion ON (estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado='e') \
+			LEFT OUTER JOIN alturas_alerta nivel_aguas_bajas ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b') \
+			WHERE estaciones.unid=$1 \
+			AND estaciones.geom IS NOT NULL"
+			// console.debug(pasteIntoSQLQuery(stmt, [id]))
+			const result = await client.query(stmt, [id])
+			if(result.rows.length<=0) {
+				console.log("estacion no encontrada")
+				return
 			}
-		}
-		const geometry = new internal.geometry("Point", [result.rows[0].geom_x, result.rows[0].geom_y])
-		const estacion = new internal.estacion(result.rows[0].nombre,result.rows[0].id_externo,geometry,result.rows[0].tabla,result.rows[0].distrito,result.rows[0].pais,result.rows[0].rio,result.rows[0].has_obs,result.rows[0].tipo,result.rows[0].automatica,result.rows[0].habilitar,result.rows[0].propietario,result.rows[0].abrev,result.rows[0].URL,result.rows[0].localidad,result.rows[0].real,result.rows[0].nivel_alerta,result.rows[0].nivel_evacuacion,result.rows[0].nivel_aguas_bajas,result.rows[0].altitud,result.rows[0].public,result.rows[0].cero_ign,undefined,undefined,{id:result.rows[0].red_id, nombre:result.rows[0].red_nombre,tabla_id: result.rows[0].tabla})
-		estacion.id =  result.rows[0].unid
-		if(options.get_drainage_basin) {
-			await estacion.getDrainageBasin()
-		}
-		return estacion
+			if(isPublic) {
+				if(!result.rows[0].public) {
+					console.log("estacion no es public")
+					throw new Error("el usuario no posee autorización para acceder a esta estación")
+				}
+			}
+			const geometry = new internal.geometry("Point", [result.rows[0].geom_x, result.rows[0].geom_y])
+			const estacion = new internal.estacion(result.rows[0].nombre,result.rows[0].id_externo,geometry,result.rows[0].tabla,result.rows[0].distrito,result.rows[0].pais,result.rows[0].rio,result.rows[0].has_obs,result.rows[0].tipo,result.rows[0].automatica,result.rows[0].habilitar,result.rows[0].propietario,result.rows[0].abrev,result.rows[0].URL,result.rows[0].localidad,result.rows[0].real,result.rows[0].nivel_alerta,result.rows[0].nivel_evacuacion,result.rows[0].nivel_aguas_bajas,result.rows[0].altitud,result.rows[0].public,result.rows[0].cero_ign,undefined,undefined,{id:result.rows[0].red_id, nombre:result.rows[0].red_nombre,tabla_id: result.rows[0].tabla})
+			estacion.id =  result.rows[0].unid
+			if(options.get_drainage_basin) {
+				await estacion.getDrainageBasin(client)
+			}
+			return estacion
+		})
 	}
 
 	static async getEstacionesWithPagination(filter={},options={},req) {
@@ -8066,46 +8062,39 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getArea(id,options={}) {
-		var query = (options.no_geom) ? "\
-		SELECT \
-			areas_pluvio.unid AS id, \
-			areas_pluvio.nombre, \
-			st_astext(areas_pluvio.exutorio) AS exutorio,\
-			areas_pluvio.area, \
-			areas_pluvio.ae, \
-			areas_pluvio.rho, \
-			areas_pluvio.wp, \
-			areas_pluvio.activar, \
-			areas_pluvio.mostrar \
-		FROM areas_pluvio\
-		WHERE unid=$1" : "\
-		SELECT \
-			areas_pluvio.unid AS id, \
-			areas_pluvio.nombre, \
-			st_astext(ST_ForcePolygonCCW(areas_pluvio.geom)) AS geom, \
-			st_astext(areas_pluvio.exutorio) AS exutorio,\
-			areas_pluvio.area, \
-			areas_pluvio.ae, \
-			areas_pluvio.rho, \
-			areas_pluvio.wp, \
-			areas_pluvio.activar, \
-			areas_pluvio.mostrar \
-		FROM areas_pluvio\
-		WHERE unid=$1"
-		return global.pool.query(query,[id])
-		.then(result=>{
+	static async getArea(id,options={},client) {
+		return withClient(client, async(client) => {
+			var query = (options.no_geom) ? "\
+			SELECT \
+				areas_pluvio.unid AS id, \
+				areas_pluvio.nombre, \
+				st_astext(areas_pluvio.exutorio) AS exutorio,\
+				areas_pluvio.area, \
+				areas_pluvio.ae, \
+				areas_pluvio.rho, \
+				areas_pluvio.wp, \
+				areas_pluvio.activar, \
+				areas_pluvio.mostrar \
+			FROM areas_pluvio\
+			WHERE unid=$1" : "\
+			SELECT \
+				areas_pluvio.unid AS id, \
+				areas_pluvio.nombre, \
+				st_astext(ST_ForcePolygonCCW(areas_pluvio.geom)) AS geom, \
+				st_astext(areas_pluvio.exutorio) AS exutorio,\
+				areas_pluvio.area, \
+				areas_pluvio.ae, \
+				areas_pluvio.rho, \
+				areas_pluvio.wp, \
+				areas_pluvio.activar, \
+				areas_pluvio.mostrar \
+			FROM areas_pluvio\
+			WHERE unid=$1"
+			const result = client.query(query,[id])
 			if(result.rows.length<=0) {
 				console.error("area no encontrada")
 				return
 			}
-			//~ var geom_parsed = JSON.parse(result.rows[0].geom)
-			//~ const geom = new internal.geometry(geom_parsed.type, geom_parsed.coordinates)
-			//~ var exut_parsed = JSON.parse(result.rows[0].exutorio)
-			//~ const exutorio = new internal.geometry(exut_parsed.type, exut_parsed.coordinates)
-			//~ const area = new internal.area(result.rows[0].nombre,geom, exutorio)
-			//~ area.id = result.rows[0].unid
-			//~ return area
 			if(options.no_geom) {
 				if(result.rows[0].exutorio) {
 					result.rows[0].exutorio = new internal.geometry(result.rows[0].exutorio)
@@ -8255,39 +8244,30 @@ internal.CRUD = class {
 	
 	// ESCENA //
 	
-	static async getEscena(id,options) {
-		if(options && options.no_geom) {
-			return global.pool.query("\
-			SELECT escenas.id, escenas.nombre\
-			FROM escenas\
-			WHERE id=$1",[id])
-			.then(result=>{
+	static async getEscena(id,options, client) {
+		return withClient(client, async (client) => {
+			if(options && options.no_geom) {
+				const result = await client.query("\
+				SELECT escenas.id, escenas.nombre\
+				FROM escenas\
+				WHERE id=$1",[id])
 				if(result.rows.length<=0) {
 					console.log("escena no encontrada")
 					return
 				}
 				return result.rows[0]
-			})
-		} else {
-			return global.pool.query("\
-			SELECT escenas.id, escenas.nombre, st_astext(escenas.geom) AS geom\
-			FROM escenas\
-			WHERE id=$1",[id])
-			.then(result=>{
+			} else {
+				const result = await client.query("\
+				SELECT escenas.id, escenas.nombre, st_astext(escenas.geom) AS geom\
+				FROM escenas\
+				WHERE id=$1",[id])
 				if(result.rows.length<=0) {
 					console.log("escena no encontrada")
 					return
 				}
-				//~ var geom_parsed = JSON.parse(result.rows[0].geom)
-				//~ const geom = new internal.geometry(geom_parsed.type, geom_parsed.coordinates)
-				//~ var exut_parsed = JSON.parse(result.rows[0].exutorio)
-				//~ const exutorio = new internal.geometry(exut_parsed.type, exut_parsed.coordinates)
-				//~ const area = new internal.area(result.rows[0].nombre,geom, exutorio)
-				//~ area.id = result.rows[0].unid
-				//~ return area
 				return new internal.escena(result.rows[0])
-			})
-		}
+			}
+		})
 	}
 	
 	static async getEscenas(filter,options) {
@@ -8493,28 +8473,28 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getVar(id) {
-		id = parseInt(id)
-		if(id.toString() == "NaN") {
-			throw(new Error("Invalid variable id. Must be integer"))
-		}
-		return executeQueryReturnRows("\
-		SELECT id, \
-		       var,\
-		       nombre,\
-		       abrev,\
-		       type,\
-		       datatype,\
-		       valuetype,\
-		       \"GeneralCategory\",\
-		       \"VariableName\",\
-		       \"SampleMedium\",\
-		       def_unit_id,\
-		       \"timeSupport\",\
-		       def_hora_corte\
-		FROM var\
-		WHERE id=$1",[id])
-		.then(rows=>{
+	static async getVar(id, client) {
+		return withClient(client, async (client) => {
+			id = parseInt(id)
+			if(id.toString() == "NaN") {
+				throw(new Error("Invalid variable id. Must be integer"))
+			}
+			const rows = await executeQueryReturnRows("\
+			SELECT id, \
+				var,\
+				nombre,\
+				abrev,\
+				type,\
+				datatype,\
+				valuetype,\
+				\"GeneralCategory\",\
+				\"VariableName\",\
+				\"SampleMedium\",\
+				def_unit_id,\
+				\"timeSupport\",\
+				def_hora_corte\
+			FROM var\
+			WHERE id=$1",[id],client)
 			if(rows.length<=0) {
 				console.log("variable no encontrada")
 				return
@@ -8522,8 +8502,6 @@ internal.CRUD = class {
 			const variable = new internal["var"](rows[0]) // rows[0]["var"],rows[0].nombre,rows[0].abrev,rows[0].type,rows[0].datatype,rows[0].valuetype,rows[0].GeneralCategory,rows[0].VariableName,rows[0].SampleMedium,rows[0].def_unit_id,rows[0].timeSupport,rows[0].def_hora_corte)
 			variable.id = rows[0].id
 			return variable
-		}).catch(e => {
-			throw(new Error(e))
 		})
 	}
 	
@@ -8630,12 +8608,13 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getProcedimiento(id) {
-		return global.pool.query("\
-		SELECT id, nombre, abrev, descripcion\
-		FROM procedimiento\
-		WHERE id=$1",[id])
-		.then(result=>{
+	static async getProcedimiento(id,client) {
+		return withClient(client, async(client) => {
+			
+			const result = await client.query("\
+				SELECT id, nombre, abrev, descripcion\
+				FROM procedimiento\
+				WHERE id=$1",[id])
 			if(result.rows.length<=0) {
 				console.log("procedimiento no encontrado")
 				return
@@ -8739,12 +8718,12 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getUnidad(id) {
-		return global.pool.query("\
-		SELECT id, nombre, abrev,  \"UnitsID\", \"UnitsType\"\
-		FROM unidades\
-		WHERE id=$1",[id])
-		.then(result=>{
+	static async getUnidad(id, client) {
+		return withClient(client, async (client) => {
+			const result = await client.query("\
+			SELECT id, nombre, abrev,  \"UnitsID\", \"UnitsType\"\
+			FROM unidades\
+			WHERE id=$1",[id])
 			if(result.rows.length<=0) {
 				console.log("unidades no encontrado")
 				return
@@ -8873,28 +8852,30 @@ internal.CRUD = class {
 		return new internal.fuente(result.rows[0])
 	}
 
-	static async getFuente(id,isPublic) {
-		const query = "\
-		SELECT id, nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, st_asgeojson(def_extent)::json def_extent, date_column, def_pixeltype, abstract, source,public\
-		FROM fuentes\
-		WHERE id=$1"
-		// console.log(query)
-		var result = await global.pool.query(query,[id])
-		if(result.rows.length<=0) {
-			console.log("fuentes no encontrado")
-			return
-		}
-		if (isPublic) {
-			if (!result.rows[0].public) {
-				throw("El usuario no posee autorización para acceder a esta fuente")
+	static async getFuente(id,isPublic, client) {
+		return withClient(client, async (client) => {
+			const query = "\
+			SELECT id, nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, st_asgeojson(def_extent)::json def_extent, date_column, def_pixeltype, abstract, source,public\
+			FROM fuentes\
+			WHERE id=$1"
+			// console.log(query)
+			var result = await client.query(query,[id])
+			if(result.rows.length<=0) {
+				console.log("fuentes no encontrado")
+				return
 			}
-		}
-		// nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, def_extent, date_column, def_pixeltype, abstract, source
-		var row = result.rows[0]
-		row.constraints = await this.getTableConstraints(row.data_table,undefined)
-		const fuente = new internal.fuente(row) //(row.nombre, row.data_table, row.data_column, row.tipo, row.def_proc_id, row.def_dt, row.hora_corte, row.def_unit_id, row.def_var_id, row.fd_column, row.mad_table, row.scale_factor, row.data_offset, row.def_pixel_height, row.def_pixel_width, row.def_srid, new internal.geometry(def_extent.type, def_extent.coordinates), row.date_column, row.def_pixeltype, row.abstract, row.source)
-		fuente.id = row.id
-		return fuente
+			if (isPublic) {
+				if (!result.rows[0].public) {
+					throw new Error("El usuario no posee autorización para acceder a esta fuente")
+				}
+			}
+			// nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, def_extent, date_column, def_pixeltype, abstract, source
+			var row = result.rows[0]
+			row.constraints = await this.getTableConstraints(row.data_table,undefined,client)
+			const fuente = new internal.fuente(row) //(row.nombre, row.data_table, row.data_column, row.tipo, row.def_proc_id, row.def_dt, row.hora_corte, row.def_unit_id, row.def_var_id, row.fd_column, row.mad_table, row.scale_factor, row.data_offset, row.def_pixel_height, row.def_pixel_width, row.def_srid, new internal.geometry(def_extent.type, def_extent.coordinates), row.date_column, row.def_pixeltype, row.abstract, row.source)
+			fuente.id = row.id
+			return fuente
+		})
 	}
 	
 	static async getFuentes(filter) {
@@ -9486,233 +9467,175 @@ internal.CRUD = class {
 	}
 	
 	static async getSerie(tipo,id,timestart,timeend,options={},isPublic,timeupdate,client) {
-		var release_client = false
-		if(!client) {
-			client = await global.pool.connect()
-			release_client = true
-		}
-		if(tipo == "areal") {
-			var result = await client.query("\
-			SELECT series_areal.id,series_areal.area_id,series_areal.var_id,series_areal.proc_id,series_areal.unit_id,series_areal.fuentes_id,fuentes.public,series_areal_date_range.timestart,series_areal_date_range.timeend,series_areal_date_range.count FROM series_areal join fuentes on (series_areal.fuentes_id=fuentes.id) left join series_areal_date_range on (series_areal.id=series_areal_date_range.series_id)\
-			WHERE series_areal.id=$1",[id])
-			if(result.rows.length<=0) {
-				console.log("crud.getSerie: serie no encontrada")
-				if(release_client) {
-					await client.release()
-				}
-				return
-			}
-			if(isPublic) {
-				if(!result.rows[0].public) {
+		return withClient(client, async(client) => {
+			if(tipo == "areal") {
+				var result = await client.query("\
+				SELECT series_areal.id,series_areal.area_id,series_areal.var_id,series_areal.proc_id,series_areal.unit_id,series_areal.fuentes_id,fuentes.public,series_areal_date_range.timestart,series_areal_date_range.timeend,series_areal_date_range.count FROM series_areal join fuentes on (series_areal.fuentes_id=fuentes.id) left join series_areal_date_range on (series_areal.id=series_areal_date_range.series_id)\
+				WHERE series_areal.id=$1",[id])
+		
+				if(result.rows.length<=0) {
+					console.log("crud.getSerie: serie no encontrada")
 					if(release_client) {
 						await client.release()
 					}
-					console.error("El usuario no posee autorización para acceder a esta serie")
 					return
 				}
-			}
-			// console.log("crud.getSerie: serie " + tipo + " " + id + " encontrada")
-			var row = result.rows[0]
-			row.date_range = {timestart: row.timestart, timeend: row.timeend, count: row.count}
-			delete row.timestart
-			delete row.timeend
-			delete row.count
-			var s = []
-			if(options.no_metadata) {
-				s =[{id:row.area_id},{id:row.var_id},{id:row.proc_id},{id:row.unit_id},{id:row.fuentes_id}]
+				if(isPublic) {
+					if(!result.rows[0].public) {
+						console.error("El usuario no posee autorización para acceder a esta serie")
+						return
+					}
+				}
+				// console.log("crud.getSerie: serie " + tipo + " " + id + " encontrada")
+				var row = result.rows[0]
+				row.date_range = {timestart: row.timestart, timeend: row.timeend, count: row.count}
+				delete row.timestart
+				delete row.timeend
+				delete row.count
+				var s = []
+				if(options.no_metadata) {
+					s =[{id:row.area_id},{id:row.var_id},{id:row.proc_id},{id:row.unit_id},{id:row.fuentes_id}]
+				} else {
+					s = [await this.getArea(row.area_id, client), await this.getVar(row.var_id, client), await this.getProcedimiento(row.proc_id, client), await this.getUnidad(row.unit_id, client), await this.getFuente(row.fuentes_id, client)]
+				}
+			
+				const serie = new internal.serie({estacion:s[0],"var":s[1],procedimiento:s[2],unidades: s[3], tipo:"areal", fuente:s[4]})  // estacion,variable,procedimiento,unidades,tipo,fuente
+				serie.date_range = row.date_range
+				serie.id=row.id
+				var observaciones
+				if(timestart && timeend) {
+					options.obs_type = serie["var"].type
+					// console.log(JSON.stringify(["areal",{series_id:row.id,timestart:timestart,timeend:timeend},options]))
+					observaciones =  await this.getObservacionesRTS("areal",{series_id:row.id,timestart:timestart,timeend:timeend},options,serie,client)				
+				} else if(timeupdate) {
+					options.obs_type = serie["var"].type
+					observaciones = await this.getObservacionesRTS("areal",{series_id:row.id,timeupdate:timeupdate},options,serie,client)				
+				}
+				if(options.asArray) {
+					serie.observaciones = observaciones
+				} else {
+					serie.setObservaciones(observaciones)
+				}
+				if(options) {
+					if(options.getStats) {
+						await serie.getStats(client)
+						console.log("got stats for series")
+					}
+					if(options.getMonthlyStats || options.getWeibullPercentiles) {
+						serie.getWeibullPercentiles()
+					}
+				}
+				if(release_client) {
+					await client.release()
+				}
+				return serie
+			} else if (tipo=="rast" || tipo=="raster") {
+				var result = await client.query("\
+					SELECT series_rast.id,series_rast.escena_id,series_rast.var_id,series_rast.proc_id,series_rast.unit_id,series_rast.fuentes_id,fuentes.public,series_rast_date_range.timestart,series_rast_date_range.timeend,series_rast_date_range.count FROM series_rast JOIN fuentes ON (series_rast.fuentes_id=fuentes.id) left join series_rast_date_range on (series_rast.id=series_rast_date_range.series_id)\
+					WHERE series_rast.id=$1",[id])
+				if(result.rows.length<=0) {
+					console.log("serie no encontrada")
+					return
+				}
+				if(isPublic) {
+					if(!result.rows[0].public) {
+						console.error("El usuario no posee autorización para acceder a esta serie")
+						return
+					}
+				}
+				var row = result.rows[0]
+				row.date_range = {timestart: row.timestart, timeend: row.timeend, count: row.count}
+				delete row.timestart
+				delete row.timeend
+				delete row.count
+				var s = []
+				if(options.no_metadata) {
+					s =[{id:row.area_id},{id:row.var_id},{id:row.proc_id},{id:row.unit_id},{id:row.fuentes_id}]
+				} else { 
+					s = [await this.getEscena(row.escena_id, client),await this.getVar(row.var_id, client),await this.getProcedimiento(row.proc_id, client),await this.getUnidad(row.unit_id, client),await this.getFuente(row.fuentes_id, client)]
+				}
+				if(timestart && timeend) {
+					if(!options.format) {
+						options.format="hex"
+					}
+					row.observaciones = new internal.observaciones(await this.getObservacionesRTS("rast",{series_id:row.id,timestart:timestart,timeend:timeend},options))
+				} else if(timeupdate) {
+					if(!options.format) {
+						options.format="hex"
+					}
+					row.observaciones = new internal.observaciones(await this.getObservacionesRTS("rast",{series_id:row.id,timeupdate:timeupdate},options))
+				}			
+				const serie = new internal.serie({estacion:s[0],"var":s[1],procedimiento:s[2],unidades:s[3], tipo:"rast", fuente:s[4]})  // estacion,variable,procedimiento,unidades,tipo,fuente
+				serie.setObservaciones(row.observaciones)
+				serie.id = row.id
+				serie.date_range = row.date_range
+				if(options) {
+					if(options.getStats) {
+						await serie.getStats(client)
+						console.log("got stats for series")
+					}
+				}
+				return serie
 			} else {
-				s = [await this.getArea(row.area_id), await this.getVar(row.var_id), await this.getProcedimiento(row.proc_id), await this.getUnidad(row.unit_id), await this.getFuente(row.fuentes_id)]
-			}
-			const serie = new internal.serie({estacion:s[0],"var":s[1],procedimiento:s[2],unidades: s[3], tipo:"areal", fuente:s[4]})  // estacion,variable,procedimiento,unidades,tipo,fuente
-			serie.date_range = row.date_range
-			serie.id=row.id
-			var observaciones
-			if(timestart && timeend) {
-				options.obs_type = serie["var"].type
-				// console.log(JSON.stringify(["areal",{series_id:row.id,timestart:timestart,timeend:timeend},options]))
-				observaciones =  await this.getObservacionesRTS("areal",{series_id:row.id,timestart:timestart,timeend:timeend},options,serie)
-			} else if(timeupdate) {
-				options.obs_type = serie["var"].type
-				observaciones = await this.getObservacionesRTS("areal",{series_id:row.id,timeupdate:timeupdate},options,serie)
-			}
-			if(options.asArray) {
-				serie.observaciones = observaciones
-			} else {
-				serie.setObservaciones(observaciones)
-			}
-			if(options) {
-				if(options.getStats) {
-					await serie.getStats(client)
-					console.log("got stats for series")
-				}
-				if(options.getMonthlyStats || options.getWeibullPercentiles) {
-					serie.getWeibullPercentiles()
-				}
-			}
-			if(release_client) {
-				await client.release()
-			}
-			return serie
-		} else if (tipo=="rast" || tipo=="raster") {
-			var result = await client.query("\
-			SELECT series_rast.id,series_rast.escena_id,series_rast.var_id,series_rast.proc_id,series_rast.unit_id,series_rast.fuentes_id,fuentes.public,series_rast_date_range.timestart,series_rast_date_range.timeend,series_rast_date_range.count FROM series_rast JOIN fuentes ON (series_rast.fuentes_id=fuentes.id) left join series_rast_date_range on (series_rast.id=series_rast_date_range.series_id)\
-			WHERE series_rast.id=$1",[id])
-			if(result.rows.length<=0) {
-				console.log("serie no encontrada")
-				if(release_client) {
-					await client.release()
-				}
-				// throw("serie no encontrada")
-				return
-			}
-			if(isPublic) {
-				if(!result.rows[0].public) {
-					if(release_client) {
-						await client.release()
-					}
-					console.error("El usuario no posee autorización para acceder a esta serie")
+				var result = await client.query("\
+				SELECT series.id,series.estacion_id,series.var_id,series.proc_id,series.unit_id,redes.public,series_date_range.timestart,series_date_range.timeend,series_date_range.count FROM series \
+				JOIN estaciones ON series.estacion_id=estaciones.unid \
+				JOIN redes ON estaciones.tabla=redes.tabla_id\
+				LEFT JOIN series_date_range on series.id=series_date_range.series_id\
+				WHERE series.id=$1",[id])
+				if(result.rows.length<=0) {
+					console.log("serie no encontrada")
 					return
 				}
-			}
-			var row = result.rows[0]
-			row.date_range = {timestart: row.timestart, timeend: row.timeend, count: row.count}
-			delete row.timestart
-			delete row.timeend
-			delete row.count
-			var s = []
-			if(options.no_metadata) {
-				s =[{id:row.area_id},{id:row.var_id},{id:row.proc_id},{id:row.unit_id},{id:row.fuentes_id}]
-			} else { 
-				s = [await this.getEscena(row.escena_id),await this.getVar(row.var_id),await this.getProcedimiento(row.proc_id),await this.getUnidad(row.unit_id),await this.getFuente(row.fuentes_id)]
-			}
-			if(timestart && timeend) {
-				if(!options.format) {
-					options.format="hex"
-				}
-				row.observaciones = new internal.observaciones(await this.getObservacionesRTS("rast",{series_id:row.id,timestart:timestart,timeend:timeend},options))
-			} else if(timeupdate) {
-				if(!options.format) {
-					options.format="hex"
-				}
-				row.observaciones = new internal.observaciones(await this.getObservacionesRTS("rast",{series_id:row.id,timeupdate:timeupdate},options))
-			}			
-			const serie = new internal.serie({estacion:s[0],"var":s[1],procedimiento:s[2],unidades:s[3], tipo:"rast", fuente:s[4]})  // estacion,variable,procedimiento,unidades,tipo,fuente
-			serie.setObservaciones(row.observaciones)
-			serie.id = row.id
-			serie.date_range = row.date_range
-			if(options) {
-				if(options.getStats) {
-					await serie.getStats(client)
-					console.log("got stats for series")
-				}
-			}
-			if(release_client) {
-				await client.release()
-			}
-			return serie
-		} else {
-			var result = await client.query("\
-			SELECT series.id,series.estacion_id,series.var_id,series.proc_id,series.unit_id,redes.public,series_date_range.timestart,series_date_range.timeend,series_date_range.count FROM series \
-			JOIN estaciones ON series.estacion_id=estaciones.unid \
-			JOIN redes ON estaciones.tabla=redes.tabla_id\
-			LEFT JOIN series_date_range on series.id=series_date_range.series_id\
-			WHERE series.id=$1",[id])
-			if(result.rows.length<=0) {
-				console.log("serie no encontrada")
-				if(release_client) {
-					await client.release()
-				}
-				// throw("serie no encontrada")
-				return
-			}
-			if(isPublic) {
-				if(!result.rows[0].public) {
-					if(release_client) {
-						await client.release()
+				if(isPublic) {
+					if(!result.rows[0].public) {
+						console.error("El usuario no posee autorización para acceder a esta serie")
+						return
 					}
-					console.error("El usuario no posee autorización para acceder a esta serie")
-					return
 				}
-			}
-			var row = result.rows[0]
-			row.date_range = {timestart: row.timestart, timeend: row.timeend, count: row.count}
-			delete row.timestart
-			delete row.timeend
-			delete row.count
-			try {
-				var s = [await this.getEstacion(row.estacion_id), await this.getVar(row.var_id), await this.getProcedimiento(row.proc_id), await this.getUnidad(row.unit_id)]
+				var row = result.rows[0]
+				row.date_range = {timestart: row.timestart, timeend: row.timeend, count: row.count}
+				delete row.timestart
+				delete row.timeend
+				delete row.count
+				var s = [await this.getEstacion(row.estacion_id, client), await this.getVar(row.var_id, client), await this.getProcedimiento(row.proc_id, client), await this.getUnidad(row.unit_id, client)]
 				var serie = new internal.serie({estacion:s[0],"var":s[1],procedimiento:s[2],unidades:s[3], tipo:"puntual"})  // estacion,variable,procedimiento,unidades,tipo,fuente
-			} catch(e) {
-				if(release_client) {
-					await client.release()
-				}
-				throw(e)
-			}
-			serie.id=row.id
-			serie.date_range = row.date_range
-			try {
+				serie.id=row.id
+				serie.date_range = row.date_range
 				if(timestart && timeend) {
 					options.obs_type = serie["var"].type
 					var observaciones
 					if(options.regular) {
-						observaciones = await this.getRegularSeries("puntual",row.id,(options.dt) ? options.dt : "1 days", timestart, timeend,options)
+						observaciones = await this.getRegularSeries("puntual",row.id,(options.dt) ? options.dt : "1 days", timestart, timeend,options, client)
 					} else {
-						observaciones = await this.getObservacionesRTS("puntual",{series_id:row.id,timestart:timestart,timeend:timeend,timeupdate:timeupdate},options,serie)
+						observaciones = await this.getObservacionesRTS("puntual",{series_id:row.id,timestart:timestart,timeend:timeend,timeupdate:timeupdate},options,serie, client)
 					}					
 				} else if(timeupdate) {
 					options.obs_type = serie["var"].type
 					observaciones = await this.getObservacionesRTS("puntual",{series_id:row.id,timeupdate:timeupdate},options,serie)
 				}
-			} catch(e) {
-				if(release_client) {
-					await client.release()
+			
+				if(options.asArray) {
+					serie.observaciones = observaciones
+				} else {
+					serie.setObservaciones(observaciones)
 				}
-				throw(e)
-			}
-			if(options.asArray) {
-				serie.observaciones = observaciones
-			} else {
-				serie.setObservaciones(observaciones)
-			}
-			if(options && options.getStats) {
-				try {
+				if(options && options.getStats) {
 					await serie.getStats(client)
 					console.log("got stats for series")
-				} catch(e) {
-					if(release_client) {
-						await client.release()
-					}
-					throw(e)
 				}
-			}
-			if(options && options.getMonthlyStats) {
-				try {
+				if(options && options.getMonthlyStats) {
 					if(serie.var.id == 48 && serie.observaciones.length > 0) {
 						serie.getWeibullPercentiles()
 					} else {
-						const monthlyStats = await this.getMonthlyStats("puntual",serie.id)
+						const monthlyStats = await this.getMonthlyStats("puntual",serie.id, undefined, undefined, client)
 						serie.monthlyStats = monthlyStats.values
 					}
-				} catch(e) {
-					if(release_client) {
-						await client.release()
-					}
-					throw(e)
 				}
-			}
-			try {
 				await serie.setPercentilesRef()
-			} catch(e) {
-				if(release_client) {
-					await client.release()
-				}
-				throw(e)
-			}			
-			if(release_client) {
-				await client.release()
+				return serie
 			}
-			return serie
-		}
+		})
 	}
 	
 	static async initSerie(serie) {
@@ -10482,357 +10405,280 @@ internal.CRUD = class {
 	}
 
 	static async upsertObservacion(observacion,no_update,client) {
-		//~ console.log(observacion)
-		if (!(observacion instanceof internal.observacion)) {
-			//~ console.log("create observacion")
-			observacion = new internal.observacion(observacion)
-		}
-		await observacion.getId()
-		observacion.timestart = (typeof observacion.timestart) == 'string' ? new Date(observacion.timestart) : observacion.timestart
-		observacion.timeend = (typeof observacion.timeend) == 'string' ? new Date(observacion.timeend) : observacion.timeend
-		if(!observacion.timestart || !observacion.timeend || !observacion.valor || !observacion.series_id) {
-			throw new Error("Can't create observacion. Required: timestart, timeend, valor, series_id")
-		}
-		if(config.verbose) {
-			console.info("crud.upsertObservacion: " + observacion.toString())
-		}
-		if(observacion.tipo != "rast" && observacion.tipo != "raster") {
-			const val_type = (Array.isArray(observacion.valor)) ? "numarr" : "num"
-			const obs_tabla = (observacion.tipo == "areal") ? "observaciones_areal" : "observaciones"
-			const val_tabla = (observacion.tipo == "areal") ? (val_type == "numarr") ? "valores_numarr_areal" : "valores_num_areal" : (val_type == "numarr") ? "valores_numarr" : "valores_num"
-			var on_conflict_clause_obs = (no_update) ? " NOTHING " : (config.crud.update_observaciones_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\
-							descripcion=excluded.descripcion,\
-							unit_id=excluded.unit_id,\
-							timeupdate=excluded.timeupdate " : " NOTHING "
-			var on_conflict_clause_val = (no_update) ? " NOTHING " : " UPDATE SET valor=excluded.valor "
-			var release_client = false
-			if(!client) {
-				client = await global.pool.connect()
-				release_client = true
-				await client.query('BEGIN')
+		return withTransaction(client, async (client) => {
+			//~ console.log(observacion)
+			if (!(observacion instanceof internal.observacion)) {
+				//~ console.log("create observacion")
+				observacion = new internal.observacion(observacion)
 			}
-			const queryText = "INSERT INTO " + obs_tabla + " (series_id,timestart,timeend,nombre,descripcion,unit_id,timeupdate)\
-				VALUES ($1,$2,$3,$4,$5,$6,coalesce($7,now()))\
-				ON CONFLICT (series_id,timestart,timeend) DO " + on_conflict_clause_obs + "\
-				RETURNING *"
-			var stmt = internal.utils.pasteIntoSQLQuery(queryText,[observacion.series_id,observacion.timestart,observacion.timeend,observacion.nombre,observacion.descripcion,observacion.unit_id,observacion.timeupdate])
-			// console.log(stmt)
-			var res = await client.query(stmt)
-			// return client.query(queryText,[observacion.series_id,observacion.timestart,observacion.timeend,observacion.nombre,observacion.descripcion,observacion.unit_id,observacion.timeupdate])
-			if(res.rows.length == 0) {
-				// NO UPSERTED OBS
-				if(!config.crud.update_observaciones_timeupdate) {
-					// TRY TO UPDATE VAL
-					const obs = new internal.observacion({series_id: observacion.series_id, timestart: observacion.timestart, timeend:observacion.timeend, nombre: observacion.nombre,descripcion: observacion.descripcion, unit_id: observacion.unit_id, timeupdate: observacion.timeupdate})
-					const insertValorText = "UPDATE " + val_tabla + " SET valor=$1 FROM " + obs_tabla + " WHERE " + obs_tabla + ".id=" + val_tabla + ".obs_id AND series_id=$2 AND timestart=$3 AND timeend=$4 RETURNING obs_id,valor"
-					// console.log(pasteIntoSQLQuery(insertValorText,[observacion.valor, observacion.series_id, observacion.timestart, observacion.timeend]))
-					res = await client.query(insertValorText, [observacion.valor, observacion.series_id, observacion.timestart, observacion.timeend])
-					if(!res.rows.length) {
-						console.log("No se actualizó observación")
-						res = await client.query('ROLLBACK')
-						if(client.notifications) {
-							throw(client.notifications.map(n=>n.message).join(","))
-						} else {
-							if(release_client) {
-								client.release()
+			await observacion.getId(undefined,client)
+			observacion.timestart = (typeof observacion.timestart) == 'string' ? new Date(observacion.timestart) : observacion.timestart
+			observacion.timeend = (typeof observacion.timeend) == 'string' ? new Date(observacion.timeend) : observacion.timeend
+			if(!observacion.timestart || !observacion.timeend || !observacion.valor || !observacion.series_id) {
+				throw new Error("Can't create observacion. Required: timestart, timeend, valor, series_id")
+			}
+			if(config.verbose) {
+				console.info("crud.upsertObservacion: " + observacion.toString())
+			}
+			if(observacion.tipo != "rast" && observacion.tipo != "raster") {
+				const val_type = (Array.isArray(observacion.valor)) ? "numarr" : "num"
+				const obs_tabla = (observacion.tipo == "areal") ? "observaciones_areal" : "observaciones"
+				const val_tabla = (observacion.tipo == "areal") ? (val_type == "numarr") ? "valores_numarr_areal" : "valores_num_areal" : (val_type == "numarr") ? "valores_numarr" : "valores_num"
+				var on_conflict_clause_obs = (no_update) ? " NOTHING " : (config.crud.update_observaciones_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\
+								descripcion=excluded.descripcion,\
+								unit_id=excluded.unit_id,\
+								timeupdate=excluded.timeupdate " : " NOTHING "
+				var on_conflict_clause_val = (no_update) ? " NOTHING " : " UPDATE SET valor=excluded.valor "
+				const queryText = "INSERT INTO " + obs_tabla + " (series_id,timestart,timeend,nombre,descripcion,unit_id,timeupdate)\
+					VALUES ($1,$2,$3,$4,$5,$6,coalesce($7,now()))\
+					ON CONFLICT (series_id,timestart,timeend) DO " + on_conflict_clause_obs + "\
+					RETURNING *"
+				var stmt = internal.utils.pasteIntoSQLQuery(queryText,[observacion.series_id,observacion.timestart,observacion.timeend,observacion.nombre,observacion.descripcion,observacion.unit_id,observacion.timeupdate])
+				// console.log(stmt)
+				var res = await client.query(stmt)
+				// return client.query(queryText,[observacion.series_id,observacion.timestart,observacion.timeend,observacion.nombre,observacion.descripcion,observacion.unit_id,observacion.timeupdate])
+				if(res.rows.length == 0) {
+					// NO UPSERTED OBS
+					if(!config.crud.update_observaciones_timeupdate) {
+						// TRY TO UPDATE VAL
+						const obs = new internal.observacion({series_id: observacion.series_id, timestart: observacion.timestart, timeend:observacion.timeend, nombre: observacion.nombre,descripcion: observacion.descripcion, unit_id: observacion.unit_id, timeupdate: observacion.timeupdate})
+						const insertValorText = "UPDATE " + val_tabla + " SET valor=$1 FROM " + obs_tabla + " WHERE " + obs_tabla + ".id=" + val_tabla + ".obs_id AND series_id=$2 AND timestart=$3 AND timeend=$4 RETURNING obs_id,valor"
+						// console.log(pasteIntoSQLQuery(insertValorText,[observacion.valor, observacion.series_id, observacion.timestart, observacion.timeend]))
+						res = await client.query(insertValorText, [observacion.valor, observacion.series_id, observacion.timestart, observacion.timeend])
+						if(!res.rows.length) {
+							console.log("No se actualizó observación")
+							if(client.notifications) {
+								throw new Error(client.notifications.map(n=>n.message).join(","))
+							} else {
+								throw new Error("No se insertó observación")
 							}
-							throw("No se insertó observación")
 						}
+						obs.tipo=observacion.tipo
+						obs.id = res.rows[0].obs_id
+						obs.valor=res.rows[0].valor
+						return new internal.observacion(obs)
 					}
+					console.log("No se inserto observacion")
+					if(client.notifications) {
+						throw new Error(client.notifications.map(n=>n.message).join(","))
+					} else {
+						throw new Error("No se insertó observación")
+					}
+				} else {
+					const obs= new internal.observacion(res.rows[0])
+					const insertValorText = "INSERT INTO " + val_tabla + " (obs_id,valor)\
+						VALUES ($1,$2)\
+						ON CONFLICT (obs_id)\
+						DO " + on_conflict_clause_val + "\
+						RETURNING *"
+					// console.log(insertValorText)
+					res = await client.query(insertValorText, [obs.id, observacion.valor])
 					obs.tipo=observacion.tipo
-					obs.id = res.rows[0].obs_id
 					obs.valor=res.rows[0].valor
-					if(release_client) {
-						res = await client.query("COMMIT")
-						client.release()
-					}
 					return new internal.observacion(obs)
 				}
-				console.log("No se inserto observacion")
-				res = await client.query('ROLLBACK')
-				if(client.notifications) {
-					throw(client.notifications.map(n=>n.message).join(","))
+			} else {   // RAST //
+				var stmt
+				var args
+				var valor_string
+				if(observacion.valor instanceof Buffer) {
+					valor_string = "\\x" + observacion.valor.toString('hex')
 				} else {
-					if(release_client) {
-						client.release()
-					}
-					throw("No se insertó observación")
+					valor_string = observacion.valor
 				}
-			} else {
-				const obs= new internal.observacion(res.rows[0])
-				const insertValorText = "INSERT INTO " + val_tabla + " (obs_id,valor)\
-					VALUES ($1,$2)\
-					ON CONFLICT (obs_id)\
-					DO " + on_conflict_clause_val + "\
-					RETURNING *"
-				// console.log(insertValorText)
-				res = await client.query(insertValorText, [obs.id, observacion.valor])
-				obs.tipo=observacion.tipo
-				obs.valor=res.rows[0].valor
-				if(release_client) {
-					res = await client.query("COMMIT")
-					client.release()
+				// console.log("valor_string:" + valor_string)
+				var on_conflict_clause = (no_update) ? " NOTHING " : " UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate "
+				if(observacion.scale) {
+					var scale = parseFloat(observacion.scale)
+					var offset = (observacion.offset) ? parseFloat(observacion.offset) : 0
+					var expression = "[rast]*" + scale + "+" + offset
+					stmt = "INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate)\
+					VALUES ($1, $2, $3, ST_mapAlgebra(ST_FromGDALRaster($4),'32BF',$5), $6)\
+					ON CONFLICT (series_id, timestart, timeend)\
+					DO " + on_conflict_clause + "\
+					RETURNING id,series_id,timestart,timeend,st_asgdalraster(valor,'GTiff') valor,timeupdate"    // '\\x'||encode(st_asgdalraster(valor,'GTiff')::bytea,'hex')
+					args = [observacion.series_id, observacion.timestart, observacion.timeend, valor_string, expression, observacion.timeupdate]
+				} else {
+					stmt = "INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate)\
+					VALUES ($1, $2, $3, ST_FromGDALRaster($4), $5)\
+					ON CONFLICT (series_id, timestart, timeend)\
+					DO " + on_conflict_clause + "\
+					RETURNING id,series_id,timestart,timeend,st_asgdalraster(valor, 'GTIff') valor,timeupdate" // '\\x'||encode(st_asgdalraster(valor,'GTiff')::bytea,'hex')
+					args = [observacion.series_id, observacion.timestart, observacion.timeend, valor_string, observacion.timeupdate]
+				}	
+				//~ if(options.hex) {
+					//~ args[3] = '\\x' + args[3]
+				//~ }
+				// console.log(pasteIntoSQLQuery(stmt,args))
+				const upserted = await global.pool.query(stmt,args)
+				if(upserted.rows.length == 0) {
+					console.log("nothing upserted")
+					throw("nothing upserted")
+				} else {
+					//~ console.log("raster upserted")
+					upserted.rows[0].tipo="rast"
+					return new internal.observacion(upserted.rows[0])
 				}
-				return new internal.observacion(obs)
 			}
-		} else {   // RAST //
-			var stmt
-			var args
-			var valor_string
-			if(observacion.valor instanceof Buffer) {
-				valor_string = "\\x" + observacion.valor.toString('hex')
-			} else {
-				valor_string = observacion.valor
-			}
-			// console.log("valor_string:" + valor_string)
-			var on_conflict_clause = (no_update) ? " NOTHING " : " UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate "
-			if(observacion.scale) {
-				var scale = parseFloat(observacion.scale)
-				var offset = (observacion.offset) ? parseFloat(observacion.offset) : 0
-				var expression = "[rast]*" + scale + "+" + offset
-				stmt = "INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate)\
-				VALUES ($1, $2, $3, ST_mapAlgebra(ST_FromGDALRaster($4),'32BF',$5), $6)\
-				ON CONFLICT (series_id, timestart, timeend)\
-				DO " + on_conflict_clause + "\
-				RETURNING id,series_id,timestart,timeend,st_asgdalraster(valor,'GTiff') valor,timeupdate"    // '\\x'||encode(st_asgdalraster(valor,'GTiff')::bytea,'hex')
-				args = [observacion.series_id, observacion.timestart, observacion.timeend, valor_string, expression, observacion.timeupdate]
-			} else {
-				stmt = "INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate)\
-				VALUES ($1, $2, $3, ST_FromGDALRaster($4), $5)\
-				ON CONFLICT (series_id, timestart, timeend)\
-				DO " + on_conflict_clause + "\
-				RETURNING id,series_id,timestart,timeend,st_asgdalraster(valor, 'GTIff') valor,timeupdate" // '\\x'||encode(st_asgdalraster(valor,'GTiff')::bytea,'hex')
-				args = [observacion.series_id, observacion.timestart, observacion.timeend, valor_string, observacion.timeupdate]
-			}	
-			//~ if(options.hex) {
-				//~ args[3] = '\\x' + args[3]
-			//~ }
-			// console.log(pasteIntoSQLQuery(stmt,args))
-			const upserted = await global.pool.query(stmt,args)
-			if(upserted.rows.length == 0) {
-				console.log("nothing upserted")
-				throw("nothing upserted")
-			} else {
-				//~ console.log("raster upserted")
-				upserted.rows[0].tipo="rast"
-				return new internal.observacion(upserted.rows[0])
-			}
-		}
+		})
 	}
 	
-	// static upsertObservacionesQuery(observaciones,tipo) {
-	// 	var query
-	// 	switch(tipo.toLowerCase()) {
-	// 		case "areal":
-	// 			break;
-	// 		case "rast":
-	// 		case "raster":
-	// 			break;
-	// 		default: // "puntual"
-	// 	}
-		
-	// 	var query = "\
-	// 		INSERT INTO fuentes (id, nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, def_extent, date_column, def_pixeltype, abstract, source) \
-	// 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, st_geomfromtext($18), $19, $20, $21, $22)\
-	// 		ON CONFLICT (id) DO UPDATE SET \
-	// 			id=excluded.id, \
-	// 			nombre=excluded.nombre, \
-	// 			data_table=excluded.data_table,\
-	// 			data_column=excluded.data_column,\
-	// 			tipo=excluded.tipo,\
-	// 			def_proc_id=excluded.def_proc_id,\
-	// 			def_dt=excluded.def_dt,\
-	// 			hora_corte=excluded.hora_corte,\
-	// 			def_unit_id=excluded.def_unit_id,\
-	// 			def_var_id=excluded.def_var_id,\
-	// 			fd_column=excluded.fd_column,\
-	// 			mad_table=excluded.mad_table,\
-	// 			scale_factor=excluded.scale_factor,\
-	// 			data_offset=excluded.data_offset,\
-	// 			def_pixel_height=excluded.def_pixel_height,\
-	// 			def_pixel_width=excluded.def_pixel_width,\
-	// 			def_srid=excluded.def_srid,\
-	// 			def_extent=excluded.def_extent,\
-	// 			date_column=excluded.date_column,\
-	// 			def_pixeltype=excluded.def_pixeltype,\
-	// 			abstract=excluded.abstract,\
-	// 			source=excluded.source\
-	// 		RETURNING *"
-	// 	var params = [fuente.id, fuente.nombre, fuente.data_table, fuente.data_column, fuente.tipo, fuente.def_proc_id, fuente.def_dt, fuente.hora_corte, fuente.def_unit_id, fuente.def_var_id, fuente.fd_column, fuente.mad_table, fuente.scale_factor, fuente.data_offset, fuente.def_pixel_height, fuente.def_pixel_width, fuente.def_srid, (fuente.def_extent) ? fuente.def_extent.toString() : null, fuente.date_column, fuente.def_pixeltype, fuente.abstract, fuente.source]
-	// 	return internal.utils.pasteIntoSQLQuery(query,params)
-	// }
-
 	static async upsertObservaciones(observaciones,tipo,series_id,options={},client) {
-		if(!observaciones) {
-			return Promise.reject("falta observaciones")
-		}
-		if(observaciones.length==0) {
-			console.log("upsertObservaciones: nothing to upsert (length==0)")
-			return Promise.resolve([]) // "upsertObservaciones: nothing to upsert (length==0)")
-		}
-		var serie
-		if(series_id) {
-			// console.log("setting series_id in each obs...")
-			observaciones = observaciones.map(o=>{
-				o.series_id = series_id
-				return o
-			})
-			observaciones = this.removeDuplicates(observaciones)
-			// console.log("done")
-		} else {
-			observaciones = this.removeDuplicatesMultiSeries(observaciones)
-		}
-		if(!tipo && observaciones[0].tipo) {
-			var tipo_guess = observaciones[0].tipo
-			var count = 0
-			for(var i in observaciones) {
-				if (observaciones[i].tipo != tipo_guess) {
-					break
-				}
-				count++
+		return withClient(client, async (client) => {
+			if(!observaciones) {
+				return Promise.reject("falta observaciones")
 			}
-			if(count == observaciones.length) {
-				tipo = tipo_guess
+			if(observaciones.length==0) {
+				console.log("upsertObservaciones: nothing to upsert (length==0)")
+				return Promise.resolve([]) // "upsertObservaciones: nothing to upsert (length==0)")
 			}
-		}
-		if(series_id && tipo) {
-			console.log("try read series_id " + series_id)
-			try {
-				serie = await this.getSerie(tipo,series_id,undefined,undefined,{no_metadata:true},undefined,undefined,client)
-				console.log("try read var_id " + serie.var.id)
-				serie.var = await this.getVar(serie.var.id,client) 
-			} catch(e) {
-				throw(e)
-			}
-			console.debug("got series, var.timeSupport=" + ((serie.var.timeSupport) ? serie.var.timeSupport.toString() : "null"))
-		}
-		if(config.verbose) {
-			console.debug("crud.upsertObservaciones: tipo: " + tipo)
-		}
-		if(tipo) {
-			if(tipo=="puntual") {
-				return this.upsertObservacionesPuntual(observaciones,options.skip_nulls,options.no_update,(serie) ? serie.var.timeSupport : undefined,client, (serie) ? serie.var.def_hora_corte : undefined)
-			} else if(tipo=="areal") {
-				return this.upsertObservacionesAreal(observaciones,options.skip_nulls,options.no_update, (serie) ? serie.var.timeSupport : undefined,client, (serie) ? serie.var.def_hora_corte : undefined)
-			}
-			observaciones = observaciones.map(o=>{
-				o.tipo = tipo
-				return o
-			})
-		} 
-		if(config.verbose) {
-			console.debug("crud.upsertObservaciones: tipo: " + tipo)
-		}
-		var upserted = []
-		var errors = []
-		for(var i=0; i<observaciones.length; i++) {
-			const observacion = new internal.observacion(observaciones[i])
-			// console.log("pushing obs:"+observacion.toCSVless())
-			//~ console.log("valor.length:"+observacion.valor.length)
-			if(options.skip_nulls && (observacion.valor === null || observacion.valor === undefined )) {
-				console.log("skipping null value, series_id:" + observacion.series_id + " timestart:" + observacion.timestart) 
+			var serie
+			if(series_id) {
+				// console.log("setting series_id in each obs...")
+				observaciones = observaciones.map(o=>{
+					o.series_id = series_id
+					return o
+				})
+				observaciones = this.removeDuplicates(observaciones)
+				// console.log("done")
 			} else {
-				try {
-					var o = await this.upsertObservacion(observacion,options.no_update,client)
-					upserted.push(o)
-				} catch (e) {
-					errors.push(e)
+				observaciones = this.removeDuplicatesMultiSeries(observaciones)
+			}
+			if(!tipo && observaciones[0].tipo) {
+				var tipo_guess = observaciones[0].tipo
+				var count = 0
+				for(var i in observaciones) {
+					if (observaciones[i].tipo != tipo_guess) {
+						break
+					}
+					count++
+				}
+				if(count == observaciones.length) {
+					tipo = tipo_guess
 				}
 			}
-		}
-		if(!upserted.length && errors.length) {
-			throw(errors)
-		}
-		return upserted
-		// Promise.allSettled(promises)
-		// .then(results=>{
-		// 	return results.map(r=>{
-		// 		if(r.status == "fulfilled") {
-		// 			return r.value //valuetype
-		// 		} else {
-		// 			console.error("upsert rejected, reason:" + r.reason)
-		// 			return
-		// 		}
-		// 	}).filter(r=>r)
-		// })
+			if(series_id && tipo) {
+				console.log("try read series_id " + series_id)
+				try {
+					serie = await this.getSerie(tipo,series_id,undefined,undefined,{no_metadata:true},undefined,undefined,client)
+					console.log("try read var_id " + serie.var.id)
+					serie.var = await this.getVar(serie.var.id,client) 
+				} catch(e) {
+					throw(e)
+				}
+				console.debug("got series, var.timeSupport=" + ((serie.var.timeSupport) ? serie.var.timeSupport.toString() : "null"))
+			}
+			if(config.verbose) {
+				console.debug("crud.upsertObservaciones: tipo: " + tipo)
+			}
+			if(tipo) {
+				if(tipo=="puntual") {
+					return this.upsertObservacionesPuntual(observaciones,options.skip_nulls,options.no_update,(serie) ? serie.var.timeSupport : undefined,client, (serie) ? serie.var.def_hora_corte : undefined)
+				} else if(tipo=="areal") {
+					return this.upsertObservacionesAreal(observaciones,options.skip_nulls,options.no_update, (serie) ? serie.var.timeSupport : undefined,client, (serie) ? serie.var.def_hora_corte : undefined)
+				}
+				observaciones = observaciones.map(o=>{
+					o.tipo = tipo
+					return o
+				})
+			} 
+			if(config.verbose) {
+				console.debug("crud.upsertObservaciones: tipo: " + tipo)
+			}
+			var upserted = []
+			var errors = []
+			for(var i=0; i<observaciones.length; i++) {
+				const observacion = new internal.observacion(observaciones[i])
+				// console.log("pushing obs:"+observacion.toCSVless())
+				//~ console.log("valor.length:"+observacion.valor.length)
+				if(options.skip_nulls && (observacion.valor === null || observacion.valor === undefined )) {
+					console.log("skipping null value, series_id:" + observacion.series_id + " timestart:" + observacion.timestart) 
+				} else {
+					try {
+						var o = await this.upsertObservacion(observacion,options.no_update,client)
+						upserted.push(o)
+					} catch (e) {
+						errors.push(e)
+					}
+				}
+			}
+			if(!upserted.length && errors.length) {
+				throw(errors)
+			}
+			return upserted
+		})
 	}
 	
 			
 	static async upsertObservacionesPuntual(observaciones,skip_nulls,no_update,timeSupport,client,t_offset) {
-		//~ console.log({observaciones:observaciones})	
-		var obs_values = []
-		var dates = new Set()
-		observaciones = observaciones.map(observacion=> {
-			if(!observacion.series_id) {
-				console.error("missing series_id")
-				return
-			}
-			observacion.series_id = parseInt(observacion.series_id)
-			if(observacion.series_id.toString()=='NaN')
-			{
-				console.error("invalid series_id")
-				return
-			}
-			observacion.timestart = !(observacion.timestart instanceof Date) ? new Date(observacion.timestart) : observacion.timestart
-			if(observacion.timestart.toString()=='Invalid Date') {
-				console.error("invalid timestart")
-				return
-			}
-			observacion.timeend = (timeSupport) ? timeSteps.advanceTimeStep(observacion.timestart,timeSupport) : !(observacion.timeend instanceof Date) ? new Date(observacion.timeend) : observacion.timeend
-			if(observacion.timeend.toString()=='Invalid Date')  {
-				console.error("invalid timeend")
-				return
-			}
-			observacion.valor = parseFloat(observacion.valor)
-			if(observacion.valor.toString()=='NaN')
-			{
-				console.warn("upsertObservacionesPuntual: NaN value at time " + observacion.timestart.toISOString() + ", skipping")
-				return
-			}
-			if(skip_nulls && observacion.valor === null) {
-				console.log("skipping null value, series_id:" + observacion.valor + ", timestart:" + observacion.timestart.toISOString())
-				return
-			}
-			if(timeSupport) {
-				const dt = new Interval(timeSupport)
-				if(dt.toEpoch() != 0 && dt.toEpoch() % 86400 == 0 ) {
-					const date = new Date(observacion.timestart.getFullYear(),observacion.timestart.getMonth(),observacion.timestart.getDate())
-					if(dates.has(date.toISOString())) {
-						throw new Error(`Duplicate date: ${date.toLocaleDateString()} for series id: ${observacion.series_id}`)
-					}
-					dates.add(date.toISOString())
-					if(t_offset) {
-						const t_o = new Interval(t_offset)
-						obs_values.push(sprintf("(%d,'%s'::timestamptz::date::timestamp + interval '%s','%s'::timestamptz::date::timestamp + interval '%s','upsertObservacionesPuntual',now(),%f)", observacion.series_id, observacion.timestart.toISOString(), t_offset.toPostgres(), observacion.timeend.toISOString(), t_offset.toPostgres(), observacion.valor))
+		return withTransaction(client, async (client) => {
+			//~ console.log({observaciones:observaciones})	
+			var obs_values = []
+			var dates = new Set()
+			observaciones = observaciones.map(observacion=> {
+				if(!observacion.series_id) {
+					console.error("missing series_id")
+					return
+				}
+				observacion.series_id = parseInt(observacion.series_id)
+				if(observacion.series_id.toString()=='NaN')
+				{
+					console.error("invalid series_id")
+					return
+				}
+				observacion.timestart = !(observacion.timestart instanceof Date) ? new Date(observacion.timestart) : observacion.timestart
+				if(observacion.timestart.toString()=='Invalid Date') {
+					console.error("invalid timestart")
+					return
+				}
+				observacion.timeend = (timeSupport) ? timeSteps.advanceTimeStep(observacion.timestart,timeSupport) : !(observacion.timeend instanceof Date) ? new Date(observacion.timeend) : observacion.timeend
+				if(observacion.timeend.toString()=='Invalid Date')  {
+					console.error("invalid timeend")
+					return
+				}
+				observacion.valor = parseFloat(observacion.valor)
+				if(observacion.valor.toString()=='NaN')
+				{
+					console.warn("upsertObservacionesPuntual: NaN value at time " + observacion.timestart.toISOString() + ", skipping")
+					return
+				}
+				if(skip_nulls && observacion.valor === null) {
+					console.log("skipping null value, series_id:" + observacion.valor + ", timestart:" + observacion.timestart.toISOString())
+					return
+				}
+				if(timeSupport) {
+					const dt = new Interval(timeSupport)
+					if(dt.toEpoch() != 0 && dt.toEpoch() % 86400 == 0 ) {
+						const date = new Date(observacion.timestart.getFullYear(),observacion.timestart.getMonth(),observacion.timestart.getDate())
+						if(dates.has(date.toISOString())) {
+							throw new Error(`Duplicate date: ${date.toLocaleDateString()} for series id: ${observacion.series_id}`)
+						}
+						dates.add(date.toISOString())
+						if(t_offset) {
+							const t_o = new Interval(t_offset)
+							obs_values.push(sprintf("(%d,'%s'::timestamptz::date::timestamp + interval '%s','%s'::timestamptz::date::timestamp + interval '%s','upsertObservacionesPuntual',now(),%f)", observacion.series_id, observacion.timestart.toISOString(), t_offset.toPostgres(), observacion.timeend.toISOString(), t_offset.toPostgres(), observacion.valor))
+						} else {
+							obs_values.push(sprintf("(%d,'%s'::timestamptz::date::timestamp,'%s'::timestamptz::date::timestamp,'upsertObservacionesPuntual',now(),%f)", observacion.series_id, observacion.timestart.toISOString(), observacion.timeend.toISOString(),observacion.valor))		
+						}
 					} else {
-						obs_values.push(sprintf("(%d,'%s'::timestamptz::date::timestamp,'%s'::timestamptz::date::timestamp,'upsertObservacionesPuntual',now(),%f)", observacion.series_id, observacion.timestart.toISOString(), observacion.timeend.toISOString(),observacion.valor))		
+						obs_values.push(sprintf("(%d,'%s'::timestamptz,'%s'::timestamptz,'upsertObservacionesPuntual',now(),%f)", observacion.series_id, observacion.timestart.toISOString(), observacion.timeend.toISOString(),observacion.valor))	
 					}
 				} else {
-					obs_values.push(sprintf("(%d,'%s'::timestamptz,'%s'::timestamptz,'upsertObservacionesPuntual',now(),%f)", observacion.series_id, observacion.timestart.toISOString(), observacion.timeend.toISOString(),observacion.valor))	
+					obs_values.push(sprintf("(%d,'%s'::timestamptz,'%s'::timestamptz,'upsertObservacionesPuntual',now(),%f)", observacion.series_id, observacion.timestart.toISOString(), observacion.timeend.toISOString(),observacion.valor))
 				}
-			} else {
-				obs_values.push(sprintf("(%d,'%s'::timestamptz,'%s'::timestamptz,'upsertObservacionesPuntual',now(),%f)", observacion.series_id, observacion.timestart.toISOString(), observacion.timeend.toISOString(),observacion.valor))
+				return observacion
+			}).filter(o=>o)
+			//~ console.log({observaciones:observaciones})
+			//~ console.log({obs_values:obs_values})
+			if(obs_values.length == 0) {
+				return Promise.reject(new Error("no valid observations"))
 			}
-			return observacion
-		}).filter(o=>o)
-		//~ console.log({observaciones:observaciones})
-		//~ console.log({obs_values:obs_values})
-		if(obs_values.length == 0) {
-			return Promise.reject(new Error("no valid observations"))
-		}
-		obs_values = obs_values.join(",")
-		var on_conflict_clause_obs = (no_update) ? " NOTHING " : (config.crud.update_observaciones_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\
-					  timeupdate=excluded.timeupdate" : " NOTHING "
-		var on_conflict_clause_val = (no_update) ? " NOTHING " : " UPDATE SET valor=excluded.valor"
-		var disable_trigger = "" // (timeSupport) ? "ALTER TABLE observaciones DISABLE TRIGGER obs_puntual_dt_constraint_trigger;" : ""
-		var enable_trigger = "" //(timeSupport) ? "ALTER TABLE observaciones ENABLE TRIGGER obs_puntual_dt_constraint_trigger;" : ""
-		var release_client = false
-		if(!client) {
-			client = await global.pool.connect()
-			release_client = true
-			await client.query('BEGIN')
-		}
-		try {
+			obs_values = obs_values.join(",")
+			var on_conflict_clause_obs = (no_update) ? " NOTHING " : (config.crud.update_observaciones_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\
+						timeupdate=excluded.timeupdate" : " NOTHING "
+			var on_conflict_clause_val = (no_update) ? " NOTHING " : " UPDATE SET valor=excluded.valor"
+			var disable_trigger = "" // (timeSupport) ? "ALTER TABLE observaciones DISABLE TRIGGER obs_puntual_dt_constraint_trigger;" : ""
+			var enable_trigger = "" //(timeSupport) ? "ALTER TABLE observaciones ENABLE TRIGGER obs_puntual_dt_constraint_trigger;" : ""
 			//~ console.log({obs_values:obs_values})
 			await client.query("\
 					" + disable_trigger  + "\
@@ -10867,93 +10713,73 @@ internal.CRUD = class {
 					AND observaciones.timestart=obs.timestart\
 					AND observaciones.timeend=obs.timeend\
 					AND observaciones.id=valores_num.obs_id\
-					ORDER BY observaciones.series_id,observaciones.timestart",undefined,client,false)
+					ORDER BY observaciones.series_id,observaciones.timestart",undefined,client)
 			if(!rows) {
-				throw("No se insertaron registros, " + client.notifications.map(n=>n.message).join(","))
+				throw new Error("No se insertaron registros, " + client.notifications.map(n=>n.message).join(","))
 			}
 			if(rows.length==0) {
 				if(client.notifications) {
-					throw(client.notifications.map(n=>n.message).join(",")) //"No observaciones inserted")
+					throw new Error(client.notifications.map(n=>n.message).join(",")) //"No observaciones inserted")
 				} else {
-					throw("No observaciones inserted")
+					throw new Error("No observaciones inserted")
 				}
 			}
 			await client.query(enable_trigger)
-			if(release_client) {
-				await client.query("COMMIT;")
-				await client.release()
-			} else {
-				await client.query("DROP table obs")
-			}
-			// console.log("upserted: " + result.rows.length + " obs_puntuales")
 			return rows
-		} catch(e) {
-			// console.error({message: "upsertObservacionesPuntual error",error:e})
-			if(release_client) {
-				await client.query("ROLLBACK")
-				await client.release()
-			}
-			throw(e)
-		}
+		}, {force: true})
 	}
 	
 	static async upsertObservacionesAreal(observaciones,skip_nulls,no_update, timeSupport,client) {
-		var obs_values = []
-		observaciones = observaciones.map(observacion=> {
-			if(!observacion.series_id) {
-				console.error("missing series_id")
-				return
+		return withTransaction(client, async (client) => {
+			var obs_values = []
+			observaciones = observaciones.map(observacion=> {
+				if(!observacion.series_id) {
+					console.error("missing series_id")
+					return
+				}
+				observacion.series_id = parseInt(observacion.series_id)
+				if(observacion.series_id.toString()=='NaN')
+				{
+					console.error("invalid series_id")
+					return
+				}
+				observacion.timestart = !(observacion.timestart instanceof Date) ? new Date(observacion.timestart) : observacion.timestart
+				if(observacion.timestart.toString()=='Invalid Date') {
+					console.error("invalid timestart")
+					return
+				}
+				observacion.timeend = (timeSupport) ? timeSteps.advanceTimeStep(observacion.timestart,timeSupport) : !(observacion.timeend instanceof Date) ? new Date(observacion.timeend) : observacion.timeend
+				if(observacion.timeend.toString()=='Invalid Date')  {
+					console.error("invalid timeend")
+					return
+				}
+				observacion.valor = parseFloat(observacion.valor)
+				if(observacion.valor.toString()=='NaN')
+				{
+					// console.error("invalid valor")
+					return
+				}
+				if(skip_nulls && observacion.valor === null) {
+					console.log("skipping null value, series_id:" + observacion.valor + ", timestart:" + observacion.timestart.toISOString())
+					return
+				}
+				obs_values.push(sprintf("(%d,'%s'::timestamptz,'%s'::timestamptz,'upsertObservacionesAreal',now())", observacion.series_id, observacion.timestart.toISOString(), observacion.timeend.toISOString()))
+				return observacion
+			}).filter(o=>o)
+			if(config.verbose) {
+				// console.log("crud.upsertObservacionesAreal: obs_values:" + JSON.stringify(obs_values))
 			}
-			observacion.series_id = parseInt(observacion.series_id)
-			if(observacion.series_id.toString()=='NaN')
-			{
-				console.error("invalid series_id")
-				return
+			if(!obs_values.length) {
+				console.error("No values to insert")
+				return []
 			}
-			observacion.timestart = !(observacion.timestart instanceof Date) ? new Date(observacion.timestart) : observacion.timestart
-			if(observacion.timestart.toString()=='Invalid Date') {
-				console.error("invalid timestart")
-				return
-			}
-			observacion.timeend = (timeSupport) ? timeSteps.advanceTimeStep(observacion.timestart,timeSupport) : !(observacion.timeend instanceof Date) ? new Date(observacion.timeend) : observacion.timeend
-			if(observacion.timeend.toString()=='Invalid Date')  {
-				console.error("invalid timeend")
-				return
-			}
-			observacion.valor = parseFloat(observacion.valor)
-			if(observacion.valor.toString()=='NaN')
-			{
-				// console.error("invalid valor")
-				return
-			}
-			if(skip_nulls && observacion.valor === null) {
-				console.log("skipping null value, series_id:" + observacion.valor + ", timestart:" + observacion.timestart.toISOString())
-				return
-			}
-			obs_values.push(sprintf("(%d,'%s'::timestamptz,'%s'::timestamptz,'upsertObservacionesAreal',now())", observacion.series_id, observacion.timestart.toISOString(), observacion.timeend.toISOString()))
-			return observacion
-		}).filter(o=>o)
-		if(config.verbose) {
-			// console.log("crud.upsertObservacionesAreal: obs_values:" + JSON.stringify(obs_values))
-		}
-		if(!obs_values.length) {
-			console.error("No values to insert")
-			return []
-		}
-		obs_values = obs_values.join(",")
-		const on_conflict_update_timeupdate = (no_update) ? false : (config.crud.update_observaciones_timeupdate) ? true : false
-		var on_conflict_clause_obs = (on_conflict_update_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\
-		timeupdate=excluded.timeupdate" : " UPDATE SET id=observaciones_areal.id "
-		var on_conflict_clause_val = (no_update) ? " UPDATE SET obs_id=valores_num_areal.obs_id " : " UPDATE SET valor=excluded.valor "
-		var disable_trigger = "" // (timeSupport) ? "ALTER TABLE observaciones_areal DISABLE TRIGGER obs_dt_trig;" : ""
-		var enable_trigger = "" // (timeSupport) ? "ALTER TABLE observaciones_areal ENABLE TRIGGER obs_dt_trig;" : ""
-		var release_client = false
-		if(!client) {
-			client = await global.pool.connect()
-			release_client = true
-			await client.query("BEGIN")
-		}
-		try {
+			obs_values = obs_values.join(",")
+			const on_conflict_update_timeupdate = (no_update) ? false : (config.crud.update_observaciones_timeupdate) ? true : false
+			var on_conflict_clause_obs = (on_conflict_update_timeupdate) ? " UPDATE SET nombre=excluded.nombre,\
+			timeupdate=excluded.timeupdate" : " UPDATE SET id=observaciones_areal.id "
+			var on_conflict_clause_val = (no_update) ? " UPDATE SET obs_id=valores_num_areal.obs_id " : " UPDATE SET valor=excluded.valor "
+			var disable_trigger = "" // (timeSupport) ? "ALTER TABLE observaciones_areal DISABLE TRIGGER obs_dt_trig;" : ""
+			var enable_trigger = "" // (timeSupport) ? "ALTER TABLE observaciones_areal ENABLE TRIGGER obs_dt_trig;" : ""
 			await client.query(disable_trigger)
 			var rows = await executeQueryReturnRows("\
 					INSERT INTO observaciones_areal (series_id,timestart,timeend,nombre,timeupdate)\
@@ -10962,11 +10788,11 @@ internal.CRUD = class {
 					DO " + on_conflict_clause_obs + "\
 					RETURNING *",undefined,client,false)
 			if(!rows) {
-				throw("insert into observaciones_areal query error")
+				throw new Error("insert into observaciones_areal query error")
 			}
 			if(rows.length==0){
 				if(on_conflict_update_timeupdate) {
-					throw("No observaciones_areal inserted")
+					throw new Error("No observaciones_areal inserted")
 				} else {
 					console.log("No observaciones_areal inserted")
 				}
@@ -10982,40 +10808,20 @@ internal.CRUD = class {
 					return
 				}
 				const o = matches[0]
-				// var o = rows.shift()
-				// if(config.verbose) {
-				// 	// console.log("crud.upsertObservacionesAreal: o:" + JSON.stringify(o))
-				// }
-				// if(obs.series_id == o.series_id && obs.timestart.toISOString() == o.timestart.toISOString() && obs.timeend.toISOString() == o.timeend.toISOString()) {
 				observaciones[i].id = o.id
-					//~ console.log({obs:obs, o:o})
 				return sprintf("(%d,%f)", o.id, obs.valor)
 			}).filter(o=>o).join(",")
-				//~ console.log({val_values:val_values})
 			if(!val_values.length) {
-				throw("Nothing inserted")
+				throw new Error("Nothing inserted")
 			}
 			var values = await executeQueryReturnRows("INSERT INTO valores_num_areal (obs_id,valor)\
 					VALUES " + val_values + "\
 					ON CONFLICT (obs_id)\
 					DO " + on_conflict_clause_val + "\
-					RETURNING *",undefined,client,false)
+					RETURNING *",undefined,client)
 			await client.query(enable_trigger) 
-			if(release_client) {
-				await client.query("COMMIT")
-			}
 			return observaciones
-		} catch(e) {
-			if(release_client) {
-				await client.query("ROLLBACK")
-			}
-			console.error(e)
-			throw(e)
-		} finally {
-			if(release_client) {
-				client.release()
-			}
-		}
+		}, {force: true})
 	}
 	
 	static async upsertObservacionesFromCSV(tipo="puntual",csvFile) {
@@ -12363,70 +12169,61 @@ internal.CRUD = class {
 	}
 
 	static async getObservaciones(tipo="puntual",filter,options,client) {
-		try {
+		return withClient(client, async (client) => {
 			var stmt = this.build_observaciones_query(tipo,filter,options)
 			// console.debug(stmt)
-			if(!client) {
-				var res = await global.pool.query(stmt)
-			} else {
-				var res = await client.query(stmt)
+			// if(!client) {
+			// 	var res = await global.pool.query(stmt)
+			// } else {
+			// 	var res = await client.query(stmt)
+			// }
+			var res = await client.query(stmt)
+			var observaciones = [] // new internal.observaciones
+			for(var i = 0; i < res.rows.length; i++) {
+				var obs=res.rows[i]
+				if(tipo.toLowerCase()=="rast") {
+					const observacion = new internal.observacion({tipo:tipo, series_id:obs.series_id, timestart:obs.timestart, timeend:obs.timeend, nombre:obs.nombre, descripcion:obs.descripcion, unit_id: obs.unit_id, timeupdate: obs.timeupdate, valor:obs.valor, stats: {count: obs.count, mean: obs.mean, stddev: obs.stddev, min: obs.min, max: obs.max}})
+					observacion.id = obs.id
+					observaciones.push(observacion)
+				} else if (options && options.asArray) {
+					observaciones.push([obs.timestart, obs.timeend, obs.valor, obs.id])
+				} else {
+					const observacion = new internal.observacion(tipo, obs.series_id, obs.timestart, obs.timeend, obs.nombre, obs.descripcion, obs.unit_id, obs.timeupdate, obs.valor)
+					observacion.id = obs.id
+					observaciones.push(observacion)
+				}
 			}
-		} catch(e) {
-			throw(e)
-		}	//~ console.log({stmt:stmt})
-		var observaciones = [] // new internal.observaciones
-		for(var i = 0; i < res.rows.length; i++) {
-			var obs=res.rows[i]
-			if(tipo.toLowerCase()=="rast") {
-				const observacion = new internal.observacion({tipo:tipo, series_id:obs.series_id, timestart:obs.timestart, timeend:obs.timeend, nombre:obs.nombre, descripcion:obs.descripcion, unit_id: obs.unit_id, timeupdate: obs.timeupdate, valor:obs.valor, stats: {count: obs.count, mean: obs.mean, stddev: obs.stddev, min: obs.min, max: obs.max}})
-				observacion.id = obs.id
-				observaciones.push(observacion)
-			} else if (options && options.asArray) {
-				observaciones.push([obs.timestart, obs.timeend, obs.valor, obs.id])
-			} else {
-				const observacion = new internal.observacion(tipo, obs.series_id, obs.timestart, obs.timeend, obs.nombre, obs.descripcion, obs.unit_id, obs.timeupdate, obs.valor)
-				observacion.id = obs.id
-				observaciones.push(observacion)
-			}
-		}
-		if(options && options.pivot) {
-			if(options.dt && options.t_offset) {
-				// ---
-			} else if(filter.var_id) {
-				const var_id_filter = (Array.isArray(filter.var_id)) ? filter.var_id[0] : filter.var_id
-				try {
-					var variable = await this.getVar(var_id_filter)
+			if(options && options.pivot) {
+				if(options.dt && options.t_offset) {
+					// ---
+				} else if(filter.var_id) {
+					const var_id_filter = (Array.isArray(filter.var_id)) ? filter.var_id[0] : filter.var_id
+					var variable = await this.getVar(var_id_filter,client)
 					options.dt = variable.dt
 					options.t_offset = variable.t_offset
-				} catch(e) {
-					throw(e)
-				}
-			} else if(filter.series_id) { // toma dt y t_offset de 
-				const series_id_filter = (Array.isArray(filter.series_id)) ? filter.series_id[0] : filter.series_id
-				try {
+					
+				} else if(filter.series_id) { // toma dt y t_offset de 
+					const series_id_filter = (Array.isArray(filter.series_id)) ? filter.series_id[0] : filter.series_id
 					var serie = await this.getSerie(filter.tipo,series_id_filter, undefined, undefined, undefined, undefined, undefined, client)
 					options.dt = serie.var.dt
 					options.t_offset = serie.var.t_offset
-				} catch(e) {
-					throw(e)
-				}
-			} 
-			else {
+				} else {
 				// throw("Pivot error: missing dt, var_id or series_id")
-				options.dt = {days:1}
-				options.t_offset = {days:1}
+					options.dt = {days:1}
+					options.t_offset = {days:1}
+				}
+				options.dt = timeSteps.createInterval(options.dt)
+				options.t_offset = timeSteps.createInterval(options.t_offset)
+				options.timestart = filter.timestart
+				options.timeend = filter.timeend
+				options.pivot = true
+				observaciones = new internal.observaciones(observaciones,options)
+			} else if (!options || !options.asArray) {
+				//~ console.log({observaciones:observaciones})
+				observaciones = new internal.observaciones(observaciones,options)
 			}
-			options.dt = timeSteps.createInterval(options.dt)
-			options.t_offset = timeSteps.createInterval(options.t_offset)
-			options.timestart = filter.timestart
-			options.timeend = filter.timeend
-			options.pivot = true
-			observaciones = new internal.observaciones(observaciones,options)
-		} else if (!options || !options.asArray) {
-			//~ console.log({observaciones:observaciones})
-			observaciones = new internal.observaciones(observaciones,options)
-		}
-		return observaciones
+			return observaciones
+		})
 	}
 
 	static getObsTable(tipo="puntual") {
@@ -12440,214 +12237,138 @@ internal.CRUD = class {
 	}
 
 	static async getObservacionesDateRange(tipo,filter,options, client) {
-		var release_client = false
-		if(!client) {
-			release_client = true
-			client = await global.pool.connect()
-		}
-		var tipo = this.getTipo(tipo)
-		var obs_table = this.getObsTable(tipo)
-		var filter_string = this.getObservacionesFilterString(tipo,filter,options) 
-		//~ console.log({filter_string:filter_string})
-		if(filter_string == "") {
-			throw "invalid filter value"
-		}
-		try {
-			var result = await client.query("SELECT min(timestart),max(timestart) FROM " + obs_table + " WHERE 1=1 " + filter_string)
-			return result.rows[0]
-		} catch(e) {
-			throw(e)
-		} finally {
-			if(release_client) {
-				client.release()
+		return withClient(client, async (client) => {
+			var tipo = this.getTipo(tipo)
+			var obs_table = this.getObsTable(tipo)
+			var filter_string = this.getObservacionesFilterString(tipo,filter,options) 
+			//~ console.log({filter_string:filter_string})
+			if(filter_string == "") {
+				throw new Error("invalid filter value")
 			}
-		}
-
+			var result = await client.query("SELECT min(timestart),max(timestart) FROM " + obs_table + " WHERE 1=1 " + filter_string)
+			if(!result.rows.length) {
+				throw new Error("No series found")
+			}
+			return result.rows[0]
+		})
 	}
 	
 	static async getObservacionesRTS(tipo,filter={},options={},serie, client) {
-		
-		var release_client = false
-		if(!client) {
-			release_client = true
-			client = await global.pool.connect()
-		}
-		//~ console.log({options:options})
-		if(options.skip_nulls || !filter.series_id || Array.isArray(filter.series_id)) {
-			try {
+		return withClient(client, async (client) => {
+			if(options.skip_nulls || !filter.series_id || Array.isArray(filter.series_id)) {
 				const observaciones = await this.getObservaciones(tipo,filter,options,client)
 				return observaciones
-			} catch(e) {
-				throw(e)
-			} finally {
-				if(release_client) {
-					client.release()
+			}
+			if(!filter.timestart || !filter.timeend) {
+				if(!filter.timeupdate) {
+					// return Promise.reject("Faltan parametros: series_id, timestart, timeend, timeupdate")
+					throw new Error("Faltan parametros: series_id, timestart, timeend, timeupdate")
 				}
 			}
-		}
-		if(!filter.timestart || !filter.timeend) {
-			if(!filter.timeupdate) {
-				// return Promise.reject("Faltan parametros: series_id, timestart, timeend, timeupdate")
-				if(release_client) {
-					client.release()
+			var serie_result
+			if(serie) {
+				if(filter.public && !serie.estacion.public) {
+					console.log("usuario no autorizado para acceder a la serie seleccionada")
+					// return Promise.reject("usuario no autorizado para acceder a la serie seleccionada")
+					throw new Error("usuario no autorizado para acceder a la serie seleccionada")
 				}
-				throw("Faltan parametros: series_id, timestart, timeend, timeupdate")
-			}
-		}
-		var serie_result
-		if(serie) {
-			if(filter.public && !serie.estacion.public) {
-				console.log("usuario no autorizado para acceder a la serie seleccionada")
-				// return Promise.reject("usuario no autorizado para acceder a la serie seleccionada")
-				if(release_client) {
-					client.release()
-				}
-				throw("usuario no autorizado para acceder a la serie seleccionada")
-			}
-			serie_result = serie
-		} else {
-			try {
+				serie_result = serie
+			} else {
 				serie_result = await this.getSerie(tipo,filter.series_id,undefined,undefined,undefined,filter.public,undefined, client) // tipo,id,timestart,timeend,options={},isPublic
-			} catch(e) {
-				if(release_client) {
-					client.release()
-				}
-				throw(e)
 			}
-		}
-		serie = serie_result
-		if(!serie) {
-			if(release_client) {
-				client.release()
+			serie = serie_result
+			if(!serie) {
+				throw new Error("Serie no encontrada")
 			}
-			throw("Serie no encontrada")
-		}
-		if(!serie.var.timeSupport) {
-			// console.log("no timeSupport")
-			var getObsFilter = {...filter}
-			getObsFilter.series_id = serie.id
-			try {
+			if(!serie.var.timeSupport) {
+				// console.log("no timeSupport")
+				var getObsFilter = {...filter}
+				getObsFilter.series_id = serie.id
 				const observaciones = await this.getObservaciones(tipo,getObsFilter,undefined, client)
 				return observaciones
-			} catch(e) {
-				throw(e)
-			} finally {
-				if(release_client) {
-					client.release()
-				}
-			}
-		} 
-		try {
+			} 
 			var dateRange = await this.getObservacionesDateRange(tipo,{series_id:serie.id,timestart:filter.timestart,timeend:filter.timeend},{include_partial_time_intersection: options.include_partial_time_intersection}, client)
-		} catch(e) {
-			if(release_client) {
-				client.release()
+			
+			if(!dateRange.min) {
+				console.error("No observaciones found in date range")
+				return []
 			}
-			throw(e)
-		}
-		if(!dateRange.min) {
-			console.error("No observaciones found in date range")
-			if(release_client) {
-				client.release()
-			}
-			return []
-		}
-		var timestart = dateRange.min // new Date(filter.timestart)
-		var timeend =  dateRange.max // new Date(filter.timeend)
-		var interval = timeSteps.interval2epochSync(serie.var.timeSupport)
-		// console.log("interval:" + interval)
-		if(!interval) {
-			// console.log("timeSupport inválido o nulo")
-			if(!options.obs_type && serie.var.type) {
-				options.obs_type = serie.var.type
-			}
-			try {
+			var timestart = dateRange.min // new Date(filter.timestart)
+			var timeend =  dateRange.max // new Date(filter.timeend)
+			var interval = timeSteps.interval2epochSync(serie.var.timeSupport)
+			// console.log("interval:" + interval)
+			if(!interval) {
+				// console.log("timeSupport inválido o nulo")
+				if(!options.obs_type && serie.var.type) {
+					options.obs_type = serie.var.type
+				}
 				const observaciones = this.getObservaciones(tipo,{series_id:serie.id,timestart:timestart,timeend:timeend,timeupdate:filter.timeupdate},options, client)
 				return observaciones
-			} catch(e) {
-				throw(e)
-			} finally {
-				if(release_client) {
-					client.release()
+			}
+			var interval_string = timeSteps.interval2string(serie.var.timeSupport)
+			const obs_tabla = this.getObsTable(tipo)
+			const val_tabla = this.getValTable(tipo)
+			//~ console.log({keys:Object.keys(serie.var.def_hora_corte).join(","),tostr:timeSteps.interval2string(serie.var.def_hora_corte)})
+			var t_offset = (serie.var.def_hora_corte)  ? timeSteps.interval2string(serie.var.def_hora_corte) : (serie.fuente && serie.fuente.hora_corte) ? timeSteps.interval2string(serie.fuente.hora_corte) :  "00:00:00"
+			// console.log("t_offset:" + t_offset)
+			var valuequerystring = (tipo == "rast" || tipo == "raster") ? this.rasterValueQueryString(options.format,options) : val_tabla + ".valor"
+			// console.log(valuequerystring)
+			var query = "WITH seq AS (\
+				SELECT generate_series('" + timestart.toISOString() + "'::date + $3::interval,'" + timeend.toISOString() + "'::timestamp,$2::interval) date)\
+				SELECT " + obs_tabla + ".id, \
+						$1 AS series_id, \
+						seq.date timestart, \
+						seq.date + $2::interval AS timeend, \
+						" + obs_tabla + ".timeupdate,\
+						" + valuequerystring + " valor\
+				FROM seq\
+				LEFT JOIN " + obs_tabla + " ON (\
+					" + obs_tabla + ".series_id=$1\
+					AND seq.date=" + obs_tabla + ".timestart\
+					AND seq.date>=$4\
+					AND seq.date<=$5\
+				) "
+			if(tipo == "puntual" || tipo == "areal") {
+				query += "\
+				LEFT JOIN " + val_tabla + " ON (\
+					" + obs_tabla + ".id=" + val_tabla + ".obs_id\
+				) "
+			}
+			var query_params = [serie.id, interval_string, t_offset, timestart, timeend]
+			if(filter.timeupdate) {
+				query += " WHERE " + obs_tabla + ".timeupdate=$6"
+				query_params.push(filter.timeupdate)
+			}
+			query += "ORDER BY seq.date"
+			// console.log(internal.utils.pasteIntoSQLQuery(query,[serie.id,interval_string,t_offset, timestart, timeend]))
+			var result = await client.query(query, query_params)
+			
+			var count = result.rows.map(r=>{
+				return (r.valor !== null) ? 1 : 0
+			}).reduce((a,b)=>a+b)
+			if(count == 0) {
+				console.log("No se encontraron registros")
+				return []
+			}
+			//~ console.log({options:options})
+			var observaciones = []
+			for(var i = 0; i < result.rows.length; i++) {
+				var obs=result.rows[i]
+				// console.log(JSON.stringify(obs))
+				if(tipo.toLowerCase()=="rast") {
+					const observacion = new internal.observacion({tipo:tipo, series_id:obs.series_id, timestart:obs.timestart, timeend:obs.timeend, nombre:obs.nombre, descripcion:obs.descripcion, unit_id: obs.unit_id, timeupdate: obs.timeupdate, valor:obs.valor, stats: {count: obs.count, mean: obs.mean, stddev: obs.stddev, min: obs.min, max: obs.max}})
+					observacion.id = obs.id
+					observaciones.push(observacion)
+				} else if (options && options.asArray) {
+					observaciones.push([obs.timestart, obs.timeend, obs.valor, obs.id])
+				} else {
+					const observacion = new internal.observacion({tipo:tipo, series_id:obs.series_id, timestart:obs.timestart, timeend:obs.timeend, nombre:obs.nombre, descripcion:obs.descripcion, unit_id:obs.unit_id, timeupdate:obs.timeupdate, valor:obs.valor})
+					observacion.id = obs.id
+					observaciones.push(observacion)
 				}
 			}
-		}
-		var interval_string = timeSteps.interval2string(serie.var.timeSupport)
-		const obs_tabla = this.getObsTable(tipo)
-		const val_tabla = this.getValTable(tipo)
-		//~ console.log({keys:Object.keys(serie.var.def_hora_corte).join(","),tostr:timeSteps.interval2string(serie.var.def_hora_corte)})
-		var t_offset = (serie.var.def_hora_corte)  ? timeSteps.interval2string(serie.var.def_hora_corte) : (serie.fuente && serie.fuente.hora_corte) ? timeSteps.interval2string(serie.fuente.hora_corte) :  "00:00:00"
-		// console.log("t_offset:" + t_offset)
-		var valuequerystring = (tipo == "rast" || tipo == "raster") ? this.rasterValueQueryString(options.format,options) : val_tabla + ".valor"
-		// console.log(valuequerystring)
-		var query = "WITH seq AS (\
-			SELECT generate_series('" + timestart.toISOString() + "'::date + $3::interval,'" + timeend.toISOString() + "'::timestamp,$2::interval) date)\
-			SELECT " + obs_tabla + ".id, \
-					$1 AS series_id, \
-					seq.date timestart, \
-					seq.date + $2::interval AS timeend, \
-					" + obs_tabla + ".timeupdate,\
-					" + valuequerystring + " valor\
-			FROM seq\
-			LEFT JOIN " + obs_tabla + " ON (\
-				" + obs_tabla + ".series_id=$1\
-				AND seq.date=" + obs_tabla + ".timestart\
-				AND seq.date>=$4\
-				AND seq.date<=$5\
-			) "
-		if(tipo == "puntual" || tipo == "areal") {
-			query += "\
-			LEFT JOIN " + val_tabla + " ON (\
-				" + obs_tabla + ".id=" + val_tabla + ".obs_id\
-			) "
-		}
-		var query_params = [serie.id, interval_string, t_offset, timestart, timeend]
-		if(filter.timeupdate) {
-			query += " WHERE " + obs_tabla + ".timeupdate=$6"
-			query_params.push(filter.timeupdate)
-		}
-		query += "ORDER BY seq.date"
-		// console.log(internal.utils.pasteIntoSQLQuery(query,[serie.id,interval_string,t_offset, timestart, timeend]))
-		try {
-			var result = await client.query(query, query_params)
-		} catch(e){
-			if(release_client) {
-				client.release()
-			}
-			throw(e)
-		}
-		var count = result.rows.map(r=>{
-			return (r.valor !== null) ? 1 : 0
-		}).reduce((a,b)=>a+b)
-		if(count == 0) {
-			console.log("No se encontraron registros")
-			if(release_client) {
-				client.release()
-			}
-			return []
-		}
-		//~ console.log({options:options})
-		var observaciones = []
-		for(var i = 0; i < result.rows.length; i++) {
-			var obs=result.rows[i]
-			// console.log(JSON.stringify(obs))
-			if(tipo.toLowerCase()=="rast") {
-				const observacion = new internal.observacion({tipo:tipo, series_id:obs.series_id, timestart:obs.timestart, timeend:obs.timeend, nombre:obs.nombre, descripcion:obs.descripcion, unit_id: obs.unit_id, timeupdate: obs.timeupdate, valor:obs.valor, stats: {count: obs.count, mean: obs.mean, stddev: obs.stddev, min: obs.min, max: obs.max}})
-				observacion.id = obs.id
-				observaciones.push(observacion)
-			} else if (options && options.asArray) {
-				observaciones.push([obs.timestart, obs.timeend, obs.valor, obs.id])
-			} else {
-				const observacion = new internal.observacion({tipo:tipo, series_id:obs.series_id, timestart:obs.timestart, timeend:obs.timeend, nombre:obs.nombre, descripcion:obs.descripcion, unit_id:obs.unit_id, timeupdate:obs.timeupdate, valor:obs.valor})
-				observacion.id = obs.id
-				observaciones.push(observacion)
-			}
-		}
-		//~ console.log(observaciones)
-		if(release_client) {
-			client.release()
-		}
-		return observaciones
+			return observaciones
+		})
 	}
 	
 	static rasterValueQueryString(format,options) {
@@ -13292,25 +13013,23 @@ internal.CRUD = class {
 	 * @returns {Promise<Array<internal.tableConstraint>>} 
 	 */
 	static async getTableConstraints(table_name,namespace_name="public",client) {
-		const query = pasteIntoSQLQuery("SELECT \
-		rel.relname AS table_name,\
-		con.conname AS constraint_name,\
-		con.contype AS constraint_type, \
-		array_agg(kcu.COLUMN_NAME::text) AS column_names\
-	FROM pg_catalog.pg_constraint con\
-		INNER JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid\
-		INNER JOIN pg_catalog.pg_namespace nsp ON nsp.oid = connamespace\
-		INNER JOIN information_schema.key_column_usage kcu ON kcu.constraint_name = con.conname \
-		WHERE nsp.nspname = $1 and rel.relname = $2 group by rel.relname, con.conname, con.contype;",[namespace_name,table_name])
-		// console.log(query)
-		if(client) {
+		return withClient(client, async (client) => {
+			const query = pasteIntoSQLQuery("SELECT \
+			rel.relname AS table_name,\
+			con.conname AS constraint_name,\
+			con.contype AS constraint_type, \
+			array_agg(kcu.COLUMN_NAME::text) AS column_names\
+		FROM pg_catalog.pg_constraint con\
+			INNER JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid\
+			INNER JOIN pg_catalog.pg_namespace nsp ON nsp.oid = connamespace\
+			INNER JOIN information_schema.key_column_usage kcu ON kcu.constraint_name = con.conname \
+			WHERE nsp.nspname = $1 and rel.relname = $2 group by rel.relname, con.conname, con.contype;",[namespace_name,table_name])
+			// console.log(query)
 			var result = await client.query(query)
-		} else {
-			var result = await global.pool.query(query)
-		}
-		return result.rows.map(row=>{
-			return new internal.tableConstraint(row)
-		}) 
+			return result.rows.map(row=>{
+				return new internal.tableConstraint(row)
+			}) 
+		})
 	}
 
 	static async upsertObservacionesCubo(id,observaciones) {
@@ -13518,280 +13237,247 @@ internal.CRUD = class {
 	}
 
 	static async rastExtract(series_id,timestart,timeend,options,isPublic,client,cal_id,cor_id,forecast_date,qualifier) {
-		var release_client = false
-		if(!client) {
-			release_client = true
-			client = await global.pool.connect()
-		}
-		const serie = await this.getSerie("raster",series_id,undefined,undefined,undefined,isPublic,undefined,client)
-		if(!serie) {
-			console.error("serie no encontrada")
-			if(release_client) {
-				client.release()
+		return withClient(client, async (client) => {
+			const serie = await this.getSerie("raster",series_id,undefined,undefined,undefined,isPublic,undefined,client)
+			if(!serie) {
+				console.error("serie no encontrada")
+				return
 			}
-			return
-		}
-		if(!serie.id) {
-			console.log("serie no encontrada")
-			if(release_client) {
-				client.release()
+			if(!serie.id) {
+				console.log("serie no encontrada")
+				return
 			}
-			return
-		}
-		options.bbox = (!options.bbox) ? serie.fuente.def_extent : options.bbox
-		options.pixel_height = (!options.pixel_height) ? serie.fuente.def_pixel_height : options.pixel_height
-		options.pixel_width = (!options.pixel_width) ? serie.fuente.def_pixel_width : options.pixel_width
-		options.srid = (!options.srid) ? serie.fuente.def_srid : options.srid
-		var valid_func = [ 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE']
-		options.funcion = (!options.funcion) ? "SUM" : options.funcion.toUpperCase()
-		if(valid_func.indexOf(options.funcion) < 0) {
-			if(release_client) {
-				client.release()
-			}
-			return Promise.reject("'funcion' inválida. Opciones: 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE'")
-		}
-		options.format = (!options.format) ? "GTiff" : options.format
-		const valid_formats = ["gtiff", "png"]
-		if(valid_formats.map(f=> (f == options.format.toLowerCase()) ? 1 : 0).reduce( (a,b)=>a+b) == 0) {
-			console.error("Invalid format:" + options.format)
-			if(release_client) {
-				client.release()
-			}
-			return
-		}
-		options.height = (!options.height) ? 300 : options.height
-		options.width = (!options.width) ? 300 : options.width
-		var rescale_band = (serie.fuente.scale_factor && serie.fuente.data_offset) ? "ST_mapAlgebra(rast,1,'32BF','[rast]*" + series.fuente.scale_factor + "+" + serie.fuente.data_offset + "')" : (serie.fuente.data_offset) ? "ST_MapAlgebra(rast,1,'32BF','[rast]+"  + serie.fuente.data_offset + "')" : "rast";
-		if(cor_id || cal_id && forecast_date) {
-			var data_table = "pronosticos_rast"
-			var join_data_table = "JOIN corridas ON data_table.cor_id=corridas.id"
-			var timeupdate_column = "corridas.date"
-			if(cor_id) {
-				var prono_filter = control_filter2(
-					{
-						"cor_id": {
-							type: "integer",
-							table: "pronosticos_rast"
-						},
-						"qualifier": {
-							type: "string",
-							table: "pronosticos_rast"
-						}
-					},
-					{
-						cor_id: cor_id,
-						qualifier: qualifier
-					},
-					"pronosticos_rast"
-				)
-			} else {
-				var prono_filter = control_filter2(
-					{
-						"cal_id": {
-							type: "integer",
-							table: "corridas"
-						},
-						"forecast_date": {
-							type: "date",
-							table: "corridas",
-							column: "date"
-						},
-						"qualifier": {
-							type: "string",
-							table: "pronosticos_rast"
-						}
-					},
-					{
-						cal_id: cal_id,
-						forecast_date: forecast_date,
-						qualifier: qualifier
-					},
-					"pronosticos_rast"
-				)
-			}
-		} else {
-			var data_table = "observaciones_rast"
-			var join_data_table = ""
-			var prono_filter = ""
-			var timeupdate_column = "data_table.timeupdate"
-		}
-		if(options.source_time_support) {
-			var timeend_column = pasteIntoSQLQuery(`data_table.timestart + $1::interval`, [options.source_time_support])
-		} else {
-			var timeend_column = `data_table.timeend`
-		}
-		var stmt
-		var args
-		if(options.format.toLowerCase() == "png") {
-			stmt = `WITH rasts AS (
-				SELECT series_id,
-						count(timestart) as c,
-						min(timestart) timestart,
-						max(${timeend_column}) timeend, 
-						max(${timeupdate_column}) timeupdate, 
-						st_union(ST_Clip(st_rescale(valor,$1),'{1}',st_geomfromtext($2,$3)),$4) as rast
-				FROM ${data_table} AS data_table ${join_data_table}
-				WHERE series_id=$5 AND timestart>=$6 AND timeend<=$7
-				${prono_filter}
-				GROUP by series_id),
-				raststats AS (
-				SELECT st_summarystats(rast) stats
-				FROM rasts)
-				SELECT series_id, 
-						timestart, 
-						timeend, 
-						timeupdate, 
-						c AS obs_count, 
-						(stats).*,
-						ST_asGDALRaster(st_colormap(st_resize(st_reclass(rast,'[' || (st_summarystats(rast)).min || '-' || (st_summarystats(rast)).max || ']:1-255, ' || st_bandnodatavalue(rast) || ':0','8BUI'),$8,$9),1,'grayscale','nearest'),$10) valor
-				FROM rasts, raststats`
-			if(options.min_count) {
-				stmt += sprintf(" WHERE rasts.c>=%d", options.min_count)
-			}
-			args = [options.pixel_height, options.bbox.toString(), options.srid, options.funcion, serie.id, timestart, timeend, options.height, options.width, options.format]
-			
-		} else {
-			const min_count_filter = (options.min_count) ? sprintf(" WHERE agg.count>=%d", options.min_count) : ""
-			stmt = `WITH dest_interval as (
-				SELECT
-					$4::timestamptz::timestamp AS timestart,
-					$5::timestamptz::timestamp AS timeend
-			),
-			  rasts as (
-				SELECT 
-						data_table.series_id, 
-						data_table.timestart as source_timestart, 
-						${timeend_column} as source_timeend, 
-						dest_interval.timestart, 
-						dest_interval.timeend, 
-						greatest(extract( epoch from data_table.timestart ), extract( epoch from dest_interval.timestart)) AS inter_timestart,
-						least(extract(epoch from ${timeend_column}), extract( epoch from dest_interval.timeend)) AS inter_timeend,
-						${timeupdate_column} AS timeupdate, 
-						ST_Clip(
-								data_table.valor,
-								'{1}',
-								ST_GeomFromText($1, $2)
-						) AS rast
-				FROM 
-					${data_table} AS data_table ${join_data_table},
-					dest_interval
-				WHERE
-					data_table.series_id = $3 
-					AND ${timeend_column} >= dest_interval.timestart
-					AND data_table.timestart < dest_interval.timeend
-				    ${prono_filter}
-				),
-				agg AS (
-						SELECT 
-								series_id, 
-								timestart,
-								timeend, 
-								max(timeupdate) timeupdate, 
-								count(timestart) count, 
-								sum(
-									to_timestamp(inter_timeend)::timestamp - to_timestamp(inter_timestart)::timestamp
-								) AS time_sum, 
-								ST_AddBand(
-										ST_Union(
-												ST_MapAlgebra(
-													${rescale_band}, 
-													NULL, 
-													'[rast] * ' || least(
-														( inter_timeend - inter_timestart) / extract( epoch from (source_timeend - source_timestart)),
-														1
-													)::text),
-												$6
-										),
-										ST_Union(
-												rast,
-												'COUNT'
-										)
-								) AS rast
-						FROM rasts 
-						GROUP BY series_id, timestart, timeend
-				),
-				raststats AS (
-						SELECT 
-								st_summarystats(rast) stats
-						FROM agg
-				)
-				SELECT series_id,
-								timestart,
-								timeend,
-								timeupdate,
-								count AS obs_count,
-								time_sum,
-										(stats).*,
-							    ST_AsGDALRaster(
-							    rast,
-							    $7
-							   ) AS valor
-				FROM agg, raststats
-				${min_count_filter}`
-			
-			args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion,options.format]
-		}
-		// console.debug(pasteIntoSQLQuery(stmt, args))
-		try {
-			var result = await client.query(stmt,args)
-		} catch(e) {
-			if(release_client) {
-				client.release()
-			}
-			throw new Error(e)
-			// console.error(new Error(e))
-			// return serie
-		}
-		if(!result.rows) {
-			console.log("No raster values found")
-			if(release_client) {
-				client.release()
-			}
-			return serie
-		}
-		if(result.rows.length == 0) {
-			console.log("No raster values found")
-			if(release_client) {
-				client.release()
-			}
-			return serie
-		}
-		console.log("Unioned " + result.rows[0].obs_count + " values")
-		if(!result.rows[0].valor) {
-			console.log("No raster values unioned")
-			if(release_client) {
-				client.release()
-			}
-			return serie
-		}
-		const obs = new internal.observacion(
-			{
-				tipo:"rast",
-				series_id:result.rows[0].series_id,
-				timestart:result.rows[0].timestart,
-				timeend:result.rows[0].timeend,
-				valor:result.rows[0].valor,
-				nombre:options.funcion,
-				descripcion: "agregación temporal", 
-				unit_id: serie.unidades.id, 
-				timeupdate: result.rows[0].timeupdate, 
-				count: result.rows[0].obs_count, 
-				options: options, 
-				stats: {
-					count: result.rows[0].count, 
-					mean: result.rows[0].mean, 
-					stddev: result.rows[0].stddev, 
-					min: result.rows[0].min, 
-					max: result.rows[0].max
+			options.bbox = (!options.bbox) ? serie.fuente.def_extent : options.bbox
+			options.pixel_height = (!options.pixel_height) ? serie.fuente.def_pixel_height : options.pixel_height
+			options.pixel_width = (!options.pixel_width) ? serie.fuente.def_pixel_width : options.pixel_width
+			options.srid = (!options.srid) ? serie.fuente.def_srid : options.srid
+			var valid_func = [ 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE']
+			options.funcion = (!options.funcion) ? "SUM" : options.funcion.toUpperCase()
+			if(valid_func.indexOf(options.funcion) < 0) {
+				if(release_client) {
+					client.release()
 				}
+				return Promise.reject("'funcion' inválida. Opciones: 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE'")
 			}
-		)
-		obs.time_sum = result.rows[0].time_sum
-		serie.observaciones = [obs]
-		if(release_client) {
-			client.release()
-		}
-		return serie
+			options.format = (!options.format) ? "GTiff" : options.format
+			const valid_formats = ["gtiff", "png"]
+			if(valid_formats.map(f=> (f == options.format.toLowerCase()) ? 1 : 0).reduce( (a,b)=>a+b) == 0) {
+				console.error("Invalid format:" + options.format)
+				return
+			}
+			options.height = (!options.height) ? 300 : options.height
+			options.width = (!options.width) ? 300 : options.width
+			var rescale_band = (serie.fuente.scale_factor && serie.fuente.data_offset) ? "ST_mapAlgebra(rast,1,'32BF','[rast]*" + series.fuente.scale_factor + "+" + serie.fuente.data_offset + "')" : (serie.fuente.data_offset) ? "ST_MapAlgebra(rast,1,'32BF','[rast]+"  + serie.fuente.data_offset + "')" : "rast";
+			if(cor_id || cal_id && forecast_date) {
+				var data_table = "pronosticos_rast"
+				var join_data_table = "JOIN corridas ON data_table.cor_id=corridas.id"
+				var timeupdate_column = "corridas.date"
+				if(cor_id) {
+					var prono_filter = control_filter2(
+						{
+							"cor_id": {
+								type: "integer",
+								table: "pronosticos_rast"
+							},
+							"qualifier": {
+								type: "string",
+								table: "pronosticos_rast"
+							}
+						},
+						{
+							cor_id: cor_id,
+							qualifier: qualifier
+						},
+						"pronosticos_rast"
+					)
+				} else {
+					var prono_filter = control_filter2(
+						{
+							"cal_id": {
+								type: "integer",
+								table: "corridas"
+							},
+							"forecast_date": {
+								type: "date",
+								table: "corridas",
+								column: "date"
+							},
+							"qualifier": {
+								type: "string",
+								table: "pronosticos_rast"
+							}
+						},
+						{
+							cal_id: cal_id,
+							forecast_date: forecast_date,
+							qualifier: qualifier
+						},
+						"pronosticos_rast"
+					)
+				}
+			} else {
+				var data_table = "observaciones_rast"
+				var join_data_table = ""
+				var prono_filter = ""
+				var timeupdate_column = "data_table.timeupdate"
+			}
+			if(options.source_time_support) {
+				var timeend_column = pasteIntoSQLQuery(`data_table.timestart + $1::interval`, [options.source_time_support])
+			} else {
+				var timeend_column = `data_table.timeend`
+			}
+			var stmt
+			var args
+			if(options.format.toLowerCase() == "png") {
+				stmt = `WITH rasts AS (
+					SELECT series_id,
+							count(timestart) as c,
+							min(timestart) timestart,
+							max(${timeend_column}) timeend, 
+							max(${timeupdate_column}) timeupdate, 
+							st_union(ST_Clip(st_rescale(valor,$1),'{1}',st_geomfromtext($2,$3)),$4) as rast
+					FROM ${data_table} AS data_table ${join_data_table}
+					WHERE series_id=$5 AND timestart>=$6 AND timeend<=$7
+					${prono_filter}
+					GROUP by series_id),
+					raststats AS (
+					SELECT st_summarystats(rast) stats
+					FROM rasts)
+					SELECT series_id, 
+							timestart, 
+							timeend, 
+							timeupdate, 
+							c AS obs_count, 
+							(stats).*,
+							ST_asGDALRaster(st_colormap(st_resize(st_reclass(rast,'[' || (st_summarystats(rast)).min || '-' || (st_summarystats(rast)).max || ']:1-255, ' || st_bandnodatavalue(rast) || ':0','8BUI'),$8,$9),1,'grayscale','nearest'),$10) valor
+					FROM rasts, raststats`
+				if(options.min_count) {
+					stmt += sprintf(" WHERE rasts.c>=%d", options.min_count)
+				}
+				args = [options.pixel_height, options.bbox.toString(), options.srid, options.funcion, serie.id, timestart, timeend, options.height, options.width, options.format]
+				
+			} else {
+				const min_count_filter = (options.min_count) ? sprintf(" WHERE agg.count>=%d", options.min_count) : ""
+				stmt = `WITH dest_interval as (
+					SELECT
+						$4::timestamptz::timestamp AS timestart,
+						$5::timestamptz::timestamp AS timeend
+				),
+				rasts as (
+					SELECT 
+							data_table.series_id, 
+							data_table.timestart as source_timestart, 
+							${timeend_column} as source_timeend, 
+							dest_interval.timestart, 
+							dest_interval.timeend, 
+							greatest(extract( epoch from data_table.timestart ), extract( epoch from dest_interval.timestart)) AS inter_timestart,
+							least(extract(epoch from ${timeend_column}), extract( epoch from dest_interval.timeend)) AS inter_timeend,
+							${timeupdate_column} AS timeupdate, 
+							ST_Clip(
+									data_table.valor,
+									'{1}',
+									ST_GeomFromText($1, $2)
+							) AS rast
+					FROM 
+						${data_table} AS data_table ${join_data_table},
+						dest_interval
+					WHERE
+						data_table.series_id = $3 
+						AND ${timeend_column} >= dest_interval.timestart
+						AND data_table.timestart < dest_interval.timeend
+						${prono_filter}
+					),
+					agg AS (
+							SELECT 
+									series_id, 
+									timestart,
+									timeend, 
+									max(timeupdate) timeupdate, 
+									count(timestart) count, 
+									sum(
+										to_timestamp(inter_timeend)::timestamp - to_timestamp(inter_timestart)::timestamp
+									) AS time_sum, 
+									ST_AddBand(
+											ST_Union(
+													ST_MapAlgebra(
+														${rescale_band}, 
+														NULL, 
+														'[rast] * ' || least(
+															( inter_timeend - inter_timestart) / extract( epoch from (source_timeend - source_timestart)),
+															1
+														)::text),
+													$6
+											),
+											ST_Union(
+													rast,
+													'COUNT'
+											)
+									) AS rast
+							FROM rasts 
+							GROUP BY series_id, timestart, timeend
+					),
+					raststats AS (
+							SELECT 
+									st_summarystats(rast) stats
+							FROM agg
+					)
+					SELECT series_id,
+									timestart,
+									timeend,
+									timeupdate,
+									count AS obs_count,
+									time_sum,
+											(stats).*,
+									ST_AsGDALRaster(
+									rast,
+									$7
+								) AS valor
+					FROM agg, raststats
+					${min_count_filter}`
+				
+				args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion,options.format]
+			}
+			// console.debug(pasteIntoSQLQuery(stmt, args))
+			var result = await client.query(stmt,args)
+			if(!result.rows) {
+				console.log("No raster values found")
+				return serie
+			}
+			if(result.rows.length == 0) {
+				console.log("No raster values found")
+				return serie
+			}
+			console.log("Unioned " + result.rows[0].obs_count + " values")
+			if(!result.rows[0].valor) {
+				console.log("No raster values unioned")
+				return serie
+			}
+			const obs = new internal.observacion(
+				{
+					tipo:"rast",
+					series_id:result.rows[0].series_id,
+					timestart:result.rows[0].timestart,
+					timeend:result.rows[0].timeend,
+					valor:result.rows[0].valor,
+					nombre:options.funcion,
+					descripcion: "agregación temporal", 
+					unit_id: serie.unidades.id, 
+					timeupdate: result.rows[0].timeupdate, 
+					count: result.rows[0].obs_count, 
+					options: options, 
+					stats: {
+						count: result.rows[0].count, 
+						mean: result.rows[0].mean, 
+						stddev: result.rows[0].stddev, 
+						min: result.rows[0].min, 
+						max: result.rows[0].max
+					}
+				}
+			)
+			obs.time_sum = result.rows[0].time_sum
+			serie.observaciones = [obs]
+			return serie
+		})
 	}
 
 	static async rastExtractByArea(series_id,timestart,timeend,area,options={},client,cor_id, cal_id, forecast_date) {
@@ -14393,158 +14079,152 @@ internal.CRUD = class {
 	
 	static async getRegularSeries(tipo="puntual",series_id,dt="1 days",timestart,timeend,options={},client, cal_id, cor_id, forecast_date, qualifier) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate,no_insert_as_obs,source_time_support
 		// console.debug({tipo:tipo,series_id:series_id,dt:dt,timestart:timestart,timeend:timeend,options:options})
-		if(!series_id || !timestart || !timeend) {
-			return Promise.reject("series_id, timestart and/or timeend missing")
-		}
-		timestart = new Date(timestart)
-		timeend = new Date(timeend)
-		if(timestart.toString() == 'Invalid Date') {
-			return Promise.reject("timestart: invalid date")
-		}
-		if(timeend.toString() == 'Invalid Date') {
-			return Promise.reject("timeend: invalid date")
-		}
-		if(!cor_id && cal_id) {
-			if(!forecast_date) {
-				return Promise.reject("If cal_id is set, forecast_date must be defined")
+		return withClient(client, async (client) => {
+			if(!series_id || !timestart || !timeend) {
+				return Promise.reject("series_id, timestart and/or timeend missing")
 			}
-		}
-		var serie = await this.getSerie(tipo,series_id, undefined, undefined, undefined, undefined, undefined, client)
-		if(!serie) {
-			console.error("serie not found")
-			return
-		}
-		var def_t_offset = (serie.fuente) ? (serie.fuente.hora_corte) ? serie.fuente.hora_corte.toPostgres() : '0 hours' : '0 hours'
-		var t_offset = (options.t_offset) ? options.t_offset : def_t_offset
-		if(/[';]/.test(t_offset)) {
-			console.error("Invalid t_offset")
-			return
-		}
-		var def_inst
-		if(serie["var"].datatype.toLowerCase() == "continuous" || serie["var"].datatype.toLowerCase() == "sporadic") {
-			def_inst = true
-		} else {
-			def_inst = false
-		}
-		var inst = (options.inst) ? new Boolean(options.inst) : def_inst
-		var min_time_fraction = (options.min_time_fraction) ? parseFloat(options.min_time_fraction) : 1
-		var dt_epoch
-		var release_client = false
-		if(!client) {
-			release_client = true
-			client = await global.pool.connect()
-		}
-		// RAST //
-		if(tipo.toLowerCase() == 'rast' || tipo.toLowerCase() == 'raster')  {
-			//~ if (!inst) {
-			// SERIE NO INSTANTANEA //
-			var timeSupport
-			if (!options.timeSupport) {
-				timeSupport = serie["var"].timeSupport.toPostgres()
+			timestart = new Date(timestart)
+			timeend = new Date(timeend)
+			if(timestart.toString() == 'Invalid Date') {
+				return Promise.reject("timestart: invalid date")
+			}
+			if(timeend.toString() == 'Invalid Date') {
+				return Promise.reject("timeend: invalid date")
+			}
+			if(!cor_id && cal_id) {
+				if(!forecast_date) {
+					return Promise.reject("If cal_id is set, forecast_date must be defined")
+				}
+			}
+			var serie = await this.getSerie(tipo,series_id, undefined, undefined, undefined, undefined, undefined, client)
+			if(!serie) {
+				console.error("serie not found")
+				return
+			}
+			var def_t_offset = (serie.fuente) ? (serie.fuente.hora_corte) ? serie.fuente.hora_corte.toPostgres() : '0 hours' : '0 hours'
+			var t_offset = (options.t_offset) ? options.t_offset : def_t_offset
+			if(/[';]/.test(t_offset)) {
+				console.error("Invalid t_offset")
+				return
+			}
+			var def_inst
+			if(serie["var"].datatype.toLowerCase() == "continuous" || serie["var"].datatype.toLowerCase() == "sporadic") {
+				def_inst = true
 			} else {
-				if(/[';]/.test(options.timeSupport)) {
-					console.error("Invalid timeSupport")
-					return
+				def_inst = false
+			}
+			var inst = (options.inst) ? new Boolean(options.inst) : def_inst
+			var min_time_fraction = (options.min_time_fraction) ? parseFloat(options.min_time_fraction) : 1
+			var dt_epoch
+			// RAST //
+			if(tipo.toLowerCase() == 'rast' || tipo.toLowerCase() == 'raster')  {
+				//~ if (!inst) {
+				// SERIE NO INSTANTANEA //
+				var timeSupport
+				if (!options.timeSupport) {
+					timeSupport = serie["var"].timeSupport.toPostgres()
 				} else {
-					timeSupport = options.timeSupport.toPostgres()
-				}
-			}
-			// const results = await Promise.all([this.date2obj(timestart),this.date2obj(timeend),this.interval2epoch(dt), this.interval2epoch(t_offset)])
-			// console.log({dates:results})
-			var timestart = await this.date2obj(timestart)
-			var timeend = await this.date2obj(timeend) 
-			console.debug({timestart: timestart.toISOString(), timeend: timeend.toISOString()})
-			var dt = await this.interval2epoch(dt) * 1000
-			dt_epoch = (inst) ? 0 : dt
-			var t_offset = await this.interval2epoch(t_offset) * 1000
-			var timestart_time = (timestart.getHours()*3600 + timestart.getMinutes()*60 + timestart.getSeconds()) * 1000 + timestart.getMilliseconds() // + timestart.getTimezoneOffset()*60*1000
-			if(timestart_time < t_offset) {
-				console.log("timestart < t_offset;timestart:" + timestart + ", " + timestart_time + " < " + t_offset)
-				timestart.setTime(timestart.getTime() - timestart_time + t_offset)
-			} else if (timestart_time > t_offset) {
-				console.log("timestart > t_offset;" + timestart + ", " + timestart_time + " > " + t_offset)
-				timestart.setTime(timestart.getTime() - timestart_time + t_offset + dt)
-			}
-			var timeend_time = (timeend.getHours()*3600 + timeend.getMinutes()*60 + timeend.getSeconds())*1000 + timeend.getMilliseconds() + timeend.getTimezoneOffset()*60*1000
-			if(timeend_time > t_offset) {
-				timeend.setTime(timeend.getTime() - timeend_time + t_offset)
-			} else if (timeend_time < t_offset) {
-				timeend.setTime(timeend.getTime() - timeend_time + t_offset + dt)
-			}
-			// console.debug({timestart:timestart,timeend:timeend,dt:dt})
-			var obs = []
-			for(var i=timestart.getTime();i<timeend.getTime();i=i+dt) {
-				var stepstart = new Date(i)
-				var stepend = new Date(i+dt)
-				if(config.verbose) {
-					console.debug({
-						series_id: series_id,
-						stepstart: stepstart.toISOString(),
-						stepend: stepend.toISOString(),
-						options: options,
-						cal_id: cal_id, 
-						cor_id: cor_id, 
-						forecast_date: forecast_date, 
-						qualifier: qualifier
-					})
-				}
-				obs.push(await this.rastExtract(series_id,stepstart,stepend,options,undefined,client, cal_id, cor_id, forecast_date, qualifier))
-			}
-			if(obs) {
-				var observaciones = obs.map((o,i)=> {
-					if(o.observaciones) {
-						if(!o.observaciones.length) {
-							console.warn("crud.getRegularSeries: obs[" + i + "].observaciones.length = 0")
-							return null
-						}
-						// console.log("crud.getRegularSeries: obs[" + i + "].observaciones[0] = " + o.observaciones[0].toString())
-						return o.observaciones[0]
+					if(/[';]/.test(options.timeSupport)) {
+						console.error("Invalid timeSupport")
+						return
 					} else {
-						console.warn("crud.getRegularSeries: obs[" + i + "].observaciones undefined")
-						return null
+						timeSupport = options.timeSupport.toPostgres()
 					}
-				}).filter(o=> o !== null)
-				if(dt_epoch) {
-					observaciones = observaciones.filter(o=>{
-						var time_sum_epoch = timeSteps.interval2epochSync(o.time_sum) * 1000
-						// console.debug("crud.getRegularSeries: dt:" + dt_epoch, "o.time_sum:"  + JSON.stringify(o.time_sum) + ", time_sum_epoch: " + time_sum_epoch + ", min_time_fraction: " + min_time_fraction)
-						if(time_sum_epoch / dt_epoch < min_time_fraction) {
-							console.error("crud.getRegularSeries: la observación no alcanza la mínima fracción de tiempo")
-							return false
-						} else {
-							return true
-						}
-					})
 				}
-				if(options.insertSeriesId) {
-					observaciones = observaciones.map(o=> {
-						o.series_id = options.insertSeriesId
-						if (options.timeupdate) {
-							o.timeupdate = options.timeupdate
-						}
-						if(dt / o.time_sum * 1000 < min_time_fraction) {
-							console.error("la observación no alcanza la mínima fracción de tiempo")
-							return null
+				var timestart = await this.date2obj(timestart, client)
+				var timeend = await this.date2obj(timeend, client) 
+				console.debug({timestart: timestart.toISOString(), timeend: timeend.toISOString()})
+				var dt = await this.interval2epoch(dt, client) * 1000
+				dt_epoch = (inst) ? 0 : dt
+				var t_offset = await this.interval2epoch(t_offset, client) * 1000
+				var timestart_time = (timestart.getHours()*3600 + timestart.getMinutes()*60 + timestart.getSeconds()) * 1000 + timestart.getMilliseconds() // + timestart.getTimezoneOffset()*60*1000
+				if(timestart_time < t_offset) {
+					console.log("timestart < t_offset;timestart:" + timestart + ", " + timestart_time + " < " + t_offset)
+					timestart.setTime(timestart.getTime() - timestart_time + t_offset)
+				} else if (timestart_time > t_offset) {
+					console.log("timestart > t_offset;" + timestart + ", " + timestart_time + " > " + t_offset)
+					timestart.setTime(timestart.getTime() - timestart_time + t_offset + dt)
+				}
+				var timeend_time = (timeend.getHours()*3600 + timeend.getMinutes()*60 + timeend.getSeconds())*1000 + timeend.getMilliseconds() + timeend.getTimezoneOffset()*60*1000
+				if(timeend_time > t_offset) {
+					timeend.setTime(timeend.getTime() - timeend_time + t_offset)
+				} else if (timeend_time < t_offset) {
+					timeend.setTime(timeend.getTime() - timeend_time + t_offset + dt)
+				}
+				// console.debug({timestart:timestart,timeend:timeend,dt:dt})
+				var obs = []
+				for(var i=timestart.getTime();i<timeend.getTime();i=i+dt) {
+					var stepstart = new Date(i)
+					var stepend = new Date(i+dt)
+					if(config.verbose) {
+						console.debug({
+							series_id: series_id,
+							stepstart: stepstart.toISOString(),
+							stepend: stepend.toISOString(),
+							options: options,
+							cal_id: cal_id, 
+							cor_id: cor_id, 
+							forecast_date: forecast_date, 
+							qualifier: qualifier
+						})
+					}
+					obs.push(await this.rastExtract(series_id,stepstart,stepend,options,undefined,client, cal_id, cor_id, forecast_date, qualifier))
+				}
+				if(obs) {
+					var observaciones = obs.map((o,i)=> {
+						if(o.observaciones) {
+							if(!o.observaciones.length) {
+								console.warn("crud.getRegularSeries: obs[" + i + "].observaciones.length = 0")
+								return null
+							}
+							// console.log("crud.getRegularSeries: obs[" + i + "].observaciones[0] = " + o.observaciones[0].toString())
+							return o.observaciones[0]
 						} else {
-							return o
+							console.warn("crud.getRegularSeries: obs[" + i + "].observaciones undefined")
+							return null
 						}
-					})
-					if(cal_id && forecast_date || cor_id) {
-						if(!options.no_insert_as_obs) {
-							// first, upsert forecast as observations
-							await this.upsertObservaciones(observaciones,undefined,undefined,options) 
-						}
-						// then, upsert forecast as forecast
-						return this.upsertSerieSim(
-							observaciones,
-							{
-								cor_id: cor_id,
-								cal_id: cal_id,
-								forecast_date: forecast_date
-							},
-							options.insertSeriesId,
-							tipo
-						)
+					}).filter(o=> o !== null)
+					if(dt_epoch) {
+						observaciones = observaciones.filter(o=>{
+							var time_sum_epoch = timeSteps.interval2epochSync(o.time_sum) * 1000
+							// console.debug("crud.getRegularSeries: dt:" + dt_epoch, "o.time_sum:"  + JSON.stringify(o.time_sum) + ", time_sum_epoch: " + time_sum_epoch + ", min_time_fraction: " + min_time_fraction)
+							if(time_sum_epoch / dt_epoch < min_time_fraction) {
+								console.error("crud.getRegularSeries: la observación no alcanza la mínima fracción de tiempo")
+								return false
+							} else {
+								return true
+							}
+						})
+					}
+					if(options.insertSeriesId) {
+						observaciones = observaciones.map(o=> {
+							o.series_id = options.insertSeriesId
+							if (options.timeupdate) {
+								o.timeupdate = options.timeupdate
+							}
+							if(dt / o.time_sum * 1000 < min_time_fraction) {
+								console.error("la observación no alcanza la mínima fracción de tiempo")
+								return null
+							} else {
+								return o
+							}
+						})
+						if(cal_id && forecast_date || cor_id) {
+							if(!options.no_insert_as_obs) {
+								// first, upsert forecast as observations
+								await this.upsertObservaciones(observaciones,undefined,undefined,options, client) 
+							}
+							// then, upsert forecast as forecast
+							return this.upsertSerieSim(
+								observaciones,
+								{
+									cor_id: cor_id,
+									cal_id: cal_id,
+									forecast_date: forecast_date
+								},
+								options.insertSeriesId,
+								tipo
+							)
 					} else {
 						return this.upsertObservaciones(
 							observaciones,
@@ -14995,35 +14675,39 @@ internal.CRUD = class {
 				return observaciones
 			}
 		}
+	})
 	}	
 
 	static async upsertSerieSim(
 		pronosticos,
 		corrida_filter,
 		series_id,
-		tipo = "puntual"
+		tipo = "puntual",
+		client
 	) {
-		const corridas = await internal.corrida.read({
-			id: corrida_filter.cor_id,
-			cal_id: corrida_filter.cal_id,
-			forecast_date: corrida_filter.forecast_date
+		return withTransaction(client, async (client) => {
+			const corridas = await internal.corrida.read({
+				id: corrida_filter.cor_id,
+				cal_id: corrida_filter.cal_id,
+				forecast_date: corrida_filter.forecast_date
+			}, undefined, client)
+			if(!corridas.length) {
+				throw(new Error("Corrida not found"))
+			}
+			await corridas[0].setSeries([
+				new internal.SerieTemporalSim({
+					series_table: internal.serie.getSeriesTable(tipo),
+					series_id: series_id,
+					pronosticos: pronosticos
+				})
+			], undefined, undefined, client)
+			await corridas[0].create(client)
+			if(!corridas[0].series.length) {
+				console.warn("No forecast series upserted")
+				return []
+			}
+			return corridas[0].series[0].pronosticos
 		})
-		if(!corridas.length) {
-			throw(new Error("Corrida not found"))
-		}
-		await corridas[0].setSeries([
-			new internal.SerieTemporalSim({
-				series_table: internal.serie.getSeriesTable(tipo),
-				series_id: series_id,
-				pronosticos: pronosticos
-			})
-		])
-		await corridas[0].create()
-		if(!corridas[0].series.length) {
-			console.warn("No forecast series upserted")
-			return []
-		}
-		return corridas[0].series[0].pronosticos
 	}
 	
 	static async getMultipleRegularSeries(series,dt="1 days",timestart,timeend,options) {
@@ -16055,63 +15739,17 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 	}
 	
 	
-	static async interval2epoch(interval) {
-		if(interval instanceof Object) {
-			interval = timeSteps.interval2string(interval)
-			//~ var seconds = 0
-			//~ Object.keys(interval).map(k=>{
-				//~ switch(k) {
-					//~ case "seconds":
-					//~ case "second":
-						//~ seconds = seconds + interval[k]
-						//~ break
-					//~ case "minutes":
-					//~ case "minute":
-						//~ seconds = seconds + interval[k] * 60
-						//~ break
-					//~ case "hours":
-					//~ case "hour":
-						//~ seconds = seconds + interval[k] * 3600
-						//~ break
-					//~ case "days":
-					//~ case "day":
-						//~ seconds = seconds + interval[k] * 86400
-						//~ break
-					//~ case "weeks":
-					//~ case "week":
-						//~ seconds = seconds + interval[k] * 86400 * 7
-						//~ break
-					//~ case "months":
-					//~ case "month":
-					//~ case "mon":
-						//~ seconds = seconds + interval[k] * 86400 * 31
-						//~ break
-					//~ case "years":
-					//~ case "year":
-						//~ seconds = seconds + interval[k] * 86400 * 365
-						//~ break
-					//~ default:
-						//~ break
-				//~ }
-			//~ })
-			//~ return Promise.resolve(seconds)
-		}
-		if(!interval) {
-			return 0
-		} 
-		//~ else {
-			// console.log({interval:interval})
-			//~ var client2 = new Client2()
-			//~ client2.connectSync(this.dbConnectionString)
-			//~ var result = client2.querySync("SELECT extract(epoch from $1::interval) AS epoch",[interval.toString()])
-			return global.pool.query("SELECT extract(epoch from $1::interval) AS epoch",[interval.toString()])
-			.then(result=>{
-				return result.rows[0].epoch
-			})
-			//~ client2.end()
-			//~ console.log({result:result})
-			//~ return result[0].epoch
-		//~ }
+	static async interval2epoch(interval, client) {
+		return withClient(client, async (client) => {
+			if(interval instanceof Object) {
+				interval = timeSteps.interval2string(interval)
+			}
+			if(!interval) {
+				return 0
+			} 
+			const result = await client.query("SELECT extract(epoch from $1::interval) AS epoch",[interval.toString()])
+			return result.rows[0].epoch
+		})
 	}
 	
 	static async date2epoch(date) {
@@ -16124,16 +15762,13 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 		})
 	}
 	
-	static async date2obj(date) {
-		if(date instanceof Date) {
-			return date
-		}
-		return global.pool.query("SELECT $1::timestamp AS date",[date])
-		.then((result)=>{
+	static async date2obj(date, client) {
+		return withClient(client, async (client) => {
+			if(date instanceof Date) {
+				return date
+			}
+			const result = await client.query("SELECT $1::timestamp AS date",[date])
 			return result.rows[0].date
-		})
-		.catch(e=>{
-			console.error(e)
 		})
 	}
 	
@@ -16373,16 +16008,18 @@ ON CONFLICT (dest_tipo, dest_series_id) DO UPDATE SET\
 		})
 	}
 
-	static async getMonthlyStats(tipo="puntual",series_id,isPublic,as_array) {
-		const result = await global.pool.query("SELECT * FROM series_mon_stats WHERE tipo=$1 AND series_id=$2 ORDER BY mon",[tipo,series_id])
-		
-		if(!result.rows) {
-			throw("Nothing found")
-		}
-		if(as_array) {
-			return result.rows.map(r=>new internal.monthlyStats(r))
-		}
-		return new internal.monthlyStatsList(result.rows)
+	static async getMonthlyStats(tipo="puntual",series_id,isPublic,as_array, client) {
+		return withClient(client, async (client) => {
+			const result = await client.query("SELECT * FROM series_mon_stats WHERE tipo=$1 AND series_id=$2 ORDER BY mon",[tipo,series_id])
+			
+			if(!result.rows) {
+				throw("Nothing found")
+			}
+			if(as_array) {
+				return result.rows.map(r=>new internal.monthlyStats(r))
+			}
+			return new internal.monthlyStatsList(result.rows)
+		})
 	}
 
 	static async getMonthlyStatsSeries(tipo="puntual",series_id,isPublic) {
@@ -18040,248 +17677,161 @@ ORDER BY cal.cal_id`
 		})
 	}
 
-	static async getPronosticos(cor_id,cal_id,forecast_timestart,forecast_timeend,forecast_date,timestart,timeend,qualifier,estacion_id,var_id,includeProno=false,isPublic,series_id,series_metadata,cal_grupo_id,group_by_qualifier,model_id,tipo,tabla,series_limit,corridas_limit) {
-		const filter_string = control_filter2(
-			{
-				"cal_id": {"type": "integer", "table": "corridas"},
-				"cor_id": { type: "integer", table: "corridas", column: "id"},
-				"model_id": { type: "integer", table: "calibrados"},
-				"isPublic": { type: "boolean", table: "calibrados", column: "public"},
-				"cal_grupo_id": { type: "integer", table: "calibrados", column: "grupo_id"},
-				"forecast_timestart": { type: "timestart", table: "corridas", column: "date"},
-				"forecast_timeend": { type: "timeend", table: "corridas", column: "date"},
-				"forecast_date": { type: "date", table: "corridas", column: "date", trunc: "milliseconds"}
-			},
-			{
-				cal_id: cal_id,
-				cor_id: cor_id,
-				model_id: model_id,
-				isPublic: isPublic,
-				cal_grupo_id: cal_grupo_id,
-				forecast_timestart: forecast_timestart,
-				forecast_timeend: forecast_timeend,
-				forecast_date: forecast_date
-			},
-			"corridas",
-			undefined,
-			true
-		)
-		if(corridas_limit) {
-			var c_limit = parseInt(corridas_limit)
-			if(c_limit.toString() == "NaN") {
-				throw new Error("Bad option value for corridas_limit")
+	static async getPronosticos(cor_id,cal_id,forecast_timestart,forecast_timeend,forecast_date,timestart,timeend,qualifier,estacion_id,var_id,includeProno=false,isPublic,series_id,series_metadata,cal_grupo_id,group_by_qualifier,model_id,tipo,tabla,series_limit,corridas_limit, client) {
+		return withClient(client, async (client) => {
+			const filter_string = control_filter2(
+				{
+					"cal_id": {"type": "integer", "table": "corridas"},
+					"cor_id": { type: "integer", table: "corridas", column: "id"},
+					"model_id": { type: "integer", table: "calibrados"},
+					"isPublic": { type: "boolean", table: "calibrados", column: "public"},
+					"cal_grupo_id": { type: "integer", table: "calibrados", column: "grupo_id"},
+					"forecast_timestart": { type: "timestart", table: "corridas", column: "date"},
+					"forecast_timeend": { type: "timeend", table: "corridas", column: "date"},
+					"forecast_date": { type: "date", table: "corridas", column: "date", trunc: "milliseconds"}
+				},
+				{
+					cal_id: cal_id,
+					cor_id: cor_id,
+					model_id: model_id,
+					isPublic: isPublic,
+					cal_grupo_id: cal_grupo_id,
+					forecast_timestart: forecast_timestart,
+					forecast_timeend: forecast_timeend,
+					forecast_date: forecast_date
+				},
+				"corridas",
+				undefined,
+				true
+			)
+			if(corridas_limit) {
+				var c_limit = parseInt(corridas_limit)
+				if(c_limit.toString() == "NaN") {
+					throw new Error("Bad option value for corridas_limit")
+				}
+				var limit_block = `LIMIT ${c_limit}` 
+			} else {
+				var limit_block = ""
 			}
-			var limit_block = `LIMIT ${c_limit}` 
-		} else {
-			var limit_block = ""
-		}
 
-		var query = `SELECT 
-			corridas.id, 
-			corridas.date AS forecast_date, 
-			corridas.cal_id 
-		FROM corridas 
-		JOIN calibrados 
-			ON corridas.cal_id=calibrados.id 
-		WHERE 1=1 
-		${filter_string}
-		ORDER BY corridas.cal_id, corridas.date
-		${limit_block}`
-		console.debug(query)
-		const result = await global.pool.query(query)
-		if(!result.rows) {
-			return
-		}
-		const corridas = result.rows.map(r=>{
-			r.series = []
-			return new internal.corrida(r) // {cor_id:r.id,cal_id:r.cal_id,forecast_date:r.forecast_date}
-		})
-		if(!includeProno) {
-			const promises = []
-			const filter = {
-				qualifier: qualifier,
-				estacion_id: estacion_id,
-				var_id: var_id,
-				series_id: series_id,
-				tipo: tipo,
-				tabla: tabla
-			} 
+			var query = `SELECT 
+				corridas.id, 
+				corridas.date AS forecast_date, 
+				corridas.cal_id 
+			FROM corridas 
+			JOIN calibrados 
+				ON corridas.cal_id=calibrados.id 
+			WHERE 1=1 
+			${filter_string}
+			ORDER BY corridas.cal_id, corridas.date
+			${limit_block}`
+			console.debug(query)
+			const result = await client.query(query)
+			if(!result.rows) {
+				return
+			}
+			const corridas = result.rows.map(r=>{
+				r.series = []
+				return new internal.corrida(r) // {cor_id:r.id,cal_id:r.cal_id,forecast_date:r.forecast_date}
+			})
+			if(!includeProno) {
+				const promises = []
+				const filter = {
+					qualifier: qualifier,
+					estacion_id: estacion_id,
+					var_id: var_id,
+					series_id: series_id,
+					tipo: tipo,
+					tabla: tabla
+				} 
+				for(var corrida of corridas) {
+					promises.push(internal.CRUD.getCorridaSeriesDateRange(corrida,filter,{group_by_qualifier:group_by_qualifier}, client))
+				}
+				await Promise.all(promises)
+				return corridas
+			}
+			const promise_array = []
 			for(var corrida of corridas) {
-				promises.push(internal.CRUD.getCorridaSeriesDateRange(corrida,filter,{group_by_qualifier:group_by_qualifier}))
+				const filter = {
+					cor_id: cor_id,
+					cal_id: cal_id,
+					forecast_timestart: forecast_timestart,
+					forecast_timeend: forecast_timeend,
+					forecast_date: forecast_date,
+					timestart: timestart,
+					timeend: timeend,
+					qualifier: qualifier,
+					estacion_id: estacion_id,
+					var_id: var_id,
+					public: isPublic,
+					series_id: series_id,
+					cal_grupo_id: cal_grupo_id,
+					model_id: model_id,
+					tipo: tipo,
+					tabla: tabla
+				}
+				promise_array.push(corrida.setSeries(undefined,filter,{series_metadata:series_metadata,group_by_qualifier:group_by_qualifier,limit:series_limit}, client))
 			}
-			await Promise.all(promises)
+			await Promise.all(promise_array)
 			return corridas
-		}
-		const promise_array = []
-		for(var corrida of corridas) {
-			const filter = {
-				cor_id: cor_id,
-				cal_id: cal_id,
-				forecast_timestart: forecast_timestart,
-				forecast_timeend: forecast_timeend,
-				forecast_date: forecast_date,
-				timestart: timestart,
-				timeend: timeend,
-				qualifier: qualifier,
-				estacion_id: estacion_id,
-				var_id: var_id,
-				public: isPublic,
-				series_id: series_id,
-				cal_grupo_id: cal_grupo_id,
-				model_id: model_id,
-				tipo: tipo,
-				tabla: tabla
-			}
-			promise_array.push(corrida.setSeries(undefined,filter,{series_metadata:series_metadata,group_by_qualifier:group_by_qualifier,limit:series_limit}))
-		}
-		await Promise.all(promise_array)
-		return corridas
+		})
 	}
 
-	static async getCorridaSeriesDateRange(corrida,filter={},options={}) {
-		// const series = []
-		// if((!filter.series_id && !filter.tipo) || (filter.tipo=="puntual") || (filter.series_id && !filter.tipo)) {
-			// series puntuales
-			// var filter_string = internal.utils.control_filter2({
-			// 	estacion_id:{type:"integer","table":"series"}, 
-			// 	var_id:{type:"integer","table":"series"},
-			// 	qualifier:{type:"string","table":"pronosticos"},
-			// 	series_id:{type:"integer","table":"pronosticos"}},filter)
-		filter.series_table = filter.series_table ?? ((filter.tipo) ? (filter.tipo == "puntual") ? "series" : (filter.tipo == "areal") ? "series_areal" : (filter.tipo == "raster" || filteri.tipo == "rast") ? "series_rast" : undefined : undefined)
-		if(options.group_by_qualifier) {
-			var filter_string = internal.utils.control_filter2(
-				{
-					estacion_id:{type:"integer"}, 
-					var_id:{type:"integer"},
-					qualifier:{type:"string"},
-					series_id:{type:"integer"},
-					series_table:{type:"string"},
-					tabla:{type:"string"}
-				},
-				filter,
-				"series_prono_date_range_by_qualifier"
-			)
-			var stmt = "SELECT * FROM series_prono_date_range_by_qualifier WHERE cor_id=$1 " + filter_string + " ORDER BY series_id, qualifier"
-				// var stmt = "SELECT \
-				// pronosticos.series_id, \
-				// 'series' AS series_table, \
-				// series.estacion_id, \
-				// series.var_id, \
-				// pronosticos.qualifier, \
-				// min(pronosticos.timestart) as begin_date,\
-				// max(pronosticos.timestart) as end_date,\
-				// count(pronosticos.timestart) \
-				// FROM pronosticos \
-				// JOIN series \
-				// ON (series.id = pronosticos.series_id)\
-				// WHERE pronosticos.cor_id=$1\
-				// " + filter_string + "\
-				// GROUP BY pronosticos.series_id, series_table, series.estacion_id,series.var_id, pronosticos.qualifier \
-				// ORDER BY pronosticos.series_id,pronosticos.qualifier"
-		} else {
-			var filter_string = internal.utils.control_filter2(
-				{
-					estacion_id:{type:"integer"}, 
-					var_id:{type:"integer"},
-					qualifier:{type:"json_array",column:"qualifiers"},
-					series_id:{type:"integer"},
-					series_table:{type:"string"},
-					tabla:{type:"string"}
-				},
-				filter,
-				"series_prono_date_range"
-			)
-			var stmt = "SELECT * from series_prono_date_range WHERE cor_id=$1 " + filter_string + " ORDER BY series_id"
-				// var stmt  = "SELECT \
-				// pronosticos.series_id, \
-				// 'series' AS series_table, \
-				// series.estacion_id, \
-				// series.var_id, \
-				// json_agg(DISTINCT qualifier) AS qualifiers,\
-				// min(pronosticos.timestart) as begin_date,\
-				// max(pronosticos.timestart) as end_date,\
-				// count(pronosticos.timestart) \
-				// FROM pronosticos \
-				// JOIN series \
-				// ON (series.id = pronosticos.series_id)\
-				// WHERE pronosticos.cor_id=$1\
-				// " + filter_string + "\
-				// GROUP BY pronosticos.series_id, series_table, series.estacion_id,series.var_id \
-				// ORDER BY pronosticos.series_id"
-		}
-		var params = [corrida.id]
-		const results = await global.pool.query(stmt,params)
-		const series = results.rows.map(s=>new internal.SerieTemporalSim(s))
-		// }
-		// if((!filter.tipo && !filter.series_id) || filter.tipo == "areal") {
-		// 	// series areales
-		// 	filter_string = internal.utils.control_filter2({
-		// 		estacion_id:{type:"integer","table":"series_areal", column: "area_id"}, 
-		// 		var_id:{type:"integer","table":"series_areal"},
-		// 		qualifier:{type:"string","table":"pronosticos_areal"},
-		// 		series_id:{type:"integer","table":"pronosticos_areal"}},filter)
-		// 	if(options.group_by_qualifier) {
-		// 		stmt  = "SELECT \
-		// 		pronosticos_areal.series_id, \
-		// 		'series_areal' AS series_table, \
-		// 		series_areal.area_id AS estacion_id, \
-		// 		series_areal.var_id, \
-		// 		pronosticos_areal.qualifier, \
-		// 		min(pronosticos_areal.timestart) as begin_date,\
-		// 		max(pronosticos_areal.timestart) as end_date,\
-		// 		count(pronosticos_areal.timestart) \
-		// 		FROM pronosticos_areal \
-		// 		JOIN series_areal \
-		// 		ON (series_areal.id = pronosticos_areal.series_id)\
-		// 		WHERE pronosticos_areal.cor_id=$1\
-		// 		" + filter_string + "\
-		// 		GROUP BY pronosticos_areal.series_id, series_table, series_areal.area_id, series_areal.var_id, pronosticos_areal.qualifier \
-		// 		ORDER BY pronosticos_areal.series_id, pronosticos_areal.qualifier"
-		// 	} else {
-		// 		stmt  = "SELECT \
-		// 		pronosticos_areal.series_id, \
-		// 		'series_areal' AS series_table, \
-		// 		series_areal.area_id AS estacion_id, \
-		// 		series_areal.var_id, \
-		// 		json_agg(DISTINCT qualifier) AS qualifiers,\
-		// 		min(pronosticos_areal.timestart) as begin_date,\
-		// 		max(pronosticos_areal.timestart) as end_date,\
-		// 		count(pronosticos_areal.timestart) \
-		// 		FROM pronosticos_areal \
-		// 		JOIN series_areal \
-		// 		ON (series_areal.id = pronosticos_areal.series_id)\
-		// 		WHERE pronosticos_areal.cor_id=$1\
-		// 		" + filter_string + "\
-		// 		GROUP BY pronosticos_areal.series_id, series_table, series_areal.area_id, series_areal.var_id \
-		// 		ORDER BY pronosticos_areal.series_id"
-		// 	}
-		// 	params = [corrida.id]
-		// 	const results_areales = await global.pool.query(stmt,params)
-		// 	series.push(...results_areales.rows)
-		// }
-		corrida.series = series
-		return
+	static async getCorridaSeriesDateRange(corrida,filter={},options={}, client) {
+		return withClient(client, async (client) => {
+			filter.series_table = filter.series_table ?? ((filter.tipo) ? (filter.tipo == "puntual") ? "series" : (filter.tipo == "areal") ? "series_areal" : (filter.tipo == "raster" || filteri.tipo == "rast") ? "series_rast" : undefined : undefined)
+			if(options.group_by_qualifier) {
+				var filter_string = internal.utils.control_filter2(
+					{
+						estacion_id:{type:"integer"}, 
+						var_id:{type:"integer"},
+						qualifier:{type:"string"},
+						series_id:{type:"integer"},
+						series_table:{type:"string"},
+						tabla:{type:"string"}
+					},
+					filter,
+					"series_prono_date_range_by_qualifier"
+				)
+				var stmt = "SELECT * FROM series_prono_date_range_by_qualifier WHERE cor_id=$1 " + filter_string + " ORDER BY series_id, qualifier"
+					
+			} else {
+				var filter_string = internal.utils.control_filter2(
+					{
+						estacion_id:{type:"integer"}, 
+						var_id:{type:"integer"},
+						qualifier:{type:"json_array",column:"qualifiers"},
+						series_id:{type:"integer"},
+						series_table:{type:"string"},
+						tabla:{type:"string"}
+					},
+					filter,
+					"series_prono_date_range"
+				)
+				var stmt = "SELECT * from series_prono_date_range WHERE cor_id=$1 " + filter_string + " ORDER BY series_id"
+					
+			}
+			var params = [corrida.id]
+			const results = await client.query(stmt,params)
+			const series = results.rows.map(s=>new internal.SerieTemporalSim(s))
+			corrida.series = series
+			return
+		})
 	}
 
 	static async updateSeriesPronoDateRangeByCorId(cor_id,client) {
-		if(!cor_id) {
-			throw(new Error("Missing cor_id"))
-		}
-		var release_client = false
-		if(!client) {
-			release_client = true
-			client = await global.pool.connect()
-		}
-		const puntual_date_range = await client.query(`SELECT update_series_puntual_prono_date_range(${cor_id})`)
-		const areal_date_range = await client.query(`SELECT update_series_areal_prono_date_range(${cor_id})`)
-		// series_rast_prono_date_range es una vista
-		if(release_client) {
-			client.release()
-		}
-		return [
-			...puntual_date_range.rows,
-			...areal_date_range.rows
-		]		
+		return withClient(client, async (client) => {
+			if(!cor_id) {
+				throw(new Error("Missing cor_id"))
+			}
+			const puntual_date_range = await client.query(`SELECT update_series_puntual_prono_date_range(${cor_id})`)
+			const areal_date_range = await client.query(`SELECT update_series_areal_prono_date_range(${cor_id})`)
+			// series_rast_prono_date_range es una vista
+			return [
+				...puntual_date_range.rows,
+				...areal_date_range.rows
+			]		
+		})
 	}
 
 
@@ -18491,135 +18041,133 @@ ORDER BY cal.cal_id`
 	}
 
 	static async getPronosticosArray(filter={},options={},client) {
-		var result = []
-		if((!filter.series_id && !filter.tipo) || (filter.tipo=="puntual") || (filter.series_id && !filter.tipo)) {
-			var pronos_puntual = await this.getPronosticosPuntual(filter,client,options.series_limit)
-			result.push(...pronos_puntual)
-		}
-		if((!filter.tipo && !filter.series_id) || filter.tipo == "areal") {
-			var pronos_areal = await this.getPronosticosAreal(filter,client)
-			result.push(...pronos_areal)
-		}
-		if((!filter.tipo && !filter.series_id) || filter.tipo == "rast" || filter.tipo == "raster") {
-			var pronos_rast = await this.getPronosticosRast(filter,client)
-			result.push(...pronos_rast)
-		}
-		return result
+		return withClient(client, async (client) => {
+			var result = []
+			if((!filter.series_id && !filter.tipo) || (filter.tipo=="puntual") || (filter.series_id && !filter.tipo)) {
+				var pronos_puntual = await this.getPronosticosPuntual(filter,client,options.series_limit)
+				result.push(...pronos_puntual)
+			}
+			if((!filter.tipo && !filter.series_id) || filter.tipo == "areal") {
+				var pronos_areal = await this.getPronosticosAreal(filter,client)
+				result.push(...pronos_areal)
+			}
+			if((!filter.tipo && !filter.series_id) || filter.tipo == "rast" || filter.tipo == "raster") {
+				var pronos_rast = await this.getPronosticosRast(filter,client)
+				result.push(...pronos_rast)
+			}
+			return result
+		})
 	}
 
 	static async getPronosticosPuntual(filter={},client,series_limit) {
-		var release_client = false
-		if(!client) {
-			release_client = true
-			client = await global.pool.connect()
-		}
-		const filter_values = {
-			timestart:filter.timestart,
-			timeend:filter.timeend,
-			cal_id: filter.cal_id,
-			cor_id:filter.cor_id,
-			forecast_date: filter.forecast_date,
-			estacion_id:filter.estacion_id,
-			var_id:filter.var_id,
-			qualifier:filter.qualifier, 
-			series_id:filter.series_id,
-			tabla:filter.tabla
-		}
-		try {
-			var filter_string = internal.utils.control_filter2({
-				timestart:{type:"timestart","table":"pronosticos"}, 
-				timeend:{type:"timeend","table":"pronosticos","column":"timestart"}, 
-				cal_id:{type:"integer", table:"corridas"}, 
-				cor_id:{type:"integer","table":"pronosticos"}, 
-				forecast_date:{type:"date", table: "corridas", column: "date", trunc: "milliseconds"},
-				estacion_id:{type: "integer", "table": "series"}, 
-				var_id:{type:"integer","table":"series"}, 
-				qualifier:{type:"string","table":"pronosticos"}, 
-				series_id:{type:"integer","table":"pronosticos"},
-				tabla:{type:"string","table":"estaciones"}
-			},filter_values,undefined, true)
-		} catch (e) {
-			throw(new Error("getPronosticosPuntual: Invalid filter values: " + JSON.stringify(filter_values) + ". " + e.toString()))
-		}
-		if(series_limit) {
-			var s_limit = parseInt(series_limit)
-			if(s_limit.toString() == "NaN") {
-				throw new Error("Invalid value for option series_limit")
+		return withClient(client, async (client) => {
+			const filter_values = {
+				timestart:filter.timestart,
+				timeend:filter.timeend,
+				cal_id: filter.cal_id,
+				cor_id:filter.cor_id,
+				forecast_date: filter.forecast_date,
+				estacion_id:filter.estacion_id,
+				var_id:filter.var_id,
+				qualifier:filter.qualifier, 
+				series_id:filter.series_id,
+				tabla:filter.tabla
 			}
-			var distinct_block = `WITH first_series AS (
-				SELECT DISTINCT series.id
+			try {
+				var filter_string = internal.utils.control_filter2({
+					timestart:{type:"timestart","table":"pronosticos"}, 
+					timeend:{type:"timeend","table":"pronosticos","column":"timestart"}, 
+					cal_id:{type:"integer", table:"corridas"}, 
+					cor_id:{type:"integer","table":"pronosticos"}, 
+					forecast_date:{type:"date", table: "corridas", column: "date", trunc: "milliseconds"},
+					estacion_id:{type: "integer", "table": "series"}, 
+					var_id:{type:"integer","table":"series"}, 
+					qualifier:{type:"string","table":"pronosticos"}, 
+					series_id:{type:"integer","table":"pronosticos"},
+					tabla:{type:"string","table":"estaciones"}
+				},filter_values,undefined, true)
+			} catch (e) {
+				throw(new Error("getPronosticosPuntual: Invalid filter values: " + JSON.stringify(filter_values) + ". " + e.toString()))
+			}
+			if(series_limit) {
+				var s_limit = parseInt(series_limit)
+				if(s_limit.toString() == "NaN") {
+					throw new Error("Invalid value for option series_limit")
+				}
+				var distinct_block = `WITH first_series AS (
+					SELECT DISTINCT series.id
+					FROM pronosticos
+					JOIN valores_prono_num ON pronosticos.id = valores_prono_num.prono_id
+					JOIN series ON pronosticos.series_id = series.id
+					JOIN corridas ON pronosticos.cor_id = corridas.id
+					JOIN estaciones ON series.estacion_id = estaciones.unid  
+					WHERE 1=1 ${filter_string}
+					ORDER BY series.id
+					LIMIT ${s_limit}
+				)`
+				var first_series_join_line = "JOIN first_series ON first_series.id=series.id"
+			} else {
+				var distinct_block = ""
+				var first_series_join_line = ""
+			}
+			const stmt = `
+				${distinct_block}
+				SELECT 
+					corridas.id AS cor_id,
+					series.id series_id,
+					'series' AS series_table,
+					series.estacion_id,
+					estaciones.tabla,
+					series.var_id,
+					pronosticos.timestart::timestamptz  timestart, 
+					pronosticos.timeend::timestamptz timeend, 
+					valores_prono_num.valor,
+					pronosticos.qualifier
 				FROM pronosticos
 				JOIN valores_prono_num ON pronosticos.id = valores_prono_num.prono_id
 				JOIN series ON pronosticos.series_id = series.id
 				JOIN corridas ON pronosticos.cor_id = corridas.id
 				JOIN estaciones ON series.estacion_id = estaciones.unid  
+				${first_series_join_line}
 				WHERE 1=1 ${filter_string}
-				ORDER BY series.id
-				LIMIT ${s_limit}
-			)`
-			var first_series_join_line = "JOIN first_series ON first_series.id=series.id"
-		} else {
-			var distinct_block = ""
-			var first_series_join_line = ""
-		}
-		const stmt = `
-		    ${distinct_block}
-			SELECT 
-				corridas.id AS cor_id,
-				series.id series_id,
-				'series' AS series_table,
-				series.estacion_id,
-				estaciones.tabla,
-				series.var_id,
-				pronosticos.timestart::timestamptz  timestart, 
-				pronosticos.timeend::timestamptz timeend, 
-				valores_prono_num.valor,
-				pronosticos.qualifier
-			FROM pronosticos
-			JOIN valores_prono_num ON pronosticos.id = valores_prono_num.prono_id
-			JOIN series ON pronosticos.series_id = series.id
-			JOIN corridas ON pronosticos.cor_id = corridas.id
-			JOIN estaciones ON series.estacion_id = estaciones.unid  
-			${first_series_join_line}
-			WHERE 1=1 ${filter_string}
-			ORDER BY pronosticos.series_id,pronosticos.timestart`
-		// to_char(pronosticos.timestart::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timestart,\
-		//	to_char(pronosticos.timeend::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timeend,\
-		// console.debug(stmt)
-		const result = await client.query(stmt)
-		if(release_client) {
-			client.release()
-		}
-		return result.rows.map(row=>{
-			return new internal.pronostico(row)
+				ORDER BY pronosticos.series_id,pronosticos.timestart`
+			// to_char(pronosticos.timestart::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timestart,\
+			//	to_char(pronosticos.timeend::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timeend,\
+			// console.debug(stmt)
+			const result = await client.query(stmt)
+			return result.rows.map(row=>{
+				return new internal.pronostico(row)
+			})
 		})
 	}
 
-	static async getCorridaSeries(filter={},series_metadata=false,group_by_qualifier=false,series_limit) {
-		const series = {}
-		const pronos = await this.getPronosticosArray(filter,{series_limit:series_limit})
-		if(pronos) {
-			if(group_by_qualifier) {   // one series element for each series_id+qualifier combination
-				internal.CRUD.groupByQualifier(series,pronos)
-			} else {    // one series element for each series_id, regardless of qualifier (results in mixed qualifier series)
-				internal.CRUD.groupBySeries(series,pronos)
+	static async getCorridaSeries(filter={},series_metadata=false,group_by_qualifier=false,series_limit, client) {
+		return withClient(client, async (client) => {
+			const series = {}
+			const pronos = await this.getPronosticosArray(filter,{series_limit:series_limit}, client)
+			if(pronos) {
+				if(group_by_qualifier) {   // one series element for each series_id+qualifier combination
+					internal.CRUD.groupByQualifier(series,pronos)
+				} else {    // one series element for each series_id, regardless of qualifier (results in mixed qualifier series)
+					internal.CRUD.groupBySeries(series,pronos)
+				}
 			}
-		}
-		var series_data = Object.keys(series).sort().map(k=>series[k])
-		// corrida.series = series_data 
-		if(series_metadata) {
-			var promises = []
-			for(var serie of series_data) {
-				const tipo = (serie.series_table == "series_areal") ? "areal" : "puntual"
-				promises.push(this.getSerie(tipo,serie.series_id)
-				.then(result=>{
-					serie.metadata = result
-					return
-				}))
+			var series_data = Object.keys(series).sort().map(k=>series[k])
+			// corrida.series = series_data 
+			if(series_metadata) {
+				var promises = []
+				for(var serie of series_data) {
+					const tipo = (serie.series_table == "series_areal") ? "areal" : "puntual"
+					promises.push(this.getSerie(tipo,serie.series_id, undefined, undefined, undefined, undefined, undefined, client)
+					.then(result=>{
+						serie.metadata = result
+						return
+					}))
+				}
+				await Promise.all(promises)
 			}
-			await Promise.all(promises)
-		}
-		return series_data // corrida
+			return series_data // corrida
+		})
 	}
 
 	static async getPronosticosAreal(filter={},client) {
@@ -19181,26 +18729,19 @@ ORDER BY cal.cal_id`
 	 * @param {boolean} replace_last 
 	 * @returns {Promise<internal.corrida>}
 	 */
-	static async upsertCorrida(corrida,replace_last=false) {
-		if(!corrida) {
-			return Promise.reject("Faltan parámetros: corrida")
-		}
-		if(!corrida.cal_id) {
-			return Promise.reject("Faltan parámetros: cal_id")
-		}
-		if(!corrida.forecast_date) {
-			return Promise.reject("Faltan parámetros: forecast_date")
-		}
-		try {
-			var client = await global.pool.connect()
-			await client.query("BEGIN")
-		} catch(e) {
-			await client.query("ROLLBACK")
-			client.release()
-			return Promise.reject(e)
-		}
-		if(replace_last) {
-			try {
+	static async upsertCorrida(corrida,replace_last=false, client) {
+		return withTransaction(client, async (client) => {
+			if(!corrida) {
+				return Promise.reject("Faltan parámetros: corrida")
+			}
+			if(!corrida.cal_id) {
+				return Promise.reject("Faltan parámetros: cal_id")
+			}
+			if(!corrida.forecast_date) {
+				return Promise.reject("Faltan parámetros: forecast_date")
+			}
+			
+			if(replace_last) {
 				// var last_prono = await this.getLastCorrida(undefined,undefined,corrida.cal_id)
 				var last_prono = await client.query("WITH last_prono AS (\
 					SELECT max(date) date\
@@ -19223,43 +18764,20 @@ ORDER BY cal.cal_id`
 					await client.query("DELETE FROM series_areal_prono_date_range_by_qualifier WHERE cor_id=$1",[last_prono.rows[0].id])
 					await client.query("DELETE FROM corridas WHERE id=$1",[last_prono.rows[0].id])
 				}
-			} catch(e) {
-				await client.query("ROLLBACK")
-				client.release()
-				return Promise.reject(e)	
 			}
-		}
-		var ups_corrida= new internal.corrida({})
-		try {
+			var ups_corrida= new internal.corrida({})
 			var stmt = internal.utils.pasteIntoSQLQuery("INSERT INTO corridas (cal_id,date) VALUES ($1,$2::timestamptz)\
-			ON CONFLICT (cal_id,date) DO UPDATE set date=excluded.date\
-			RETURNING *",[corrida.cal_id,corrida.forecast_date])
-			// console.debug(stmt)
+				ON CONFLICT (cal_id,date) DO UPDATE set date=excluded.date\
+				RETURNING *",[corrida.cal_id,corrida.forecast_date])
+				// console.debug(stmt)
 			var corridas = await client.query(stmt)
-			// var corridas = await client.query("INSERT INTO corridas (cal_id,date) VALUES ($1,$2)\
-				//   ON CONFLICT (cal_id,date) DO UPDATE set date=excluded.date\
-				//   RETURNING *",[corrida.cal_id,corrida.forecast_date])
 			ups_corrida.id  = corridas.rows[0].id
 			ups_corrida.forecast_date = corridas.rows[0].date
 			ups_corrida.cal_id = corridas.rows[0].cal_id
 			ups_corrida.series = []
-			// return Promise.all(corrida.series.map(s=>{
-				// 	return Promise.all(s.pronosticos.map(p=>{
-				// 		var pronostico = {
-				// 			cor_id: prono.cor_id,
-				// 			cal_id: prono.cal_id,
-				// 			series_id: s.series_id,
-				// 			timestart: p.timestart,
-				// 			timeend: p.timeend,
-				// 			valor: p.valor,
-				// 			qualifier: (p.qualifier) ? p.qualifier : 'main' 
-				// 		} 
-				// 		return this.upsertPronostico(client,pronostico)
-				// 	}))
-				// }))
 			for(var i=0;i<corrida.series.length;i++) {
 				if(!corrida.series[i].pronosticos || corrida.series[i].pronosticos.length == 0) {
-                                        console.log("series " + i + " of corrida is empty (missing pronosticos)")
+										console.log("series " + i + " of corrida is empty (missing pronosticos)")
 					continue
 				}
 				var pronosticos = corrida.series[i].pronosticos.map(p=>{
@@ -19293,16 +18811,8 @@ ORDER BY cal.cal_id`
 					"pronosticos": ups_pronos
 				}
 			}
-			await client.query("COMMIT")
-		}
-		catch (e) {
-			await client.query("ROLLBACK")
-			return Promise.reject(e)
-		}
-		finally {
-			client.release()
-		}
-		return Promise.resolve(ups_corrida)
+			return Promise.resolve(ups_corrida)
+		})
 	}	
 
 	static async guardarCorridas(cor_id,filter={},options={}) {
@@ -19533,115 +19043,110 @@ ORDER BY cal.cal_id`
 	}
 	
 	static async upsertPronosticos(client,pronosticos) {
-		var release_client = false
-		if(!client) {
-			client = await global.pool.connect()
-			release_client = true
-		} 
-		// filter by series_table
-		var values = [] 
-		var values_areal = [] 
-		var values_rast = []
-		for (var [i, p] of pronosticos.entries()) {
-			var timeend = (p.timeend) ? p.timeend : p.timestart
-			// console.debug([p.series_id,p.cor_id,p.timestart.toISOString(),timeend.toISOString(),p.qualifier,p.valor])
-			if(p.series_table && p.series_table == "series_areal") {
-				const args = [
-					p.series_id, 
-					p.cor_id, 
-					p.timestart.toISOString(),
-					timeend.toISOString(),
-					p.qualifier,
-					parseFloat(p.valor)
-				]
-				try {
-					control_query_args(
-						[
-							{name: "series_id", type:"integer"},
-							{name: "cor_id", type:"integer"},
-							{name: "timestart", type:"string"},
-							{name: "timeend", type:"string"},
-							{name: "qualifier", type:"string"},
-							{name: "valor", type:"float"}
-						],
-						args
-					)
-				} catch(e) {
-					throw(new Error("Invalid values at index [" + i + "]: " + e.toString()))
+		return withTransaction(client, async (client) => {
+			// filter by series_table
+			var values = [] 
+			var values_areal = [] 
+			var values_rast = []
+			for (var [i, p] of pronosticos.entries()) {
+				var timeend = (p.timeend) ? p.timeend : p.timestart
+				// console.debug([p.series_id,p.cor_id,p.timestart.toISOString(),timeend.toISOString(),p.qualifier,p.valor])
+				if(p.series_table && p.series_table == "series_areal") {
+					const args = [
+						p.series_id, 
+						p.cor_id, 
+						p.timestart.toISOString(),
+						timeend.toISOString(),
+						p.qualifier,
+						parseFloat(p.valor)
+					]
+					try {
+						control_query_args(
+							[
+								{name: "series_id", type:"integer"},
+								{name: "cor_id", type:"integer"},
+								{name: "timestart", type:"string"},
+								{name: "timeend", type:"string"},
+								{name: "qualifier", type:"string"},
+								{name: "valor", type:"float"}
+							],
+							args
+						)
+					} catch(e) {
+						throw(new Error("Invalid values at index [" + i + "]: " + e.toString()))
+					}
+					values_areal.push(vsprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',%f)", args))
+				} else if(p.series_table && p.series_table == "series_rast") {
+					const args = [
+						p.series_id, 
+						p.cor_id, 
+						p.timestart.toISOString(), 
+						timeend.toISOString(), 
+						p.qualifier, 
+						// new Buffer.from(p.valor).toString('hex')
+						(p.valor instanceof Buffer) ?  "\\x" + p.valor.toString('hex') : p.valor
+					]
+					try {
+						control_query_args(
+							[
+								{name: "series_id", type:"integer"},
+								{name: "cor_id", type:"integer"},
+								{name: "timestart", type:"string"},
+								{name: "timeend", type:"string"},
+								{name: "qualifier", type:"string"},
+								{name: "valor", type:"string"}
+							],
+							args
+						)
+					} catch(e) {
+						throw(new Error("Invalid values at index [" + i + "]: " + e.toString()))
+					}
+					values_rast.push(vsprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',ST_FromGDALRaster('%s'))", args))
+				} else {
+					const args = [
+						p.series_id, 
+						p.cor_id, 
+						p.timestart.toISOString(), 
+						timeend.toISOString(), 
+						p.qualifier, 
+						parseFloat(p.valor)
+					]
+					try {
+						control_query_args(
+							[
+								{name: "series_id", type:"integer"},
+								{name: "cor_id", type:"integer"},
+								{name: "timestart", type:"string"},
+								{name: "timeend", type:"string"},
+								{name: "qualifier", type:"string"},
+								{name: "valor", type:"float"}
+							],
+							args
+						)
+					} catch(e) {
+						throw(new Error("Invalid values at index [" + i + "]: " + e.toString()))
+					}	
+					values.push(vsprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',%f)", args))
 				}
-				values_areal.push(vsprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',%f)", args))
-			} else if(p.series_table && p.series_table == "series_rast") {
-				const args = [
-					p.series_id, 
-					p.cor_id, 
-					p.timestart.toISOString(), 
-					timeend.toISOString(), 
-					p.qualifier, 
-					// new Buffer.from(p.valor).toString('hex')
-					(p.valor instanceof Buffer) ?  "\\x" + p.valor.toString('hex') : p.valor
-				]
-				try {
-					control_query_args(
-						[
-							{name: "series_id", type:"integer"},
-							{name: "cor_id", type:"integer"},
-							{name: "timestart", type:"string"},
-							{name: "timeend", type:"string"},
-							{name: "qualifier", type:"string"},
-							{name: "valor", type:"string"}
-						],
-						args
-					)
-				} catch(e) {
-					throw(new Error("Invalid values at index [" + i + "]: " + e.toString()))
-				}
-				values_rast.push(vsprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',ST_FromGDALRaster('%s'))", args))
-			} else {
-				const args = [
-					p.series_id, 
-					p.cor_id, 
-					p.timestart.toISOString(), 
-					timeend.toISOString(), 
-					p.qualifier, 
-					parseFloat(p.valor)
-				]
-				try {
-					control_query_args(
-						[
-							{name: "series_id", type:"integer"},
-							{name: "cor_id", type:"integer"},
-							{name: "timestart", type:"string"},
-							{name: "timeend", type:"string"},
-							{name: "qualifier", type:"string"},
-							{name: "valor", type:"float"}
-						],
-						args
-					)
-				} catch(e) {
-					throw(new Error("Invalid values at index [" + i + "]: " + e.toString()))
-				}	
-				values.push(vsprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',%f)", args))
 			}
-		}
-		var pronosticos_result = []
-		if(values_areal.length) {
-			var stmt = `INSERT INTO pronosticos_areal (series_id,cor_id,timestart,timeend,qualifier,valor) \
-			VALUES ${values_areal.join(",")} ON CONFLICT (series_id,cor_id,timestart,timeend,qualifier)\
-			DO UPDATE SET valor=excluded.valor\
-			RETURNING id,series_id,'series_areal' as series_table,cor_id,timestart,timeend,qualifier,valor`
-			const result_areal = await client.query(stmt)
-			pronosticos_result.push(...result_areal.rows)
-		}
-		if(values_rast.length) {
-			var stmt = `INSERT INTO pronosticos_rast (series_id,cor_id,timestart,timeend,qualifier,valor) \
-			VALUES ${values_rast.join(",")} ON CONFLICT (series_id,cor_id,timestart,qualifier)\
-			DO UPDATE SET valor=excluded.valor, timeend=excluded.timeend\
-			RETURNING id,series_id,'series_rast' as series_table,cor_id,timestart,timeend,qualifier,valor`
-			const result_rast = await client.query(stmt)
-			pronosticos_result.push(...result_rast.rows)
-		}
-		if(values.length) {
-			try {
+			var pronosticos_result = []
+			if(values_areal.length) {
+				var stmt = `INSERT INTO pronosticos_areal (series_id,cor_id,timestart,timeend,qualifier,valor) \
+				VALUES ${values_areal.join(",")} ON CONFLICT (series_id,cor_id,timestart,timeend,qualifier)\
+				DO UPDATE SET valor=excluded.valor\
+				RETURNING id,series_id,'series_areal' as series_table,cor_id,timestart,timeend,qualifier,valor`
+				const result_areal = await client.query(stmt)
+				pronosticos_result.push(...result_areal.rows)
+			}
+			if(values_rast.length) {
+				var stmt = `INSERT INTO pronosticos_rast (series_id,cor_id,timestart,timeend,qualifier,valor) \
+				VALUES ${values_rast.join(",")} ON CONFLICT (series_id,cor_id,timestart,qualifier)\
+				DO UPDATE SET valor=excluded.valor, timeend=excluded.timeend\
+				RETURNING id,series_id,'series_rast' as series_table,cor_id,timestart,timeend,qualifier,valor`
+				const result_rast = await client.query(stmt)
+				pronosticos_result.push(...result_rast.rows)
+			}
+			if(values.length) {
 				var stmt = "CREATE TEMPORARY TABLE prono_tmp (series_id int,cor_id int,timestart timestamp,timeend timestamp,qualifier varchar,valor real);\
 				INSERT INTO prono_tmp (series_id,cor_id,timestart,timeend,qualifier,valor)\
 				VALUES " + values + ";"
@@ -19670,15 +19175,10 @@ ORDER BY cal.cal_id`
 				console.log("upserted " + result.rows.length + " pronosticos rows")
 				await client.query("DROP TABLE prono_tmp")
 				pronosticos_result.push(...result.rows)
-			} catch(e) {
-				return Promise.reject(e)
 			}
-		}
-		console.log("upserted " + pronosticos_result.length + " pronosticos")
-		if(release_client) {
-			client.release(true)
-		}
-		return Promise.resolve(pronosticos_result)
+			console.log("upserted " + pronosticos_result.length + " pronosticos")
+			return Promise.resolve(pronosticos_result)
+		}, {force: true})
 	}
 	
 	static async getSeriesBySiteAndVar(
@@ -21898,46 +21398,20 @@ internal.utils = {
  * @param {string} query_string 
  * @param {Array|undefined} query_args 
  * @param {Client|undefined} client 
- * @param {Boolean} [release_client=false] - if true, when the query fails it releases the provided client before throwing error
  * @returns {Promise<Object[]>} promise to an array representing the query result rows
  */
-async function executeQueryReturnRows(query_string,query_args,client,release_client) {
-	if(!query_string) {
-		throw("missing query string")
-	}
-	if(client)  {
-		if(query_args) {
-			try {
-				var result = await client.query(query_string,query_args)
-			} catch(e) {
-				if(release_client) {
-					client.query("ROLLBACK")
-					client.release()
-				}
-				throw(e)
-			}
-		} else {
-			try {
-				var result = await client.query(query_string)
-			} catch(e) {
-				if(release_client) {
-					client.query("ROLLBACK")
-					client.release()
-				}
-				throw(e)
-			}
+async function executeQueryReturnRows(query_string,query_args,client) {
+	return withClient(client, async (client) => {
+		if(!query_string) {
+			throw new Error("missing query string")
 		}
-		// if(release_client) {
-		// 	client.release()
-		// }
-	} else {
 		if(query_args) {
-			var result = await global.pool.query(query_string,query_args)
+			var result = await client.query(query_string,query_args)
 		} else {
-			var result = await global.pool.query(query_string)
+			var result = await client.query(query_string)
 		}
-	}
-	return result.rows
+		return result.rows
+	})
 }
 
 function getPercentile(values, percentile) {
