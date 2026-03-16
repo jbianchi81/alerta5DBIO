@@ -1,7 +1,8 @@
 // db.js
-export async function withClient(client, fn) {
+export async function withClient(client, fn, pool) {
     const ownClient = !client
-    if (!client) client = await global.pool.connect()
+    if (!pool) pool = global.pool
+    if (!client) client = await pool.connect()
 
     try {
         return await fn(client)
