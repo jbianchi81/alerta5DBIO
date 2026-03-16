@@ -809,11 +809,13 @@ internal.area = class extends baseModel  {
 	static async create(areas) {
 		return internal.CRUD.upsertAreas(areas)
 	}
-	static async read(filter={},options) {
-		if(filter.id && !Array.isArray(filter.id)) {
-			return internal.CRUD.getArea(filter.id,options)
-		}
-		return internal.CRUD.getAreas(filter,options)
+	static async read(filter={},options, client) {
+		return withClient(client, async (client) => {
+			if(filter.id && !Array.isArray(filter.id)) {
+				return internal.CRUD.getArea(filter.id,options,client)
+			}
+			return internal.CRUD.getAreas(filter,options,client)
+		})
 	}
 	async update(changes={}) {
 		this.set(changes)
@@ -1008,8 +1010,10 @@ internal.escena = class extends baseModel  {
 		return internal.CRUD.upsertEscenas(escenas)
 	}
 
-	async delete() {
-		return internal.CRUD.deleteEscena(this.id)
+	async delete(client) {
+		return withClient(client, async (client) => {
+			return internal.CRUD.deleteEscena(this.id, client)
+		})
 	}
 
 	static async delete(filter={}) {
@@ -1141,11 +1145,13 @@ internal.procedimiento = class extends baseModel  {
 	toCSVless() {
 		return this.id + "," + this.nombre
 	}
-	static async read(filter={}) {
-		if(filter.id) {
-			return internal.CRUD.getProcedimiento(filter.id)
-		}
-		return internal.CRUD.getProcedimientos(filter)
+	static async read(filter={}, options, client) {
+		return withClient(client, async (client) => {
+			if(filter.id) {
+				return internal.CRUD.getProcedimiento(filter.id, client)
+			}
+			return internal.CRUD.getProcedimientos(filter, client)
+		})
 	}
 	toJSON() {
 		return {
@@ -1230,11 +1236,13 @@ internal.unidades = class extends baseModel  {
 			UnitsType: this.UnitsType // (this.UnitsType) ? this.UnitsType : null
 		}
 	}
-	static async read(filter={}) {
-		if(filter.id && !Array.isArray(filter.id)) {
-			return internal.CRUD.getUnidad(filter.id)
-		}
-		return internal.CRUD.getUnidades(filter)
+	static async read(filter={}, options, client) {
+		return withClient(client, async (client) => {
+			if(filter.id && !Array.isArray(filter.id)) {
+				return internal.CRUD.getUnidad(filter.id, client)
+			}
+			return internal.CRUD.getUnidades(filter, client)
+		})
 	}
 
 }
@@ -1414,11 +1422,13 @@ internal.fuente = class extends baseModel {
 			constraints: this.constraints // (this.constraints) ? this.constraints : null
 		}
 	}
-	static async read(filter={},options) {
-		if(filter.id) {
-			return internal.CRUD.getFuente(filter.id)
-		}
-		return internal.CRUD.getFuentes(filter,options)
+	static async read(filter={},options,client) {
+		return withClient(client, async (client) => {
+			if(filter.id) {
+				return internal.CRUD.getFuente(filter.id, undefined, client)
+			}
+			return internal.CRUD.getFuentes(filter,client)
+		})
 	}
 
 	static async create(fuentes=[]) {
@@ -1474,12 +1484,14 @@ internal.fuente = class extends baseModel {
 		})
 	}
 
-	async delete(options={}) {
-		const deleted = await internal.CRUD.deleteFuente(this.id)
-		if(options.drop_cube_table) {
-			await this.dropCubeTable()
-		}
-		return deleted
+	async delete(options={}, client) {
+		return withClient(client, async (client) => {
+			const deleted = await internal.CRUD.deleteFuente(this.id, client)
+			if(options.drop_cube_table) {
+				await this.dropCubeTable(undefined, client)
+			}
+			return deleted
+		})
 	}
 
 	static async delete(filter={},options={}) {
@@ -4821,8 +4833,10 @@ internal.observaciones = class extends BaseArray {
 	 * @param {string} options.output - output file name
 	 * @returns 
 	 */
-	static async backup(filter={},options={}) {
-		return internal.CRUD.backupObservaciones(filter.tipo,filter,options)
+	static async backup(filter={},options={},client) {
+		return withClient(client, async (client) => {
+			return internal.CRUD.backupObservaciones(filter.tipo,filter,options,client)
+		})
 	}
 	/**
 	 * Saves observaciones into archive tables
@@ -4833,16 +4847,18 @@ internal.observaciones = class extends BaseArray {
 	 * @param {Boolean} options.delete - if true, it deletes records from operational tables (they may be restored with .restore())
 	 * @returns {internal.observaciones}
 	 */
-	static async archive(filter={},options={}) {
-		if(options.delete) {
-			const delete_options = {
-				save: true,
-				no_send_data: options.no_send_data,
-				no_update: options.no_update
+	static async archive(filter={},options={},client) {
+		return withClient(client, async (client) => {
+			if(options.delete) {
+				const delete_options = {
+					save: true,
+					no_send_data: options.no_send_data,
+					no_update: options.no_update
+				}
+				return internal.CRUD.deleteObservaciones2(filter.tipo,filter,delete_options,client)
 			}
-			return internal.CRUD.deleteObservaciones2(filter.tipo,filter,delete_options)
-		}
-		return internal.CRUD.guardarObservaciones(filter.tipo,filter,options={})
+			return internal.CRUD.guardarObservaciones(filter.tipo,filter,options={}, client)
+		})
 	}
 	// restore
 	/**
@@ -4867,8 +4883,10 @@ internal.observaciones = class extends BaseArray {
 	 * @param {Boolean} options.no_send_data - if true, return number of restored rows instead of array of restored rows
 	 * @returns {internal.observaciones|integer} - Array of restored observaciones (or number or restored observaciones if options.no_send_data=true)
 	 */
-	 static async restore(filter={},options={}) {
-		return internal.CRUD.restoreObservaciones(filter.tipo,filter,options)
+	 static async restore(filter={},options={},client) {
+		return withClient(client, async (client) => {
+			return internal.CRUD.restoreObservaciones(filter.tipo,filter,options,client)
+		})
 	}
 }
 
@@ -4972,17 +4990,10 @@ internal.monthlyStats = class extends baseModel {
 	static async read(filter,options) {
 		return internal.CRUD.getMonthlyStats(filter.tipo,filter.series_id,filter.public,true)
 	}
-	static async create(monthly_stats,options={}) {
-		// monthly_stats.forEach(m=>{
-		// 	if(options.series_id) {
-		// 		m.series_id = options.series_id
-		// 	}
-		// 	if(options.tipo) {
-		// 		m.tipo = options.tipo
-		// 	}
-		// 	m = (m instanceof internal.monthlyStats) ? m : new internal.monthlyStats(m)
-		// })
-		return internal.CRUD.insertMonthlyStats(monthly_stats)
+	static async create(monthly_stats,options={}, client) {
+		return withClient(client, async (client) => {
+			return internal.CRUD.insertMonthlyStats(monthly_stats, client)
+		})
 	}
 
 	async create() {
@@ -5742,8 +5753,10 @@ internal.calibrado = class extends internal.genericModel {
 			return
 		})
 	}
-	static async read(filter={},options={}) {
-		return internal.CRUD.getCalibrados(filter.estacion_id,filter.var_id,filter.includeCorr,filter.timestart,filter.timeend,filter.cal_id ?? filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,options.no_metadata,options.group_by_cal,filter.forecast_date,options.includeInactive,filter.series_id,filter.nombre)
+	static async read(filter={},options={},client) {
+		return withClient(client, async (client) => {
+			return internal.CRUD.getCalibrados(filter.estacion_id,filter.var_id,filter.includeCorr,filter.timestart,filter.timeend,filter.cal_id ?? filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,options.no_metadata,options.group_by_cal,filter.forecast_date,options.includeInactive,filter.series_id,filter.nombre,undefined, client)
+		})
 	}
 	static async delete(filter={}) {
 		return internal.CRUD.deleteCalibrados(filter)
@@ -5847,15 +5860,14 @@ internal.forzante = class extends baseModel {
 	toCSVless() {
 		return this.orden + "," + this.series_id + "," + this.series_table
 	} 
-	async getSerie() {
-		var tipo = (this.series_table == "series") ? "puntual" : (this.series_table == "series_areal") ? "areal" : (this.series_table == "series_rast") ? "raster" : "puntual"
-		// try {
-			this.serie = await internal.CRUD.getSerie(tipo,this.series_id,undefined,undefined,{no_metadata:true})
-		// } catch(e) {
-		// 	throw(e)
-		if(!this.serie) {
-			console.error("crud: forzante: no se encontró serie")
-		}
+	async getSerie(client) {
+		return withClient(client, async (client) => {
+			var tipo = (this.series_table == "series") ? "puntual" : (this.series_table == "series_areal") ? "areal" : (this.series_table == "series_rast") ? "raster" : "puntual"
+			this.serie = await internal.CRUD.getSerie(tipo,this.series_id,undefined,undefined,{no_metadata:true},undefined, undefined, client)
+			if(!this.serie) {
+				console.error("crud: forzante: no se encontró serie")
+			}
+		})
 	}
 }
 
@@ -6852,7 +6864,7 @@ internal.accessor = class extends baseModel {
 
 internal.engine = class {
 	constructor(pool,config_,schemas_){
-        global.pool = pool
+        global.pool = pool || global.pool
 		if(config_) {
 			this.config = config_
 			if(this.config.database) {
@@ -7065,11 +7077,14 @@ internal.asociacion = class extends baseModel {
 			return asociaciones.map(a=>new internal.asociacion(a))
 		})
 	}
-	async delete() {
+	async delete(client) {
 		if(!this.id) {
-			throw("Can't delete asociacion: missing id")
+			throw new Error("Can't delete asociacion: missing id")
 		}
-		return new internal.asociacion(await internal.CRUD.deleteAsociacion(this.id))
+		return withClient(client, async (client) => {
+			const deleted = await internal.CRUD.deleteAsociacion(this.id, client)
+			return new internal.asociacion(deleted)
+		})
 	}
 	static async delete(filter, client) {
 		return withClient(client, async (client) => {
@@ -7219,13 +7234,12 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async upsertEstacion_(estacion,options={}) {
-		return estacion.getEstacionId()
-		.then(()=>{
+	static async upsertEstacion_(estacion,options={}, client) {
+		return withClient(client, async (client) => {
+			await estacion.getEstacionId(undefined, client)
 			console.log({id:estacion.id})
 			var query = this.upsertEstacionQuery(estacion,options)
-			return global.pool.query(query)
-		}).then(result=>{
+			const result = await client.query(query)
 			if(result.rows.length<=0) {
 				console.error("Upsert failed")
 				return
@@ -7235,16 +7249,11 @@ internal.CRUD = class {
 				estacion[key] = result.rows[0][key]
 			})
 			if(estacion.nivel_alerta || estacion.nivel_evacuacion || estacion.nivel_aguas_bajas) {
-				return this.upsertNivelesAlerta(estacion)
-				.then(estacion=>{
-					return new internal.estacion(estacion)
-				})
+				const estacion = await this.upsertNivelesAlerta(estacion, client)
+				return new internal.estacion(estacion)
 			} else {
 				return new internal.estacion(estacion)
 			}
-		}).catch(e=>{
-			console.error(e)
-			return
 		})
 	}
 
@@ -7948,7 +7957,7 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getAreasWithPagination(filter={},options={},req) {
+	static async getAreasWithPagination(filter={},options={},req,client) {
 		const config_pagination = config.pagination ?? {default_limit: 1000, max_limit: 10000}
 		filter.limit = filter.limit ?? config_pagination.default_limit
 		filter.limit = parseInt(filter.limit)
@@ -7957,27 +7966,29 @@ internal.CRUD = class {
 		}
 		filter.offset = filter.offset ?? 0
 		filter.offset = parseInt(filter.offset)
-		const result = await this.getAreas(filter,options)
-		var is_last_page = (result.length < filter.limit)
-		if(is_last_page) {
-			return {
-				areas: result,
-				is_last_page: true
-			}
-		} else {
-			var query_arguments = {...filter,...options}
-			query_arguments.offset = filter.offset + filter.limit 
-			var next_page_url = (req) ? `${req.protocol}://${req.get('host')}${req.path}?${querystring.stringify(query_arguments)}` : `obs/areal/areas?${querystring.stringify(query_arguments)}`
-			return {
-				areas: result,
-				is_last_page: false,
-				next_page: next_page_url
-			}
-		}
 
+		return withClient(client, async (client) => {
+			const result = await this.getAreas(filter,options,client)
+			var is_last_page = (result.length < filter.limit)
+			if(is_last_page) {
+				return {
+					areas: result,
+					is_last_page: true
+				}
+			} else {
+				var query_arguments = {...filter,...options}
+				query_arguments.offset = filter.offset + filter.limit 
+				var next_page_url = (req) ? `${req.protocol}://${req.get('host')}${req.path}?${querystring.stringify(query_arguments)}` : `obs/areal/areas?${querystring.stringify(query_arguments)}`
+				return {
+					areas: result,
+					is_last_page: false,
+					next_page: next_page_url
+				}
+			}
+		})
 	}
 	
-	static async getAreas(filter,options) {
+	static async getAreas(filter,options, client) {
 		if(filter.id) {
 			filter.unid = filter.id
 			delete filter.id
@@ -8021,67 +8032,54 @@ internal.CRUD = class {
 		var pagination_clause = (filter.limit) ? `LIMIT ${filter.limit}` : ""
 		pagination_clause += (filter.offset) ? ` OFFSET ${filter.offset}`: ""
 		//~ console.log("filter_string:" + filter_string)
-		if(options && options.no_geom) {
-			const stmt = "SELECT \
-				areas_pluvio.unid id, \
-				areas_pluvio.nombre, \
-				st_astext(areas_pluvio.exutorio) exutorio, \
-				areas_pluvio.exutorio_id, \
-				areas_pluvio.area, \
-				areas_pluvio.ae, \
-				areas_pluvio.rho, \
-				areas_pluvio.wp, \
-				areas_pluvio.activar, \
-				areas_pluvio.mostrar \
-			FROM areas_pluvio \
-			" + join_type + " JOIN estaciones ON (estaciones.unid=areas_pluvio.exutorio_id" + tabla_id_filter + ") \
-			WHERE areas_pluvio.geom IS NOT NULL " + filter_string + " ORDER BY areas_pluvio.id\
-			" + pagination_clause
-			// console.debug(stmt)
-			return global.pool.query(stmt)
-			.then(res=>{
+		return withClient(client, async (client) => {
+			if(options && options.no_geom) {
+				const stmt = "SELECT \
+					areas_pluvio.unid id, \
+					areas_pluvio.nombre, \
+					st_astext(areas_pluvio.exutorio) exutorio, \
+					areas_pluvio.exutorio_id, \
+					areas_pluvio.area, \
+					areas_pluvio.ae, \
+					areas_pluvio.rho, \
+					areas_pluvio.wp, \
+					areas_pluvio.activar, \
+					areas_pluvio.mostrar \
+				FROM areas_pluvio \
+				" + join_type + " JOIN estaciones ON (estaciones.unid=areas_pluvio.exutorio_id" + tabla_id_filter + ") \
+				WHERE areas_pluvio.geom IS NOT NULL " + filter_string + " ORDER BY areas_pluvio.id\
+				" + pagination_clause
+				const res = await client.query(stmt)
 				return res.rows.map(r=>{
 					if(r.exutorio) {
 						r.exutorio = new internal.geometry(r.exutorio)
 					}
 					return r
 				})
-			})
-		} else {
-			const stmt = "SELECT \
-				areas_pluvio.unid id, \
-				areas_pluvio.nombre, \
-				st_astext(areas_pluvio.geom) geom, \
-				st_astext(areas_pluvio.exutorio) exutorio, \
-				areas_pluvio.exutorio_id, \
-				areas_pluvio.area, \
-				areas_pluvio.ae, \
-				areas_pluvio.rho, \
-				areas_pluvio.wp, \
-				areas_pluvio.activar, \
-				areas_pluvio.mostrar \
-			FROM areas_pluvio \
-			" + join_type + " JOIN estaciones ON (estaciones.unid=areas_pluvio.exutorio_id" + tabla_id_filter + ") \
-			WHERE areas_pluvio.geom IS NOT NULL " + filter_string + " ORDER BY id\
-			" + pagination_clause
-			// console.debug(stmt)
-			return global.pool.query(stmt)
-			.then(res=>{
-				//~ console.log(res)
+			} else {
+				const stmt = "SELECT \
+					areas_pluvio.unid id, \
+					areas_pluvio.nombre, \
+					st_astext(areas_pluvio.geom) geom, \
+					st_astext(areas_pluvio.exutorio) exutorio, \
+					areas_pluvio.exutorio_id, \
+					areas_pluvio.area, \
+					areas_pluvio.ae, \
+					areas_pluvio.rho, \
+					areas_pluvio.wp, \
+					areas_pluvio.activar, \
+					areas_pluvio.mostrar \
+				FROM areas_pluvio \
+				" + join_type + " JOIN estaciones ON (estaciones.unid=areas_pluvio.exutorio_id" + tabla_id_filter + ") \
+				WHERE areas_pluvio.geom IS NOT NULL " + filter_string + " ORDER BY id\
+				" + pagination_clause
+				const res = await client.query(stmt)
 				var areas = res.rows.map(row=>{
-					//~ const geom = new internal.geometry(row.geom)
-					//~ const exutorio = new internal.geometry(row.exutorio)
-					//~ const area = new internal.area(row.nombre,geom, exutorio)
-					//~ area.id = row.unid
 					return new internal.area(row) 
 				})
 				return areas
-			})
-			.catch(e=>{
-				console.error(e)
-				return null
-			})
-		}
+			}
+		})
 	}
 	
 	// ESCENA //
@@ -8145,48 +8143,41 @@ internal.CRUD = class {
 		} else {
 			escena = new internal.escena(escena)
 		}
-		if(!escena.id) {
-			await escena.getId(global.pool)
-		}
-		var query = "\
-			INSERT INTO escenas (id, nombre,geom) \
-			VALUES ($1, $2, st_geomfromtext($3,4326))\
-			ON CONFLICT (id) DO UPDATE SET \
-				nombre=excluded.nombre,\
-				geom=excluded.geom\
-			RETURNING \
-				escenas.id, \
-				escenas.nombre, \
-				st_astext(escenas.geom) AS geom"
-		var query_arguments = [escena.id,escena.nombre,escena.geom.toString()]
-		if(!escena.id) {
-			query = "\
-			INSERT INTO escenas (nombre,geom) \
-			VALUES ($1, st_geomfromtext($2,4326))\
-			ON CONFLICT (id) DO UPDATE SET \
-				nombre=excluded.nombre,\
-				geom=excluded.geom\
-			RETURNING \
-				escenas.id, \
-				escenas.nombre, \
-				st_astext(escenas.geom) AS geom"
-			query_arguments = [escena.nombre,escena.geom.toString()]
-		}
-			//~ console.log(internal.utils.pasteIntoSQLQuery(query,[escena.id,escena.nombre,escena.geom.toString()]))
-		try {
-			if(client) {
-				var result = await client.query(query,query_arguments)
-			} else {
-				var result = await global.pool.query(query,query_arguments)
+		return withClient(client, async (client) => {
+			if(!escena.id) {
+				await escena.getId(undefined, client)
 			}
+			var query = "\
+				INSERT INTO escenas (id, nombre,geom) \
+				VALUES ($1, $2, st_geomfromtext($3,4326))\
+				ON CONFLICT (id) DO UPDATE SET \
+					nombre=excluded.nombre,\
+					geom=excluded.geom\
+				RETURNING \
+					escenas.id, \
+					escenas.nombre, \
+					st_astext(escenas.geom) AS geom"
+			var query_arguments = [escena.id,escena.nombre,escena.geom.toString()]
+			if(!escena.id) {
+				query = "\
+				INSERT INTO escenas (nombre,geom) \
+				VALUES ($1, st_geomfromtext($2,4326))\
+				ON CONFLICT (id) DO UPDATE SET \
+					nombre=excluded.nombre,\
+					geom=excluded.geom\
+				RETURNING \
+					escenas.id, \
+					escenas.nombre, \
+					st_astext(escenas.geom) AS geom"
+				query_arguments = [escena.nombre,escena.geom.toString()]
+			}
+			var result = await client.query(query,query_arguments)
 			if(!result.rows.length) {
 				throw new Error("Upsert failed")
 			}
-		} catch(e) {
-			throw new Error(e)
-		}
-		console.debug("Upserted escena.id=" + result.rows[0].id)
-		return new internal.escena(result.rows[0])
+			console.debug("Upserted escena.id=" + result.rows[0].id)
+			return new internal.escena(result.rows[0])
+		})
 	}
 	
 	static async upsertEscenas(escenas=[]) {
@@ -8207,12 +8198,12 @@ internal.CRUD = class {
 		return upserted
 	}
 	
-	static async deleteEscena(id) {
-		return global.pool.query("\
-			DELETE FROM escenas\
-			WHERE id=$1\
-			RETURNING id, st_astext(geom) AS geom, nombre",[id]
-		).then(result=>{
+	static async deleteEscena(id, client) {
+		return withClient(client, async (client) => {
+			const result = await client.query("\
+				DELETE FROM escenas\
+				WHERE id=$1\
+				RETURNING id, st_astext(geom) AS geom, nombre",[id])
 			if(result.rows.length<=0) {
 				console.log("id not found")
 				return
@@ -8223,42 +8214,33 @@ internal.CRUD = class {
 	}
 
 			
-	static async deleteEscenas(id) {
-		return global.pool.query("\
-			DELETE FROM escenas\
-			WHERE id=$1\
-			RETURNING *",[id]
-		).then(result=>{
+	static async deleteEscenas(id, client) {
+		return withClient(client, async (client) => {
+			const result = await client.query("\
+				DELETE FROM escenas\
+				WHERE id=$1\
+				RETURNING *",[id])
 			if(result.rows.length<=0) {
 				console.log("id not found")
 				return
 			}
 			console.log("Deleted escenas.id=" + result.rows[0].id)
 			return result.rows[0]
-		}).catch(e=>{
-			console.error(e)
 		})
 	}
 
-
 	// VAR //
 	
-	static async upsertVar(variable) {
-		return variable.getId()
-		.then(()=>{
-			return this.interval2epoch(variable.timeSupport)
-		}).then(timeSupport=>{
-			//~ var timeSupport = (variable.timeSupport) ? (typeof variable.timeSupport == 'object') ? this.interval2epoch(variable.timeSupport) : variable.timeSupport : variable.timeSupport
-			return global.pool.query(this.upsertVarQuery(variable))
-		}).then(result=>{
+	static async upsertVar(variable, client) {
+		return withClient(client, async (client) => {
+			await variable.getId(undefined, client)
+			const timeSupport = await this.interval2epoch(variable.timeSupport,client)
+			const result = await client.query(this.upsertVarQuery(variable))
 			if(result.rows.length<=0) {
-				throw("Upsert failed")
+				throw new Error("Upsert failed")
 			}
-			// console.log("Upserted var.id=" + result.rows[0].id)
 			variable.set(result.rows[0])
 			return new internal["var"](result.rows[0])
-		}).catch(e=>{
-			throw(e)
 		})
 	}
 
@@ -8283,26 +8265,29 @@ internal.CRUD = class {
 		return internal.utils.pasteIntoSQLQuery(query,params)
 	}
 	
-	static async upsertVars(variables) {
-		return Promise.all(variables.map(variable=>{
-			return this.upsertVar(variable)
-		}))
+	static async upsertVars(variables, client) {
+		return withClient(client, async (client) => {
+			const upserted = []
+			for(const variable of variables) {
+				const v = await this.upsertVar(variable, client)
+				upserted.push(v)
+			}
+			return upserted
+		})
 	}
 			
-	static async deleteVar(id) {
-		return global.pool.query("\
-			DELETE FROM var\
-			WHERE id=$1\
-			RETURNING id, var,nombre,abrev,type,datatype,valuetype,\"GeneralCategory\",\"VariableName\",\"SampleMedium\",def_unit_id,\"timeSupport\"",[id]
-		).then(result=>{
+	static async deleteVar(id, client) {
+		return withClient(client, async (client) => {
+			const result = await client.query("\
+				DELETE FROM var\
+				WHERE id=$1\
+				RETURNING id, var,nombre,abrev,type,datatype,valuetype,\"GeneralCategory\",\"VariableName\",\"SampleMedium\",def_unit_id,\"timeSupport\"",[id])
 			if(result.rows.length<=0) {
 				console.log("id not found")
 				return
 			}
 			console.log("Deleted var.id=" + result.rows[0].id)
 			return new internal["var"](result.rows[0])
-		}).catch(e=>{
-			console.error(e)
 		})
 	}
 
@@ -8338,7 +8323,7 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async getVars(filter) {
+	static async getVars(filter, client) {
 		const valid_filters = {
 			id: {type: "numeric"}, 
 			"var": {type: "string"},
@@ -8363,10 +8348,9 @@ internal.CRUD = class {
 		const stmt = "SELECT id, var,nombre,abrev,type,datatype,valuetype,\"GeneralCategory\",\"VariableName\",\"SampleMedium\",def_unit_id,\"timeSupport\"\
 		FROM var \
 		WHERE 1=1 " + filter_string + " ORDER BY id"
-		// console.debug("stmt: " + stmt)
-		return global.pool.query(stmt)
-		.then(res=>{
-			//~ console.log(res)
+
+		return withClient(client, async (client) => {
+			const res = await client.query(stmt)
 			var variables = res.rows.map(row=>{
 				const variable = new internal["var"](row) // row["var"],row.nombre,row.abrev,row.type,row.datatype,row.valuetype,row.GeneralCategory,row.VariableName,row.SampleMedium,row.def_unit_id,row.timeSupport,row.def_hora_corte)
 				variable.id = row.id
@@ -8374,34 +8358,22 @@ internal.CRUD = class {
 			})
 			return variables
 		})
-		.catch(e=>{
-			console.error(new Error(e))
-			return null
-		})
 	}
 	
 	// PROCEDIMIENTO //
 	
-	static async upsertProcedimiento(procedimiento) {
-		return new Promise((resolve, reject) => {
+	static async upsertProcedimiento(procedimiento, client) {
+		return withClient(client, async (client) => {
 			if(!procedimiento.id) {
-				resolve(procedimiento.getId(global.pool))
-			} else {
-				resolve(procedimiento)
-			}
-		})
-		.then(()=>{
-			return global.pool.query(this.upsertProcedimientoQuery(procedimiento))
-		}).then(result=>{
+				await procedimiento.getId(undefined, client)
+			} 
+			const result = await client.query(this.upsertProcedimientoQuery(procedimiento))
 			if(result.rows.length<=0) {
 				console.error("Upsert failed")
 				return
 			}
 			console.log("Upserted procedimiento.id=" + result.rows[0].id)
 			return result.rows[0]
-		}).catch(e=>{
-			console.error(e)
-			return
 		})
 	}
 	
@@ -8418,26 +8390,29 @@ internal.CRUD = class {
 		return internal.utils.pasteIntoSQLQuery(query,params)
 	}
 
-	static async upsertProcedimientos(procedimientos) {
-		return Promise.all(procedimientos.map(proc=>{
-			return this.upsertProcedimiento(proc)
-		}))
+	static async upsertProcedimientos(procedimientos, client) {
+		return withClient(client, async (client) => {
+			const upserted = []
+			for(const proc of procedimientos) {
+				const p = await this.upsertProcedimiento(proc, client)
+				upserted.push(p)
+			}
+			return upserted
+		})
 	}
 			
-	static async deleteProcedimiento(id) {
-		return global.pool.query("\
-			DELETE FROM procedimiento\
-			WHERE id=$1\
-			RETURNING *",[id]
-		).then(result=>{
+	static async deleteProcedimiento(id, client) {
+		return withClient(client, async (client) => {
+			const result = await client.query("\
+				DELETE FROM procedimiento\
+				WHERE id=$1\
+				RETURNING *",[id])
 			if(result.rows.length<=0) {
 				console.log("id not found")
 				return
 			}
 			console.log("Deleted procedimiento.id=" + result.rows[0].id)
 			return result.rows[0]
-		}).catch(e=>{
-			console.error(e)
 		})
 	}
 
@@ -8458,54 +8433,39 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async getProcedimientos(filter) {
+	static async getProcedimientos(filter, client) {
 		const valid_filters = {id: "numeric", nombre: "regex_string",abrev: "regex_string",descripcion: "regex_string"}
 		var filter_string = internal.utils.control_filter(valid_filters,filter)
 		if(!filter_string) {
 			return Promise.reject(new Error("invalid filter value"))
 		}
-		//~ console.log("filter_string:" + filter_string)
-		return global.pool.query("SELECT *\
-		 FROM procedimiento \
-		 WHERE 1=1 " + filter_string)
-		.then(res=>{
-			//~ console.log(res)
+		return withClient(client, async (client) => {
+			const res = await client.query("SELECT *\
+			FROM procedimiento \
+			 WHERE 1=1 " + filter_string)
 			var procedimientos = res.rows.map(row=>{
 				const procedimiento = new internal.procedimiento(row.nombre,row.abrev,row.descripcion)
 				procedimiento.id = row.id
 				return procedimiento
-				console.log(procedimiento.toString())
 			})
 			return procedimientos
-		})
-		.catch(e=>{
-			console.error(e)
-			return null
 		})
 	}
 	
 	// UNIDADES //
 	
-	static async upsertUnidades(unidades) {
-		return new Promise((resolve,reject)=>{
+	static async upsertUnidades(unidades, client) {
+		return withClient(client, async (client) => {
 			if(!unidades.id) {
-				resolve(unidades.getId(global.pool))
-			} else {
-				resolve(unidades)
-			}
-		})
-		.then(()=>{
-			return global.pool.query(this.upsertUnidadesQuery(unidades))
-		}).then(result=>{
+				await unidades.getId(undefined, client)
+			} 
+			const result = await client.query(this.upsertUnidadesQuery(unidades))
 			if(result.rows.length<=0) {
 				console.error("Upsert failed")
 				return
 			}
 			console.log("Upserted unidades.id=" + result.rows[0].id)
 			return result.rows[0]
-		}).catch(e=>{
-			console.error(e)
-			return
 		})
 	}
 
@@ -8523,31 +8483,31 @@ internal.CRUD = class {
 		return internal.utils.pasteIntoSQLQuery(query,params)
 	}
 
-	static async upsertUnidadeses(unidadeses) {
-		const upserted = []
-		for(const unit of unidadeses) {
-			const result = await this.upsertUnidades(unit)
-			if(result) {
-				upserted.push(result)
+	static async upsertUnidadeses(unidadeses, client) {
+		return withClient(client, async (client) => {
+			const upserted = []
+			for(const unit of unidadeses) {
+				const result = await this.upsertUnidades(unit, client)
+				if(result) {
+					upserted.push(result)
+				}
 			}
-		}
-		return upserted
+			return upserted
+		})
 	}
 			
-	static async deleteUnidades(id) {
-		return global.pool.query("\
-			DELETE FROM unidades\
-			WHERE id=$1\
-			RETURNING *",[id]
-		).then(result=>{
+	static async deleteUnidades(id, client) {
+		return withClient(client, async (client) => {
+			const result = await client.query("\
+				DELETE FROM unidades\
+				WHERE id=$1\
+				RETURNING *",[id])
 			if(result.rows.length<=0) {
 				console.log("id not found")
 				return
 			}
 			console.log("Deleted unidades.id=" + result.rows[0].id)
 			return result.rows[0]
-		}).catch(e=>{
-			console.error(e)
 		})
 	}
 
@@ -8567,7 +8527,7 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async getUnidades(filter) {
+	static async getUnidades(filter, client) {
 		const valid_filters = {
 			id: {
 				type: "numeric"
@@ -8589,23 +8549,16 @@ internal.CRUD = class {
 		if(!filter_string) {
 			return Promise.reject(new Error("invalid filter value"))
 		}
-		console.log("filter_string:" + filter_string)
-		return global.pool.query("SELECT *\
-		 FROM unidades \
-		 WHERE 1=1 " + filter_string + " ORDER BY id")
-		.then(res=>{
-			//~ console.log(res)
+		return withClient(client, async (client) => {
+			const res = await client.query("SELECT *\
+			FROM unidades \
+			WHERE 1=1 " + filter_string + " ORDER BY id")
 			var unidades = res.rows.map(row=>{
 				const unidad = new internal.unidades(row.nombre,row.abrev,row.UnitsID,row.UnitsType)
 				unidad.id = row.id
 				return unidad
-				console.log(unidad.toString())
 			})
 			return unidades
-		})
-		.catch(e=>{
-			console.error(e)
-			return null
 		})
 	}
 	
@@ -8670,18 +8623,20 @@ internal.CRUD = class {
 		})
 	}
 			
-	static async deleteFuente(id) {
-		const result = await global.pool.query("\
-			DELETE FROM fuentes\
-			WHERE id=$1\
-			RETURNING id, nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, st_astext(def_extent) as def_extent, date_column, def_pixeltype, abstract, source, public",[id]
-		)
-		if(result.rows.length<=0) {
-			console.warn("id not found")
-			return
-		}
-		console.debug("Deleted fuentes.id=" + result.rows[0].id)
-		return new internal.fuente(result.rows[0])
+	static async deleteFuente(id, client) {
+		return withClient(client, async (client) => {
+			const result = await client.query("\
+				DELETE FROM fuentes\
+				WHERE id=$1\
+				RETURNING id, nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, st_astext(def_extent) as def_extent, date_column, def_pixeltype, abstract, source, public",[id]
+			)
+			if(result.rows.length<=0) {
+				console.warn("id not found")
+				return
+			}
+			console.debug("Deleted fuentes.id=" + result.rows[0].id)
+			return new internal.fuente(result.rows[0])
+		})
 	}
 
 	static async getFuente(id,isPublic, client) {
@@ -8710,7 +8665,7 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async getFuentes(filter) {
+	static async getFuentes(filter, client) {
 		if(filter && filter.geom) {
 			filter.def_extent = filter.geom
 		}
@@ -8719,7 +8674,6 @@ internal.CRUD = class {
 		if(!filter_string) {
 			return Promise.reject(new Error("invalid filter value"))
 		}
-		console.log("filter_string:" + filter_string)
 		var query = "SELECT id, nombre, data_table, data_column, tipo, def_proc_id, def_dt, hora_corte, def_unit_id, def_var_id, fd_column, mad_table, scale_factor, data_offset, def_pixel_height, def_pixel_width, def_srid, st_asgeojson(def_extent)::json def_extent, date_column, def_pixeltype, abstract, source, public\
 		FROM fuentes \
 		WHERE 1=1 " + filter_string + " ORDER BY id"
@@ -8728,20 +8682,14 @@ internal.CRUD = class {
 			FROM fuentes, pg_catalog.pg_tables\
 			WHERE fuentes.data_table=pg_catalog.pg_tables.tablename " + filter_string + " ORDER BY id"
 		}
-		return global.pool.query(query)
-		.then(res=>{
-			//~ console.log(res)
+		return withClient(client, async (client) => {
+			const res = await client.query(query)
 			var fuentes = res.rows.map(row=>{
 				const fuente = new internal.fuente(row) //(row.id, row.nombre, row.data_table, row.data_column, row.tipo, row.def_proc_id, row.def_dt, row.hora_corte, row.def_unit_id, row.def_var_id, row.fd_column, row.mad_table, row.scale_factor, row.data_offset, row.def_pixel_height, row.def_pixel_width, row.def_srid, row.def_extent, row.date_column, row.def_pixeltype, row.abstract, row.source)
 				fuente.id = row.id
 				return fuente
-				console.log(fuente.toString())
 			})
 			return fuentes
-		})
-		.catch(e=>{
-			console.error(e)
-			return null
 		})
 	}
 	
@@ -8949,14 +8897,14 @@ internal.CRUD = class {
 					if(!serie.procedimiento.id) {
 						throw(new Error("procedimiento.id missing"))
 					}
-					serie_props["procedimiento"] = await internal.procedimiento.read({id:serie.procedimiento.id})
+					serie_props["procedimiento"] = await internal.procedimiento.read({id:serie.procedimiento.id}, undefined, client)
 					if(!serie_props["procedimiento"]) {
 						throw(new Error("procedimiento " + serie.procedimiento.id + " not found"))
 					}
 					if(!serie.unidades.id) {
 						throw(new Error("unidades.id missing"))
 					}
-					serie_props["unidades"] = await internal.unidades.read({id:serie.unidades.id})
+					serie_props["unidades"] = await internal.unidades.read({id:serie.unidades.id}, undefined, client)
 					if(!serie_props["unidades"]) {
 						throw(new Error("unidades " + serie.unidades.id + " not found"))
 					}
@@ -9174,85 +9122,22 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async deleteSeries(filter) {
+	static async deleteSeries(filter, client) {
 		var series_table = (filter.tipo) ? (filter.tipo == "puntual") ? "series" : (filter.tipo == "areal") ? "series_areal" : (filter.tipo == "rast" || filter.tipo == "raster") ? "series_rast" : "puntual" : "puntual"
-		return this.getSeries(filter.tipo,filter)
-		.then(series=>{
+		return withClient(client, async (client) => {
+			const series = await this.getSeries(filter.tipo,filter, undefined, client)
 			if(series.length == 0) {
 				return []
 			}
 			var ids = series.map(s=>s.id)
-			return global.pool.query("\
+			const result = await client.query("\
 				DELETE FROM " + series_table + "\
 				WHERE id IN (" + ids.join(",") + ")\
 				RETURNING *")
-			.then(result=>{
-				return result.rows
-			})
+			return result.rows
 		})
 	}
-	
-	static async deleteSeries_Old(filter) {   // ELIMINAR
-		var valid_filters
-		if(filter.tipo.toLowerCase() == "areal") {
-			valid_filters = {id:"integer",area_id:"integer",var_id:"integer",proc_id:"integer",unit_id:"integer",fuentes_id:"integer"}
-			var filter_string = internal.utils.control_filter(valid_filters, filter, "series_areal")
-			return global.pool.query("\
-				DELETE FROM series_areal\
-				WHERE series_areal.id=coalesce($1,series_areal.id)\
-					  " + filter_string + "\
-				RETURNING *",[filter.id]
-			).then(result=>{
-				if(result.rows.length<=0) {
-					console.log("series not found")
-					return []
-				}
-				console.log("Deleted " + result.rows.length + " series_areal")
-				return result.rows
-			}).catch(e=>{
-				console.error(e)
-			})
-		} else if(filter.tipo.toLowerCase()=="raster"){
-			valid_filters = {id:"integer",escena_id:"integer",var_id:"integer",proc_id:"integer",unit_id:"integer",fuentes_id:"integer"}
-			var filter_string = internal.utils.control_filter(valid_filters, filter, "series_raster")
-			return global.pool.query("\
-				DELETE FROM series_raster\
-				WHERE series_raster.id=coalesce($1,series_raster.id)\
-				" + filter_string + "\
-				RETURNING *",[filter.id]
-			).then(result=>{
-				if(result.rows.length<=0) {
-					console.log("series not found")
-					return []
-				}
-				console.log("Deleted " + result.rows.length + " series_raster")
-				return result.rows
-			}).catch(e=>{
-				console.error(e)
-			})
-		} else {  // puntual
-			valid_filters = {var_id:"integer",proc_id:"integer",unit_id:"integer",estacion_id:"integer",tabla:"string",id_externo:"string", id: "integer"}
-			var filter_string = internal.utils.control_filter(valid_filters, filter)
-			return global.pool.query("\
-				DELETE FROM series\
-				USING estaciones\
-				WHERE series.estacion_id=estaciones.unid\
-				AND series.id=coalesce($1,series.id)\
-				" + filter_string + "\
-				RETURNING *",[filter.id]
-			).then(result=>{
-				if(result.rows.length<=0) {
-					console.log("series not found")
-					return []
-				}
-				console.log("Deleted " + result.rows.length + " series")
-				return result.rows
-			}).catch(e=>{
-				console.error(e)
-			})
-		}
-	}
-	
+		
 	static async getSerie(tipo,id,timestart,timeend,options={},isPublic,timeupdate,client) {
 		return withClient(client, async(client) => {
 			if(tipo == "areal") {
@@ -9379,7 +9264,7 @@ internal.CRUD = class {
 				delete row.timestart
 				delete row.timeend
 				delete row.count
-				var s = [await this.getEstacion(row.estacion_id, client), await this.getVar(row.var_id, client), await this.getProcedimiento(row.proc_id, client), await this.getUnidad(row.unit_id, client)]
+				var s = [await this.getEstacion(row.estacion_id, undefined, undefined, client), await this.getVar(row.var_id, client), await this.getProcedimiento(row.proc_id, client), await this.getUnidad(row.unit_id, client)]
 				var serie = new internal.serie({estacion:s[0],"var":s[1],procedimiento:s[2],unidades:s[3], tipo:"puntual"})  // estacion,variable,procedimiento,unidades,tipo,fuente
 				serie.id=row.id
 				serie.date_range = row.date_range
@@ -9515,14 +9400,16 @@ internal.CRUD = class {
 
 	static async getSeriesJson(filter={},options={},client) {
 		var series
-		if(!filter.tipo || filter.tipo == "puntual") {
-			series = await this.getSeriesPuntualesJson(filter,options,client)
-		} else if (filter.tipo == "areal") {
-			series = await this.getSeriesArealesJson(filter,options,client)
-		} else if (filter.tipo == "raster" || filter.tipo == "rast") {
-			series = await this.getSeriesRasterJson(filter,options,client)
-		}
-		return series
+		return withClient(client, async (client) => {
+			if(!filter.tipo || filter.tipo == "puntual") {
+				series = await this.getSeriesPuntualesJson(filter,options,client)
+			} else if (filter.tipo == "areal") {
+				series = await this.getSeriesArealesJson(filter,options,client)
+			} else if (filter.tipo == "raster" || filter.tipo == "rast") {
+				series = await this.getSeriesRasterJson(filter,options,client)
+			}
+			return series
+		})
 	}
 
 	static async getSeriesPuntualesJson(filter={},options={},client) {
@@ -9588,39 +9475,37 @@ internal.CRUD = class {
 					type: "numeric_min"
 				}
 			},filter,"series_json")
-		console.log(filter_string)
-		if(client) {
+
+		return withClient(client, async (client) => {
 			var result = await client.query("SELECT serie FROM series_json WHERE 1=1 " + filter_string)			
-		} else {
-			var result = await global.pool.query("SELECT serie FROM series_json WHERE 1=1 " + filter_string)
-		}
-		result = result.rows.map(r=>r.serie)
-		if(options.no_metadata) {
-			result = result.map(s=>{
-				return {
-					tipo: "puntual",
-					id: s.id,
-					estacion_id: s.estacion.id,
-					estacion_nombre: s.estacion.nombre,
-					proc_id: s.procedimiento.id,
-					proc_nombre: s.procedimiento.nombre,
-					var_id: s.var.id,
-					var_nombre: s.var.nombre,
-					unit_id: s.unidades.id,
-					unit_nombre: s.unidades.nombre,
-					id_externo: s.estacion.id_externo,
-					tabla: s.estacion.tabla,
-					geom: s.estacion.geom,
-					red_nombre: s.estacion.red_nombre,
-					public: s.estacion.public,
-					timestart: s.date_range.timestart,
-					timeend: s.date_range.timeend,
-					count: s.date_range.count
-				}
-			})
-			return result
-		}
-		return result.map(s=>new internal.serie(s))		
+			result = result.rows.map(r=>r.serie)
+			if(options.no_metadata) {
+				result = result.map(s=>{
+					return {
+						tipo: "puntual",
+						id: s.id,
+						estacion_id: s.estacion.id,
+						estacion_nombre: s.estacion.nombre,
+						proc_id: s.procedimiento.id,
+						proc_nombre: s.procedimiento.nombre,
+						var_id: s.var.id,
+						var_nombre: s.var.nombre,
+						unit_id: s.unidades.id,
+						unit_nombre: s.unidades.nombre,
+						id_externo: s.estacion.id_externo,
+						tabla: s.estacion.tabla,
+						geom: s.estacion.geom,
+						red_nombre: s.estacion.red_nombre,
+						public: s.estacion.public,
+						timestart: s.date_range.timestart,
+						timeend: s.date_range.timeend,
+						count: s.date_range.count
+					}
+				})
+				return result
+			}
+			return result.map(s=>new internal.serie(s))		
+		})
 	}
 
 	static async getSeriesArealesJson(filter={},options={},client) {
@@ -9701,29 +9586,6 @@ internal.CRUD = class {
 				case_insensitive: true
 			}
 		}
-		// if(filter.geom) {
-		// 	const areas_filter = {
-		// 		id: filter.area_id ?? filter.estacion_id,
-		// 		geom: filter.geom
-		// 	}
-		// 	const matching_areas = await internal.area.read(areas_filter,{no_geom:true})
-		// 	if(!matching_areas.length) {
-		// 		// geom matches no areas, dont query series
-		// 		console.log("No areas matched the specified geometry")
-		// 		return []
-		// 	}
-		// 	const matching_areas_id = matching_areas.map(a=>a.id)
-		// 	if (filter.estacion_id) {
-		// 		if(Array.isArray(filter.estacion_id)) {
-		// 			filter.estacion_id.push(...matching_areas_id)
-		// 		} else {
-		// 			filter.estacion_id = [filter.estacion_id, ...matching_areas_id]
-		// 		}
-		// 	} else {
-		// 		filter.estacion_id = matching_areas_id
-		// 	}
-		// }
-		// console.log(JSON.stringify(filter))
 		if(options.no_geom || !options.include_geom) {
 			const json_filter_string = internal.utils.control_filter_json(valid_json_filters,filter,"series_areal_json_no_geom")
 			const row_filter_string = internal.utils.control_filter2(valid_row_filters,filter,"series_areal_json_no_geom")
@@ -9741,36 +9603,35 @@ internal.CRUD = class {
 			var stmt = "SELECT serie FROM series_areal_json WHERE 1=1 " + json_filter_string + " " + row_filter_string
 			// console.log(stmt)
 		}
-		if(client) {
+		
+		return withClient(client, async (client) => {
 			var result = await client.query(stmt)
-		} else {
-			var result = await global.pool.query(stmt)
-		}
-		result = result.rows.map(r=>r.serie)
-		if(options.no_metadata) {
-			result = result.map(s=>{
-				return {
-					tipo: "areal",
-					id: s.id,
-					area_id: s.estacion.id,
-					area_nombre: s.estacion.nombre,
-					proc_id: s.procedimiento.id,
-					proc_nombre: s.procedimiento.nombre,
-					var_id: s.var.id,
-					var_nombre: s.var.nombre,
-					unit_id: s.unidades.id,
-					unit_nombre: s.unidades.nombre,
-					fuentes_id: s.fuente.id,
-					fuentes_nombre: s.fuente.nombre,
-					tabla: s.estacion.exutorio.tabla,
-					timestart: s.date_range.timestart,
-					timeend: s.date_range.timeend,
-					count: s.date_range.count
-				}
-			})
-			return result
-		}
-		return result.map(s=>new internal.serie(s))
+			result = result.rows.map(r=>r.serie)
+			if(options.no_metadata) {
+				result = result.map(s=>{
+					return {
+						tipo: "areal",
+						id: s.id,
+						area_id: s.estacion.id,
+						area_nombre: s.estacion.nombre,
+						proc_id: s.procedimiento.id,
+						proc_nombre: s.procedimiento.nombre,
+						var_id: s.var.id,
+						var_nombre: s.var.nombre,
+						unit_id: s.unidades.id,
+						unit_nombre: s.unidades.nombre,
+						fuentes_id: s.fuente.id,
+						fuentes_nombre: s.fuente.nombre,
+						tabla: s.estacion.exutorio.tabla,
+						timestart: s.date_range.timestart,
+						timeend: s.date_range.timeend,
+						count: s.date_range.count
+					}
+				})
+				return result
+			}
+			return result.map(s=>new internal.serie(s))
+		})
 	}
 
 	static async getSeriesRasterJson(filter={},options={},client) {
@@ -9824,38 +9685,35 @@ internal.CRUD = class {
 			}
 		}
 		const filter_string = internal.utils.control_filter_json(valid_filters,filter,"series_rast_json")
-		console.log(filter_string)
-		if(client) {
-			var result = await client.query("SELECT serie FROM series_rast_json WHERE 1=1 " + filter_string)
 
-		} else {
-			var result = await global.pool.query("SELECT serie FROM series_rast_json WHERE 1=1 " + filter_string)
-		}
-		result = result.rows.map(r=>r.serie)
-		if(options.no_metadata) {
-			result = result.map(s=>{
-				return {
-					tipo: "raster",
-					id: s.id,
-					nombre: s.nombre,
-					escena_id: s.estacion.id,
-					escena_nombre: s.estacion.nombre,
-					proc_id: s.procedimiento.id,
-					proc_nombre: s.procedimiento.nombre,
-					var_id: s.var.id,
-					var_nombre: s.var.nombre,
-					unit_id: s.unidades.id,
-					unit_nombre: s.unidades.nombre,
-					fuentes_id: s.fuente.id,
-					fuentes_nombre: s.fuente.nombre,
-					timestart: s.date_range.timestart,
-					timeend: s.date_range.timeend,
-					count: s.date_range.count
-				}
-			})
-			return result
-		}
-		return result.map(s=>new internal.serie(s))
+		return withClient(client, async (client) => {
+			var result = await client.query("SELECT serie FROM series_rast_json WHERE 1=1 " + filter_string)
+			result = result.rows.map(r=>r.serie)
+			if(options.no_metadata) {
+				result = result.map(s=>{
+					return {
+						tipo: "raster",
+						id: s.id,
+						nombre: s.nombre,
+						escena_id: s.estacion.id,
+						escena_nombre: s.estacion.nombre,
+						proc_id: s.procedimiento.id,
+						proc_nombre: s.procedimiento.nombre,
+						var_id: s.var.id,
+						var_nombre: s.var.nombre,
+						unit_id: s.unidades.id,
+						unit_nombre: s.unidades.nombre,
+						fuentes_id: s.fuente.id,
+						fuentes_nombre: s.fuente.nombre,
+						timestart: s.date_range.timestart,
+						timeend: s.date_range.timeend,
+						count: s.date_range.count
+					}
+				})
+				return result
+			}
+			return result.map(s=>new internal.serie(s))
+		})
 	}
 	
 	/**
@@ -10174,7 +10032,7 @@ internal.CRUD = class {
 					//~ args[3] = '\\x' + args[3]
 				//~ }
 				// console.log(pasteIntoSQLQuery(stmt,args))
-				const upserted = await global.pool.query(stmt,args)
+				const upserted = await client.query(stmt,args)
 				if(upserted.rows.length == 0) {
 					console.log("nothing upserted")
 					throw("nothing upserted")
@@ -10507,72 +10365,8 @@ internal.CRUD = class {
 				RETURNING *;\
 				INSERT INTO valores_num (obs_id,valor) select observaciones.id,obs_temp.valor from observaciones,obs_temp where observaciones.series_id=obs_temp.series_id and observaciones.timestart=obs_temp.timestart::timestamp and observaciones.timeend=obs_temp.timeend::timestamp ON CONFLICT(obs_id) DO UPDATE SET valor=excluded.valor;\
 			COMMIT;",csvFile)
-		//~ return new Promise( (resolve, reject) => {
-			//~ (async () => {
-				//~ const client = await global.pool.connect()
-				//~ var results
-				//~ try {
-					//~ await client.query('BEGIN;')
-					//~ await client.query("CREATE TEMPORARY TABLE obs_temp (series_id int,timestart timestamp,timeend timestamp,valor real) ON COMMIT DROP;")
-					//~ await client.query('\copy obs_temp (series_id,timestart,timeend,valor) FROM \''+csvFile+"' WITH DELIMITER ','")
-					//~ if(tipo.toLowerCase() == "puntual") {
-						//~ results = await client.query("INSERT INTO observaciones (series_id,timestart,timeend,valor)\
-							//~ SELECT series_id,timestart,timeend,valor FROM obs_temp \
-							//~ ON CONFLICT(series_id,timestart,timeend) \
-							//~ DO UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate\
-							//~ RETURNING *")
-					//~ } else if (tipo.toLowerCase() == "areal") {
-						//~ results = await client.query("INSERT INTO observaciones_areal (series_id,timestart,timeend,valor)\
-							//~ SELECT series_id,timestart,timeend,valor FROM obs_temp \
-							//~ ON CONFLICT(series_id,timestart,timeend) \
-							//~ DO UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate\
-							//~ RETURNING *")
-					//~ } else if (tipo.toLowerCase() == "rast" || tipo.toLowerCase() == "raster") {
-						//~ results = await client.query("INSERT INTO observaciones_rast (series_id,timestart,timeend,valor)\
-							//~ SELECT series_id,timestart,timeend,valor FROM obs_temp \
-							//~ ON CONFLICT(series_id,timestart,timeend) \
-							//~ DO UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate\
-							//~ RETURNING *")
-					//~ } else {
-						//~ throw("bad 'tipo'")
-					//~ }
-					//~ client.query("COMMIT")
-				//~ } catch (e) {
-					//~ console.error({message:"query error",error:e})
-					//~ client.query("ROLLBACK")
-					//~ client.end()
-					//~ reject(e)
-					//~ return
-				//~ }
-				//~ client.end()
-				//~ if(!results) {
-					//~ reject("query error")
-					//~ return
-				//~ }
-				//~ if(results.rows.length==0) {
-					//~ console.log("0 registros insertados")
-					//~ resolve([])
-				//~ }
-				//~ console.log(results.rows.length + " registros insertados")
-				//~ resolve(results.rows.map(r=>{
-					//~ return internal.observacion(r)
-				//~ }))
-			//~ })()
-		//~ })	
 	}
-	
-	// removeDuplicates(observaciones) {
-	// 	var unique_date_series = []
-	// 	return observaciones.filter(o=> {
-	// 		if(unique_date_series.indexOf(o.series_id + "_" + o.timestart.toString()) >= 0) {
-	// 			return false
-	// 		} else {
-	// 			unique_date_series.push(o.series_id + "_" + o.timestart.toString())
-	// 			return true
-	// 		}
-	// 	})
-	// }
-	
+		
 	static async runSqlCommand(dbconfig,sql,input_file) {
 		return new Promise( (resolve,reject) =>{
 			var sys_call = "PGPASSWORD=" + dbconfig.password + " psql " + dbconfig.database + " " + dbconfig.user + " -h " + dbconfig.host + " -p " + dbconfig.port + " -c \"" + sql + "\" -w" 
@@ -10722,12 +10516,12 @@ internal.CRUD = class {
 		}
 	}
 	
-	static async deleteObservaciones2(tipo,filter,options) {
+	static async deleteObservaciones2(tipo,filter,options,client) {
 		var stmt = this.build_delete_observaciones_query(tipo,filter,options)
-		return global.pool.query(stmt)
-		.then(result=>{
+		return withClient(client, async (client) => {
+			const result = await client.query(stmt)
 			return (options && options.no_send_data) ? result.rows.length : new internal.observaciones(result.rows)
-		})	
+		})
 	}
 
 	/**
@@ -11262,46 +11056,39 @@ internal.CRUD = class {
 	}
 
 	static async backupObservaciones(tipo,filter,options) {
-		try {
-			var series = await this.getSeries(tipo,filter)
-		} catch (e) {
-			throw(e)
-		}
-		if(!series.length) {
-			throw("No series found")
-		}
-		var results = []
-		for(var i in series) {
-			var series_id = series[i].id
-			var tipo = series[i].tipo
-			var output = (options.output) ? path.resolve(options.output) : path.resolve(this.config.crud.backup_base_dir,'obs',tipo,series_id,'observaciones_' + new Date().toISOString() + ".json")
-			try {
-				var result = await this.streamObservaciones(tipo,{series_id:series_id,timestart:filter.timestart,timeend:filter.timeend},options,output)
-			} catch(e) {
-				console.error(e)
+		return withClient(client, async (client) => {
+			var series = await this.getSeries(tipo,filter, undefined, client)
+			if(!series.length) {
+				throw new Error("No series found")
 			}
-			results.push(result)
-		}
-		return results
-	}
-
-	static async streamObservaciones(tipo,filter,options,output) {
-		try {
-			var stmt = this.build_observaciones_query(tipo,filter,options)
-			await this.streamQuery(stmt,options,output)
-		} catch(e) {
-			throw(e)
-		}
-		return
-	}
-
-	static async streamQuery(stmt,options,output) {
-		return new Promise((resolve,reject)=>{
-			var file = fs.createWriteStream(output)
-			global.pool.connect((err,client,done)=>{
-				if (err) {
-					reject(err)
+			var results = []
+			for(var i in series) {
+				var series_id = series[i].id
+				var tipo = series[i].tipo
+				var output = (options.output) ? path.resolve(options.output) : path.resolve(this.config.crud.backup_base_dir,'obs',tipo,series_id,'observaciones_' + new Date().toISOString() + ".json")
+				try {
+					var result = await this.streamObservaciones(tipo,{series_id:series_id,timestart:filter.timestart,timeend:filter.timeend},options,output, client)
+				} catch(e) {
+					console.error(e)
 				}
+				results.push(result)
+			}
+			return results
+		})
+	}
+
+	static async streamObservaciones(tipo,filter,options,output, client) {
+		return withClient(client, async (client) => {
+			var stmt = this.build_observaciones_query(tipo,filter,options)
+			await this.streamQuery(stmt,options,output,client)
+			return
+		})
+	}
+
+	static async streamQuery(stmt,options,output,client) {
+		return withClient(client, async (client) => {
+			return new Promise((resolve,reject)=>{
+				var file = fs.createWriteStream(output)
 				var query = new QueryStream(stmt)
 				var stream = client.query(query)
 				stream.on('end',()=>{
@@ -11595,10 +11382,10 @@ internal.CRUD = class {
 		return stmt
 	}
 
-	static async restoreObservaciones(tipo,filter,options={}) {
+	static async restoreObservaciones(tipo,filter,options={},client) {
 		var stmt = this.buildRestoreObservacionesQuery(tipo,filter,options)
-		return global.pool.query(stmt)
-		.then(result=>{
+		return withClient(client, async (client) => {
+			const result = await client.query(stmt)
 			return (options.no_send_data) ? result.rows.length : new internal.observaciones(result.rows)
 		})
 	}
@@ -11682,14 +11469,14 @@ internal.CRUD = class {
 		return stmt
 	}
 
-	static async guardarObservaciones(tipo,filter,options={}) {
-		if(!filter || !filter.series_id) {
-			console.log("no series_id")
-			return this.guardarObservacionesPartedBySerie(tipo,filter,options)
-		}
-		tipo = this.getTipo(tipo)
-		console.log("guardar observaciones series_id:" + filter.series_id)
-		try {
+	static async guardarObservaciones(tipo,filter,options={},client) {
+		return withClient(client, async (client) => {
+			if(!filter || !filter.series_id) {
+				console.log("no series_id")
+				return this.guardarObservacionesPartedBySerie(tipo,filter,options,client)
+			}
+			tipo = this.getTipo(tipo)
+			console.log("guardar observaciones series_id:" + filter.series_id)
 			var select_stmt = this.build_observaciones_query(tipo,filter,options)
 			var insert_stmt
 			var returning_clause = (options.no_send_data) ? " RETURNING 1 AS d" : " RETURNING *"
@@ -11705,27 +11492,24 @@ internal.CRUD = class {
 					options.format = "postgres"
 					insert_stmt = "INSERT INTO observaciones_rast_guardadas (id,series_id,timestart,timeend,valor,timeupdate) " + select_stmt + on_conflict_clause  + returning_clause
 			}
-			//~ console.log({stmt:stmt})
-			var res = await global.pool.query(insert_stmt)
+			var res = await client.query(insert_stmt)
 			console.log("Saved " + res.rows.length + " observaciones")
 			return (options.no_send_data) ? res.rows.length : new internal.observaciones(res.rows)
-		} catch(e) {
-			throw(e)
-		}
+		})
 	}
 
-	static async guardarObservacionesPartedBySerie(tipo="puntual",filter={},options) {
+	static async guardarObservacionesPartedBySerie(tipo="puntual",filter={},options, client) {
 		var series_filter = {...filter}
 		delete series_filter.timestart
 		delete series_filter.timeend
-		return this.getSeries(tipo,series_filter)
-		.then(async series=>{
+		return withClient(client, async (client) => {
+			const series = await this.getSeries(tipo,series_filter,undefined, client)
 			console.log("Found " + series.length + " series to Save")
 			var guardadas = []
 			for (var serie of series) {
 				var this_serie_filter = {...filter}
 				this_serie_filter.series_id = serie.id
-				var result = await this.guardarObservaciones(tipo,this_serie_filter,options)
+				var result = await this.guardarObservaciones(tipo,this_serie_filter,options, client)
 				guardadas.push(...result)
 			}
 			return guardadas
@@ -11735,12 +11519,6 @@ internal.CRUD = class {
 	static async getObservaciones(tipo="puntual",filter,options,client) {
 		return withClient(client, async (client) => {
 			var stmt = this.build_observaciones_query(tipo,filter,options)
-			// console.debug(stmt)
-			// if(!client) {
-			// 	var res = await global.pool.query(stmt)
-			// } else {
-			// 	var res = await client.query(stmt)
-			// }
 			var res = await client.query(stmt)
 			var observaciones = [] // new internal.observaciones
 			for(var i = 0; i < res.rows.length; i++) {
@@ -11954,7 +11732,7 @@ internal.CRUD = class {
 	}
 
 	
-	static async getObservacionesTimestart(tipo, filter, options) {		// DEVUELVE ARRAY DE OBSERVACIONES CON EL TIMESTART EXACTO INDICADO Y OTROS FILTROS 
+	static async getObservacionesTimestart(tipo, filter, options, client) {		// DEVUELVE ARRAY DE OBSERVACIONES CON EL TIMESTART EXACTO INDICADO Y OTROS FILTROS 
 		if(!filter) {
 			return Promise.reject("filter missing")
 		}
@@ -11988,18 +11766,81 @@ internal.CRUD = class {
 		if(filter.public) {
 			public_filter = " AND " + public_table + ".public=true "
 		}
-		var query
-		if(series_id) {   																			// CON SERIES_ID
-			if(Array.isArray(series_id)) {
-				series_id= series_id.join(",")
-			} 
-			if(!/^\d+(,\d+)*$/.test(series_id)) {
-				console.error("bad series_id")
-				return Promise.reject("bad series_id")
-			}
-			var stmt
-			if(tipo.toLowerCase()=='areal') {
-				stmt = "SELECT observaciones_areal.timestart,\
+		return withClient(client, async (client) => {
+			var query
+			if(series_id) {   																			// CON SERIES_ID
+				if(Array.isArray(series_id)) {
+					series_id= series_id.join(",")
+				} 
+				if(!/^\d+(,\d+)*$/.test(series_id)) {
+					console.error("bad series_id")
+					return Promise.reject("bad series_id")
+				}
+				var stmt
+				if(tipo.toLowerCase()=='areal') {
+					stmt = "SELECT observaciones_areal.timestart,\
+									observaciones.timeend,\
+									observaciones_areal.series_id,\
+									series_areal.var_id,\
+									series_areal.proc_id,\
+									series_areal.unit_id,\
+									series_areal.fuentes_id,\
+									series_areal.area_id,\
+								round(valores_num_areal.valor::numeric,$2::int) valor,\
+								fuentes.public\
+							FROM observaciones_areal,valores_num_areal,series_areal,fuentes\
+							WHERE observaciones_areal.id=valores_num_areal.obs_id\
+							AND series_areal.id=observaciones_areal.series_id\
+							AND observaciones_areal.series_id IN ("+series_id+")\
+							AND observaciones_areal.timestart=$1\
+							AND series_areal.fuentes_id=fuentes.id " + public_filter + "\
+							ORDER BY observaciones_areal.series_id;"
+				} else if(tipo.toLowerCase()=="puntual") {
+					stmt = "SELECT observaciones.timestart,\
+									observaciones.timeend,\
+									observaciones.series_id,\
+									series.var_id,\
+									series.proc_id,\
+									series.unit_id,\
+									series.estacion_id,\
+								round(valores_num.valor::numeric,$2::int) valor,\
+								redes.public\
+							FROM observaciones,valores_num,series,estaciones,redes\
+							WHERE observaciones.id=valores_num.obs_id\
+							AND series.id=observaciones.series_id\
+							AND observaciones.series_id IN ("+series_id+")\
+							AND observaciones.timestart=$1\
+							AND series.estacion_id=estaciones.unid\
+							AND estaciones.tabla=redes.tabla_id " + public_filter + "\
+							ORDER BY observaciones.series_id;"
+				} else {
+					return Promise.reject("Bad tipo")
+				}
+				query = client.query(stmt,[date,precision])
+			} else {													// SIN SERIES_ID
+				var stmt
+				if (tipo.toLowerCase()=='areal') {						// AREAL
+					var area_id_filter = ""
+					if(area_id) {
+						if(Array.isArray(area_id)) {
+							area_id = area_id.join(",")
+						}
+						if(!/^\d+(,\d+)*$/.test(area_id)) {
+							console.error("bad area_id")
+							return Promise.reject("bad area_id")
+						}
+						area_id_filter = " AND series_areal.area_id IN ("+area_id+")"
+					}
+					if(!fuentes_id) {
+						return Promise.reject("fuentes_id or series_id missing")
+					}
+					if(Array.isArray(fuentes_id)) {
+						fuentes_id = fuentes_id.join(",")
+					}
+					if(!/^\d+(,\d+)*$/.test(fuentes_id)) {
+						return Promise.reject("bad fuentes_id")
+					}
+					stmt = "SELECT observaciones_areal.timestart,\
 								observaciones.timeend,\
 								observaciones_areal.series_id,\
 								series_areal.var_id,\
@@ -12007,132 +11848,70 @@ internal.CRUD = class {
 								series_areal.unit_id,\
 								series_areal.fuentes_id,\
 								series_areal.area_id,\
-							   round(valores_num_areal.valor::numeric,$2::int) valor,\
-							   fuentes.public\
-						FROM observaciones_areal,valores_num_areal,series_areal,fuentes\
-						WHERE observaciones_areal.id=valores_num_areal.obs_id\
-						AND series_areal.id=observaciones_areal.series_id\
-						AND observaciones_areal.series_id IN ("+series_id+")\
-						AND observaciones_areal.timestart=$1\
-						AND series_areal.fuentes_id=fuentes.id " + public_filter + "\
-						ORDER BY observaciones_areal.series_id;"
-			} else if(tipo.toLowerCase()=="puntual") {
-				stmt = "SELECT observaciones.timestart,\
+								round(valores_num_areal.valor::numeric,$2::int) valor,\
+								fuentes.public\
+							FROM observaciones_areal,valores_num_areal,series_areal,fuentes\
+							WHERE observaciones_areal.id=valores_num_areal.obs_id\
+							AND series_areal.id=observaciones_areal.series_id\
+							AND observaciones_areal.timestart=$1\
+							"+area_id_filter+"\
+							AND series_areal.fuentes_id IN ("+fuentes_id+")\
+							AND series_areal.fuentes_id=fuentes.id " + public_filter + "\
+							ORDER BY observaciones_areal.series_id;"
+				} else {												// PUNTUAL, sin SERIES_ID
+					var estacion_id_filter = ""
+					if(estacion_id) {
+						if(Array.isArray(estacion_id)) {
+							estacion_id = estacion_id.join(",")
+							console.log("estacion_id is array")
+						}
+						if(!/^\d+(,\d+)*$/.test(estacion_id)) {
+							console.error("bad estacion_id")
+							return Promise.reject("bad estacion_id")
+						}
+					estacion_id_filter = " AND series.estacion_id IN ("+estacion_id+")"
+					}
+					if(!var_id) {
+						return Promise.reject("var_id or series_id missing")
+					}
+					if(Array.isArray(var_id)) {
+						var_id = var_id.join(",")
+					}
+					if(!/^\d+(,\d+)*$/.test(var_id)) {
+						//~ console.error("bad var_id")
+						return Promise.reject("bad var_id")
+					}
+					if(Array.isArray(proc_id)) {
+						proc_id=proc_id.join(",")
+					}
+					if(!/^\d+(,\d+)*$/.test(proc_id)) {
+						//~ console.error("bad proc_id")
+						return Promise.reject("bad proc_id")
+					}
+					stmt = "SELECT observaciones.timestart,\
 								observaciones.timeend,\
 								observaciones.series_id,\
 								series.var_id,\
 								series.proc_id,\
 								series.unit_id,\
 								series.estacion_id,\
-							   round(valores_num.valor::numeric,$2::int) valor,\
-							   redes.public\
+							round(valores_num.valor::numeric,$2::int) valor,\
+							redes.public\
 						FROM observaciones,valores_num,series,estaciones,redes\
 						WHERE observaciones.id=valores_num.obs_id\
 						AND series.id=observaciones.series_id\
-						AND observaciones.series_id IN ("+series_id+")\
+						AND series.var_id IN ("+var_id+")\
+						AND series.proc_id IN ("+proc_id+")\
 						AND observaciones.timestart=$1\
+						"+estacion_id_filter+"\
 						AND series.estacion_id=estaciones.unid\
 						AND estaciones.tabla=redes.tabla_id " + public_filter + "\
 						ORDER BY observaciones.series_id;"
-			} else {
-				return Promise.reject("Bad tipo")
+				}
+				//~ console.log(stmt)
+				query = client.query(stmt,[date,precision])
 			}
-			query = global.pool.query(stmt,[date,precision])
-		} else {													// SIN SERIES_ID
-			var stmt
-			if (tipo.toLowerCase()=='areal') {						// AREAL
-				var area_id_filter = ""
-				if(area_id) {
-					if(Array.isArray(area_id)) {
-						area_id = area_id.join(",")
-					}
-					if(!/^\d+(,\d+)*$/.test(area_id)) {
-						console.error("bad area_id")
-						return Promise.reject("bad area_id")
-					}
-					area_id_filter = " AND series_areal.area_id IN ("+area_id+")"
-				}
-				if(!fuentes_id) {
-					return Promise.reject("fuentes_id or series_id missing")
-				}
-				if(Array.isArray(fuentes_id)) {
-					fuentes_id = fuentes_id.join(",")
-				}
-				if(!/^\d+(,\d+)*$/.test(fuentes_id)) {
-					return Promise.reject("bad fuentes_id")
-				}
-				stmt = "SELECT observaciones_areal.timestart,\
-							observaciones.timeend,\
-							observaciones_areal.series_id,\
-							series_areal.var_id,\
-							series_areal.proc_id,\
-							series_areal.unit_id,\
-							series_areal.fuentes_id,\
-							series_areal.area_id,\
-							round(valores_num_areal.valor::numeric,$2::int) valor,\
-							fuentes.public\
-						FROM observaciones_areal,valores_num_areal,series_areal,fuentes\
-						WHERE observaciones_areal.id=valores_num_areal.obs_id\
-						AND series_areal.id=observaciones_areal.series_id\
-						AND observaciones_areal.timestart=$1\
-						"+area_id_filter+"\
-						AND series_areal.fuentes_id IN ("+fuentes_id+")\
-						AND series_areal.fuentes_id=fuentes.id " + public_filter + "\
-						ORDER BY observaciones_areal.series_id;"
-			} else {												// PUNTUAL, sin SERIES_ID
-				var estacion_id_filter = ""
-				if(estacion_id) {
-					if(Array.isArray(estacion_id)) {
-						estacion_id = estacion_id.join(",")
-						console.log("estacion_id is array")
-					}
-					if(!/^\d+(,\d+)*$/.test(estacion_id)) {
-						console.error("bad estacion_id")
-						return Promise.reject("bad estacion_id")
-					}
-				estacion_id_filter = " AND series.estacion_id IN ("+estacion_id+")"
-				}
-				if(!var_id) {
-					return Promise.reject("var_id or series_id missing")
-				}
-				if(Array.isArray(var_id)) {
-					var_id = var_id.join(",")
-				}
-				if(!/^\d+(,\d+)*$/.test(var_id)) {
-					//~ console.error("bad var_id")
-					return Promise.reject("bad var_id")
-				}
-				if(Array.isArray(proc_id)) {
-					proc_id=proc_id.join(",")
-				}
-				if(!/^\d+(,\d+)*$/.test(proc_id)) {
-					//~ console.error("bad proc_id")
-					return Promise.reject("bad proc_id")
-				}
-				stmt = "SELECT observaciones.timestart,\
-							observaciones.timeend,\
-							observaciones.series_id,\
-							series.var_id,\
-							series.proc_id,\
-							series.unit_id,\
-							series.estacion_id,\
-						   round(valores_num.valor::numeric,$2::int) valor,\
-						   redes.public\
-					FROM observaciones,valores_num,series,estaciones,redes\
-					WHERE observaciones.id=valores_num.obs_id\
-					AND series.id=observaciones.series_id\
-					AND series.var_id IN ("+var_id+")\
-					AND series.proc_id IN ("+proc_id+")\
-					AND observaciones.timestart=$1\
-					"+estacion_id_filter+"\
-					AND series.estacion_id=estaciones.unid\
-					AND estaciones.tabla=redes.tabla_id " + public_filter + "\
-					ORDER BY observaciones.series_id;"
-			}
-			//~ console.log(stmt)
-			query = global.pool.query(stmt,[date,precision])
-		}
-		return query.then(result=>{
+			const result = await query
 			if(!result.rows) {
 				return []
 			}
@@ -12145,41 +11924,35 @@ internal.CRUD = class {
 			if(options.format) {
 				if(options.format.toLowerCase() == "geojson") {
 					if(tipo.toLowerCase() == "areal") {
-						return this.getAreas({series_id:observaciones.map(obs=>obs.area_id)})
-						.then(areas=>{
-							//~ var features = []
-							var o = []
-							areas.forEach(area=>{
-								observaciones.forEach(obs=>{
-									if(area.id == obs.area_id) {
-										obs.geom = area.geom
-										obs.area_nombre = area.nombre
-										obs.valor = parseFloat(obs.valor)
-										o.push(obs)
-									}
-								})
+						const areas = await this.getAreas({series_id:observaciones.map(obs=>obs.area_id)},undefined, client)
+						var o = []
+						areas.forEach(area=>{
+							observaciones.forEach(obs=>{
+								if(area.id == obs.area_id) {
+									obs.geom = area.geom
+									obs.area_nombre = area.nombre
+									obs.valor = parseFloat(obs.valor)
+									o.push(obs)
+								}
 							})
-							return o
 						})
+						return o
 					} else { // puntual
-						return this.getEstaciones({series_id:observaciones.map(obs=>obs.area_id)})
-						.then(estaciones=>{
-							//~ var features = []
-							var o = []
-							estaciones.forEach(estacion=>{
-								observaciones.forEach(obs=>{
-									if(estacion.id == obs.estacion_id) {
-										obs.geom = estacion.geom
-										obs.estacion_nombre = estacion.nombre
-										obs.fuentes_id = estacion.tabla
-										obs.id_externo = estacion.id_externo
-										obs.valor = parseFloat(obs.valor)
-										o.push(obs)
-									}
-								})
+						const estaciones = await this.getEstaciones({series_id:observaciones.map(obs=>obs.area_id)}, undefined, client)
+						var o = []
+						estaciones.forEach(estacion=>{
+							observaciones.forEach(obs=>{
+								if(estacion.id == obs.estacion_id) {
+									obs.geom = estacion.geom
+									obs.estacion_nombre = estacion.nombre
+									obs.fuentes_id = estacion.tabla
+									obs.id_externo = estacion.id_externo
+									obs.valor = parseFloat(obs.valor)
+									o.push(obs)
+								}
 							})
-							return o
 						})
+						return o
 					}
 				} else {
 					return observaciones
@@ -12190,7 +11963,7 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getObservacionesDia(tipo, filter, options) {
+	static async getObservacionesDia(tipo, filter, options, client) {
 //		date=new Date(),tipo="puntual",series_id,estacion_id,var_id,proc_id=[1,2],agg_func="avg")
 		if(!filter) {
 			throw(new Error("filter missing"))
@@ -12211,82 +11984,189 @@ internal.CRUD = class {
 		if(!/^\d+$/.test(precision)) {
 			throw(new Error("Bad precision"))
 		}
-		if(tipo.substring(0,4).toLowerCase() == "rast") {
-			if(!series_id) {
-				throw new Error ("Missing series_id")
+		return withClient(client, async (client) => {
+			if(tipo.substring(0,4).toLowerCase() == "rast") {
+				if(!series_id) {
+					throw new Error ("Missing series_id")
+				}
+				const date_split= date.split("-")
+				const timestart = new Date(parseInt(date_split[0]), parseInt(date_split[1]) - 1, parseInt(date_split[2]))
+				const timeend = timeSteps.advanceTimeStep(timestart, {"days": 1})
+				const agg_func_map = {avg:"MEAN",sum:"SUM",min:"MIN",max:"MAX",count:"COUNT"}
+				if(agg_func.toLowerCase() in agg_func_map) {
+					agg_func = agg_func_map[agg_func.toLowerCase()]
+				}
+				if(agg_func.toUpperCase() == "FIRST") {
+					return internal.CRUD.getObservaciones(
+						"raster",
+						{
+							series_id: series_id,
+							timestart: timestart,
+							timeend: timeend,
+							limit: 1
+						},
+						{
+							include_partial_time_intersection: true
+						}
+					)
+				}
+				const result = await internal.CRUD.rastExtract(series_id, timestart, timeend, {funcion: agg_func},undefined,client)
+				return result.observaciones
 			}
-			const date_split= date.split("-")
-			const timestart = new Date(parseInt(date_split[0]), parseInt(date_split[1]) - 1, parseInt(date_split[2]))
-			const timeend = timeSteps.advanceTimeStep(timestart, {"days": 1})
-			const agg_func_map = {avg:"MEAN",sum:"SUM",min:"MIN",max:"MAX",count:"COUNT"}
-			if(agg_func.toLowerCase() in agg_func_map) {
-				agg_func = agg_func_map[agg_func.toLowerCase()]
+			if(! {avg:1,sum:1,min:1,max:1,count:1}[agg_func.toLowerCase()]) {
+				throw(new Error("Bad agg_func"))
 			}
-			if(agg_func.toUpperCase() == "FIRST") {
-				return internal.CRUD.getObservaciones(
-					"raster",
-					{
-						series_id: series_id,
-						timestart: timestart,
-						timeend: timeend,
-						limit: 1
-					},
-					{
-						include_partial_time_intersection: true
-					}
-				)
+			var series_table = (tipo.toLowerCase()=='areal') ? "series_areal" : "series"
+			var obs_table = (tipo.toLowerCase()=='areal') ? "observaciones_areal" : "observaciones"
+			var val_table = (tipo.toLowerCase()=='areal') ? "valores_num_areal" : "valores_num"
+			var est_column = (tipo.toLowerCase()=='areal') ? "area_id" : "estacion_id"
+			var public_table = (tipo.toLowerCase()=='areal') ? "fuentes" : "redes"
+			var public_filter = ""
+			if(filter.public) {
+				public_filter = " AND " + public_table + ".public=true "
 			}
-			const result = await internal.CRUD.rastExtract(series_id, timestart, timeend, {funcion: agg_func})
-			return result.observaciones
-		}
-		if(! {avg:1,sum:1,min:1,max:1,count:1}[agg_func.toLowerCase()]) {
-			throw(new Error("Bad agg_func"))
-		}
-		var series_table = (tipo.toLowerCase()=='areal') ? "series_areal" : "series"
-		var obs_table = (tipo.toLowerCase()=='areal') ? "observaciones_areal" : "observaciones"
-		var val_table = (tipo.toLowerCase()=='areal') ? "valores_num_areal" : "valores_num"
-		var est_column = (tipo.toLowerCase()=='areal') ? "area_id" : "estacion_id"
-		var public_table = (tipo.toLowerCase()=='areal') ? "fuentes" : "redes"
-		var public_filter = ""
-		if(filter.public) {
-			public_filter = " AND " + public_table + ".public=true "
-		}
-		if(series_id) {
-			if(Array.isArray(series_id)) {
-				series_id= series_id.join(",")
-			} 
-			if(!/^\d+(,\d+)*$/.test(series_id)) {
-				console.error("bad series_id")
-				throw(new Error("bad series_id"))
-			}
-			var stmt
-			if(tipo.toLowerCase()=='areal') {
-				stmt = "SELECT observaciones_areal.timestart::date::text date,\
-								observaciones_areal.series_id,\
-								series_areal.var_id,\
-								series_areal.proc_id,\
-								series_areal.unit_id,\
-								series_areal.fuentes_id,\
-								series_areal.area_id,\
-								round("+agg_func+"(valores_num_areal.valor)::numeric,$2::int) valor,\
-								fuentes.public\
-						FROM observaciones_areal,valores_num_areal,series_areal,fuentes\
-						WHERE observaciones_areal.id=valores_num_areal.obs_id\
-						AND series_areal.id=observaciones_areal.series_id\
-						AND observaciones_areal.series_id IN ("+series_id+")\
-						AND observaciones_areal.timestart::date=$1::date\
-						AND series_areal.fuentes_id=fuentes.id " + public_filter + "\
-						GROUP BY observaciones_areal.timestart::date::text,\
+			if(series_id) {
+				if(Array.isArray(series_id)) {
+					series_id= series_id.join(",")
+				} 
+				if(!/^\d+(,\d+)*$/.test(series_id)) {
+					console.error("bad series_id")
+					throw(new Error("bad series_id"))
+				}
+				var stmt
+				if(tipo.toLowerCase()=='areal') {
+					stmt = "SELECT observaciones_areal.timestart::date::text date,\
 									observaciones_areal.series_id,\
-								series_areal.var_id,\
-								series_areal.proc_id,\
-								series_areal.unit_id,\
-								series_areal.fuentes_id,\
-								series_areal.area_id,\
-								fuentes.public\
-						ORDER BY observaciones_areal.series_id;"
-			} else if(tipo.toLowerCase()=="puntual") {
-				stmt = "SELECT observaciones.timestart::date::text date,\
+									series_areal.var_id,\
+									series_areal.proc_id,\
+									series_areal.unit_id,\
+									series_areal.fuentes_id,\
+									series_areal.area_id,\
+									round("+agg_func+"(valores_num_areal.valor)::numeric,$2::int) valor,\
+									fuentes.public\
+							FROM observaciones_areal,valores_num_areal,series_areal,fuentes\
+							WHERE observaciones_areal.id=valores_num_areal.obs_id\
+							AND series_areal.id=observaciones_areal.series_id\
+							AND observaciones_areal.series_id IN ("+series_id+")\
+							AND observaciones_areal.timestart::date=$1::date\
+							AND series_areal.fuentes_id=fuentes.id " + public_filter + "\
+							GROUP BY observaciones_areal.timestart::date::text,\
+										observaciones_areal.series_id,\
+									series_areal.var_id,\
+									series_areal.proc_id,\
+									series_areal.unit_id,\
+									series_areal.fuentes_id,\
+									series_areal.area_id,\
+									fuentes.public\
+							ORDER BY observaciones_areal.series_id;"
+				} else if(tipo.toLowerCase()=="puntual") {
+					stmt = "SELECT observaciones.timestart::date::text date,\
+									observaciones.series_id,\
+									series.var_id,\
+									series.proc_id,\
+									series.unit_id,\
+									series.estacion_id,\
+									round("+agg_func+"(valores_num.valor)::numeric,$2::int) valor,\
+									redes.public\
+							FROM observaciones,valores_num,series,estaciones,redes\
+							WHERE observaciones.id=valores_num.obs_id\
+							AND series.id=observaciones.series_id\
+							AND observaciones.series_id IN ("+series_id+")\
+							AND observaciones.timestart::date=$1::date\
+							AND series.estacion_id=estaciones.unid\
+							AND estaciones.tabla=redes.tabla_id " + public_filter + "\
+							GROUP BY observaciones.timestart::date::text,\
+										observaciones.series_id,\
+									series.var_id,\
+									series.proc_id,\
+									series.unit_id,\
+									series.estacion_id,\
+									redes.public\
+							ORDER BY observaciones.series_id;"
+				} else {
+					throw(new Error("Bad tipo"))
+				}
+				const result = await client.query(stmt,[date,precision])
+				return result.rows
+			} else {
+				var stmt
+				if (tipo.toLowerCase()=='areal') {
+					var area_id_filter = ""
+					if(area_id) {
+						if(Array.isArray(area_id)) {
+							area_id = area_id.join(",")
+						}
+						if(!/^\d+(,\d+)*$/.test(area_id)) {
+							console.error("bad area_id")
+							throw(new Error("bad area_id"))
+						}
+						area_id_filter = " AND series_areal.area_id IN ("+area_id+")"
+					}
+					if(!fuentes_id) {
+						throw(new Error("fuentes_id or series_id missing"))
+					}
+					if(Array.isArray(fuentes_id)) {
+						fuentes_id = fuentes_id.join(",")
+					}
+					if(!/^\d+(,\d+)*$/.test(fuentes_id)) {
+						throw(new Error("bad fuentes_id"))
+					}
+					stmt = "SELECT observaciones_areal.timestart::date::text date,\
+									observaciones_areal.series_id,\
+									series_areal.var_id,\
+									series_areal.proc_id,\
+									series_areal.unit_id,\
+									series_areal.fuentes_id,\
+									series_areal.area_id,\
+									round("+agg_func+"(valores_num_areal.valor)::numeric,$2::int) valor,\
+									fuentes.public\
+							FROM observaciones_areal,valores_num_areal,series_areal,fuentes\
+							WHERE observaciones_areal.id=valores_num_areal.obs_id\
+							AND series_areal.id=observaciones_areal.series_id\
+							AND observaciones_areal.timestart::date=$1::date\
+							AND series_areal.fuentes_id=fuentes.id " + public_filter + "\
+							"+area_id_filter+"\
+							AND series_areal.fuentes_id IN ("+fuentes_id+")\
+							GROUP BY observaciones_areal.timestart::date::text,\
+										observaciones_areal.series_id,\
+									series_areal.var_id,\
+									series_areal.proc_id,\
+									series_areal.unit_id,\
+									series_areal.area_id,\
+									series_areal.fuentes_id,\
+									fuentes.public\
+							ORDER BY observaciones_areal.series_id;"
+				} else {
+					var estacion_id_filter = ""
+					if(estacion_id) {
+						if(Array.isArray(estacion_id)) {
+							estacion_id = estacion_id.join(",")
+							console.log("estacion_id is array")
+						}
+						if(!/^\d+(,\d+)*$/.test(estacion_id)) {
+							console.error("bad estacion_id")
+							throw(new Error("bad estacion_id"))
+						}
+						estacion_id_filter = " AND series.estacion_id IN ("+estacion_id+")"
+					}
+					if(!var_id) {
+							throw(new Error("var_id or series_id missing"))
+					}
+					if(Array.isArray(var_id)) {
+						var_id = var_id.join(",")
+					}
+					if(!/^\d+(,\d+)*$/.test(var_id)) {
+						//~ console.error("bad var_id")
+						throw new Error("bad var_id")
+					}
+					if(Array.isArray(proc_id)) {
+						proc_id=proc_id.join(",")
+					}
+					if(!/^\d+(,\d+)*$/.test(proc_id)) {
+						//~ console.error("bad proc_id")
+						throw new Error("bad proc_id")
+					}
+					stmt = "SELECT observaciones.timestart::date::text date,\
 								observaciones.series_id,\
 								series.var_id,\
 								series.proc_id,\
@@ -12297,10 +12177,12 @@ internal.CRUD = class {
 						FROM observaciones,valores_num,series,estaciones,redes\
 						WHERE observaciones.id=valores_num.obs_id\
 						AND series.id=observaciones.series_id\
-						AND observaciones.series_id IN ("+series_id+")\
+						AND series.var_id IN ("+var_id+")\
+						AND series.proc_id IN ("+proc_id+")\
 						AND observaciones.timestart::date=$1::date\
 						AND series.estacion_id=estaciones.unid\
 						AND estaciones.tabla=redes.tabla_id " + public_filter + "\
+						"+estacion_id_filter+"\
 						GROUP BY observaciones.timestart::date::text,\
 									observaciones.series_id,\
 								series.var_id,\
@@ -12309,119 +12191,12 @@ internal.CRUD = class {
 								series.estacion_id,\
 								redes.public\
 						ORDER BY observaciones.series_id;"
-			} else {
-				throw(new Error("Bad tipo"))
+				}
+				//~ console.log(stmt)
+				const result = await client.query(stmt,[date,precision])
+				return result.rows
 			}
-			const result = await global.pool.query(stmt,[date,precision])
-			return result.rows
-		} else {
-			var stmt
-			if (tipo.toLowerCase()=='areal') {
-				var area_id_filter = ""
-				if(area_id) {
-					if(Array.isArray(area_id)) {
-						area_id = area_id.join(",")
-					}
-					if(!/^\d+(,\d+)*$/.test(area_id)) {
-						console.error("bad area_id")
-						throw(new Error("bad area_id"))
-					}
-					area_id_filter = " AND series_areal.area_id IN ("+area_id+")"
-				}
-				if(!fuentes_id) {
-					throw(new Error("fuentes_id or series_id missing"))
-				}
-				if(Array.isArray(fuentes_id)) {
-					fuentes_id = fuentes_id.join(",")
-				}
-				if(!/^\d+(,\d+)*$/.test(fuentes_id)) {
-					throw(new Error("bad fuentes_id"))
-				}
-				stmt = "SELECT observaciones_areal.timestart::date::text date,\
-								observaciones_areal.series_id,\
-								series_areal.var_id,\
-								series_areal.proc_id,\
-								series_areal.unit_id,\
-								series_areal.fuentes_id,\
-								series_areal.area_id,\
-								round("+agg_func+"(valores_num_areal.valor)::numeric,$2::int) valor,\
-								fuentes.public\
-						FROM observaciones_areal,valores_num_areal,series_areal,fuentes\
-						WHERE observaciones_areal.id=valores_num_areal.obs_id\
-						AND series_areal.id=observaciones_areal.series_id\
-						AND observaciones_areal.timestart::date=$1::date\
-						AND series_areal.fuentes_id=fuentes.id " + public_filter + "\
-						"+area_id_filter+"\
-						AND series_areal.fuentes_id IN ("+fuentes_id+")\
-						GROUP BY observaciones_areal.timestart::date::text,\
-									observaciones_areal.series_id,\
-								series_areal.var_id,\
-								series_areal.proc_id,\
-								series_areal.unit_id,\
-								series_areal.area_id,\
-								series_areal.fuentes_id,\
-								fuentes.public\
-						ORDER BY observaciones_areal.series_id;"
-			} else {
-				var estacion_id_filter = ""
-				if(estacion_id) {
-					if(Array.isArray(estacion_id)) {
-						estacion_id = estacion_id.join(",")
-						console.log("estacion_id is array")
-					}
-					if(!/^\d+(,\d+)*$/.test(estacion_id)) {
-						console.error("bad estacion_id")
-						throw(new Error("bad estacion_id"))
-					}
-					estacion_id_filter = " AND series.estacion_id IN ("+estacion_id+")"
-				}
-				if(!var_id) {
-						throw(new Error("var_id or series_id missing"))
-				}
-				if(Array.isArray(var_id)) {
-					var_id = var_id.join(",")
-				}
-				if(!/^\d+(,\d+)*$/.test(var_id)) {
-					//~ console.error("bad var_id")
-					throw new Error("bad var_id")
-				}
-				if(Array.isArray(proc_id)) {
-					proc_id=proc_id.join(",")
-				}
-				if(!/^\d+(,\d+)*$/.test(proc_id)) {
-					//~ console.error("bad proc_id")
-					throw new Error("bad proc_id")
-				}
-				stmt = "SELECT observaciones.timestart::date::text date,\
-							observaciones.series_id,\
-							series.var_id,\
-							series.proc_id,\
-							series.unit_id,\
-							series.estacion_id,\
-							round("+agg_func+"(valores_num.valor)::numeric,$2::int) valor,\
-							redes.public\
-					FROM observaciones,valores_num,series,estaciones,redes\
-					WHERE observaciones.id=valores_num.obs_id\
-					AND series.id=observaciones.series_id\
-					AND series.var_id IN ("+var_id+")\
-					AND series.proc_id IN ("+proc_id+")\
-					AND observaciones.timestart::date=$1::date\
-					AND series.estacion_id=estaciones.unid\
-					AND estaciones.tabla=redes.tabla_id " + public_filter + "\
-					"+estacion_id_filter+"\
-					GROUP BY observaciones.timestart::date::text,\
-								observaciones.series_id,\
-							series.var_id,\
-							series.proc_id,\
-							series.unit_id,\
-							series.estacion_id,\
-							redes.public\
-					ORDER BY observaciones.series_id;"
-			}
-			//~ console.log(stmt)
-			const result = await global.pool.query(stmt,[date,precision])
-			return result.rows
-		}
+		})
 	}
 
 	static async getCubeSerie(fuentes_id,isPublic) {
@@ -12443,18 +12218,19 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getCubeSeries(fuentes_id,tipo,def_proc_id,def_unit_id,def_var_id,data_table,isPublic,isTable) {
-		return this.getFuentes({
-			id: fuentes_id,
-			tipo: tipo,
-			def_proc_id: def_proc_id,
-			def_unit_id: def_unit_id,
-			def_var_id: def_var_id,
-			data_table: data_table,
-			public: isPublic,
-			is_table: isTable  
-		})
-		.then(fuentes=>{
+	static async getCubeSeries(fuentes_id,tipo,def_proc_id,def_unit_id,def_var_id,data_table,isPublic,isTable,client) {
+		return withClient(client, async (client) => {
+	
+			var fuentes = await this.getFuentes({
+				id: fuentes_id,
+				tipo: tipo,
+				def_proc_id: def_proc_id,
+				def_unit_id: def_unit_id,
+				def_var_id: def_var_id,
+				data_table: data_table,
+				public: isPublic,
+				is_table: isTable  
+			},client)
 			fuentes = fuentes.filter(f=>f.data_table)
 			const series = fuentes.map( fuente=>{
 				return new internal.serie({
@@ -12472,13 +12248,13 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getRastFromCube(fuentes_id,timestart,timeend,forecast_date,isPublic) {
+	static async getRastFromCube(fuentes_id,timestart,timeend,forecast_date,isPublic,client) {
 		if(!fuentes_id) {
 			return Promise.reject("Missing fuentes_id")
 		}
 		var fuente
-		return this.getFuente(fuentes_id,isPublic)
-		.then(f=>{
+		return withClient(client, async (client) => {
+			const f = await this.getFuente(fuentes_id,isPublic,client)
 			if(!f) {
 				return Promise.reject("Data cube not found")
 			}
@@ -12486,6 +12262,7 @@ internal.CRUD = class {
 			var data_table = fuente.data_table
 			var data_column = (fuente.data_column) ? fuente.data_column : "rast"
 			var date_column = (fuente.date_column) ? fuente.date_column : "date"
+			var q
 			if(!fuente.fd_column) { // 	no forecast date
 				if(!timestart || !timeend) {
 					return Promise.reject("missing timestart and/or timeend")
@@ -12500,7 +12277,7 @@ internal.CRUD = class {
 				}
 				var query = "SELECT " + date_column + "::timestamp AS timestart,ST_AsGDALRaster(" + data_column + ",'GTIff') AS valor FROM " + data_table + " WHERE " + date_column + ">=$1::timestamptz::timestamp AND " + date_column + "<$2::timestamptz::timestamp ORDER BY " + date_column
 				// console.log(query)
-				return global.pool.query(query,[timestart,timeend])
+				q = client.query(query,[timestart,timeend])
 			} else {
 				// 	forecast date
 				var fd_column = fuente.fd_column
@@ -12531,10 +12308,9 @@ internal.CRUD = class {
 				}
 				var query = "SELECT " + fd_column + "::timestamp AS forecast_date," + date_column + "::timestamp AS timestart,ST_AsGDALRaster(" + data_column + ",'GTIff') AS valor FROM " + data_table + " WHERE 1=1 " + date_filter + " ORDER BY " + fd_column + "," + date_column
 				// console.log(query)
-				return global.pool.query(query)
+				q = client.query(query)
 			}
-		})
-		.then(result=>{
+			const result = await q
 			if(!result.rows) {
 				return []
 			}
@@ -12546,12 +12322,12 @@ internal.CRUD = class {
 		})
 	}
 
-	static async upsertRastFromCube(fuentes_id,timestart,timeend,forecast_date,isPublic,series_id,t_offset,hour) {
+	static async upsertRastFromCube(fuentes_id,timestart,timeend,forecast_date,isPublic,series_id,t_offset,hour,client) {
 		if(!series_id) {
 			return Promise.reject("Missing destination series_id (from series_rast)")
 		}
-		return this.getRastFromCube(fuentes_id,timestart,timeend,forecast_date,isPublic)
-		.then(results=>{
+		return withClient(client, async (client) => {
+			const results = await this.getRastFromCube(fuentes_id,timestart,timeend,forecast_date,isPublic,client)
 			if(!results.length) {
 				return Promise.reject("Nothing found")
 			}
@@ -12567,7 +12343,7 @@ internal.CRUD = class {
 				}
 				return r
 			})
-			return this.upsertObservaciones(results)
+			return this.upsertObservaciones(results,undefined, undefined, undefined, client)
 		})
 	}
 
@@ -12706,12 +12482,12 @@ internal.CRUD = class {
 
 	static async deleteObservacionesCubo(fuentes_id,filter,options,client) {
 		if(!fuentes_id) {
-			throw("Missing id")
+			throw new Error("Missing id")
 		}
-		return this.getFuente(fuentes_id,undefined,client)
-		.then(fuente=>{
+		return withClient(client, async (client) => {
+			const fuente = await this.getFuente(fuentes_id,undefined,client)
 			if(!fuente) {
-				throw("Fuente not found")
+				throw new Error("Fuente not found")
 			}
 			var stmt
 			var args = []
@@ -12756,13 +12532,7 @@ internal.CRUD = class {
 			stmt = `WITH deleted AS (DELETE FROM "${fuente.data_table}" WHERE 1=1 ` + filter_string + returning_clause + ") " + select_deleted_clause
 			// console.log(stmt)
 			// console.log(args)
-			if(client) {
-				return client.query(stmt,args)
-			} else {
-				return global.pool.query(stmt,args)
-			}
-		})
-		.then(result=>{
+			const result = await client.query(stmt,args)
 			if(options.no_send_data) {
 				return result.rows[0].count
 			} else {
@@ -13409,17 +13179,17 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async rastExtractByPoint(series_id,timestart,timeend,point,options={}) {
+	static async rastExtractByPoint(series_id,timestart,timeend,point,options={}, client) {
 		return withClient(client, async (client) => {
 			if(typeof(point) == 'object' || typeof(point) == 'string' && /\,/.test(point)) {
 				var point = new internal.estacion({nombre:"Punto arbitrario", geom: point})
 			} else {
-				var point = await this.getEstacion(parseInt(point))
+				var point = await this.getEstacion(parseInt(point), undefined, undefined, client)
 			}
 			if(!point) {
 				throw("Missing point or station not found")
 			}
-			var serie = await this.getSerie("rast",series_id)
+			var serie = await this.getSerie("rast",series_id, undefined, undefined, undefined, undefined, undefined, client)
 			if(!serie) {
 				console.error("serie no encontrada")
 				return
@@ -14210,55 +13980,50 @@ internal.CRUD = class {
 	}
 	
 	//getCampo: obtiene campo de una variable para un intervalo dado, opcionalmente filtrado por red, estacion, geometría (envolvente). Agregación temporal según parámetro agg_func (default: acum)	
-	static async getCampo(var_id,timestart,timeend,filter={},options={}) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate,min_count
-		return this.initCampo(var_id,timestart,timeend,filter,options)
-		.then(campo=>{
-			return this.getSingleCampo(campo)
+	static async getCampo(var_id,timestart,timeend,filter={},options={}, client) {  // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction,insertSeriesId,timeupdate,min_count
+		return withClient(client, async (client) => {
+			const campo = await this.initCampo(var_id,timestart,timeend,filter,options,client)
+			return this.getSingleCampo(campo, client)
 		})
 	}
 	// getCampoSerie  GENERA SERIE TEMPORAL CON INTERVALO options.dt (DEFAULT 1 days)  ITERA SOBRE GETSINGLECAMPO, DEVUELVE ARREGLO 
-	static async getCampoSerie(var_id,timestart,timeend,filter={},options={}) {
-		try { 
-		 var campo = await this.initCampo(var_id,timestart,timeend,filter,options)
-		} catch(e) {
-			return Promise.reject(e)
-		}
-		//~ console.log({campo:campo})
-		var dt = (campo.options.dt) ? campo.options.dt : (campo.variable.timeSupport) ? campo.variable.timeSupport : {days: 1} 
-		var dates = []
-		var timestart = new Date(campo.timestart)
-		var timeend = new Date(campo.timeend)
-		var campos = []
-		var dtepoch
-		try {
-			var seconds = await this.interval2epoch(dt)
-			//~ console.log({seconds:seconds})
-			dtepoch = seconds*1000
-		} catch(e) {
-			return Promise.reject({message:"Bad dt",error:e})
-		}
-		//~ console.log({dtepoch:dtepoch})
-		if(dtepoch.toString() == "NaN") {
-			return Promise.reject({message:"Bad dt"})
-		}
-		for(var i=timestart;i<timeend;i=new Date(i.getTime()+dtepoch)) {
-			//~ console.log({i:i})
-			var thiscampo = { ...campo }
-			dates.push(i)
-			thiscampo.timestart = i
-			thiscampo.timeend = new Date(i.getTime() +  dtepoch)
+	static async getCampoSerie(var_id,timestart,timeend,filter={},options={}, client) {
+		return withClient(client, async (client) => {
+			var campo = await this.initCampo(var_id,timestart,timeend,filter,options,client)
+			var dt = (campo.options.dt) ? campo.options.dt : (campo.variable.timeSupport) ? campo.variable.timeSupport : {days: 1} 
+			var dates = []
+			var timestart = new Date(campo.timestart)
+			var timeend = new Date(campo.timeend)
+			var campos = []
+			var dtepoch
 			try {
-				var result = await this.getSingleCampo(thiscampo)
-				//~ console.log({result:result})
-				campos.push(result)
+				var seconds = await this.interval2epoch(dt, client)
+				dtepoch = seconds*1000
 			} catch(e) {
-				console.error(e)
-			}	
-		}
-		return campos
+				return Promise.reject({message:"Bad dt",error:e})
+			}
+			if(dtepoch.toString() == "NaN") {
+				return Promise.reject({message:"Bad dt"})
+			}
+			for(var i=timestart;i<timeend;i=new Date(i.getTime()+dtepoch)) {
+				//~ console.log({i:i})
+				var thiscampo = { ...campo }
+				dates.push(i)
+				thiscampo.timestart = i
+				thiscampo.timeend = new Date(i.getTime() +  dtepoch)
+				try {
+					var result = await this.getSingleCampo(thiscampo, client)
+					//~ console.log({result:result})
+					campos.push(result)
+				} catch(e) {
+					console.error(e)
+				}	
+			}
+			return campos
+		})
 	}
 	
-	static async initCampo(var_id,timestart,timeend,filter={},options={}) {
+	static async initCampo(var_id,timestart,timeend,filter={},options={}, client) {		
 		var proc_id = (filter.proc_id) ? filter.proc_id : (var_id==4) ? 2 : 1
 		if(!var_id || ! proc_id || !timestart || !timeend) {
 			return Promise.reject("Missing parameters. required: var_id proc_id unit_id timestart timeend")
@@ -14269,27 +14034,26 @@ internal.CRUD = class {
 			}
 		}
 		var campo = {var_id:var_id, proc_id: proc_id, timestart: timestart, timeend: timeend, filter: {geom: filter.geom,estacion_id: filter.estacion_id, red_id: filter.red_id}, options: {aggFunction: options.agg_func,dt:options.dt,t_offset:options.t_offset,inst:options.inst,precision:options.precision,timeSupport:options.timeSupport,min_count:options.min_count}}
-		return Promise.all([this.getVar(campo.var_id),this.getProcedimiento(campo.proc_id)])
-		.then(results=>{
-			if(!results[0]) {
-				throw("var_id:"+campo.var_id+" not found")
+		return withClient(client, async (client) => {
+			const v = await this.getVar(campo.var_id, client)
+			const p = await this.getProcedimiento(campo.proc_id, client)
+			if(!v) {
+				throw new Error("var_id:"+campo.var_id+" not found")
 			}
-			if(!results[1]) {
-				throw("proc_id:"+campo.proc_id+"not found")
+			if(!p) {
+				throw new Error("proc_id:"+campo.proc_id+"not found")
 			}
-			campo.variable = results[0]
-			campo.procedimiento = results[1]
+			campo.variable = v
+			campo.procedimiento = p
 			campo.unit_id = (filter.unit_id) ? filter.unit_id : campo.variable.def_unit_id
 			if(!campo.options.timeSupport) {
 				campo.options.timeSupport = campo.variable.timeSupport
 			}
-			return this.getUnidad(campo.unit_id)
-		})
-		.then(results=>{
-			if(!results) {
-				throw("unit_id:" + campo.unit_id + " not found")
+			const u = await this.getUnidad(campo.unit_id, client)
+			if(!u) {
+				throw new Error("unit_id:" + campo.unit_id + " not found")
 			}
-			campo.unidades = results
+			campo.unidades = u
 			if(!campo.options.inst) {
 				if(!campo.options.timeSupport) {
 					campo.options.inst = true
@@ -14299,23 +14063,16 @@ internal.CRUD = class {
 					campo.options.inst = false
 				}
 			}
-//			if(serie["var"].datatype.toLowerCase() == "continuous" || serie["var"].datatype.toLowerCase() == "sporadic") {
-//				def_inst = true
-//			} else {
-//				def_inst = false
-//			}
 			var valid_filters = {estacion_id: "numeric", red_id: "numeric", geom: "geometry", series_id: "numeric", public: "boolean_only_true"}
-			return global.pool.query("SELECT series.series_id series_id, series.proc_id, series.var_id, series.unit_id, series.estacion_id, estaciones.tabla, st_x(estaciones.geom) geom_x, st_y(estaciones.geom) geom_y, redes.red_id red_id, estaciones.nombre, estaciones.id_externo, estaciones.public \
+			const result = await client.query("SELECT series.series_id series_id, series.proc_id, series.var_id, series.unit_id, series.estacion_id, estaciones.tabla, st_x(estaciones.geom) geom_x, st_y(estaciones.geom) geom_y, redes.red_id red_id, estaciones.nombre, estaciones.id_externo, estaciones.public \
 			from (select series.id series_id, series.estacion_id, series.proc_id, series.var_id, series.unit_id from series) series,(select unid, tabla,geom,estaciones.nombre,id_externo,public from estaciones,redes where estaciones.tabla=redes.tabla_id AND habilitar=true) estaciones,(select tabla_id,id red_id from redes) redes \
 			where var_id=$1 AND proc_id=$2 AND unit_id=$3 AND estaciones.unid=series.estacion_id and redes.tabla_id=estaciones.tabla " + internal.utils.control_filter(valid_filters, {estacion_id: filter.estacion_id, red_id: filter.red_id, geom: filter.geom, series_id: filter.series_id, public:filter.public}) + " ORDER BY series_id",[campo.variable.id,campo.procedimiento.id,campo.unidades.id])
 			//~ return this.getSeries("puntual",{var_id:campo.var_id,proc_id:campo.proc_id,unit_id:campo.unit_id,red_id:filter.red_id,geom:filter.geom,estacion_id:filter.estacion_id})
-		})
-		.then(result=>{
 			if(!result) {
-				throw("series not found")
+				throw new Error("series not found")
 			}
 			if(result.rows.length==0) {
-				throw("no series match")
+				throw new Error("no series match")
 			}
 			console.log("got " + result.rows.length + " series")
 			campo.series = result.rows.map(s=>{
@@ -14327,188 +14084,187 @@ internal.CRUD = class {
 	}
 
 	
-	static async getSingleCampo(campo) {
-		var promise
-		var stmt
-		var args
-		var min_count
-		if(campo.options.min_count) {
-			min_count = parseInt(campo.options.min_count)
-		}
-		if (!campo.options.inst) {
-			// SERIE NO INSTANTANEA //
-			if(!campo.options.timeSupport) {
-				return Promise.reject("timeSupport missing or null")
+	static async getSingleCampo(campo, client) {
+		return withClient(client, async (client) => {
+			var promise
+			var min_count
+			if(campo.options.min_count) {
+				min_count = parseInt(campo.options.min_count)
 			}
-			if (!campo.options.aggFunction) {
-				campo.options.aggFunction = "acum"
-			}
-			if (!campo.options.precision) {
-				campo.options.precision = 2
-			} else {
-				campo.options.precision = parseInt(campo.options.precision)
-				if(campo.options.precision.toString == "NaN") {
-					return Promise.reject("Bad precision. must be integer")
+			if (!campo.options.inst) {
+				// SERIE NO INSTANTANEA //
+				if(!campo.options.timeSupport) {
+					return Promise.reject("timeSupport missing or null")
 				}
-			}
-			var aggStmt
-			switch (campo.options.aggFunction.toLowerCase()) {
-				case "acum":
-					aggStmt = "round(sum(extract(epoch from overlap)/extract(epoch from '" + campo.options.timeSupport.toPostgres() + "'::interval)*valor)::numeric," + campo.options.precision + ")"
-					break;
-				case "mean":
-					aggStmt = "round((sum(extract(epoch from overlap)*valor)/sum(extract(epoch from overlap)))::numeric," + campo.options.precision + ")"
-					break;
-				case "sum":
-					aggStmt = "round(sum(valor)::numeric," + campo.options.precision + ")"
-					break;
-				case "min":
-					aggStmt = "round(least(valor)::numeric," + campo.options.precision + ")"
-					break;
-				case "max":
-					aggStmt = "round(greatest(valor)::numeric," + campo.options.precision + ")"
-					break
-				case "count":
-					aggStmt = "count(valor)"
-					break;
-				case "diff":
-					aggStmt = "round((max(valor)-min(valor))::numeric," + campo.options.precision + ")"
-					break;
-				case "increment":
-					aggStmt = "round((max(valor)-first(valor))::numeric," + campo.options.precision + ")"
-					break
-				case "array":
-					aggStmt = "json_agg(json_build_object('timestart',timestart,'valor',valor))"
-					break
-				default:
-					return Promise.reject(new Error("aggFunction incorrecta"))
-					break
-			}
-				  // tsrange(timestart,timeend,'[]') * tsrange($1,$2,'[]') overlap
-				  
-			promise = global.pool.query("with o as (\
-				select series_id,\
-			   observaciones.timestart,\
-			   valores_num.valor,\
-			   case when timestart < $1\
-			   then case when timeend < $1 then '00:00:00'::interval\
-					else case when timeend < $2 then timeend - $1\
-						 else $2::timestamp - $1::timestamp end\
-					end\
-				else case when timeend < $2 then timeend - timestart\
-					 else case when timestart < $2 then $2::timestamp - timestart\
-						  else '00:00:00'::interval end\
-					 end\
-				end AS overlap\
-				from observaciones,valores_num \
-				where series_id in (" + campo.series.map(s=>s.id).join(",") + ")\
-				and observaciones.timeend>$1 \
-				and timestart<$2 \
-				and observaciones.id=valores_num.obs_id)\
-		select o.series_id,\
-		   " + aggStmt + " valor,\
-		   count(o.valor)\
-		from o \
-		group by o.series_id \
-		order by o.series_id;",[campo.timestart,campo.timeend])
-		} else {
-				// SERIE INSTANTANEA //
-			if(!campo.options.aggFunction) {
-				campo.options.aggFunction =  "nearest"
-			}
-			if (!campo.options.precision) {
-				campo.options.precision = 2
-			} else {
-				campo.options.precision = parseInt(campo.options.precision)
-				if(campo.options.precision.toString == "NaN") {
-					return Promise.reject("Bad precision. must be integer")
+				if (!campo.options.aggFunction) {
+					campo.options.aggFunction = "acum"
 				}
-			}
-			if(campo.options.aggFunction.toLowerCase() == "nearest") {     // NEAREST  -> toma timestamp más próximo al centro del intervalo timestart-timeend
-				promise = global.pool.query("with o as (\
-				select series_id,\
-			   observaciones.timestart,\
-			   valores_num.valor,\
-			   rank() over (partition by series_id order by abs(extract(epoch from observaciones.timestart - ($2 - ($2 - $1)/2))),timestart) rank\
-				from observaciones,valores_num \
-				where series_id in (" + campo.series.map(s=>s.id).join(",") + ")\
-				and observaciones.timestart>=$1 \
-				and timestart<$2 \
-				and observaciones.id=valores_num.obs_id)\
-				select o.series_id,\
-				   o.timestart,\
-				   o.valor,\
-				   1 AS count\
-				from o \
-				where rank=1",[campo.timestart,campo.timeend])
-			} else if(campo.options.aggFunction.toLowerCase() == "array") {     // ARRAY  -> toma todas las tuplas contenidas en el intervalo timestart-timeend
-				promise = global.pool.query("with o as (\
-				select series_id,\
-			   observaciones.timestart,\
-			   valores_num.valor\
-				from observaciones,valores_num \
-				where series_id in (" + campo.series.map(s=>s.id).join(",") + ")\
-				and observaciones.timestart>=$1 \
-				and timestart<$2 \
-				and observaciones.id=valores_num.obs_id)\
-				select o.series_id,\
-				   json_agg(json_build_object('timestart',o.timestart,'valor',o.valor)) as valor,\
-				   count(o.valor)\
-				from o \
-				group by series_id\
-				order by series_id",[campo.timestart,campo.timeend])
-			} else {
-				var aggFunc
+				if (!campo.options.precision) {
+					campo.options.precision = 2
+				} else {
+					campo.options.precision = parseInt(campo.options.precision)
+					if(campo.options.precision.toString == "NaN") {
+						return Promise.reject("Bad precision. must be integer")
+					}
+				}
+				var aggStmt
 				switch (campo.options.aggFunction.toLowerCase()) {
+					case "acum":
+						aggStmt = "round(sum(extract(epoch from overlap)/extract(epoch from '" + campo.options.timeSupport.toPostgres() + "'::interval)*valor)::numeric," + campo.options.precision + ")"
+						break;
 					case "mean":
-						aggFunc="round(avg(valor)::numeric," + campo.options.precision +")"
-						break
-					case "avg":
-						aggFunc="round(avg(valor)::numeric," + campo.options.precision +")"
-						break
-					case "average":
-						aggFunc="round(avg(valor)::numeric," + campo.options.precision +")"
-						break
+						aggStmt = "round((sum(extract(epoch from overlap)*valor)/sum(extract(epoch from overlap)))::numeric," + campo.options.precision + ")"
+						break;
+					case "sum":
+						aggStmt = "round(sum(valor)::numeric," + campo.options.precision + ")"
+						break;
 					case "min":
-						aggFunc="round(min(valor)::numeric," + campo.options.precision +")"
-						break
+						aggStmt = "round(least(valor)::numeric," + campo.options.precision + ")"
+						break;
 					case "max":
-						aggFunc="round(max(valor)::numeric," + campo.options.precision +")"
+						aggStmt = "round(greatest(valor)::numeric," + campo.options.precision + ")"
 						break
 					case "count":
-						aggFunc="count(valor)"
-						break
+						aggStmt = "count(valor)"
+						break;
 					case "diff":
-						aggFunc="round((max(valor)-min(valor))::numeric," + campo.options.precision +")"
-						break
+						aggStmt = "round((max(valor)-min(valor))::numeric," + campo.options.precision + ")"
+						break;
 					case "increment":
-						aggFunc = "round((max(valor)-first(valor))::numeric," + campo.options.precision + ")"
+						aggStmt = "round((max(valor)-first(valor))::numeric," + campo.options.precision + ")"
 						break
-					case "sum":
-						aggFunc="round(sum(valor)::numeric," + campo.options.precision +")"
+					case "array":
+						aggStmt = "json_agg(json_build_object('timestart',timestart,'valor',valor))"
 						break
 					default:
-						return Promise.reject("Bad aggregate function")
+						return Promise.reject(new Error("aggFunction incorrecta"))
 						break
 				}
-				promise = global.pool.query("SELECT series_id,\
-			   " + aggFunc + " valor,\
-			    count(observaciones.timestart)\
-				from observaciones,valores_num \
-				where series_id in (" + campo.series.map(s=>s.id).join(",") + ")\
-				and observaciones.timestart>=$1 \
-				and timestart<$2 \
-				and observaciones.id=valores_num.obs_id\
-				group by series_id\
-				order by series_id",[campo.timestart,campo.timeend])
+					// tsrange(timestart,timeend,'[]') * tsrange($1,$2,'[]') overlap
+					
+				promise = client.query("with o as (\
+					select series_id,\
+				observaciones.timestart,\
+				valores_num.valor,\
+				case when timestart < $1\
+				then case when timeend < $1 then '00:00:00'::interval\
+						else case when timeend < $2 then timeend - $1\
+							else $2::timestamp - $1::timestamp end\
+						end\
+					else case when timeend < $2 then timeend - timestart\
+						else case when timestart < $2 then $2::timestamp - timestart\
+							else '00:00:00'::interval end\
+						end\
+					end AS overlap\
+					from observaciones,valores_num \
+					where series_id in (" + campo.series.map(s=>s.id).join(",") + ")\
+					and observaciones.timeend>$1 \
+					and timestart<$2 \
+					and observaciones.id=valores_num.obs_id)\
+			select o.series_id,\
+			" + aggStmt + " valor,\
+			count(o.valor)\
+			from o \
+			group by o.series_id \
+			order by o.series_id;",[campo.timestart,campo.timeend])
+			} else {
+					// SERIE INSTANTANEA //
+				if(!campo.options.aggFunction) {
+					campo.options.aggFunction =  "nearest"
+				}
+				if (!campo.options.precision) {
+					campo.options.precision = 2
+				} else {
+					campo.options.precision = parseInt(campo.options.precision)
+					if(campo.options.precision.toString == "NaN") {
+						return Promise.reject("Bad precision. must be integer")
+					}
+				}
+				if(campo.options.aggFunction.toLowerCase() == "nearest") {     // NEAREST  -> toma timestamp más próximo al centro del intervalo timestart-timeend
+					promise = client.query("with o as (\
+					select series_id,\
+				observaciones.timestart,\
+				valores_num.valor,\
+				rank() over (partition by series_id order by abs(extract(epoch from observaciones.timestart - ($2 - ($2 - $1)/2))),timestart) rank\
+					from observaciones,valores_num \
+					where series_id in (" + campo.series.map(s=>s.id).join(",") + ")\
+					and observaciones.timestart>=$1 \
+					and timestart<$2 \
+					and observaciones.id=valores_num.obs_id)\
+					select o.series_id,\
+					o.timestart,\
+					o.valor,\
+					1 AS count\
+					from o \
+					where rank=1",[campo.timestart,campo.timeend])
+				} else if(campo.options.aggFunction.toLowerCase() == "array") {     // ARRAY  -> toma todas las tuplas contenidas en el intervalo timestart-timeend
+					promise = client.query("with o as (\
+					select series_id,\
+				observaciones.timestart,\
+				valores_num.valor\
+					from observaciones,valores_num \
+					where series_id in (" + campo.series.map(s=>s.id).join(",") + ")\
+					and observaciones.timestart>=$1 \
+					and timestart<$2 \
+					and observaciones.id=valores_num.obs_id)\
+					select o.series_id,\
+					json_agg(json_build_object('timestart',o.timestart,'valor',o.valor)) as valor,\
+					count(o.valor)\
+					from o \
+					group by series_id\
+					order by series_id",[campo.timestart,campo.timeend])
+				} else {
+					var aggFunc
+					switch (campo.options.aggFunction.toLowerCase()) {
+						case "mean":
+							aggFunc="round(avg(valor)::numeric," + campo.options.precision +")"
+							break
+						case "avg":
+							aggFunc="round(avg(valor)::numeric," + campo.options.precision +")"
+							break
+						case "average":
+							aggFunc="round(avg(valor)::numeric," + campo.options.precision +")"
+							break
+						case "min":
+							aggFunc="round(min(valor)::numeric," + campo.options.precision +")"
+							break
+						case "max":
+							aggFunc="round(max(valor)::numeric," + campo.options.precision +")"
+							break
+						case "count":
+							aggFunc="count(valor)"
+							break
+						case "diff":
+							aggFunc="round((max(valor)-min(valor))::numeric," + campo.options.precision +")"
+							break
+						case "increment":
+							aggFunc = "round((max(valor)-first(valor))::numeric," + campo.options.precision + ")"
+							break
+						case "sum":
+							aggFunc="round(sum(valor)::numeric," + campo.options.precision +")"
+							break
+						default:
+							return Promise.reject("Bad aggregate function")
+							break
+					}
+					promise = client.query("SELECT series_id,\
+				" + aggFunc + " valor,\
+					count(observaciones.timestart)\
+					from observaciones,valores_num \
+					where series_id in (" + campo.series.map(s=>s.id).join(",") + ")\
+					and observaciones.timestart>=$1 \
+					and timestart<$2 \
+					and observaciones.id=valores_num.obs_id\
+					group by series_id\
+					order by series_id",[campo.timestart,campo.timeend])
+				}
 			}
-		}
-		return promise.then(data=>{
+			const data = await promise
 			if(!data) {
-				throw("no data found")
+				throw new Error("no data found")
 			}
 			if(data.rows.length==0) {
-				throw("query returned empty, no data found")
+				throw new Error("query returned empty, no data found")
 			}
 			var datadir = {}
 			var countdir = {}
@@ -14550,10 +14306,8 @@ internal.CRUD = class {
 			})
 			//~ campo.data = data.rows
 			if(campo.options.insertSeriesId) {
-				return new internal.campo(campo).toGrid({series_id:campo.options.insertSeriesId})
-				.then(obs=>{
-					return this.upsertObservacion(obs)
-				})
+				const obs = await new internal.campo(campo).toGrid({series_id:campo.options.insertSeriesId})
+				return this.upsertObservacion(obs, undefined, client)
 			}
 			//~ console.log({campo:campo})
 			return new internal.campo(campo)
@@ -15015,14 +14769,14 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async deleteAsociacion(id) {
-		return global.pool.query("DELETE FROM asociaciones WHERE id=$1 RETURNING *",[id])
-		.then(result=>{
+	static async deleteAsociacion(id, client) {
+		return withClient(client, async (client) => {
+			const result = await client.query("DELETE FROM asociaciones WHERE id=$1 RETURNING *",[id])
 			if(!result) {
-				throw("query error")
+				throw new Error("query error")
 			}
 			if(result.rows.length==0) {
-				throw("nothing deleted")
+				throw new Error("nothing deleted")
 			}
 			return result.rows[0]
 		})
@@ -15030,30 +14784,29 @@ internal.CRUD = class {
 	
 	// ACCESSORS //
 	
-	static async getRedesAccessors(filter={}) {
-		var filter_string = internal.utils.control_filter2({"tipo":{type: "string"},"tabla_id":{type:"string"},"var_id":{type:"integer"},"accessor":{type:"string"},"asociacion":{type:"boolean"}},filter,"redes_accessors")
-		// console.log(filter_string)
-		return global.pool.query("SELECT * from redes_accessors WHERE 1=1 " + filter_string)
-		.then(result=>{
+	static async getRedesAccessors(filter={}, client) {
+		return withClient(client, async (client) => {
+			var filter_string = internal.utils.control_filter2({"tipo":{type: "string"},"tabla_id":{type:"string"},"var_id":{type:"integer"},"accessor":{type:"string"},"asociacion":{type:"boolean"}},filter,"redes_accessors")
+			const result = await client.query("SELECT * from redes_accessors WHERE 1=1 " + filter_string)
 			return result.rows
 		})
 	}
 
-	static async updateAccessorToken(accessor_id,token,token_expiry_date) {
-		return global.pool.query("UPDATE accessors SET token=$1, token_expiry_date=$2 WHERE class=$3 RETURNING class AS accessor_id,token,token_expiry_date",[token,token_expiry_date,accessor_id])
-		.then(result=>{
+	static async updateAccessorToken(accessor_id,token,token_expiry_date, client) {
+		return withClient(client, async (client) => {
+			const result = await client.query("UPDATE accessors SET token=$1, token_expiry_date=$2 WHERE class=$3 RETURNING class AS accessor_id,token,token_expiry_date",[token,token_expiry_date,accessor_id])
 			if(!result.rows.length) {
-				throw("updateToken failed, no rows affected")
+				throw new Error("updateToken failed, no rows affected")
 			}
 			return result.rows[0]
 		})
 	}
 
-	static async getAccessorToken(accessor_id) {
-		return global.pool.query("SELECT class AS accessor_id,token,token_expiry_date FROM accessors WHERE class=$1",[accessor_id])
-		.then(result=>{
+	static async getAccessorToken(accessor_id, client) {
+		return withClient(client, async (client) => {
+			const result = await client.query("SELECT class AS accessor_id,token,token_expiry_date FROM accessors WHERE class=$1",[accessor_id])
 			if(!result.rows.length) {
-				throw("getToken failed, no rows matched")
+				throw new Error("getToken failed, no rows matched")
 			}
 			return result.rows[0]
 		})
@@ -15073,13 +14826,14 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async date2epoch(date) {
-		return global.pool.query("SELECT extract(epoch from $1::timestamp) AS epoch",[date])
-		.then((result)=>{
-			return result.rows[0].epoch
-		})
-		.catch(e=>{
-			console.error(e)
+	static async date2epoch(date, client) {
+		return withClient(client, async (client) => {
+			const result = await client.query("SELECT extract(epoch from $1::timestamp) AS epoch",[date])
+			try {
+				return result.rows[0].epoch
+			} catch (e) {
+				console.error(e)
+			}
 		})
 	}
 	
@@ -15094,42 +14848,42 @@ internal.CRUD = class {
 	}
 	
 	static async getAlturas2Mnemos(estacion_id,startdate,enddate) {
-		return new Promise( (resolve, reject) => {
+		return withClient(client, async (client) => {
 			if(!estacion_id) {
-				reject("falta estacion_id")
+				throw new Error("falta estacion_id")
 			}
 			if(! parseInt(estacion_id)) {
-				reject("estacion_id incorrecto")
+				throw new Error("estacion_id incorrecto")
 			}
 			if(! startdate) {
-				reject("falta startdate")
+				throw new Error("falta startdate")
 			}
 			var sd = new Date(startdate) 
 			if(isNaN(sd)) {
-				reject("startdate incorrecto")
+				throw new Error("startdate incorrecto")
 			}
 			if(! enddate) {
-				reject("falta enddate")
+				throw new Error("falta enddate")
 			}
 			var ed = new Date(enddate)
 			if(isNaN(ed)) {
-				reject("enddate incorrecto")
+				throw new Error("enddate incorrecto")
 			}
-			resolve(global.pool.query("SELECT series.estacion_id codigo_de_estacion,1 codigo_de_variable,to_char(observaciones.timestart,'DD') dia, to_char(observaciones.timestart,'MM') mes, to_char(observaciones.timestart,'YYYY') anio,extract(hour from timestart) hora,extract(minute from timestart) minuto,valor FROM series,observaciones,valores_num where series.estacion_id=$1 AND series.var_id=2 and series.proc_id=1 AND series.id=observaciones.series_id and observaciones.id=valores_num.obs_id AND timestart>=$2 and timestart<=$3 order by timestart", [estacion_id,sd,ed]))
+			return client.query("SELECT series.estacion_id codigo_de_estacion,1 codigo_de_variable,to_char(observaciones.timestart,'DD') dia, to_char(observaciones.timestart,'MM') mes, to_char(observaciones.timestart,'YYYY') anio,extract(hour from timestart) hora,extract(minute from timestart) minuto,valor FROM series,observaciones,valores_num where series.estacion_id=$1 AND series.var_id=2 and series.proc_id=1 AND series.id=observaciones.series_id and observaciones.id=valores_num.obs_id AND timestart>=$2 and timestart<=$3 order by timestart", [estacion_id,sd,ed])
 		})
 	}
 	
 	// ESTADISTICAS
 	
-	static async getCuantilesDiariosSuavizados(tipo="puntual",series_id,timestart='1974-01-01',timeend='2020-01-01',range=15,t_offset='0 hours', precision=3,isPublic) {
+	static async getCuantilesDiariosSuavizados(tipo="puntual",series_id,timestart='1974-01-01',timeend='2020-01-01',range=15,t_offset='0 hours', precision=3,isPublic, client) {
 		if(!series_id) {
 			return Promise.reject("missing series_id")
 		}
-		var obs_t = ( tipo.toLowerCase() == "areal" ) ? "observaciones_areal" : "observaciones"
-		var val_t = ( tipo.toLowerCase() == "areal" ) ? "valores_num_areal" : "valores_num"
-		return this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic)
-		.then(serie=>{
-			return global.pool.query("WITH s AS (\
+		return withClient(client, async (client) => {
+			var obs_t = ( tipo.toLowerCase() == "areal" ) ? "observaciones_areal" : "observaciones"
+			var val_t = ( tipo.toLowerCase() == "areal" ) ? "valores_num_areal" : "valores_num"
+			const serie = await this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic, undefined, client)
+			const result = await client.query("WITH s AS (\
 				SELECT generate_series($1::date,$3::date,'1 days'::interval) d\
 				), obs AS (\
 				SELECT timestart,timeend,valor\
@@ -15173,28 +14927,25 @@ internal.CRUD = class {
 		from wfunc\
 		group by doy\
 		order by doy",[timestart,t_offset, timeend, '1 days', series_id, range, precision, tipo])
-	    }).then(result=>{
-		   if(!result.rows) {
-			   throw("Nothing found")
-			   return
-		   }
-		   return new internal.dailyStatsList(result.rows)
+			if(!result.rows) {
+				throw new Error("Nothing found")
+			}
+			return new internal.dailyStatsList(result.rows)
 	   })
 	}
 	
-	static async getCuantilDiarioSuavizado(tipo="puntual",series_id,cuantil,timestart='1974-01-01',timeend='2020-01-01',range=15,t_offset='0 hours', precision=3,isPublic) {
+	static async getCuantilDiarioSuavizado(tipo="puntual",series_id,cuantil,timestart='1974-01-01',timeend='2020-01-01',range=15,t_offset='0 hours', precision=3,isPublic, client) {
 		if(!series_id) {
 			return Promise.reject("missing series_id")
 		}
 		if(!cuantil) {
 			return Promise.reject("missing cuantil (0-1)")
 		}
-		return this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic)
-		.then(series=>{
-			//~ console.log("got series_id:"+series_id+", tipo:"+tipo)
+		return withClient(client, async (client) => {
+			const series = await this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic, undefined, client)
 			var obs_t = ( tipo.toLowerCase() == "areal" ) ? "observaciones_areal" : "observaciones"
 			var val_t = ( tipo.toLowerCase() == "areal" ) ? "valores_num_areal" : "valores_num"
-			return global.pool.query("WITH s AS (\
+			const result = await client.query("WITH s AS (\
 				SELECT generate_series($1::date,$3::date,'1 days'::interval) d\
 				), obs AS (\
 				SELECT timestart,timeend,valor\
@@ -15232,69 +14983,63 @@ internal.CRUD = class {
 		from wfunc\
 		group by doy\
 		order by doy",[timestart,t_offset, timeend, '1 days', series_id, range, precision, tipo, cuantil])
-	   })
-	   .then(result=>{
-		   if(!result.rows) {
-			   throw("Nothing found")
-			   return
-		   }
-		   return result.rows
-	   })
+	        if(!result.rows) {
+			   throw new Error("Nothing found")
+		    }
+		    return result.rows
+	    }) 
 	}
 	
-	static async upsertDailyDoyStats2(tipo,series_id,timestart,timeend,range,t_offset,precision,is_public) {
-		return this.getCuantilesDiariosSuavizados(tipo,series_id,timestart,timeend,range,t_offset,precision,is_public)
-		.then(dailyStats=>{
-			//~ console.log(dailyStats)
-			return this.upsertDailyDoyStats(dailyStats)
+	static async upsertDailyDoyStats2(tipo,series_id,timestart,timeend,range,t_offset,precision,is_public,client) {
+		return withClient(client, async (client) => {
+			const dailyStats = await this.getCuantilesDiariosSuavizados(tipo,series_id,timestart,timeend,range,t_offset,precision,is_public,client)
+			return this.upsertDailyDoyStats(dailyStats, client)
 		})
 	}
 
-	static async upsertDailyDoyStats(dailyStatsList) {
-		var promises = dailyStatsList.values.map(i=>{
-			return global.pool.query("INSERT INTO series_doy_stats (tipo, series_id,doy, count, min, max, mean, p01, p10, p50, p90, p99, window_size, timestart, timeend) VALUES\
-		 ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)\
-		 ON CONFLICT (tipo,series_id,doy)\
-		 DO UPDATE SET count=excluded.count,\
-					   min=excluded.min,\
-					   max=excluded.max,\
-					   mean=excluded.mean,\
-					   p01=excluded.p01,\
-					   p10=excluded.p10,\
-					   p50=excluded.p50,\
-					   p90=excluded.p90,\
-					   p99=excluded.p99,\
-					   window_size=excluded.window_size,\
-					   timestart=excluded.timestart,\
-					   timeend=excluded.timeend\
-		 RETURNING *",[i.tipo, i.series_id,i.doy, i.count, i.min, i.max, i.mean, i.p01, i.p10, i.p50, i.p90, i.p99, i.window_size, i.timestart, i.timeend])
-			.then(result=>{
-				return result.rows[0]
+	static async upsertDailyDoyStats(dailyStatsList, client) {
+		return withClient(client, async (client) => {
+			
+			var promises = dailyStatsList.values.map(i=>{
+					return client.query("INSERT INTO series_doy_stats (tipo, series_id,doy, count, min, max, mean, p01, p10, p50, p90, p99, window_size, timestart, timeend) VALUES\
+			($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)\
+			ON CONFLICT (tipo,series_id,doy)\
+			DO UPDATE SET count=excluded.count,\
+						min=excluded.min,\
+						max=excluded.max,\
+						mean=excluded.mean,\
+						p01=excluded.p01,\
+						p10=excluded.p10,\
+						p50=excluded.p50,\
+						p90=excluded.p90,\
+						p99=excluded.p99,\
+						window_size=excluded.window_size,\
+						timestart=excluded.timestart,\
+						timeend=excluded.timeend\
+			RETURNING *",[i.tipo, i.series_id,i.doy, i.count, i.min, i.max, i.mean, i.p01, i.p10, i.p50, i.p90, i.p99, i.window_size, i.timestart, i.timeend])
+				.then(result=>{
+					return result.rows[0]
+				})
 			})
-		})
-	 return Promise.all(promises)
-	 .then(results=>{
-		 return new internal.dailyStatsList(results)
-	 })
+	 		const results = await Promise.all(promises)
+			return new internal.dailyStatsList(results)
+	 	})
     }
     
-    static async getDailyDoyStats(tipo="puntual",series_id,isPublic) {
-		return this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic)
-		.then(serie=>{
-			return global.pool.query("SELECT * FROM series_doy_stats WHERE tipo=$1 AND series_id=$2 ORDER BY doy",[tipo,series_id])
-		})
-		.then(result=>{
+    static async getDailyDoyStats(tipo="puntual",series_id,isPublic,client) {
+		return withClient(client, async (client) => {
+			const serie = await this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic)
+			const result = await client.query("SELECT * FROM series_doy_stats WHERE tipo=$1 AND series_id=$2 ORDER BY doy",[tipo,series_id])
 			if(!result.rows) {
-				throw("Nothing found")
-				return
+				throw new Error("Nothing found")
 			}
 			return new internal.dailyStatsList(result.rows)
 		})
 	}
     
-	static async upsertMonthlyStats(tipo,series_id) {
-		return this.getDailyDoyStats(tipo,series_id)
-		.then(dailyStatsList=>{
+	static async upsertMonthlyStats(tipo, series_id, client) {
+		return withClient(client, async (client) => {
+			const dailyStatsList = await this.getDailyDoyStats(tipo,series_id, undefined, client)
 			var cuantiles_mensuales = dailyStatsList.getMonthlyValues2()
 			var cuantiles_mensuales_array = Object.keys(cuantiles_mensuales).map(key=>{
 				var m = cuantiles_mensuales[key]
@@ -15303,28 +15048,27 @@ internal.CRUD = class {
 				m.tipo = (m.tipo) ? m.tipo : "puntual"
 				return m
 			})
-			return this.insertMonthlyStats(cuantiles_mensuales_array)
+			return this.insertMonthlyStats(cuantiles_mensuales_array, client)
 		})
 	}
 
-	static async insertMonthlyStats(cuantiles_mensuales) {
-		var values = cuantiles_mensuales.map(m=>{
-			// console.log("monthyStats:" + (m instanceof internal.monthlyStats))
-			if(!m.series_id) {
-				throw("Missing series_id")
+	static async insertMonthlyStats(cuantiles_mensuales, client) {
+		return withClient(client, async (client) => {
+			var values = cuantiles_mensuales.map(m=>{
+				// console.log("monthyStats:" + (m instanceof internal.monthlyStats))
+				if(!m.series_id) {
+					throw("Missing series_id")
+				}
+				return internal.utils.pasteIntoSQLQuery("($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)",[m.tipo,m.series_id,m.mon,m.count,m.min,m.max,m.mean,m.p01,m.p10,m.p50,m.p90,m.p99,m.timestart.toISOString(),m.timeend.toISOString(),m.valores,m.percentage_complete,m.p13,m.p28,m.p72,m.p87])
+			}).join(",")
+			if(!values.length) {
+				console.log("No stats found")
+				return []
 			}
-			return internal.utils.pasteIntoSQLQuery("($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)",[m.tipo,m.series_id,m.mon,m.count,m.min,m.max,m.mean,m.p01,m.p10,m.p50,m.p90,m.p99,m.timestart.toISOString(),m.timeend.toISOString(),m.valores,m.percentage_complete,m.p13,m.p28,m.p72,m.p87])
-		}).join(",")
-		if(!values.length) {
-			console.log("No stats found")
-			return []
-		}
-		var stmt = `INSERT INTO series_mon_stats (tipo, series_id, mon,count ,min ,max ,mean ,p01 ,p10 ,p50 ,p90 ,p99 ,timestart ,timeend, valores, percentage_complete, p13, p28, p72, p87) \
-		VALUES ${values} \
-		ON CONFLICT (tipo,series_id,mon) DO UPDATE SET count=excluded.count ,min=excluded.min ,max=excluded.max ,mean=excluded.mean ,p01=excluded.p01 ,p10=excluded.p10 ,p50=excluded.p50 ,p90=excluded.p90 ,p99=excluded.p99 ,timestart=excluded.timestart ,timeend=excluded.timeend, valores=excluded.valores, percentage_complete=excluded.percentage_complete, p13=excluded.p13, p28=excluded.p28, p72=excluded.p72, p87=excluded.p87 RETURNING *`
-		// console.log(stmt)
-		return global.pool.query(stmt)
-		.then(result=>{
+			var stmt = `INSERT INTO series_mon_stats (tipo, series_id, mon,count ,min ,max ,mean ,p01 ,p10 ,p50 ,p90 ,p99 ,timestart ,timeend, valores, percentage_complete, p13, p28, p72, p87) \
+			VALUES ${values} \
+			ON CONFLICT (tipo,series_id,mon) DO UPDATE SET count=excluded.count ,min=excluded.min ,max=excluded.max ,mean=excluded.mean ,p01=excluded.p01 ,p10=excluded.p10 ,p50=excluded.p50 ,p90=excluded.p90 ,p99=excluded.p99 ,timestart=excluded.timestart ,timeend=excluded.timeend, valores=excluded.valores, percentage_complete=excluded.percentage_complete, p13=excluded.p13, p28=excluded.p28, p72=excluded.p72, p87=excluded.p87 RETURNING *`
+			const result = await client.query(stmt)
 			return new internal.monthlyStatsList(result.rows)
 		})
 	}
@@ -15396,16 +15140,16 @@ internal.CRUD = class {
 	}
 
 	//~ getCuantilesDiariosSuavizadosTodos
-	static async calcPercentilesDiarios(tipo="puntual",series_id,timestart='1974-01-01',timeend='2020-01-01',range=15,t_offset='0 hours', precision=3,isPublic,update=false) {
+	static async calcPercentilesDiarios(tipo="puntual",series_id,timestart='1974-01-01',timeend='2020-01-01',range=15,t_offset='0 hours', precision=3,isPublic,update=false, client) {
 		if(!series_id) {
 			return Promise.reject("missing series_id")
 		}
-		return this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic)
-		.then(serie=>{
+		return withClient(client, async (client) => {
+			const serie = await this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic,undefined, client)
 			var obs_t = ( tipo.toLowerCase() == "areal" ) ? "observaciones_areal" : "observaciones"
 			var val_t = ( tipo.toLowerCase() == "areal" ) ? "valores_num_areal" : "valores_num"
 			// queries for daily means
-			return global.pool.query("WITH s AS (\
+			const result = await client.query("WITH s AS (\
 				SELECT generate_series($1::date,$3::date,'1 days'::interval) d\
 				), obs AS (\
 				SELECT timestart,timeend,valor\
@@ -15422,18 +15166,14 @@ internal.CRUD = class {
 					   FROM s\
 					   JOIN obs ON (s.d::date=(obs.timestart-$2::interval)::date)\
 					   GROUP BY s.d+$2::interval, s.d+'1 days'::interval+$2::interval",[timestart,t_offset,timeend,series_id])
-		})
-		.then(result=>{
 			if(!result.rows) {
-				throw("No observations found")
-				return
+				throw new Error("No observations found")
 			}
 			if(result.rows.length==0){
-				throw("No observations found")
+				throw new Error("No observations found")
 				return
 			}
 			var obs_diarias=result.rows
-			//~ var doys = []
 			var percentiles = []
 			for(var doy=1; doy<=366;doy++) {
 				var obs = obs_diarias.filter(d=> this.is_within_doy_range(d.timestart,doy,range))
@@ -15460,18 +15200,15 @@ internal.CRUD = class {
 				}
 				//~ doys.push({doy:doy,count:obslength,percentiles:percentiles})
 			}
-			return percentiles // doys
-		})
-		.then(percentiles=>{
 			if(update) {
-				return this.upsertPercentilesDiarios(tipo,series_id,percentiles)
+				return this.upsertPercentilesDiarios(tipo,series_id,percentiles,client)
 			} else {
 				return percentiles
 			}
 		})
 	}
 	
-	static async upsertPercentilesDiarios(tipo="puntual",series_id,percentiles) {
+	static async upsertPercentilesDiarios(tipo="puntual",series_id,percentiles, client) {
 		if(!series_id) {
 			return Promise.reject("Missing series_id")
 		}
@@ -15490,27 +15227,26 @@ internal.CRUD = class {
 			}
 			return `('${tipo}',${series_id}, ${d.doy}, ${d.percentil}, ${d.valor}, ${d.window_size}, '${d.timestart}'::date, '${d.timeend}'::date, ${d.count})`
 		}).filter(r=>r)
-		return global.pool.query("INSERT INTO series_doy_percentiles (tipo,series_id, doy, percentil, valor, window_size, timestart, timeend, count)\
+		return withClient(client, async (client) => {
+			const result = await client.query("INSERT INTO series_doy_percentiles (tipo,series_id, doy, percentil, valor, window_size, timestart, timeend, count)\
 		    VALUES " + rows.join(",") + " \
 		    ON CONFLICT (tipo,series_id,doy,percentil) \
 		    DO UPDATE SET valor=excluded.valor, window_size=excluded.window_size, timestart=excluded.timestart, timeend=excluded.timeend, count=excluded.count \
 		    RETURNING *")
-		.then(result=>{
 			if(!result.rows) {
-				throw("Nothing upserted")
-				return
+				throw new Error("Nothing upserted")
 			}
 			console.log("Upserted " + result.rows.length + " percentiles")
 			return result.rows.map(r=>new internal.doy_percentil(r))
 		})
 	}
 	
-	static async getPercentilesDiarios(tipo="puntual",series_id,percentil,doy,isPublic) {
+	static async getPercentilesDiarios(tipo="puntual",series_id,percentil,doy,isPublic,client) {
 		if(!series_id) {
 			return Promise.reject("Missing series_id")
 		}
-		return this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic)
-		.then(serie=>{
+		return withClient(client, async (client) => {
+			const serie = await this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic,undefined,client)
 			var doy_filter = ""
 			if(doy) {
 				if(Array.isArray(doy)) {
@@ -15523,37 +15259,34 @@ internal.CRUD = class {
 			if(percentil) {
 				if(Array.isArray(percentil)) {
 					if(Array.isArray(series_id)) {
-						promise = global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id IN (" + series_id.map(s=>parseInt(s)).join(",") + ") AND percentil IN (" + percentil.map(p=>parseFloat(p)).join(",") + ") " + doy_filter + " ORDER BY percentil,doy",[tipo])
+						promise = client.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id IN (" + series_id.map(s=>parseInt(s)).join(",") + ") AND percentil IN (" + percentil.map(p=>parseFloat(p)).join(",") + ") " + doy_filter + " ORDER BY percentil,doy",[tipo])
 					} else {					
-						promise = global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2 AND percentil IN (" + percentil.map(p=>parseFloat(p)).join(",") + ") " + doy_filter + " ORDER BY percentil,doy",[tipo,series_id])
+						promise = client.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2 AND percentil IN (" + percentil.map(p=>parseFloat(p)).join(",") + ") " + doy_filter + " ORDER BY percentil,doy",[tipo,series_id])
 					}
 				} else {
 					if(Array.isArray(series_id)) {
-						promise = global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id IN (" + series_id.map(s=>parseInt(s)).join(",") + ") AND percentil=$2  " + doy_filter + " ORDER BY percentil,doy",[tipo,percentil])
+						promise = client.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id IN (" + series_id.map(s=>parseInt(s)).join(",") + ") AND percentil=$2  " + doy_filter + " ORDER BY percentil,doy",[tipo,percentil])
 					} else {
-						promise = global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2 AND percentil=$3  " + doy_filter + " ORDER BY percentil,doy",[tipo,series_id,percentil])
+						promise = client.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2 AND percentil=$3  " + doy_filter + " ORDER BY percentil,doy",[tipo,series_id,percentil])
 					}
 				}
 			} else {
-				promise = global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2  " + doy_filter + " ORDER BY percentil,doy",[tipo,series_id])
+				promise = client.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2  " + doy_filter + " ORDER BY percentil,doy",[tipo,series_id])
 			}
-			return promise
-		})
-		.then(result=>{
+			const result = await promise
 			if(!result.rows) {
-				throw("Nothing found")
-				return
+				throw new Error("Nothing found")
 			}
 			return result.rows.map(r=>new internal.doy_percentil(r))
 		})
 	}
 	
-	static async getPercentilesDiariosBetweenDates(tipo="puntual",series_id,percentil,timestart,timeend,isPublic, inverted) {
+	static async getPercentilesDiariosBetweenDates(tipo="puntual",series_id,percentil,timestart,timeend,isPublic, inverted, client) {
 		if(!series_id || !timestart || !timeend) {
 			return Promise.reject("Missing series_id, timestart or timeend")
 		}
-		return this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic)
-		.then(serie=>{
+		return withClient(client, async (client) => {
+			const serie = await this.getSerie(tipo,series_id,undefined,undefined,undefined,isPublic,undefined,client)
 			var percentil_filter = ""
 			if(percentil) {
 				if(Array.isArray(percentil)) {
@@ -15561,16 +15294,14 @@ internal.CRUD = class {
 						percentil = percentil.map(p => 1 - p)
 					}
 					percentil_filter = " AND percentil IN (" + percentil.map(p=>`ROUND(${parseFloat(p)}::numeric,2)`).join(",") + ")"
-					//~ promise = global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2  ORDER BY percentil,doy",[tipo,series_id])
 				} else {
 					if(inverted) {
 						percentil = 1 - percentil
 					}
 					percentil_filter = `AND percentil::numeric=ROUND(${parseFloat(percentil)}::numeric,2)::numeric`
-					//~ promise = global.pool.query("SELECT * from series_doy_percentiles WHERE tipo=$1 AND series_id=$2 AND percentil=$3  ORDER BY percentil,doy",[tipo,series_id,percentil])
 				}
 			} 
-			return global.pool.query(`WITH dates as (
+			const result = await client.query(`WITH dates as (
 				SELECT generate_series($1::date,$2::date,'1 days'::interval) date
 				), data as (
 				SELECT series_doy_percentiles.percentil AS percentil,
@@ -15588,24 +15319,20 @@ internal.CRUD = class {
 					GROUP BY percentil
 					ORDER BY percentil`,
 					[timestart,timeend,tipo,series_id])
-		})
-		.then(result=>{
 			if(!result.rows) {
-				throw("Nothing found")
-				return
+				throw new Error("Nothing found")
 			}
-			// console.log("found " + result.rows.length + " percentile arrays")
-			return result.rows // .map(r=>new internal.doy_percentil(r))
+			return result.rows
 		})
 	}
 	
-	static async matchPercentil(obs) {
+	static async matchPercentil(obs, client) {
 		var date = new Date(obs.date)
 		var doy = this.extract_doy_from_date(date)
 		//~ console.log({date:date,doy:doy})
 		obs.doy = doy
-		return this.getPercentilesDiarios(obs.tipo,obs.series_id,undefined,doy)
-		.then(percentiles=>{
+		return withClient(client, async (client) => {
+			const percentiles = await this.getPercentilesDiarios(obs.tipo,obs.series_id,undefined,doy,undefined, client)
 			if(percentiles.length>0) {
 				for(var i=0;i<percentiles.length;i++) {
 					if(obs.valor <= percentiles[i].valor) {
@@ -15622,97 +15349,73 @@ internal.CRUD = class {
 			return obs
 		})
 	}
-	
-	//~ getCuantilesDiarios(series_id) {
-		//~ return global.pool.query("\
-			//~ SELECT * \
-			//~ FROM obs_diaria_cuantiles\
-			//~ WHERE series_id=$1\
-			//~ ORDER BY doy",[series_id])
-		//~ .then(stats=>{
-			//~ if(stats.rows) {
-				//~ return new internal.dailyStatsList(stats.rows)
-			//~ } else {
-				//~ return {}
-			//~ }
-		//~ })
-		//~ .catch(e=>{
-			//~ console.error(e)
-		//~ })
-	//~ }
-	
+		
 	// MODELOS
 	
-	static async deleteModelos(model_id,tipo) {
-		var modelos
-		try {
-			modelos = await this.getModelos(model_id,tipo)
-		} catch(e) {
-			throw(e)
-		}
-		var deleted = []
-		for(var i=0;i<modelos.length;i++) {
-			try {
+	static async deleteModelos(model_id,tipo,client) {
+		return withClient(client, async (client) => {
+			var modelos
+			modelos = await this.getModelos(model_id,tipo,undefined,client)
+			var deleted = []
+			for(var i=0;i<modelos.length;i++) {
 				var query = internal.utils.pasteIntoSQLQuery("DELETE FROM modelos WHERE id=$1 RETURNING *",[modelos[i].id])
 				// console.log(query)
-				var result = await global.pool.query(query)
+				var result = await client.query(query)
 				var m = result.rows[0]
 				deleted.push(m)
-			} catch (e) {
-				throw(e)
-			} 
-		}
-		return deleted
+			}
+			return deleted
+		})
 	}
 
-	static async getModelos(model_id,tipo,name_contains) {
-		return global.pool.query("WITH mod as (\
-SELECT modelos.id, \
-       modelos.nombre, \
-       modelos.tipo, \
-       modelos.def_var_id, \
-       modelos.def_unit_id\
-		FROM modelos\
-		WHERE modelos.id = coalesce($1, modelos.id)\
-		AND modelos.tipo = coalesce($2::text, modelos.tipo)\
-		AND modelos.nombre ~ coalesce($3::text,'')\
-		ORDER BY modelos.id),\
-par as (SELECT mod.id model_id,\
-               json_agg(parametros.*) parametros \
-        FROM parametros,mod \
-        WHERE parametros.model_id=mod.id \
-        GROUP BY mod.id), \
-est as (SELECT mod.id model_id,\
-               json_agg(estados.*) estados \
-        FROM estados,mod \
-        WHERE estados.model_id=mod.id \
-        GROUP BY mod.id), \
-forz as (SELECT mod.id model_id,\
-                json_agg(modelos_forzantes.*) forzantes \
-         FROM modelos_forzantes,mod \
-         WHERE modelos_forzantes.model_id=mod.id \
-         GROUP BY mod.id), \
-out as (SELECT mod.id model_id,\
-               json_agg(modelos_out.*) outputs \
-        FROM modelos_out,mod \
-        WHERE modelos_out.model_id=mod.id \
-        GROUP BY mod.id) \
-SELECT mod.id, \
-       mod.nombre, \
-       par.parametros, \
-       est.estados, \
-       forz.forzantes, \
-       out.outputs, \
-       mod.tipo, \
-       mod.def_var_id, \
-       mod.def_unit_id\
-		FROM mod\
-		LEFT JOIN par ON par.model_id = mod.id\
-		LEFT JOIN est ON est.model_id = mod.id\
-		LEFT JOIN forz ON forz.model_id = mod.id\
-		LEFT JOIN out ON out.model_id = mod.id\
-		ORDER BY mod.id;",[model_id, tipo, name_contains])
-		.then(result=>{
+	static async getModelos(model_id,tipo,name_contains,client) {
+		return withClient(client, async (client) => {
+			const result = await client.query("WITH mod as (\
+	SELECT modelos.id, \
+		modelos.nombre, \
+		modelos.tipo, \
+		modelos.def_var_id, \
+		modelos.def_unit_id\
+			FROM modelos\
+			WHERE modelos.id = coalesce($1, modelos.id)\
+			AND modelos.tipo = coalesce($2::text, modelos.tipo)\
+			AND modelos.nombre ~ coalesce($3::text,'')\
+			ORDER BY modelos.id),\
+	par as (SELECT mod.id model_id,\
+				json_agg(parametros.*) parametros \
+			FROM parametros,mod \
+			WHERE parametros.model_id=mod.id \
+			GROUP BY mod.id), \
+	est as (SELECT mod.id model_id,\
+				json_agg(estados.*) estados \
+			FROM estados,mod \
+			WHERE estados.model_id=mod.id \
+			GROUP BY mod.id), \
+	forz as (SELECT mod.id model_id,\
+					json_agg(modelos_forzantes.*) forzantes \
+			FROM modelos_forzantes,mod \
+			WHERE modelos_forzantes.model_id=mod.id \
+			GROUP BY mod.id), \
+	out as (SELECT mod.id model_id,\
+				json_agg(modelos_out.*) outputs \
+			FROM modelos_out,mod \
+			WHERE modelos_out.model_id=mod.id \
+			GROUP BY mod.id) \
+	SELECT mod.id, \
+		mod.nombre, \
+		par.parametros, \
+		est.estados, \
+		forz.forzantes, \
+		out.outputs, \
+		mod.tipo, \
+		mod.def_var_id, \
+		mod.def_unit_id\
+			FROM mod\
+			LEFT JOIN par ON par.model_id = mod.id\
+			LEFT JOIN est ON est.model_id = mod.id\
+			LEFT JOIN forz ON forz.model_id = mod.id\
+			LEFT JOIN out ON out.model_id = mod.id\
+			ORDER BY mod.id;",[model_id, tipo, name_contains])
 			if(result.rows) {
 				return result.rows
 			} else {
@@ -15802,7 +15505,8 @@ SELECT mod.id, \
 		group_by_cal,
 		forecast_date,
 		includeInactive,
-		series_id) {
+		series_id,
+		client) {
 		console.debug({includeCorr:includeCorr, isPublic: isPublic})
 		var public_filter = (isPublic) ? "AND calibrados.public=true" : ""
 		var activar_filter = (includeInactive) ? "" : "AND calibrados.activar = TRUE"
@@ -15983,102 +15687,109 @@ LEFT OUTER JOIN states ON (states.cal_id=cal.cal_id) \
 LEFT OUTER JOIN forcings ON (forcings.cal_id=cal.cal_id) \
 ORDER BY cal.cal_id`
 		}
-		// console.debug(internal.utils.pasteIntoSQLQuery(query,[estacion_id,var_id,cal_id,model_id]))
-		const result = await global.pool.query(query) //,[estacion_id,var_id,cal_id,model_id])
-		if(!result.rows) {
-			return Promise.reject()
-		}
-		var calibrados = result.rows
-		// console.log({calibrados:calibrados})
-		if(cal_id) {
-			// console.log("Querying for cal_out")
-			const cal_filter = internal.utils.control_filter2(
-				{
-					cal_id: {
-						type: "integer",
-						table: "cal_out"
-					}
-				},{
-					cal_id: cal_id
-				}
-			)
-			const cal_out = await global.pool.query("SELECT  * from cal_out WHERE 1=1 " + cal_filter + " order by orden")
-			if(cal_out.rows) {
-				// console.log("Got " + cal_out.rows.length + " records from cal_out")
-				calibrados.forEach((c,i)=>{
-					//~ console.log("cal i:"+i)
-					c.outputs = cal_out.rows
-				})
+		return withClient(client, async (client) => {
+			const result = await client.query(query) //,[estacion_id,var_id,cal_id,model_id])
+			if(!result.rows) {
+				return Promise.reject()
 			}
-		}
-		if(includeCorr) {
-				//~ var promises = []
-			console.log("Querying for corridas")
-			for(var c of calibrados) {
-				if(forecast_date) {
-					const corridas = await this.getPronosticos(
-						undefined,
-						c.id,
-						undefined,
-						undefined,
-						forecast_date,
-						timestart,
-						timeend,
-						qualifier,
-						c.out_id,
-						var_id,
-						true,
-						isPublic,
-						undefined,
-						false,
-						undefined,
-						true
-					)
-					if(corridas.length > 0) {
-						calibrados[i].corrida = corridas[0]
+			var calibrados = result.rows
+			// console.log({calibrados:calibrados})
+			if(cal_id) {
+				// console.log("Querying for cal_out")
+				const cal_filter = internal.utils.control_filter2(
+					{
+						cal_id: {
+							type: "integer",
+							table: "cal_out"
+						}
+					},{
+						cal_id: cal_id
+					}
+				)
+				const cal_out = await client.query("SELECT  * from cal_out WHERE 1=1 " + cal_filter + " order by orden")
+				if(cal_out.rows) {
+					// console.log("Got " + cal_out.rows.length + " records from cal_out")
+					calibrados.forEach((c,i)=>{
+						//~ console.log("cal i:"+i)
+						c.outputs = cal_out.rows
+					})
+				}
+			}
+			if(includeCorr) {
+					//~ var promises = []
+				console.log("Querying for corridas")
+				for(var c of calibrados) {
+					if(forecast_date) {
+						const corridas = await this.getPronosticos(
+							undefined,
+							c.id,
+							undefined,
+							undefined,
+							forecast_date,
+							timestart,
+							timeend,
+							qualifier,
+							c.out_id,
+							var_id,
+							true,
+							isPublic,
+							undefined,
+							false,
+							undefined,
+							true,
+							undefined,
+							undefined,
+							undefined,
+							undefined,
+							undefined,
+							client
+						)
+						if(corridas.length > 0) {
+							calibrados[i].corrida = corridas[0]
+						} else {
+							calibrados[i].corrida = null
+						}
 					} else {
-						calibrados[i].corrida = null
+						const estacion_id = (Array.isArray(c.out_id)) ? c.out_id.map(s=>(typeof s == "number") ? s : s.estacion_id) : c.out_id
+						// console.log("estacion_id: " + estacion_id)
+						const corrida = await this.getLastCorrida(estacion_id,var_id,c.id,timestart,timeend,qualifier,isPublic, undefined, undefined, undefined, undefined, undefined, undefined, client)
+						calibrados[i].corrida = corrida
 					}
-				} else {
-					const estacion_id = (Array.isArray(c.out_id)) ? c.out_id.map(s=>(typeof s == "number") ? s : s.estacion_id) : c.out_id
-					// console.log("estacion_id: " + estacion_id)
-					const corrida = await this.getLastCorrida(estacion_id,var_id,c.id,timestart,timeend,qualifier,isPublic)
-					calibrados[i].corrida = corrida
 				}
 			}
-		}
-		if(!no_metadata) {
-			for(var cal of calibrados) {
-				if(!cal.forzantes || !cal.forzantes.length) {
-					continue
-				}
-				// console.log("getting forzantes")
-				for(var i in cal.forzantes) {
-					const f = new internal.forzante(cal.forzantes[i])
-					await f.getSerie()
-					cal.forzantes[i] = f
+			if(!no_metadata) {
+				for(var cal of calibrados) {
+					if(!cal.forzantes || !cal.forzantes.length) {
+						continue
+					}
+					// console.log("getting forzantes")
+					for(var i in cal.forzantes) {
+						const f = new internal.forzante(cal.forzantes[i])
+						await f.getSerie(client)
+						cal.forzantes[i] = f
+					}
 				}
 			}
-		}
-		return calibrados
+			return calibrados
+		})
 	}
 	
-	static async getCalibradosGrupos(cal_grupo_id) {
-		var promise
-		if(cal_grupo_id) {
-			if(parseInt(cal_grupo_id).toString() == "NaN") {
-				return Promise.reject("Bad parameter: cal_grupo_id must be an integer")
+	static async getCalibradosGrupos(cal_grupo_id, client) {
+		return withClient(client, async (client) => {
+			var result
+			if(cal_grupo_id) {
+				if(parseInt(cal_grupo_id).toString() == "NaN") {
+					return Promise.reject("Bad parameter: cal_grupo_id must be an integer")
+				}
+				result = await client.query("SELECT * FROM calibrados_grupos WHERE id=$1",[cal_grupo_id]) 
+			} else {
+				result = await client.query("SELECT * FROM calibrados_grupos ORDER BY id")
 			}
-			promise = global.pool.query("SELECT * FROM calibrados_grupos WHERE id=$1",[cal_grupo_id]) 
-		} else {
-			promise = global.pool.query("SELECT * FROM calibrados_grupos ORDER BY id")
-		}
-		return promise.then(results=>{
-			return results.rows
+			return result.rows
 		})
 	}
 
-	static async getSeriesArealPronoLast(series_id,forecast_date) {
+	static async getSeriesArealPronoLast(series_id,forecast_date,client) {
 		var filter_string = internal.utils.control_filter2(
 			{
 				series_id: {type: "integer"},
@@ -16131,11 +15842,13 @@ ORDER BY cal.cal_id`
 			JOIN var ON var.id = series_areal.var_id
 			ORDER BY last_cor.series_id, last_cor.date`
 		// params = [series_id]
-		const result = await global.pool.query(stmt) // ,params)
-		return result.rows
+		return withClient(client, async (client) => {
+			const result = await client.query(stmt) // ,params)
+			return result.rows
+		})
 	}
 
-	static async getSeriesPronoLast(filter={}) {
+	static async getSeriesPronoLast(filter={},client) {
 		// console.log({filter:filter})
 		var filter_string = internal.utils.control_filter2(
 			{
@@ -16165,27 +15878,25 @@ ORDER BY cal.cal_id`
 		WHERE series_prono_last.series_id=series.id\
 		" + filter_string + "\
 		GROUP BY series_prono_last.cal_id,series_prono_last.cor_id,series_prono_last.fecha_emision"
-		return global.pool.query(query) // ,[filter.estacion_id,filter.var_id,filter.cal_id,filter.model_id,filter.series_id])
-		.then(result=>{
+		return withClient(client, async (client) => {
+			const result = await client.query(query) // ,[filter.estacion_id,filter.var_id,filter.cal_id,filter.model_id,filter.series_id])
 			return result.rows
 		})
 	}
 
-	static async getCalibrado(id) {
+	static async getCalibrado(id, client) {
 		if(!id) {
-			throw("missing id")
+			throw new Error("missing id")
 		}
 		const engine = new internal.engine(global.pool)
 		var filter = {id:id}
-		try {
-			var calibrados = await engine.read("Calibrado",filter)
-		} catch(e) {
-			throw(e)
-		}
-		if(!calibrados.length) {
-			throw("Calibrado not found")
-		}
-		return calibrados[0]
+		return withClient(client, async (client) => {
+			var calibrados = await engine.read("Calibrado",filter, client)
+			if(!calibrados.length) {
+				throw new Error("Calibrado not found")
+			}
+			return calibrados[0]
+		})
 	}
 
 	static async getCalibrados(
@@ -16205,101 +15916,105 @@ ORDER BY cal.cal_id`
 		includeInactive,
 		series_id,
 		nombre,
-		tipo="puntual"
+		tipo="puntual",
+		client
 	) {
-		const engine = new internal.engine(global.pool)
 		var filter = {id:cal_id,model_id:model_id,grupo_id:grupo_id,nombre:nombre}
 		if(!includeInactive) {
 			filter.activar = true
 		}
 		var calibrados
 		var series_prono_last
-		if(series_id && tipo == "areal") {
-			series_prono_last = await this.getSeriesArealPronoLast(series_id,forecast_date)
-			console.debug({series_prono_last:series_prono_last})
-			const cal_ids = new Set(series_prono_last.map(result=>result.cal_id))
-			filter.id = Array.from(cal_ids)
-			if(!filter.id.length) {
-				console.error("No series_prono found")
-				return []
-			}
-			calibrados = await this.getCalibrados_(filter.estacion_id,filter.var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive) // await engine.read("Calibrado",filter)
-		} else if(estacion_id || var_id || includeCorr || qualifier || forecast_date || series_id) {
-			series_prono_last = await this.getSeriesPronoLast({cal_id:cal_id,model_id:model_id,grupo_id:filter.grupo_id,estacion_id:estacion_id,var_id:var_id,forecast_date:forecast_date,series_id:series_id})
-			// console.log(JSON.stringify({series_prono_last:series_prono_last},null,2))
-			const cal_ids = new Set(series_prono_last.map(result=>result.cal_id))
-			filter.id = Array.from(cal_ids)
-			if(!filter.id.length) {
-				console.error("No series_prono found")
-				return []
-			}
-			// console.log({cal_id:filter.id})
-			calibrados = await this.getCalibrados_(estacion_id,var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive,series_id) // engine.read("Calibrado",filter)
-		} else {
-			calibrados = await this.getCalibrados_(estacion_id,var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive) // engine.read("Calibrado",filter)
-		}
-		if(includeCorr) {
-			var series_id
-			if(series_prono_last && series_prono_last.length) {
-				const series_ids = Array.from(new Set(flatten(series_prono_last.map(p=> {
-					// console.log(p)
-					if(p.series) {
-						return p.series.map(s=>s.id)
-					} else {
-						console.log("series missing from series_prono_last, returning series_id")
-						return p.series_id
-					}
-				}))))
-				if(series_ids.length) {
-					series_id = series_ids
+		return withClient(client, async (client) => {
+			if(series_id && tipo == "areal") {
+				series_prono_last = await this.getSeriesArealPronoLast(series_id,forecast_date,client)
+				console.debug({series_prono_last:series_prono_last})
+				const cal_ids = new Set(series_prono_last.map(result=>result.cal_id))
+				filter.id = Array.from(cal_ids)
+				if(!filter.id.length) {
+					console.error("No series_prono found")
+					return []
 				}
-			}
-			if(forecast_date) {
-				for(var i in calibrados) {
-					const corridas = await this.getPronosticos(
-						undefined,
-						calibrados[i].id,
-						undefined,
-						undefined,
-						forecast_date,
-						timestart,
-						timeend,
-						qualifier,
-						calibrados[i].out_id,
-						var_id,
-						true,
-						isPublic,
-						series_id,
-						false,
-						undefined,
-						true, 
-						undefined, 
-						tipo
-					)
-					if(corridas.length > 0) {
-						calibrados[i].corrida = corridas[0]
-					} else {
-						calibrados[i].corrida = null
-					}
+				calibrados = await this.getCalibrados_(filter.estacion_id,filter.var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive,undefined, client) // await engine.read("Calibrado",filter)
+			} else if(estacion_id || var_id || includeCorr || qualifier || forecast_date || series_id) {
+				series_prono_last = await this.getSeriesPronoLast({cal_id:cal_id,model_id:model_id,grupo_id:filter.grupo_id,estacion_id:estacion_id,var_id:var_id,forecast_date:forecast_date,series_id:series_id},client)
+				// console.log(JSON.stringify({series_prono_last:series_prono_last},null,2))
+				const cal_ids = new Set(series_prono_last.map(result=>result.cal_id))
+				filter.id = Array.from(cal_ids)
+				if(!filter.id.length) {
+					console.error("No series_prono found")
+					return []
 				}
+				// console.log({cal_id:filter.id})
+				calibrados = await this.getCalibrados_(estacion_id,var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive,series_id,client) // engine.read("Calibrado",filter)
 			} else {
-				for(var i in calibrados) {
-					// console.log(`this.getLastCorrida(${calibrados[i].out_id},${var_id},${calibrados[i].id},${timestart},${timeend},${qualifier},true,${isPublic},${series_id},undefined,true,undefined,undefined)`)
-					const estacion_id_filter = (Array.isArray(calibrados[i].out_id)) ? calibrados[i].out_id.map(s=>(typeof s == "number") ? s : s.estacion_id) : calibrados[i].out_id
-					// console.log("estacion_id_filter: " + estacion_id_filter)
-					const corrida = await this.getLastCorrida(estacion_id_filter,var_id,calibrados[i].id,timestart,timeend,qualifier,true,isPublic,series_id,undefined,true,tipo,undefined)
-					calibrados[i].corrida = corrida
-					// console.log(JSON.stringify(calibrados[i].corrida,null,2))
+				calibrados = await this.getCalibrados_(estacion_id,var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive,undefined, client) // engine.read("Calibrado",filter)
+			}
+			if(includeCorr) {
+				var s_id
+				if(series_prono_last && series_prono_last.length) {
+					const series_ids = Array.from(new Set(flatten(series_prono_last.map(p=> {
+						// console.log(p)
+						if(p.series) {
+							return p.series.map(s=>s.id)
+						} else {
+							console.log("series missing from series_prono_last, returning series_id")
+							return p.series_id
+						}
+					}))))
+					if(series_ids.length) {
+						s_id = series_ids
+					}
+				}
+				if(forecast_date) {
+					for(var i in calibrados) {
+						const corridas = await this.getPronosticos(
+							undefined,
+							calibrados[i].id,
+							undefined,
+							undefined,
+							forecast_date,
+							timestart,
+							timeend,
+							qualifier,
+							calibrados[i].out_id,
+							var_id,
+							true,
+							isPublic,
+							s_id,
+							false,
+							undefined,
+							true, 
+							undefined, 
+							tipo,
+							undefined,
+							undefined,
+							undefined,
+							client
+						)
+						if(corridas.length > 0) {
+							calibrados[i].corrida = corridas[0]
+						} else {
+							calibrados[i].corrida = null
+						}
+					}
+				} else {
+					for(var i in calibrados) {
+						const estacion_id_filter = (Array.isArray(calibrados[i].out_id)) ? calibrados[i].out_id.map(s=>(typeof s == "number") ? s : s.estacion_id) : calibrados[i].out_id
+						const corrida = await this.getLastCorrida(estacion_id_filter,var_id,calibrados[i].id,timestart,timeend,qualifier,true,isPublic,s_id,undefined,true,tipo,undefined,client)
+						calibrados[i].corrida = corrida
+						
+					}
 				}
 			}
-		}
-		return calibrados
+			return calibrados
+		})
 	}
 
-	static async getLastCorrida(estacion_id,var_id,cal_id,timestart,timeend,qualifier,includeProno=false,isPublic,series_id,series_metadata,group_by_qualifier,tipo,tabla) {
+	static async getLastCorrida(estacion_id,var_id,cal_id,timestart,timeend,qualifier,includeProno=false,isPublic,series_id,series_metadata,group_by_qualifier,tipo,tabla,client) {
 		var corrida = {}
 		var public_filter = (isPublic) ? "AND calibrados.public=true" : ""
-		//~ console.log([estacion_id,var_id,cal_id,timestart,timeend])
+		
 		var query = "with last as (\
 			select max(date) \
 			from corridas,calibrados \
@@ -16310,85 +16025,22 @@ ORDER BY cal.cal_id`
 		from corridas,last \
 		where cal_id=$1 \
 		and date=last.max;"
-		// console.log(internal.utils.pasteIntoSQLQuery(query,[cal_id]))
-		const result = await global.pool.query(query,[cal_id])
-		if (!result.rows.length) {
-			console.log("No rows found for cal_id:"+cal_id)
-			return []
-		} 
-		// console.log({cal_id:cal_id,rows:result.rows})
-		corrida = {cor_id:result.rows[0].id,cal_id:result.rows[0].cal_id,forecast_date:result.rows[0].date}
-		const corridas = await internal.CRUD.getPronosticos(corrida.cor_id,corrida.cal_id,undefined,undefined,corrida.forecast_date,timestart,timeend,qualifier,estacion_id,var_id,includeProno,isPublic,series_id,series_metadata,undefined,group_by_qualifier,undefined,tipo,tabla)
-		return corridas[0]
-		//~ console.log(corrida)
-		// const corridas = await this.getPronosticos()
-
-		// if(!includeProno) {
-		// 	return corrida
-		// }
-		// var filter_string = internal.utils.control_filter2({timestart:{type:"timestart","table":"pronosticos"},timeend:{type:"timeend","table":"pronosticos"},estacion_id:{type:"integer","table":"series"},var_id:{type:"integer","table":"series"},qualifier:{type:"string","table":"pronosticos"},series_id:{type:"integer","table":"pronosticos"}},{timestart:timestart,timeend:timeend,estacion_id:estacion_id,var_id:var_id,qualifier:qualifier,series_id:series_id})
-		// // var date_filter = ""
-		// // date_filter += (timestart) ? " AND pronosticos.timestart>='" + new Date(timestart).toISOString() + "' " : "" 
-		// // date_filter += (timeend) ?  " AND pronosticos.timeend<='" +  new Date(timeend).toISOString() + "' " : ""
-		// var query = internal.utils.pasteIntoSQLQuery("select pronosticos.series_id,\
-		// pronosticos.qualifier,\
-		// json_agg(ARRAY [to_char(pronosticos.timestart::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'), to_char(pronosticos.timeend::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'),valores_prono_num.valor::text,pronosticos.qualifier::text]) pronosticos\
-		// from series,pronosticos,valores_prono_num  \
-		// WHERE valores_prono_num.prono_id=pronosticos.id \
-		// and series.id=pronosticos.series_id\
-		// AND pronosticos.cor_id=$1\
-		// " + filter_string + "\
-		// group by pronosticos.series_id,pronosticos.qualifier;",[corrida.cor_id])
-		// // console.log(query)
-		// return global.pool.query(query) 										
-		// 						// "\
-		// 						// where cor_id=$1 and valores_prono_num.prono_id=pronosticos.id and series.id=pronosticos.series_id\
-		// 						// AND series.estacion_id=coalesce($2,series.estacion_id)\
-		// 						// AND series.var_id=coalesce($3,series.var_id)\
-		// 						// AND pronosticos.qualifier=coalesce($4,pronosticos.qualifier)\
-		// 						// AND series.id=coalesce($5,series.id)\
-		// 						// " + date_filter + "\
-		// 						// "group by pronosticos.series_id,pronosticos.qualifier;") ,[corrida.cor_id,estacion_id,var_id,qualifier,series_id])
-		// .then(result=>{
-		// 	if(!result.rows) {
-		// 		console.log("No rows found for cor_id:"+corrida.cor_id)
-		// 		corrida.series = []
-		// 		return corrida 
-		// 	} else if (result.rows.length == 0) {
-		// 		console.log("No rows found for cor_id:"+corrida.cor_id)
-		// 		corrida.series = []
-		// 		return corrida
-		// 	}
-		// 	corrida.series = result.rows
-		// 	if(series_metadata) {
-		// 		var promises = []
-		// 		corrida.series.forEach(serie=>{
-		// 			promises.push(this.getSerie("puntual",serie.series_id)
-		// 			.then(result=>{
-		// 				serie.metadata = result
-		// 				return
-		// 			}))
-		// 		})
-		// 		return Promise.all(promises)
-		// 		.then(()=>{
-		// 			return corrida
-		// 		})
-		// 	} else {
-		// 	//~ .map(s=>{
-		// 		//~ return {series_id: s.series_id,
-		// 				//~ qualifier: s.qualifier,
-		// 				//~ pronosticos = s.json_agg //.map(r=>[r[0]
-		// 		//~ }
-		// 	//~ })
-		// 		return corrida
-		// 	}
-		// })
 		
+		return withClient(client, async (client) => {
+			const result = await client.query(query,[cal_id])
+			if (!result.rows.length) {
+				console.log("No rows found for cal_id:"+cal_id)
+				return []
+			} 
+			corrida = {cor_id:result.rows[0].id,cal_id:result.rows[0].cal_id,forecast_date:result.rows[0].date}
+			const corridas = await internal.CRUD.getPronosticos(corrida.cor_id,corrida.cal_id,undefined,undefined,corrida.forecast_date,timestart,timeend,qualifier,estacion_id,var_id,includeProno,isPublic,series_id,series_metadata,undefined,group_by_qualifier,undefined,tipo,tabla,undefined, undefined, client)
+			return corridas[0]
+		})
 	}
 	
-	static async deleteCalibrado(cal_id) {
-		return global.pool.query("DELETE FROM calibrados WHERE id=$1 RETURNING *",[cal_id])
-		.then(result=>{
+	static async deleteCalibrado(cal_id, client) {
+		return withClient(client, async (client) => {
+			const result = await client.query("DELETE FROM calibrados WHERE id=$1 RETURNING *",[cal_id])
 			if(result.rows) {
 				return result.rows[0]
 			} else {
@@ -16397,7 +16049,7 @@ ORDER BY cal.cal_id`
 		})
 	}
 
-	static async deleteCalibrados(filter) {
+	static async deleteCalibrados(filter, client) {
 		if(filter.cal_id) {
 			filter.id = filter.cal_id
 		}
@@ -16407,17 +16059,20 @@ ORDER BY cal.cal_id`
 			throw("deleteCalibrados error: at least one filter is required")
 		}
 		var stmt = `DELETE FROM calibrados WHERE id=id ${filter_string} RETURNING *`
-		// console.log(stmt)
-		return global.pool.query(stmt)
+		return withClient(client, async (client) => {
+			return client.query(stmt)
+		})
 	}
 	
-	static async upsertCalibrados(calibrados) {
+	static async upsertCalibrados(calibrados, client) {
 		var upserted = []
-		for(var i in calibrados) {
-			calibrado = await this.upsertCalibrado(calibrados[i])
-			upserted.push(calibrado) 
-		}
-		return upserted
+		return withClient(client, async (client) => {
+			for(var i in calibrados) {
+				const calibrado = await this.upsertCalibrado(calibrados[i],client)
+				upserted.push(calibrado) 
+			}
+			return upserted
+		})
 	}
 
 	static async upsertCalibrado(input_cal, client) {
@@ -17530,7 +17185,6 @@ ORDER BY cal.cal_id`
 			if(!cor_id && !(cal_id && forecast_date)) {
 				return Promise.reject("cor_id or cal_id+forecast_date missing")
 			}
-			var client = await global.pool.connect()
 			if(cor_id) {
 				if(Array.isArray(cor_id) && !cor_id.length)	{
 					throw new Error("crud.deleteCorrida: cor_id is empty array")
@@ -18214,7 +17868,8 @@ ORDER BY cal.cal_id`
 		series_id,
 		tipo="puntual",
 		from_view=true,
-		get_cal_stats
+		get_cal_stats,
+		client
 	) {
 		var stmt
 		var params
@@ -18254,63 +17909,57 @@ ORDER BY cal.cal_id`
 			stmt = "SELECT series.id,redes.public from series,estaciones,redes where estacion_id=$1 and var_id=$2 and proc_id=$3 and series.estacion_id=estaciones.unid AND estaciones.tabla=redes.tabla_id "
 			params = [ estacion_id, var_id, proc_id ]
 		}
-		// console.log("getSeriesBySiteAndVar at "  + Date()) 
-		const result = await global.pool.query(stmt, params)
-		// console.log("got series at " + Date())
-		if(!result.rows) {
-			// console.log("No series rows returned")
-			return 
-		}
-		if(result.rows.length == 0) {
-			// console.log("0 series rows returned")
-			return 
-		}
-		if(isPublic) {
-			if (result.rows[0].public == false) {
-				// console.log("series not public")
-				throw("El usuario no está autorizado para acceder a esta serie")
+		return withClient(client, async (client) => {
+			const result = await client.query(stmt, params)
+			if(!result.rows) {
+				return 
 			}
-		}
-		// console.log("get serie tipo" + tipo + " id " + result.rows[0].id)
-		const serie = await this.getSerie(tipo,result.rows[0].id,startdate,enddate,{asArray:true,regular: regular, dt: dt})  // (tipo,id,timestart,timeend,options)
-		// console.log("got serie at " + Date())
-		if(includeProno) {
-			const series_sim = await this.getSeries(tipo,{estacion_id: serie.estacion.id, var_id: serie.var.id, unit_id: serie.unidades.id, fuentes_id: (serie.fuente) ? serie.fuente.id : undefined},{fromView:from_view})
-			if(!series_sim.length) {
-				console.log("No series sim found with id " + series_id + ", tipo " + tipo)
-				serie.pronosticos = []
-				return serie
+			if(result.rows.length == 0) {
+				return 
 			}
-			// console.log(JSON.stringify({series_sim:series_sim.map(s=>s.id)}))
-			const calibrados = await this.getCalibrados(estacion_id,var_id,true,startdate,enddate,undefined,undefined,undefined,isPublic,undefined,undefined,undefined,forecast_date,undefined,series_sim.map(s=>s.id),undefined,serie.tipo)
-			serie.pronosticos = calibrados
-			if(get_cal_stats) {
-				for(const calibrado of serie.pronosticos) {
-					if(calibrado.corrida == undefined || calibrado.corrida.series == undefined || !calibrado.corrida.series.length) { continue }
-					calibrado.cal_stats = {}
-					for(const serie_prono of calibrado.corrida.series) {
-						calibrado.cal_stats[serie_prono.qualifier ?? "main"] = getCalStats(
-							serie.observaciones, 
-							serie_prono.pronosticos,
-							calibrado.dt
-						)
-					}
+			if(isPublic) {
+				if (result.rows[0].public == false) {
+					throw new Error("El usuario no está autorizado para acceder a esta serie")
 				}
 			}
-			if(serie.pronosticos) {
-				console.log("getSeriesBySiteAndVar with prono of length "  + serie.pronosticos.
-			length)
+			const serie = await this.getSerie(tipo,result.rows[0].id,startdate,enddate,{asArray:true,regular: regular, dt: dt},undefined, undefined, client)
+			if(includeProno) {
+				const series_sim = await this.getSeries(tipo,{estacion_id: serie.estacion.id, var_id: serie.var.id, unit_id: serie.unidades.id, fuentes_id: (serie.fuente) ? serie.fuente.id : undefined},{fromView:from_view},client)
+				if(!series_sim.length) {
+					console.log("No series sim found with id " + series_id + ", tipo " + tipo)
+					serie.pronosticos = []
+					return serie
+				}
+				const calibrados = await this.getCalibrados(estacion_id,var_id,true,startdate,enddate,undefined,undefined,undefined,isPublic,undefined,undefined,undefined,forecast_date,undefined,series_sim.map(s=>s.id),undefined,serie.tipo,client)
+				serie.pronosticos = calibrados
+				if(get_cal_stats) {
+					for(const calibrado of serie.pronosticos) {
+						if(calibrado.corrida == undefined || calibrado.corrida.series == undefined || !calibrado.corrida.series.length) { continue }
+						calibrado.cal_stats = {}
+						for(const serie_prono of calibrado.corrida.series) {
+							calibrado.cal_stats[serie_prono.qualifier ?? "main"] = getCalStats(
+								serie.observaciones, 
+								serie_prono.pronosticos,
+								calibrado.dt
+							)
+						}
+					}
+				}
+				if(serie.pronosticos) {
+					console.log("getSeriesBySiteAndVar with prono of length "  + serie.pronosticos.
+				length)
+				} else {
+					console.log("getSeriesBySiteAndVar with no pronosticos")
+				}
+				return serie
 			} else {
-				console.log("getSeriesBySiteAndVar with no pronosticos")
+				//~ console.log("getSeriesBySiteAndVar done at "  + Date())
+				return serie
 			}
-			return serie
-		} else {
-			//~ console.log("getSeriesBySiteAndVar done at "  + Date())
-			return serie
-		}
+		})
 	}
 
-	static async getMonitoredVars(tipo="puntual",GeneralCategory) {
+	static async getMonitoredVars(tipo="puntual",GeneralCategory,client) {
 		var filter_string = internal.utils.control_filter2(
 			{
 				tipo: {type: "string"},
@@ -18319,87 +17968,85 @@ ORDER BY cal.cal_id`
 			{tipo:tipo,GeneralCategory:GeneralCategory},
 			"monitored_vars"
 		)
-		return global.pool.query(`SELECT 
-			monitored_vars.tipo,
-			monitored_vars.id,
-			monitored_vars.nombre,
-			monitored_vars.tipo2,
-			var."GeneralCategory" 
-		FROM monitored_vars
-		JOIN var ON var.id=monitored_vars.id 
-		${filter_string}`)
-		.then(result=>{
+		return withClient(client, async (client) => {
+			const result = await client.query(`SELECT 
+				monitored_vars.tipo,
+				monitored_vars.id,
+				monitored_vars.nombre,
+				monitored_vars.tipo2,
+				var."GeneralCategory" 
+			FROM monitored_vars
+			JOIN var ON var.id=monitored_vars.id 
+			${filter_string}`)
 			if(result.rows) {
 				return result.rows
 			} else {
 				return []
 			}
 		})
-		.catch(e=>{
-			if(config.verbose) {
-				console.error(e)
-			} else {
-				console.error(e.toString())
-			}
-		})
+		// .catch(e=>{
+		// 	if(config.verbose) {
+		// 		console.error(e)
+		// 	} else {
+		// 		console.error(e.toString())
+		// 	}
+		// })
 	}
 
-	static async getMonitoredFuentes(tipo="puntual",var_id,isPublic) {
+	static async getMonitoredFuentes(tipo="puntual",var_id,isPublic,client) {
 		var public_filter = (isPublic) ? " AND public=true" : ""
-		return global.pool.query("SELECT tipo,var_id,fuentes_id,nombre,public from monitored_fuentes where tipo=$1 AND var_id=$2" + public_filter,[tipo,var_id])
-		.then(result=>{
+		return withClient(client, async (client) => {
+			const result = await client.query("SELECT tipo,var_id,fuentes_id,nombre,public from monitored_fuentes where tipo=$1 AND var_id=$2" + public_filter,[tipo,var_id])
 			if(result.rows) {
 				return result.rows
 			} else {
 				return []
 			}
 		})
-		.catch(e=>{
-			if(config.verbose) {
-				console.error(e)
-			} else {
-				console.error(e.toString())
-			}
-		})
-	}
-	
+		// .catch(e=>{
+		// 	if(config.verbose) {
+		// 		console.error(e)
+		// 	} else {
+		// 		console.error(e.toString())
+		// 	}
+		// })
+	}	
 	
 	// tabprono
 	
-	static async insertTabprono(tabprono_geojson,insert_obs=true) {
-		var promises = []
-		tabprono_geojson.features.forEach(f=>{
-			promises.push(global.pool.query("INSERT INTO tabprono_parana (unid, estacion_nombre, geom, fecha_hoy, altura_hoy, mes, altura_media_mes, nivel_de_alerta, nivel_de_evacuacion, fecha_pronostico, altura_pronostico_min, altura_pronostico, altura_pronostico_max, estado_pronostico, fecha_tendencia, altura_tendencia_min, altura_tendencia, altura_tendencia_max, estado_tendencia,valor) VALUES\
-			($1, $2, st_setsrid(st_point($3,$4),4326), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, null)\
-			ON CONFLICT (unid) DO UPDATE SET estacion_nombre=excluded.estacion_nombre, geom=excluded.geom, fecha_hoy=excluded.fecha_hoy, altura_hoy=excluded.altura_hoy, mes=excluded.mes, altura_media_mes=excluded.altura_media_mes, nivel_de_alerta=excluded.nivel_de_alerta, nivel_de_evacuacion=excluded.nivel_de_evacuacion, fecha_pronostico=excluded.fecha_pronostico, altura_pronostico_min=excluded.altura_pronostico_min, altura_pronostico=excluded.altura_pronostico,altura_pronostico_max=excluded.altura_pronostico_max, estado_pronostico=excluded.estado_pronostico, fecha_tendencia=excluded.fecha_tendencia, altura_tendencia_min=excluded.altura_tendencia_min, altura_tendencia=excluded.altura_tendencia, altura_tendencia_max=excluded.altura_tendencia_max, estado_tendencia=excluded.estado_tendencia, valor=excluded.valor\
-			RETURNING *",[f.properties.estacion_id, f.properties.estacion_nombre, f.geometry.coordinates[0], f.geometry.coordinates[1], f.properties.nivel_hoy[0], f.properties.nivel_hoy[1], f.properties["altura_media_mensual(1994-2018)"][0], f.properties["altura_media_mensual(1994-2018)"][1], f.properties.nivel_de_alerta, f.properties.nivel_de_evacuacion, f.properties.pronostico[0], f.properties.pronostico[1], f.properties.pronostico[2], f.properties.pronostico[3], f.properties.estado_pronostico, f.properties.tendencia[0], f.properties.tendencia[1], f.properties.tendencia[2], f.properties.tendencia[3], f.properties.estado_tendencia]))
-		})
-		return Promise.all(promises)
-		.then(result=>{
-			global.pool.query("insert into tabprono_parana_historia (unid, estacion_nombre, geom, fecha_hoy, altura_hoy, mes, altura_media_mes, nivel_de_alerta, nivel_de_evacuacion, fecha_pronostico, altura_pronostico, estado_pronostico, fecha_tendencia, altura_tendencia, estado_tendencia) select unid, estacion_nombre, geom, fecha_hoy, altura_hoy, mes, altura_media_mes, nivel_de_alerta, nivel_de_evacuacion, fecha_pronostico, altura_pronostico, estado_pronostico, fecha_tendencia, altura_tendencia, estado_tendencia from tabprono_parana ON CONFLICT (unid,fecha_hoy) do nothing")
-			.then(()=>{
-				console.log("Insert into tabprono_parana_historia OK")
-			}).catch(e=>{
-				if(config.verbose) {
-					console.error(e)
-				} else {
-					console.error(e.toString())
-				}
-			})
+	static async insertTabprono(tabprono_geojson,insert_obs=true,client) {
+		return withClient(client, async (client) => {
+			const results = []
+			for(const f of tabprono_geojson.features) {
+				const result = await client.query("INSERT INTO tabprono_parana (unid, estacion_nombre, geom, fecha_hoy, altura_hoy, mes, altura_media_mes, nivel_de_alerta, nivel_de_evacuacion, fecha_pronostico, altura_pronostico_min, altura_pronostico, altura_pronostico_max, estado_pronostico, fecha_tendencia, altura_tendencia_min, altura_tendencia, altura_tendencia_max, estado_tendencia,valor) VALUES\
+				($1, $2, st_setsrid(st_point($3,$4),4326), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, null)\
+				ON CONFLICT (unid) DO UPDATE SET estacion_nombre=excluded.estacion_nombre, geom=excluded.geom, fecha_hoy=excluded.fecha_hoy, altura_hoy=excluded.altura_hoy, mes=excluded.mes, altura_media_mes=excluded.altura_media_mes, nivel_de_alerta=excluded.nivel_de_alerta, nivel_de_evacuacion=excluded.nivel_de_evacuacion, fecha_pronostico=excluded.fecha_pronostico, altura_pronostico_min=excluded.altura_pronostico_min, altura_pronostico=excluded.altura_pronostico,altura_pronostico_max=excluded.altura_pronostico_max, estado_pronostico=excluded.estado_pronostico, fecha_tendencia=excluded.fecha_tendencia, altura_tendencia_min=excluded.altura_tendencia_min, altura_tendencia=excluded.altura_tendencia, altura_tendencia_max=excluded.altura_tendencia_max, estado_tendencia=excluded.estado_tendencia, valor=excluded.valor\
+				RETURNING *",[f.properties.estacion_id, f.properties.estacion_nombre, f.geometry.coordinates[0], f.geometry.coordinates[1], f.properties.nivel_hoy[0], f.properties.nivel_hoy[1], f.properties["altura_media_mensual(1994-2018)"][0], f.properties["altura_media_mensual(1994-2018)"][1], f.properties.nivel_de_alerta, f.properties.nivel_de_evacuacion, f.properties.pronostico[0], f.properties.pronostico[1], f.properties.pronostico[2], f.properties.pronostico[3], f.properties.estado_pronostico, f.properties.tendencia[0], f.properties.tendencia[1], f.properties.tendencia[2], f.properties.tendencia[3], f.properties.estado_tendencia])
+				results.push(result)
+			}
+			await client.query("insert into tabprono_parana_historia (unid, estacion_nombre, geom, fecha_hoy, altura_hoy, mes, altura_media_mes, nivel_de_alerta, nivel_de_evacuacion, fecha_pronostico, altura_pronostico, estado_pronostico, fecha_tendencia, altura_tendencia, estado_tendencia) select unid, estacion_nombre, geom, fecha_hoy, altura_hoy, mes, altura_media_mes, nivel_de_alerta, nivel_de_evacuacion, fecha_pronostico, altura_pronostico, estado_pronostico, fecha_tendencia, altura_tendencia, estado_tendencia from tabprono_parana ON CONFLICT (unid,fecha_hoy) do nothing")
+			console.log("Insert into tabprono_parana_historia OK")
+			// }).catch(e=>{
+			// 	if(config.verbose) {
+			// 		console.error(e)
+			// 	} else {
+			// 		console.error(e.toString())
+			// 	}
+			// })
 			if(insert_obs) {
 				// upsert pronosticos
 				var pronos=[]
 				const prono_sid = {19: 1541, 20: 3381, 23: 3382, 24: 3383, 26: 3384, 29: 3385, 30: 1543, 34: 3387} // id de serie var_id=2 proc_id=8
-				result.forEach(r=>{
+				results.forEach(r=>{
 					r = r.rows[0]
 					//~ console.log(r)
 					pronos.push(new internal.observacion({tipo: "puntual", series_id: prono_sid[r.unid], timestart: r.fecha_hoy, timeend: r.fecha_hoy, valor: r.altura_hoy}))
 					pronos.push(new internal.observacion({tipo: "puntual", series_id: prono_sid[r.unid], timestart: r.fecha_pronostico, timeend: r.fecha_pronostico, valor: r.altura_pronostico}))
 					pronos.push(new internal.observacion({tipo: "puntual", series_id: prono_sid[r.unid], timestart: r.fecha_tendencia, timeend: r.fecha_tendencia, valor: r.altura_tendencia}))
 				})
-				return this.upsertObservaciones(pronos)
+				return this.upsertObservaciones(pronos, undefined, undefined, undefined, client)
 			} else {
-				return result.map(r=>r.rows[0])
+				return results.map(r=>r.rows[0])
 			}
 		})
 	}
@@ -18431,7 +18078,7 @@ ORDER BY cal.cal_id`
 	 * @param {string?} options.zfield
 	 * @param {string?} options.output
 	 */
-	static async points2rast(points,metadata={},options={},upsert) {
+	static async points2rast(points,metadata={},options={},upsert, client) {
 		const defaults = global.config.points2rast || {}
 		var outputdir = (options.outputdir) ? path.resolve(options.outputdir) : (defaults.outputdir) ? path.resolve(defaults.outputdir) : "data/campo"
 		var nmin=(options.nmin) ? options.nmin : defaults.nmin || 1;
@@ -18483,81 +18130,83 @@ ORDER BY cal.cal_id`
 		var resultfile= (options.output) ? outputdir + "/" + options.output : path.resolve(outputdir) + "/rast_" + method_ + "_" + radius1 + "_" + radius2 + "_" + out_x + "_" + out_y + "_" + metadata.timestart.toISOString().substring(0,10).replace(/-/g,"") + ".tif" 
 		var pngfile= resultfile.replace(/\.tif$/,".png"); // "/home/alerta5/13-SYNOP/mapas_semanales_gdal/pp_semanal_idw_$label_date.png";
 
-		const extent_result = await global.pool.query("with p as (\
-			select st_transform(st_setsrid(st_point($1, $2),4326),$5::int) bl,\
-			       st_transform(st_setsrid(st_point($3, $4),4326),$5::int) tr )\
-			select st_x(p.bl),st_y(p.bl),st_x(p.tr),st_y(p.tr) from p",[target_extent[0][0],target_extent[0][1],target_extent[1][0],target_extent[1][1],srs])
-		if(extent_result.rows.length==0) {
-			throw new Error("extent reprojection error")
-		}
-		const ogr = await ogr2ogr(points,{format: "GeoJSON",'-t_srs':`EPSG:${srs}`})
-		await fs.writeFile(geojsonfile,JSON.stringify(ogr.data))
-		const gdal_result = await pexec("gdal_grid -txe " + target_extent[0][0] + " " + target_extent[1][0] + " -tye " + target_extent[0][1] + " " + target_extent[1][1] + " -outsize " + out_x + " " + out_y + " -zfield " + zfield + " -ot Float32 -a " + method + " " + geojsonfile + " " + rasterfile)
-		if(gdal_result.stdout && config.verbose) {
-			console.log("crud.points2rast: stdout: " + gdal_result.stdout)	
-		}
-		const translate_result = await pexec("gdal_translate -a_nodata " + nullvalue + " " + rasterfile + " " + rasternonull)
-		if(translate_result.stdout && config.verbose) {
-			console.log("crud.points2rast: stdout: " + translate_result.stdout)
-		}
-		if(translate_result.stderr && config.verbose) {
-			console.error(translate_result.stderr)
-		}
-		const warp_result = await pexec(`gdalwarp -dstnodata ${nullvalue} ${(roifile) ? `-cutline ${roifile}` : ""} ${rasternonull} ${tempresultfile}`) //("gdal_calc.py --overwrite  -A " + rasternonull + " -B " + roifile + " --outfile=" + tempresultfile + " --NoDataValue=-9999 --calc=\"A*B\"")
-		if(warp_result.stdout && config.verbose) {
-			console.log("crud.points2rast: stdout: " + warp_result.stdout)
-		}
-		if(warp_result.stderr && config.verbose) {
-			console.error("crud.points2rast: stderr: " + warp_result.stderr)
-		}
-		const nodata_result = await pexec("gdal_translate -a_nodata NAN " + tempresultfile + " " + resultfile)
-		if(nodata_result.stdout  && config.verbose) {
-			console.log("crud.points2rast: stdout: " + nodata_result.stdout)
-		}
-		if(nodata_result.stderr  && config.verbose) {
-			console.error(nodata_result.stderr)
-		}
-		const warp2_result = await pexec("gdalwarp -t_srs EPSG:" + srs + " -srcnodata " + nullvalue + " -dstnodata nan -ot Float32 -overwrite " + tempresultfile + " " + resultfile);
-		if(warp2_result.stdout  && config.verbose) {
-			console.log("crud.points2rast: stdout: " + warp2_result.stdout)
-		}
-		if(warp2_result.stderr  && config.verbose) {
-			console.error(warp2_result.stderr)
-		}
-		const warp3_result = await pexec("gdalwarp -t_srs EPSG:4326 -dstnodata -9999 -overwrite " + tempresultfile + " " + warpedfile)
-		if(warp3_result.stdout  && config.verbose) {
-			console.log("crud.points2rast: stdout: " + warp3_result.stdout)
-		}
-		if(warp3_result.stderr  && config.verbose) {
-			console.error(warp3_result.stderr)
-		}
-		if(makepng) {
-			const gdaldem_result = await pexec("gdaldem color-relief " + tempresultfile + " " + rules_file + " " + pngfile + " -of PNG -alpha")
-			if(gdaldem_result.stdout && config.verbose) {
-				console.log("crud.points2rast: stdout: " + gdaldem_result.stdout)
+		return withClient(client, async (client) => {
+			const extent_result = await client.query("with p as (\
+				select st_transform(st_setsrid(st_point($1, $2),4326),$5::int) bl,\
+					st_transform(st_setsrid(st_point($3, $4),4326),$5::int) tr )\
+				select st_x(p.bl),st_y(p.bl),st_x(p.tr),st_y(p.tr) from p",[target_extent[0][0],target_extent[0][1],target_extent[1][0],target_extent[1][1],srs])
+			if(extent_result.rows.length==0) {
+				throw new Error("extent reprojection error")
 			}
-			if(gdaldem_result.stderr && config.verbose) {
-				console.error("crud.points2rast: stderr: " + gdaldem_result.stderr)
+			const ogr = await ogr2ogr(points,{format: "GeoJSON",'-t_srs':`EPSG:${srs}`})
+			await fs.writeFile(geojsonfile,JSON.stringify(ogr.data))
+			const gdal_result = await pexec("gdal_grid -txe " + target_extent[0][0] + " " + target_extent[1][0] + " -tye " + target_extent[0][1] + " " + target_extent[1][1] + " -outsize " + out_x + " " + out_y + " -zfield " + zfield + " -ot Float32 -a " + method + " " + geojsonfile + " " + rasterfile)
+			if(gdal_result.stdout && config.verbose) {
+				console.log("crud.points2rast: stdout: " + gdal_result.stdout)	
 			}
-		}
-		const data = await fs.readFile(warpedfile)
-		const obs = {tipo:"rast",series_id:metadata.series_id,timeupdate:metadata.timeupdate,timestart: metadata.timestart, timeend: metadata.timeend, valor: data} 
-		if(upsert) {
-			if(!metadata.series_id) {
-				throw new Error("Falta series_id")
+			const translate_result = await pexec("gdal_translate -a_nodata " + nullvalue + " " + rasterfile + " " + rasternonull)
+			if(translate_result.stdout && config.verbose) {
+				console.log("crud.points2rast: stdout: " + translate_result.stdout)
+			}
+			if(translate_result.stderr && config.verbose) {
+				console.error(translate_result.stderr)
+			}
+			const warp_result = await pexec(`gdalwarp -dstnodata ${nullvalue} ${(roifile) ? `-cutline ${roifile}` : ""} ${rasternonull} ${tempresultfile}`) //("gdal_calc.py --overwrite  -A " + rasternonull + " -B " + roifile + " --outfile=" + tempresultfile + " --NoDataValue=-9999 --calc=\"A*B\"")
+			if(warp_result.stdout && config.verbose) {
+				console.log("crud.points2rast: stdout: " + warp_result.stdout)
+			}
+			if(warp_result.stderr && config.verbose) {
+				console.error("crud.points2rast: stderr: " + warp_result.stderr)
+			}
+			const nodata_result = await pexec("gdal_translate -a_nodata NAN " + tempresultfile + " " + resultfile)
+			if(nodata_result.stdout  && config.verbose) {
+				console.log("crud.points2rast: stdout: " + nodata_result.stdout)
+			}
+			if(nodata_result.stderr  && config.verbose) {
+				console.error(nodata_result.stderr)
+			}
+			const warp2_result = await pexec("gdalwarp -t_srs EPSG:" + srs + " -srcnodata " + nullvalue + " -dstnodata nan -ot Float32 -overwrite " + tempresultfile + " " + resultfile);
+			if(warp2_result.stdout  && config.verbose) {
+				console.log("crud.points2rast: stdout: " + warp2_result.stdout)
+			}
+			if(warp2_result.stderr  && config.verbose) {
+				console.error(warp2_result.stderr)
+			}
+			const warp3_result = await pexec("gdalwarp -t_srs EPSG:4326 -dstnodata -9999 -overwrite " + tempresultfile + " " + warpedfile)
+			if(warp3_result.stdout  && config.verbose) {
+				console.log("crud.points2rast: stdout: " + warp3_result.stdout)
+			}
+			if(warp3_result.stderr  && config.verbose) {
+				console.error(warp3_result.stderr)
+			}
+			if(makepng) {
+				const gdaldem_result = await pexec("gdaldem color-relief " + tempresultfile + " " + rules_file + " " + pngfile + " -of PNG -alpha")
+				if(gdaldem_result.stdout && config.verbose) {
+					console.log("crud.points2rast: stdout: " + gdaldem_result.stdout)
+				}
+				if(gdaldem_result.stderr && config.verbose) {
+					console.error("crud.points2rast: stderr: " + gdaldem_result.stderr)
+				}
+			}
+			const data = await fs.readFile(warpedfile)
+			const obs = {tipo:"rast",series_id:metadata.series_id,timeupdate:metadata.timeupdate,timestart: metadata.timestart, timeend: metadata.timeend, valor: data} 
+			if(upsert) {
+				if(!metadata.series_id) {
+					throw new Error("Falta series_id")
+				} else {
+					return this.upsertObservacion(obs, undefined, client)
+				}
 			} else {
-				return this.upsertObservacion(obs)
+				return obs
 			}
-		} else {
-			return obs
-		}
+		})
 	} 
 	
-	static async getObservacionesPuntuales2Rast(filter={},options={}) {
+	static async getObservacionesPuntuales2Rast(filter={},options={}, client) {
 		var raster_format = (options.format) ? options.format : "GTiff"
 		options.format="GeoJSON"
-		return this.getObservacionesTimestart(filter,options)
-		.then(observaciones=>{
+		return withClient(client, async (client) => {
+			const observaciones = await this.getObservacionesTimestart(filter.tipo,filter,options,client)
 			if(observaciones.length == 0) {
 				throw("no observaciones found")
 			}
@@ -18567,7 +18216,7 @@ ORDER BY cal.cal_id`
 				timestart: observaciones[0].timestart,
 				timeend: observaciones[0].timeend
 			}
-			return this.points2rast(observaciones,metadata,options)
+			return this.points2rast(observaciones,metadata,options,undefined,client)
 		})
 	}
 	
@@ -18978,43 +18627,44 @@ ORDER BY cal.cal_id`
 		}
 	}
 	
-	static async checkAuth(user,params={}) {
-		switch (user.role) {
-			case "admin":
-				return true
-				break;
-			case "writer":
-				var series_table = (params.tipo) ? (params.tipo == "puntual") ? "series" : (params.tipo == "areal") ? "series_areal " : (params.tipo == "rast" || params.tipo == "raster") ? "series_rast" : "series" : "series"
-				var observaciones_table = (params.tipo) ? (params.tipo == "puntual") ? "observaciones" : (params.tipo == "areal") ? "observaciones_areal" : (params.tipo == "rast" || params.tipo == "raster") ? "observaciones_rast" : "observaciones" : "observaciones"
-				var query_promise
-				if(params.redId) {
-					query_promise = global.pool.query("SELECT 1 FROM redes WHERE user_id=$1 AND id=$2",[user.id,params.redId])
-				} else if(params.estacion_id) {
-					query_promise = global.pool.query("SELECT 1 FROM estaciones,redes WHERE redes.tabla_id=estaciones.tabla AND redes.user_id=$1 AND estaciones.unid=$2",[user.id,params.estacion_id])
-				} else if(params.series_id) {
-					query_promise = global.pool.query("SELECT 1 FROM " + series_table + ",estaciones,redes WHERE " + series_table + ".estacion_id=estaciones.unid AND redes.tabla_id=estaciones.tabla AND redes.user_id=$1 AND " + series_table + ".id=$2",[user.id,params.series_id])
-				} else if(params.observacion_id) {
-					query_promise = global.pool.query("SELECT 1 FROM " + observaciones_table + "," + series_table + ",estaciones,redes WHERE " + observaciones_table + ".series_id=" + series_table + ".id AND " + series_table + ".estacion_id=estaciones.unid AND redes.tabla_id=estaciones.tabla AND redes.user_id=$1 AND " + observaciones_table + ".id=$2",[user.id,params.observaciones_id])
-				}
-				return query_promise
-				.then(result=>{
+	static async checkAuth(user,params={},client) {
+		return withClient(client, async(client) => {  
+			switch (user.role) {
+				case "admin":
+					return true
+					break;
+				case "writer":
+					var series_table = (params.tipo) ? (params.tipo == "puntual") ? "series" : (params.tipo == "areal") ? "series_areal " : (params.tipo == "rast" || params.tipo == "raster") ? "series_rast" : "series" : "series"
+					var observaciones_table = (params.tipo) ? (params.tipo == "puntual") ? "observaciones" : (params.tipo == "areal") ? "observaciones_areal" : (params.tipo == "rast" || params.tipo == "raster") ? "observaciones_rast" : "observaciones" : "observaciones"
+					var query_promise
+					if(params.redId) {
+						query_promise = client.query("SELECT 1 FROM redes WHERE user_id=$1 AND id=$2",[user.id,params.redId])
+					} else if(params.estacion_id) {
+						query_promise = client.query("SELECT 1 FROM estaciones,redes WHERE redes.tabla_id=estaciones.tabla AND redes.user_id=$1 AND estaciones.unid=$2",[user.id,params.estacion_id])
+					} else if(params.series_id) {
+						query_promise = client.query("SELECT 1 FROM " + series_table + ",estaciones,redes WHERE " + series_table + ".estacion_id=estaciones.unid AND redes.tabla_id=estaciones.tabla AND redes.user_id=$1 AND " + series_table + ".id=$2",[user.id,params.series_id])
+					} else if(params.observacion_id) {
+						query_promise = client.query("SELECT 1 FROM " + observaciones_table + "," + series_table + ",estaciones,redes WHERE " + observaciones_table + ".series_id=" + series_table + ".id AND " + series_table + ".estacion_id=estaciones.unid AND redes.tabla_id=estaciones.tabla AND redes.user_id=$1 AND " + observaciones_table + ".id=$2",[user.id,params.observaciones_id])
+					}
+					try {
+						var result = await query_promise
+					} catch(e) {
+						console.error(e)
+						return false
+					}
 					if(result.rows.length > 0) {
 						return true
 					} else {
 						return false
 					}
-				})
-				.catch(e=>{
-					console.error(e)
+					break;
+				case "reader","public":
 					return false
-				})
-				break;
-			case "reader","public":
-				return false
-				break;
-			default:
-				return false
-		}
+					break;
+				default:
+					return false
+			}
+		})
 	}
 
 	// RALEO (THIN) SERIES - by SERIES_ID OR FUENTES_ID
@@ -19269,7 +18919,7 @@ ORDER BY cal.cal_id`
 	}
 
 	// pais
-	static async getPais(id,name) {
+	static async getPais(id,name,client) {
 		var stmt
 		if(!id) {
 			if(!name) {
@@ -19279,55 +18929,51 @@ ORDER BY cal.cal_id`
 		} else {
 			stmt = internal.utils.pasteIntoSQLQuery(("SELECT id,nombre,abrev,wmdr_name,wmdr_notation,wmdr_uri FROM paises WHERE id=$1",[parseInt(id)]))
 		}
-		return global.pool.query(stmt)
-		.then(result=>{
+		return withClient(client, async (client) => {
+			const result = await client.query(stmt)
 			if(!result.rows.length) {
-				throw("pais not found")
+				throw new Error("pais not found")
 			}
 			return result.rows[0]
 		})
 	}
 	
-	static async getPaises(filter={}) {
+	static async getPaises(filter={},client) {
 		var filter_string = internal.utils.control_filter2({id:{type:"integer"},nombre:{type:"string",case_insensitive:true},abrev:{type:"string",case_insensitive:true},wmdr_name:{type:"string"},wmdr_notation:{type:"string"},wmdr_uri:{type:"string",case_insensitive:true}},filter,"paises")
-		return global.pool.query(`SELECT id,nombre,abrev,wmdr_name,wmdr_notation,wmdr_uri FROM paises WHERE 1=1 ${filter_string} ORDER BY nombre`)
-		.then(result=>{
+		return withClient(client, async (client) => {
+			const result = await client.query(`SELECT id,nombre,abrev,wmdr_name,wmdr_notation,wmdr_uri FROM paises WHERE 1=1 ${filter_string} ORDER BY nombre`)
 			return result.rows
 		})
 	}
 
-	static async getRegionesOMM(filter={}) {
+	static async getRegionesOMM(filter={},client) {
 		var filter_string = internal.utils.control_filter2({id:{type:"integer"},name:{type:"string",case_insensitive:true},notation:{type:"string",case_insensitive:true},uri:{type:"string",case_insensitive:true}},filter,"regiones_omm")
-		return global.pool.query(`SELECT id,name,notation,uri FROM regiones_omm WHERE 1=1 ${filter_string}`)
-		.then(result=>{
+		return withClient(client, async (client) => {
+			const result = await client.query(`SELECT id,name,notation,uri FROM regiones_omm WHERE 1=1 ${filter_string}`)
 			return result.rows
 		})
 	}
 
-	static async getProcessTypeWaterml2(filter={}) {
+	static async getProcessTypeWaterml2(filter={}, client) {
 		var filter_string = internal.utils.control_filter2({proc_id:{type:"integer"},name:{type:"string",case_insensitive:true},notation:{type:"string",case_insensitive:true},uri:{type:"string",case_insensitive:true}},filter,"process_type_waterml2")
-		return global.pool.query(`SELECT proc_id,name,notation,uri FROM process_type_waterml2 WHERE 1=1 ${filter_string}`)
-		.then(result=>{
+		return withClient(client, async (client) => {
+			const result = await client.query(`SELECT proc_id,name,notation,uri FROM process_type_waterml2 WHERE 1=1 ${filter_string}`)
 			return result.rows
 		})
 	}
 
-	static async getDataTypes(filter={}) {
+	static async getDataTypes(filter={},client) {
 		var filter_string = internal.utils.control_filter2({id:{type:"integer"},term:{type:"string",case_insensitive:true},in_waterml1_cv:{type:"boolean"},waterml2_code:{type:"string",case_insensitive:true},waterml2_uri:{type:"string",case_insensitive:true}},filter,"datatypes")
-		return global.pool.query(`SELECT id,term,in_waterml1_cv,waterml2_code,waterml2_uri FROM datatypes WHERE 1=1 ${filter_string}`)
-		.then(result=>{
+		return withClient(client, async (client) => {
+			const result = await client.query(`SELECT id,term,in_waterml1_cv,waterml2_code,waterml2_uri FROM datatypes WHERE 1=1 ${filter_string}`)
 			return result.rows
 		})
 	}
 
-	// static async series2waterml2(series) {
-	// 	return series2waterml2.convert(series)
-	// }
-
-	static async getTipoEstaciones(filter={}) {
+	static async getTipoEstaciones(filter={},client) {
 		var filter_string = internal.utils.control_filter2({id:{type:"integer"},tipo:{type:"string",case_insensitive:true},nombre:{type:"string", case_insensitive:true}},filter,"tipo_estaciones")
-		return global.pool.query(`SELECT tipo,id,nombre FROM tipo_estaciones WHERE 1=1 ${filter_string} ORDER BY tipo`)
-		.then(result=>{
+		return withClient(client, async (client) => {
+			const result = await client.query(`SELECT tipo,id,nombre FROM tipo_estaciones WHERE 1=1 ${filter_string} ORDER BY tipo`)
 			return result.rows
 		})
 	}
@@ -19339,32 +18985,35 @@ ORDER BY cal.cal_id`
 		dest_series_id, 
 		dest_tipo, 
 		filter = {},
-		options = {}) {
-		const corrida = await internal.corrida.read({
-				...filter,
-				cal_id,
-				series_id: source_series_id,
-				tipo: source_tipo
-			},
-			{
-				...options,
-				concat: true
-			})
-		if(!corrida) {
-			throw new Error("Pronóstico no encontrado")
-		}
-		if(!corrida.series.length) {
-			throw new Error("Pronóstico no encontrado")
-		}
-		if(!corrida.series[0].pronosticos) {
-			throw new Error("Pronóstico no encontrado")
-		}
-		if(!corrida.series[0].pronosticos.length) {
-			throw new Error("Pronóstico no encontrado")
-		}
-		const observaciones = new internal.observaciones(corrida.series[0].pronosticos.map(p=> p.toObservacion(dest_series_id, dest_tipo)))
-		return observaciones.create()
-
+		options = {},
+		client) {
+		return withClient(client, async (client) => {
+			const corrida = await internal.corrida.read({
+					...filter,
+					cal_id,
+					series_id: source_series_id,
+					tipo: source_tipo
+				},
+				{
+					...options,
+					concat: true
+				},
+				client)
+			if(!corrida) {
+				throw new Error("Pronóstico no encontrado")
+			}
+			if(!corrida.series.length) {
+				throw new Error("Pronóstico no encontrado")
+			}
+			if(!corrida.series[0].pronosticos) {
+				throw new Error("Pronóstico no encontrado")
+			}
+			if(!corrida.series[0].pronosticos.length) {
+				throw new Error("Pronóstico no encontrado")
+			}
+			const observaciones = new internal.observaciones(corrida.series[0].pronosticos.map(p=> p.toObservacion(dest_series_id, dest_tipo)))
+			return observaciones.create(undefined,client)
+		})
 	}
 }
 
