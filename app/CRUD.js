@@ -156,7 +156,7 @@ internal.red = class extends baseModel  {
 			return internal.CRUD.upsertRed(this, client)
 		})	
 	}
-	async create(client) {
+	async create(options, client) {
 		return withClient(client, async (client) => {
 			const created = await internal.CRUD.upsertRed(this, client)
 			if(!created) {
@@ -857,7 +857,7 @@ internal.area = class extends baseModel  {
 			return result
 		})
 	}
-	static async delete(filter) {
+	static async delete(filter, options, client) {
 		if(filter.area_id && !filter.id) {
 			filter.id = filter.area_id
 		}
@@ -1016,23 +1016,25 @@ internal.escena = class extends baseModel  {
 		})
 	}
 
-	static async delete(filter={}) {
-		var matches = await this.read(filter)
-		if(!matches) {
-			console.log("Nothing to delete")
-			return []
-		}
-		if(!Array.isArray(matches)) {
-			matches = [matches]
-		}
-		const deleted = []
-		for(var escena of matches) {
-			const deleted_ = await escena.delete()
-			if(deleted_) {
-				deleted.push(deleted_)
+	static async delete(filter={}, options, client) {
+		return withClient(client, async (client) => {
+			var matches = await this.read(filter, options, client)
+			if(!matches) {
+				console.log("Nothing to delete")
+				return []
 			}
-		}
-		return deleted
+			if(!Array.isArray(matches)) {
+				matches = [matches]
+			}
+			const deleted = []
+			for(var escena of matches) {
+				const deleted_ = await escena.delete(client)
+				if(deleted_) {
+					deleted.push(deleted_)
+				}
+			}
+			return deleted
+		})
 	}
 }
 
@@ -1042,7 +1044,7 @@ internal.VariableName = class extends baseModel {
 		this.VariableName = arguments[0].VariableName
 		this.href = arguments[0].href
 	}
-	async create(client) {
+	async create(options, client) {
 		return withClient(client, async (client) => {
 			const result = await client.query(`INSERT INTO "VariableName" ("VariableName","href") VALUES ($1,$2) ON CONFLICT ("VariableName") DO UPDATE SET href=coalesce(excluded.href,href) RETURING *`,[this.VariableName,this.href])
 			if(!result.rows.length) {
@@ -1068,7 +1070,7 @@ internal.VariableName = class extends baseModel {
 			return new this.constructor(result.rows[0])
 		})
 	}
-	static async delete(filter={}, client) {
+	static async delete(filter={}, options, client) {
 		const valid_filters = {VariableName:{type:"string"},href:{type:"string"}}
 		var filter_string = control_filter2(valid_filters,filter)
 		if(!filter_string.length) {
@@ -1494,23 +1496,25 @@ internal.fuente = class extends baseModel {
 		})
 	}
 
-	static async delete(filter={},options={}) {
-		var matches = await this.read(filter)
-		if(!matches) {
-			console.log("Nothing to delete")
-			return []
-		}
-		if(!Array.isArray(matches)) {
-			matches = [matches]
-		}
-		const deleted = []
-		for(var fuente of matches) {
-			const deleted_ = await fuente.delete(options)
-			if(deleted_) {
-				deleted.push(deleted_)
+	static async delete(filter={},options={}, client) {
+		return withClient(client, async (client) =>{
+			var matches = await this.read(filter, options, client)
+			if(!matches) {
+				console.log("Nothing to delete")
+				return []
 			}
-		}
-		return deleted
+			if(!Array.isArray(matches)) {
+				matches = [matches]
+			}
+			const deleted = []
+			for(var fuente of matches) {
+				const deleted_ = await fuente.delete(options, client)
+				if(deleted_) {
+					deleted.push(deleted_)
+				}
+			}
+			return deleted
+		})
 	} 
 	async checkTableExists(table_schema='public', client) {
 		return withClient(client, async (client) => {
@@ -2284,7 +2288,7 @@ internal.serie = class extends baseModel {
 		return pasteIntoSQLQuery(`UPDATE ${series_table} SET ${set_clause.join(", ")} WHERE id=$1 RETURNING *`,params)
 	}
 
-	static async delete(filter={},options={}) {
+	static async delete(filter={},options={},client) {
 		return withClient(client, async (client) => {
 			var matches = await this.read(filter,{fromView:false}, client)
 			if(matches != null && !Array.isArray(matches)) {
@@ -4433,6 +4437,9 @@ internal.observacionPivot = class extends baseModel {
 
 
 internal.observaciones = class extends BaseArray {
+
+	static complex = true
+
 	constructor(arr,options) {
 		if(arr) {
 			super(...[])
@@ -5410,7 +5417,7 @@ internal.modelo = class extends baseModel {
 	toCSVless() {
 		return this.id + "," + this.nombre + "," + this.tipo
 	} 
-	async create(client) {
+	async create(options, client) {
 		const required_fields = ["nombre", "tipo", "def_var_id", "def_unit_id"]
 		required_fields.forEach(key=>{
 			if(typeof this[key] === undefined) {
@@ -5743,7 +5750,7 @@ internal.calibrado = class extends internal.genericModel {
 		})
 	}
 
-	async create(client) {
+	async create(options, client) {
 		return withClient(client, async (client) => {
 			const created = await internal.CRUD.upsertCalibrado(this, client)
 			if(created) {
@@ -5995,31 +6002,33 @@ internal.corrida = class extends baseModel {
 	 * @param {internal.corrida[]|internal.corrida} corridas 
 	 * @returns {Promise<internal.corrida[]|internal.corrida>}
 	 */
-	static async create(corridas) {
-		if(Array.isArray(corridas)) {
-			const created = []
-			for(const corrida of corridas) {
-				if(corrida instanceof internal.corrida) {
-					const c = new internal.corrida(corrida)
-					created.push(await c.create())
+	static async create(corridas, options, client) {
+		return withClient(client, async (client) =>{
+			if(Array.isArray(corridas)) {
+				const created = []
+				for(const corrida of corridas) {
+					if(corrida instanceof internal.corrida) {
+						const c = new internal.corrida(corrida)
+						created.push(await c.create(options, client))
+					} else {
+						created.push(await corrida.create(options, client))
+					}
+				}
+				return created
+			} else {
+				// console.debug({is_corrida: (corridas instanceof internal.corrida)})
+				if(corridas instanceof internal.corrida) {
+					return corridas.create(options, client)
 				} else {
-					created.push(await corrida.create())
+					// console.debug("Instanciando corrida")
+					const corrida = new this(corridas)
+					return corrida.create(options, client)
 				}
 			}
-			return created
-		} else {
-			// console.debug({is_corrida: (corridas instanceof internal.corrida)})
-			if(corridas instanceof internal.corrida) {
-				return corridas.create()
-			} else {
-				// console.debug("Instanciando corrida")
-				const corrida = new this(corridas)
-				return corrida.create()
-			}
-		}
+		})
 	}
 
-	async create(client) {
+	async create(options, client) {
 		return withClient(client, async (client) => {
 			const created = await internal.CRUD.upsertCorrida(this, undefined, client)
 			if(created) {
@@ -6566,7 +6575,7 @@ internal.SerieTemporalSim = class extends baseModel {
 		})
 	}
 
-	async create(client) {
+	async create(options, client) {
 		await internal.CRUD.upsertPronosticos(client,this.pronosticos)
 		return
 	}
@@ -6807,7 +6816,7 @@ internal.accessor = class extends baseModel {
 		}
 	}
 
-	async create(client) { //~ upsertAccessor(accessor) {
+	async create(options, client) { //~ upsertAccessor(accessor) {
 		return withClient(client, async (client) => {
 			var result = await client.query("INSERT INTO accessors (class,url,series_tipo,series_source_id,name,config,series_id,upload_fields,title) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (name) DO UPDATE SET class=excluded.class, url=excluded.url, series_tipo=excluded.series_tipo, series_source_id=excluded.series_source_id, config=excluded.config, series_id=excluded.series_id,upload_fields=excluded.upload_fields,title=excluded.title RETURNING *", [this.class, this.url, this.series_tipo, this.series_source_id, this.name, this.config, this.series_id, this.upload_fields, this.title])
 			if(!result.rows.length) {
@@ -6835,7 +6844,7 @@ internal.accessor = class extends baseModel {
 			}
 		})
 	}
-	static async delete(filter={}, client) {
+	static async delete(filter={}, options, client) {
 		return withClient(client, async (client) => {
 			if(filter.name) {
 				var result = await client.query("DELETE FROM accessors WHERE name=$1 RETURNING *",[filter.name])
@@ -7086,7 +7095,7 @@ internal.asociacion = class extends baseModel {
 			return new internal.asociacion(deleted)
 		})
 	}
-	static async delete(filter, client) {
+	static async delete(filter, options, client) {
 		return withClient(client, async (client) => {
 			var asociaciones = await internal.asociacion.read(filter, client)
 			var deleted = []
@@ -7941,7 +7950,7 @@ internal.CRUD = class {
 				areas_pluvio.mostrar \
 			FROM areas_pluvio\
 			WHERE unid=$1"
-			const result = client.query(query,[id])
+			const result = await client.query(query,[id])
 			if(result.rows.length<=0) {
 				console.error("area no encontrada")
 				return
@@ -13158,7 +13167,7 @@ internal.CRUD = class {
 						return
 					}
 					const serie_areal = new internal.serie({tipo:"areal", "var":serie["var"], procedimiento:serie.procedimiento, unidades:serie.unidades, estacion:serie.estacion, fuente:serie.fuente})
-					await serie_areal.getId(undefined,client)
+					await serie_areal.getId(undefined,undefined,client)
 					console.log("Found serie_areal.id:" + serie_areal.id)
 					serie.observaciones = serie.observaciones.map(obs=> {
 						obs.series_id = serie_areal.id
@@ -13332,11 +13341,11 @@ internal.CRUD = class {
 						timeSupport = options.timeSupport.toPostgres()
 					}
 				}
-				var timestart = await this.date2obj(timestart, client)
-				var timeend = await this.date2obj(timeend, client) 
-				console.debug({timestart: timestart.toISOString(), timeend: timeend.toISOString()})
-				var dt = await this.interval2epoch(dt, client) * 1000
-				dt_epoch = (inst) ? 0 : dt
+				var ts = await this.date2obj(timestart, client)
+				var te = await this.date2obj(timeend, client) 
+				console.debug({timestart: ts.toISOString(), timeend: te.toISOString()})
+				var dt_ = await this.interval2epoch(dt, client) * 1000
+				dt_epoch = (inst) ? 0 : dt_
 				var t_offset = await this.interval2epoch(t_offset, client) * 1000
 				var timestart_time = (timestart.getHours()*3600 + timestart.getMinutes()*60 + timestart.getSeconds()) * 1000 + timestart.getMilliseconds() // + timestart.getTimezoneOffset()*60*1000
 				if(timestart_time < t_offset) {
@@ -13344,19 +13353,19 @@ internal.CRUD = class {
 					timestart.setTime(timestart.getTime() - timestart_time + t_offset)
 				} else if (timestart_time > t_offset) {
 					console.log("timestart > t_offset;" + timestart + ", " + timestart_time + " > " + t_offset)
-					timestart.setTime(timestart.getTime() - timestart_time + t_offset + dt)
+					timestart.setTime(timestart.getTime() - timestart_time + t_offset + dt_)
 				}
 				var timeend_time = (timeend.getHours()*3600 + timeend.getMinutes()*60 + timeend.getSeconds())*1000 + timeend.getMilliseconds() + timeend.getTimezoneOffset()*60*1000
 				if(timeend_time > t_offset) {
 					timeend.setTime(timeend.getTime() - timeend_time + t_offset)
 				} else if (timeend_time < t_offset) {
-					timeend.setTime(timeend.getTime() - timeend_time + t_offset + dt)
+					timeend.setTime(timeend.getTime() - timeend_time + t_offset + dt_)
 				}
 				// console.debug({timestart:timestart,timeend:timeend,dt:dt})
 				var obs = []
-				for(var i=timestart.getTime();i<timeend.getTime();i=i+dt) {
+				for(var i=timestart.getTime();i<timeend.getTime();i=i+dt_) {
 					var stepstart = new Date(i)
-					var stepend = new Date(i+dt)
+					var stepend = new Date(i+dt_)
 					if(config.verbose) {
 						console.debug({
 							series_id: series_id,
@@ -13403,7 +13412,7 @@ internal.CRUD = class {
 							if (options.timeupdate) {
 								o.timeupdate = options.timeupdate
 							}
-							if(dt / o.time_sum * 1000 < min_time_fraction) {
+							if(dt_ / o.time_sum * 1000 < min_time_fraction) {
 								console.error("la observación no alcanza la mínima fracción de tiempo")
 								return null
 							} else {
@@ -16475,7 +16484,6 @@ ORDER BY cal.cal_id`
 			${filter_string}
 			ORDER BY corridas.cal_id, corridas.date
 			${limit_block}`
-			console.debug(query)
 			const result = await client.query(query)
 			if(!result.rows) {
 				return
@@ -17003,6 +17011,7 @@ ORDER BY cal.cal_id`
 			JOIN corridas ON pronosticos_rast.cor_id=corridas.id\
 			WHERE 1=1 " + filter_string + "\
 			ORDER BY pronosticos_rast.series_id,pronosticos_rast.timestart")
+			return result.rows
 		})
 	}
 

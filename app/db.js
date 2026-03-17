@@ -12,25 +12,33 @@ const internal = {
         }
     },
 
-    withTransaction: async function(client, fn, { force = false } = {}) {
+    withTransaction: async function(client, fn) {
         const ownClient = !client
         if (!client) client = await global.pool.connect()
 
-        const useTransaction = ownClient || force
-        const useSavepoint = force && !ownClient
+        // 👇 track transaction state on client
+        if (client._inTransaction === undefined) {
+            client._inTransaction = false
+        }
+
+        const isInTx = client._inTransaction
+
+        const startTx = ownClient || !isInTx
 
         try {
-            if (ownClient) {
+            if (startTx) {
                 await client.query("BEGIN")
-            } else if (useSavepoint) {
+                client._inTransaction = true
+            } else {
                 await client.query("SAVEPOINT sp_tx")
             }
 
             const result = await fn(client)
 
-            if (ownClient) {
+            if (startTx) {
                 await client.query("COMMIT")
-            } else if (useSavepoint) {
+                client._inTransaction = false
+            } else {
                 await client.query("RELEASE SAVEPOINT sp_tx")
             }
 
@@ -38,9 +46,10 @@ const internal = {
 
         } catch (e) {
 
-            if (ownClient) {
+            if (startTx) {
                 await client.query("ROLLBACK")
-            } else if (useSavepoint) {
+                client._inTransaction = false
+            } else {
                 await client.query("ROLLBACK TO SAVEPOINT sp_tx")
             }
 
@@ -49,7 +58,6 @@ const internal = {
         } finally {
             if (ownClient) client.release()
         }
-    }
 }
-
+}
 module.exports = internal
