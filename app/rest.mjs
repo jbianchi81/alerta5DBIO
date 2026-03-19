@@ -7410,7 +7410,7 @@ async function send_output(options,data,res,property_name) {
 // }
 
 function getUserId(req) {
-	return (req.user) ? req.user.id : undefined
+	return (req.user) ? req.user.id : global.config.rest.anonymous_user_id
 }
 
 function getFilter(req,locals) {
