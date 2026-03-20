@@ -261,6 +261,10 @@
                     "type": "boolean",
                     "description": "Restrict access of anonymous users"
                 },
+                "anonymous_user_id": {
+                    "type": "number",
+                    "description": "user.id assigned to anonymous requests"
+                },
                 "public_endpoint": {
                     "type": "string",
                     "description": "URL where the service is publicly exposed"

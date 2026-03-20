@@ -39,7 +39,7 @@ CREATE TABLE public.user_roles (
 
 CREATE TABLE public.users (
     id integer NOT NULL,
-    name character varying NOT NULL,
+    name character varying NOT NULL UNIQUE,
     pass_enc bytea,
     role character varying,
     password character varying,

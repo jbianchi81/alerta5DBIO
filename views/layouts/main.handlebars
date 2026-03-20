@@ -409,12 +409,14 @@
 -->
 	{{#if loggedAs}}
 		<script>
-			var path = "logout?path=" + window.location.pathname.replace(/^\//,"") + "&" + window.location.search.replace(/^\?/,"")
+			// var path = "logout?path=" + window.location.pathname.replace(/^\//,"") + "&" + window.location.search.replace(/^\?/,"")
+			var path = "logout?path=" + window.location.pathname + "&" + window.location.search.replace(/^\?/,"")
 			$("ul#login_bar").html('<li>Sesión iniciada como <b>{{loggedAs}}</b>. <a href="' + path + '">Cerrar sesión</a></li>')
 		</script>
 	{{else}}
 		<script>
-			var path = "login?path=" + window.location.origin + "/" + window.location.pathname.replace(/^\//,"") + "&" + window.location.search.replace(/^\?/,"")
+			// var path = "login?path=" + window.location.origin + "/" + window.location.pathname.replace(/^\//,"") + "&" + window.location.search.replace(/^\?/,"")
+			var path = "login?path=" + window.location.origin + "/" + window.location.pathname + "&" + window.location.search.replace(/^\?/,"")
 			$("ul#login_bar").html('<li>Sesión no iniciada. <a href="' + path + '">Iniciar sesión</a></li>')
 		</script>
 	{{/if}}

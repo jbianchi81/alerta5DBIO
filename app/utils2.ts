@@ -2,10 +2,32 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
+import parsePGinterval  from 'postgres-interval'
+import { escapeIdentifier, escapeLiteral } from 'pg'
+import { access, readFile } from 'fs/promises';
+
 
 const execAsync = promisify(exec);
 
-export async function runCommandAndParseJSON(cmd : string) : Promise<any> {
+const INTERVAL_KEYS = [
+  "years",
+  "months",
+  "days",
+  "hours",
+  "minutes",
+  "seconds"
+] as const
+
+type IntervalKey = typeof INTERVAL_KEYS[number]
+//    ^? "years" | "months" | "days" | "hours" | "minutes" | "seconds"
+
+export function isIntervalKey(
+  key: string
+): key is IntervalKey {
+  return (INTERVAL_KEYS as readonly string[]).includes(key)
+}
+
+export async function runCommandAndParseJSON(cmd: string): Promise<any> {
   try {
     const { stdout } = await execAsync(cmd);
 
@@ -24,4 +46,443 @@ export function listFilesSync(dir: string): string[] {
   return entries
     .filter(entry => entry.isFile())
     .map(entry => path.join(dir, entry.name));
+}
+
+export interface QueryFilter {
+  table?: string
+  type?: "string" | "regex_string" | "boolean" | "boolean_only_true" | "boolean_only_false" | "geometry" | "date" | "timestamp" | "timestart" | "timeend" | "greater_or_equal_date" | "smaller_or_equal_date" | "numeric_interval" | "numeric_min" | "numeric_max" | "integer" | "number" | "float" | "interval" | "jsonpath"
+  required?: boolean
+  column?: string
+  case_insensitive?: boolean
+  trunc?:	"microseconds" | "milliseconds" | "second" | "minute" |	"hour" | "day" | "week" |	"month" |	"quarter" | "year" | "decade" |	"century" |	"millennium"
+  expression?: string
+}
+
+export class not_null extends Object {}
+
+export function assertValidDateTruncField(field : string) {
+	if ([
+		"microseconds",
+		"milliseconds",
+		"second",
+		"minute",
+		"hour",
+		"day",
+		"week",
+		"month",
+		"quarter",
+		"year",
+		"decade",
+		"century",
+		"millennium"
+	].indexOf(field) < 0) {
+		throw(new Error("Invalid date_trunc field: " + field))
+	}
+}
+
+export function control_filter2(valid_filters: Record<string, QueryFilter>, filter: any, default_table?: string, crud?: any, throw_on_error: boolean = false) {
+  // valid_filters = { column1: { table: "table_name", type: "data_type", required: bool, column: "column_name"}, ... }  
+  // filter = { column1: "value1", column2: "value2", ....}
+  // default_table = "table"
+  var filter_string = " "
+  var errors : string[] = []
+  Object.keys(valid_filters).forEach(key => {
+    var table_prefix = (valid_filters[key].table) ? '"' + valid_filters[key].table + '".' : (default_table) ? '"' + default_table + '".' : ""
+    var column_name = (valid_filters[key].column) ? '"' + valid_filters[key].column + '"' : '"' + key + '"'
+    var fullkey = table_prefix + column_name
+    if (filter[key] instanceof not_null) {
+      filter_string += ` AND ` + fullkey + ` IS NOT NULL `
+    } else if (typeof filter[key] != "undefined" && filter[key] !== null) {
+      if (/[';]/.test(filter[key])) {
+        errors.push("Invalid filter value")
+        console.error(errors[errors.length - 1])
+      }
+      if (valid_filters[key].type == "regex_string") {
+        var regex = filter[key].replace('\\', '\\\\')
+        filter_string += " AND " + fullkey + " ~* '" + filter[key] + "'"
+      } else if (valid_filters[key].type == "string") {
+        if (Array.isArray(filter[key])) {
+          var values = filter[key].filter(v => v != null).map(v => v.toString()).filter(v => v != "")
+          if (!values.length) {
+            errors.push("Empty or invalid string array")
+            console.error(errors[errors.length - 1])
+          } else {
+            if (valid_filters[key].case_insensitive) {
+              filter_string += ` AND lower(${fullkey}) IN ( ${values.map(v => `lower('${v}')`).join(",")})`
+            } else {
+              filter_string += ` AND ${fullkey} IN ( ${values.map(v => `'${v}'`).join(",")})`
+            }
+          }
+        } else {
+          if (valid_filters[key].case_insensitive) {
+            filter_string += ` AND lower(${fullkey})=lower('${filter[key]}')`
+          } else {
+            filter_string += " AND " + fullkey + "='" + filter[key] + "'"
+          }
+        }
+      } else if (valid_filters[key].type == "boolean") {
+        var boolean = (/^[yYtTvVsS1]/.test(filter[key])) ? "true" : "false"
+        filter_string += " AND " + fullkey + "=" + boolean + ""
+      } else if (valid_filters[key].type == "boolean_only_true") {
+        if (/^[yYtTvVsS1]/.test(filter[key])) {
+          filter_string += " AND " + fullkey + "=true"
+        }
+      } else if (valid_filters[key].type == "boolean_only_false") {
+        if (!/^[yYtTvVsS1]/.test(filter[key])) {
+          filter_string += " AND " + fullkey + "=false"
+        }
+      } else if (valid_filters[key].type == "geometry") {
+        if (!("archive" in filter[key] && typeof (filter[key] as any).toSQL === "function")) {
+          errors.push("Invalid geometry object")
+          console.error(errors[errors.length - 1])
+        } else {
+          filter_string += "  AND ST_Distance(st_transform(" + fullkey + ",4326),st_transform(" + filter[key].toSQL() + ",4326)) < 0.001"
+        }
+      } else if (valid_filters[key].type == "date" || valid_filters[key].type == "timestamp") {
+        var d : Date
+        if (filter[key] instanceof Date) {
+          d = filter[key]
+        } else {
+          d = new Date(filter[key])
+        }
+        if (valid_filters[key].trunc != undefined) {
+          assertValidDateTruncField(valid_filters[key].trunc)
+          filter_string += ` AND date_trunc('${valid_filters[key].trunc}',${fullkey}) = date_trunc('${valid_filters[key].trunc}', '${d.toISOString()}'::timestamptz)`
+        } else {
+          filter_string += " AND " + fullkey + "='" + d.toISOString() + "'::timestamptz"
+        }
+      } else if (valid_filters[key].type == "timestart") {
+        var offset = (new Date().getTimezoneOffset() * 60 * 1000) * -1
+        if (filter[key] instanceof Date) {
+          var ldate = new Date(filter[key].getTime() + offset).toISOString()
+          filter_string += " AND " + fullkey + ">='" + ldate + "'"
+        } else {
+          var d = new Date(filter[key])
+          var ldate = new Date(d.getTime() + offset).toISOString()
+          filter_string += " AND " + fullkey + ">='" + ldate + "'"
+        }
+      } else if (valid_filters[key].type == "timeend") {
+        var offset = (new Date().getTimezoneOffset() * 60 * 1000) * -1
+        if (filter[key] instanceof Date) {
+          var ldate = new Date(filter[key].getTime() + offset).toISOString()
+          filter_string += " AND " + fullkey + "<='" + ldate + "'"
+        } else {
+          var d = new Date(filter[key])
+          var ldate = new Date(d.getTime() + offset).toISOString()
+          filter_string += " AND " + fullkey + "<='" + ldate + "'"
+        }
+      } else if (valid_filters[key].type == "greater_or_equal_date") {
+        var ldate = new Date(filter[key]).toISOString()
+        filter_string += ` AND ${fullkey} >= '${ldate}'::timestamptz`
+      } else if (valid_filters[key].type == "smaller_or_equal_date") {
+        var ldate = new Date(filter[key]).toISOString()
+        filter_string += ` AND ${fullkey} <= '${ldate}'::timestamptz`
+      } else if (valid_filters[key].type == "numeric_interval") {
+        if (Array.isArray(filter[key])) {
+          if (filter[key].length < 2) {
+            errors.push("numeric_interval debe ser de al menos 2 valores")
+            console.error(errors[errors.length - 1])
+          } else {
+            filter_string += " AND " + fullkey + ">=" + parseFloat(filter[key][0]) + " AND " + key + "<=" + parseFloat(filter[key][1])
+          }
+        } else {
+          filter_string += " AND " + fullkey + "=" + parseFloat(filter[key])
+        }
+      } else if (valid_filters[key].type == "numeric_min") {
+        filter_string += " AND " + fullkey + ">=" + parseFloat(filter[key])
+      } else if (valid_filters[key].type == "numeric_max") {
+        filter_string += " AND " + fullkey + "<=" + parseFloat(filter[key])
+      } else if (valid_filters[key].type == "integer") {
+        if (Array.isArray(filter[key])) {
+          var values_int : number[] = filter[key].map(v => parseInt(v)).filter(v => v.toString() != "NaN")
+          if (!values_int.length) {
+            errors.push(`Invalid integer array : ${filter[key].toString()}`)
+            console.error(errors[errors.length - 1])
+          } else {
+            filter_string += " AND " + fullkey + " IN (" + values_int.join(",") + ")"
+          }
+        } else {
+          var value = parseInt(filter[key])
+          if (value.toString() == "NaN") {
+            errors.push(`Invalid integer: ${filter[key]}`)
+            console.error(errors[errors.length - 1])
+          } else {
+            filter_string += " AND " + fullkey + "=" + value + ""
+          }
+        }
+      } else if (valid_filters[key].type == "number" || valid_filters[key].type == "float") {
+        if (Array.isArray(filter[key])) {
+          var values_ = filter[key].map(v => parseFloat(v)).filter(v => v.toString() != "NaN")
+          if (!values_.length) {
+            errors.push(`Invalid float array: ${filter[key].toString()}`)
+            console.error(errors[errors.length - 1])
+          } else {
+            filter_string += " AND " + fullkey + " IN (" + values_.join(",") + ")"
+          }
+        } else {
+          var value = parseFloat(filter[key])
+          if (value.toString() == "NaN") {
+            errors.push(`Invalid float: ${filter[key]}`)
+            console.error(errors[errors.length - 1])
+          } else {
+            filter_string += " AND " + fullkey + "=" + value + ""
+          }
+        }
+      } else if (valid_filters[key].type == "interval") {
+        var value_interval = createInterval(filter[key])
+        if (!value_interval) {
+          throw ("invalid interval filter: " + filter[key])
+        }
+        filter_string += ` AND ${fullkey}='${value_interval.toPostgres()}'::interval`
+      } else if (valid_filters[key].type == "jsonpath") {
+        if (!valid_filters[key].expression) {
+          throw new Error("Missing expression for valid_filter " + key)
+        }
+        const jsonpath_expression = valid_filters[key].expression.replace("$0", filter[key])
+        filter_string += ` AND jsonb_path_exists(${fullkey}, '${jsonpath_expression}')`
+      } else {
+        if (Array.isArray(filter[key])) {
+          filter_string += " AND " + fullkey + " IN (" + filter[key].join(",") + ")"
+        } else {
+          filter_string += " AND " + fullkey + "=" + filter[key] + ""
+        }
+      }
+    } else if (valid_filters[key].required) {
+      errors.push("Falta valor para filtro obligatorio " + key)
+      console.error(errors[errors.length - 1])
+    }
+  })
+  if (errors.length > 0) {
+    if (throw_on_error) {
+      throw ("Invalid filter:\n" + errors.join("\n"))
+    } else {
+      return null
+    }
+  } else {
+    return filter_string
+  }
+}
+
+
+export function createInterval(value : any) {
+  if(!value) {
+    return //  parsePGinterval()
+  }
+  if(value.constructor && value.constructor.name == 'PostgresInterval') {
+    var interval = parsePGinterval("0 seconds")
+    Object.assign(interval,value)
+    return interval
+  }
+  if(value instanceof Object) {
+    var interval = parsePGinterval("0 seconds")
+    Object.keys(value).map(k=>{
+      switch(k) {
+        case "milliseconds":
+        case "millisecond":
+          interval.milliseconds = value[k]
+          break
+        case "seconds":
+        case "second":
+          interval.seconds = value[k]
+          break
+        case "minutes":
+        case "minute":
+          interval.minutes = value[k]
+          break
+        case "hours":
+        case "hour":
+          interval.hours = value[k]
+          break
+        case "days":
+        case "day":
+          interval.days = value[k]
+          break
+        case "months":
+        case "month":
+        case "mon":
+          interval.months = value[k]
+          break
+        case "years":
+        case "year":
+          interval.years = value[k]
+          break
+        default:
+          break
+      }
+    })
+    return interval
+  }
+  if(typeof value == 'string') {
+    if(isJson(value)) {
+      var interval = parsePGinterval("0 seconds")
+      Object.assign(interval,JSON.parse(value))
+      return interval
+    } else {
+      return intervalFromString(value)
+      // return parsePGinterval(value)
+    }
+  } else {
+    console.error("timeSteps.createInterval: Invalid value")
+    return
+  }
+}
+
+function isJson(str : string) {
+    try {
+        JSON.parse(str);
+    } catch (e) {
+        return false;
+    }
+    return true;
+}
+
+export function intervalFromString(interval_string : string) {
+	const kvp = interval_string.split(/\s+/)
+	if(kvp.length > 1) {
+		var interval = parsePGinterval("0 seconds")
+		for(var i=0;i<kvp.length-1;i=i+2) {
+			var key = interval_key_map[kvp[i+1].toLowerCase()]
+			if(!key) {
+				throw("Invalid interval key " + kvp[i+1].toLowerCase())
+			}
+      if (!isIntervalKey(key)) {
+        throw new Error(`Invalid interval field: ${key}`)
+      }
+			interval[key] = parseInt(kvp[i])
+		}
+	} else {
+		var interval = parsePGinterval(interval_string)
+	}
+	// Object.assign(interval,JSON.parse(value))
+	return interval
+}
+
+export const interval_key_map : Record<string, string> = {
+	milliseconds: "milliseconds",
+	millisecond: "milliseconds",
+	seconds: "seconds",
+	second: "seconds",
+	minutes: "minutes",
+	minute: "minutes",
+	hours: "hours",
+	hour: "hours",
+	days: "days",
+	day:  "days",
+	months: "months",
+	month: "months",
+	mon: "months",
+	years: "years",
+	year: "years"
+}
+
+export function pasteIntoSQLQuery(query : string, params : any[]) : string {
+    for(var i=params.length-1;i>=0;i--) {
+      var value
+      switch(typeof params[i]) {
+        case "string":
+          value = escapeLiteral(params[i])
+          break;
+        case "number":
+          value = parseFloat(params[i])
+          if(value.toString() == "NaN") {
+            throw(new Error("Invalid number"))
+          }
+          break
+        case "object":
+          if(params[i] instanceof Date) {
+            value = "'" + params[i].toISOString() + "'::timestamptz::timestamp"
+          } else if(params[i] instanceof Array) {
+            // if(/';/.test(params[i].join(","))) {
+            // 	throw("Invalid value: contains invalid characters")
+            // }
+            value = escapeLiteral(`{${params[i].join(",")}}`) // .map(v=> (typeof v == "number") ? v : "'" + v.toString() + "'")
+          } else if(params[i] === null) {
+            value = "NULL"
+          } else if (params[i].constructor && params[i].constructor.name == 'PostgresInterval') {
+              value = `${escapeLiteral(params[i].toPostgres())}::interval`
+          } else {
+            value = escapeLiteral(params[i].toString())
+          }
+          break;
+        case "undefined": 
+          value = "NULL"
+          break;
+        default:
+          value = escapeLiteral(params[i].toString())
+      }
+      var I = i+1
+      var placeholder = "\\$" + I.toString()
+      // console.log({placeholder:placeholder,value:value})
+      query = query.replace(new RegExp(placeholder,"g"), value.toString())
+    }
+    return query
+  }
+
+export function parseMarkdownTable(md : string) : any[] {
+  const lines = md
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l.startsWith('|'));
+
+  if (lines.length < 2) return [];
+
+  const headers = lines[0]
+    .split('|')
+    .slice(1, -1)
+    .map(h => h.trim());
+
+  return lines.slice(2).map(row => {
+    const values = row
+      .split('|')
+      .slice(1, -1)
+      .map(v => v.trim());
+
+    return headers.reduce((obj : any, header : string, i : number) => {
+      obj[header] = values[i] ?? null;
+      return obj;
+    }, {});
+  });
+}
+
+export async function readIfExists(path : string) {
+  try {
+    await access(path, fs.constants.F_OK); // check existence
+    const content = await readFile(path, 'utf8');
+    return content;
+  } catch (err:unknown) {
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as NodeJS.ErrnoException).code === "ENOENT"
+    ) {
+      throw new Error(`File ${path} does not exist`); // file does not exist
+    }
+    throw err; // other error
+  }
+}
+
+
+export function parseDDMMYYYY(dateStr: string): Date {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dateStr);
+  if (!match) throw("Bad date string: expected DD/MM/YYYY")
+
+  const [, dd, mm, yyyy] = match;
+
+  const day = Number(dd);
+  const month = Number(mm) - 1; // JS months are 0-based
+  const year = Number(yyyy);
+
+  const date = new Date(year, month, day);
+
+  // Validate (prevents 32/01/2024 becoming Feb 1)
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month ||
+    date.getDate() !== day
+  ) {
+    throw new Error("Invalid date")
+  }
+
+  return date;
 }
