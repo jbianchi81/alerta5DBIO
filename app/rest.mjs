@@ -22,7 +22,7 @@ const config = global.config // require('config');
 const CRUD = require('./CRUD')
 const crud = CRUD.CRUD // new CRUD.CRUD(global.pool,config)
 
-import Area from './models/area.js'
+import { Area } from './models/area.js'
 
 const series2waterml2 = require('./series2waterml2')
 

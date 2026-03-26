@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
 
-import { AreaGroup } from '../models/area_group';
+import AreaGroup from '../models/area_group';
 
 import { BadRequestError, handleCrudError, NotFoundError, assertIsAdmin, getUserId } from '../custom_errors'
 
-import Area from '../models/area'
+import { Area } from '../models/area'
 
 const router = Router();
 
@@ -32,6 +32,7 @@ router.post('/', async (req : Request, res : Response) => {
 router.get('/:id', async (req : Request, res : Response) => {
   try {
     const user_id = getUserId(req)
+    if (Array.isArray(req.params.id)) throw new BadRequestError("parameter id can't be an array")
     const item = await AreaGroup.read(parseInt(req.params.id), user_id);
     if (!item) throw new NotFoundError('not found')
     res.json(item);
@@ -43,6 +44,7 @@ router.get('/:id', async (req : Request, res : Response) => {
 router.put('/:id', async (req : Request, res : Response) => {
   try {
     assertIsAdmin(req)
+    if (Array.isArray(req.params.id)) throw new BadRequestError("parameter id can't be an array")
     const item = await AreaGroup.update(parseInt(req.params.id), req.body);
     if (!item) throw new NotFoundError('not found');
     res.json(item);
@@ -54,6 +56,7 @@ router.put('/:id', async (req : Request, res : Response) => {
 router.delete('/:id', async (req : Request, res : Response) => {
   try {
     assertIsAdmin(req)
+    if (Array.isArray(req.params.id)) throw new BadRequestError("parameter id can't be an array")
     const item = await AreaGroup.delete(parseInt(req.params.id));
     if (!item) throw new NotFoundError('not found');
     res.json(item);
@@ -65,6 +68,7 @@ router.delete('/:id', async (req : Request, res : Response) => {
 router.post('/:id/access', async (req : Request, res : Response) => {
     try {
       assertIsAdmin(req)
+      if (Array.isArray(req.params.id)) throw new BadRequestError("parameter id can't be an array")
       const ugs = await AreaGroup.grantAccess(parseInt(req.params.id), req.body);
       res.json(ugs);
     } catch (err: any) {
@@ -79,6 +83,7 @@ router.post('/:id/access', async (req : Request, res : Response) => {
 router.get('/:id/access', async (req : Request, res : Response) => {
     try {
       assertIsAdmin(req)
+      if (Array.isArray(req.params.id)) throw new BadRequestError("parameter id can't be an array")
       const ugs = await AreaGroup.listAccess(parseInt(req.params.id), req.query);
       res.json(ugs);
     } catch (err: any) {
@@ -89,6 +94,8 @@ router.get('/:id/access', async (req : Request, res : Response) => {
 router.get('/:id/access/:name', async (req : Request, res : Response) => {
     try {
       assertIsAdmin(req)
+      if (Array.isArray(req.params.id)) throw new BadRequestError("parameter id can't be an array")
+      if (Array.isArray(req.params.name)) throw new BadRequestError("parameter name can't be an array")
       const ug = await AreaGroup.readAccess(parseInt(req.params.id), req.params.name);
       if(!ug) {
         throw new NotFoundError("No se encontró el grupo")
@@ -102,6 +109,8 @@ router.get('/:id/access/:name', async (req : Request, res : Response) => {
 router.delete('/:id/access/:name', async (req : Request, res : Response) => {
     try {
       assertIsAdmin(req)
+      if (Array.isArray(req.params.id)) throw new BadRequestError("parameter id can't be an array")
+      if (Array.isArray(req.params.name)) throw new BadRequestError("parameter name can't be an array")
       const ug = await AreaGroup.removeAccessOne(parseInt(req.params.id), req.params.name);
       if(!ug) {
         throw new NotFoundError("No se encontró el grupo")
@@ -138,6 +147,7 @@ router.post('/:id/areas', async (req : Request, res : Response) => {
 router.get('/:id/areas', async (req : Request, res : Response) => {
     try {
       const user_id = getUserId(req)
+      if (Array.isArray(req.params.id)) throw new BadRequestError("parameter id can't be an array")
       const areas = await Area.list({group_id: parseInt(req.params.id), ...req.query}, undefined, user_id)
       res.json(areas);
     } catch (err: any) {
@@ -152,6 +162,8 @@ router.get('/:id/areas', async (req : Request, res : Response) => {
 router.get('/:id/areas/:area_id', async (req : Request, res : Response) => {
     try {
       const user_id = getUserId(req)
+      if (Array.isArray(req.params.id)) throw new BadRequestError("parameter id can't be an array")
+      if (Array.isArray(req.params.area_id)) throw new BadRequestError("parameter area_id can't be an array")
       const areas = await Area.list({group_id: parseInt(req.params.id), id: parseInt(req.params.area_id)}, undefined, user_id)
       if(!areas.length) {
         throw new NotFoundError("No se encontró el área")
@@ -170,6 +182,8 @@ router.get('/:id/areas/:area_id', async (req : Request, res : Response) => {
 router.delete('/:id/areas/:area_id', async (req : Request, res : Response) => {
     try {
       const user_id = getUserId(req)
+      if (Array.isArray(req.params.id)) throw new BadRequestError("parameter id can't be an array")
+      if (Array.isArray(req.params.area_id)) throw new BadRequestError("parameter area_id can't be an array")
       const deleted = await Area.delete({group_id: parseInt(req.params.id), id: parseInt(req.params.area_id)}, user_id)
       if(!deleted.length) {
         throw new NotFoundError("No se encontró el área")

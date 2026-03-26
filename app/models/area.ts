@@ -45,7 +45,7 @@ interface AreasFilter {
 	group_id?: number
 }
 
-export default class Area {
+export class Area {
 
 	id?: number
 	nombre: string

@@ -142,6 +142,18 @@ WITH access_join AS (
              JOIN groups g ON g.name = ug.group_name
              JOIN user_groups_fuentes_access ugfa ON ugfa.group_name = g.name
              JOIN fuentes ON fuentes.id = ugfa.fuentes_id
+          UNION ALL 
+          SELECT 
+            u.id AS user_id,
+            u.name AS user_name,
+            fuentes.id AS fuentes_id,
+            fuentes.nombre AS fuentes_name,
+            fuentes.owner_id AS fuentes_owner_id,
+            null AS group_name,
+            'write' AS access,
+            2  AS priority
+           FROM users AS u
+           JOIN fuentes ON u.id = fuentes.owner_id
         )
  SELECT access_join.user_id,
     access_join.user_name,

@@ -57,7 +57,7 @@ test('dinac accessor get page', async(t) => {
         const client = new Client({})
 
         const pages = [1,2,3,4,5,381]
-        pages.forEach(async page => {
+        for(const page of pages) {
 
             const observaciones = await client.getPage(code, page) 
 
@@ -66,7 +66,7 @@ test('dinac accessor get page', async(t) => {
             assert.equal(date_range.begin.toISOString(), observaciones[0].timestart.toISOString(), `Expected begin date: ${date_range.begin.toISOString()}, got: ${observaciones[0].timestart.toISOString()}`)
 
             assert.equal(date_range.end.toISOString(), observaciones[observaciones.length-1].timestart.toISOString(), `Expected end date: ${date_range.end.toISOString()}, got: ${observaciones[observaciones.length-1].timestart.toISOString()}`)
-        })
+        }
 
     })
 

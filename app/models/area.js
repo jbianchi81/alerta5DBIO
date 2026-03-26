@@ -13,7 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isGeometryDict = void 0;
+exports.isGeometryDict = exports.Area = void 0;
 const setGlobal_1 = __importDefault(require("a5base/setGlobal"));
 // import {Area as AreaType} from '../a5_types'
 const custom_errors_1 = require("../custom_errors");
@@ -23,6 +23,7 @@ const geometry_1 = require("a5base/geometry");
 const area_group_1 = __importDefault(require("./area_group"));
 const g = (0, setGlobal_1.default)();
 const node_querystring_1 = require("node:querystring");
+const db_1 = require("../db");
 class Area {
     constructor(params) {
         this.id = params.id;
@@ -445,40 +446,42 @@ class Area {
             }
         });
     }
-    static hasAccessSerie(user_id, series_id, write = false) {
+    static hasAccessSerie(user_id, series_id, write = false, client) {
         return __awaiter(this, void 0, void 0, function* () {
-            const max_priority = (write) ? 2 : 1;
-            var query = (0, utils2_1.pasteIntoSQLQuery)(`WITH s AS (
-				SELECT area_id 
-				FROM series_areal 
-				WHERE id=$1
-			)
-			SELECT EXISTS (
-			SELECT 1
-				FROM areas_pluvio
-				JOIN s ON s.area_id=areas_pluvio.unid
-			WHERE group_id IS NULL 
-			UNION ALL
-			SELECT 1
-				FROM areas_pluvio
-				JOIN s ON s.area_id=areas_pluvio.unid
-				JOIN user_area_access 
-				ON 
-					areas_pluvio.group_id=user_area_access.ag_id 
-					AND user_id=$2
-					AND max_priority>=$3
-		)`, [series_id, user_id, max_priority]);
-            const result = yield g.pool.query(query);
-            if (result.rows.length && result.rows[0].exists) {
-                return true;
-            }
-            else {
-                return false;
-            }
+            return (0, db_1.withClient)(client, (client) => __awaiter(this, void 0, void 0, function* () {
+                const max_priority = (write) ? 2 : 1;
+                var query = (0, utils2_1.pasteIntoSQLQuery)(`WITH s AS (
+					SELECT area_id 
+					FROM series_areal 
+					WHERE id=$1
+				)
+				SELECT EXISTS (
+				SELECT 1
+					FROM areas_pluvio
+					JOIN s ON s.area_id=areas_pluvio.unid
+				WHERE group_id IS NULL 
+				UNION ALL
+				SELECT 1
+					FROM areas_pluvio
+					JOIN s ON s.area_id=areas_pluvio.unid
+					JOIN user_area_access 
+					ON 
+						areas_pluvio.group_id=user_area_access.ag_id 
+						AND user_id=$2
+						AND max_priority>=$3
+			)`, [series_id, user_id, max_priority]);
+                const result = yield client.query(query);
+                if (result.rows.length && result.rows[0].exists) {
+                    return true;
+                }
+                else {
+                    return false;
+                }
+            }));
         });
     }
 }
-exports.default = Area;
+exports.Area = Area;
 function serializeFilter(filter, options) {
     const out = {};
     for (const [key, value] of Object.entries(filter)) {

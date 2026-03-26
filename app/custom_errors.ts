@@ -42,7 +42,7 @@ export class ConflictError extends Error {
   }
 }
 
-export function handleCrudError(e : Error, res : Express.Response) {
+export function handleCrudError(e : Error | DatabaseError, res : Express.Response) {
   console.error(e)
   if(e instanceof AuthError) {
     return res.status(401).send({message:"Unauthorized", error: e.toString()})
@@ -52,23 +52,19 @@ export function handleCrudError(e : Error, res : Express.Response) {
     return res.status(400).send({message:"Bad request", error: e.toString()})
   } else if (e instanceof ConflictError) {
     return res.status(409).send({message:"Conflict", error: e.toString()})
-  } else if (e instanceof DatabaseError) {
-    if(e.code) {
-      switch (e.code) {
-        case "23502":
-          // not-null violation
-          return res.status(400).send({message: "Not-null constraint violation", error: e.toString()})
-        case "23503":
-          // foreign_key_violation
-          return res.status(409).send({message:"Foreign key constraint violation",error:e.toString()})
-        case "23505":
-          // unique_violation
-          return res.status(409).send({message:"Duplicate key", error:e.toString()})
-        default:
-          return res.status(500).send({message:"Database error",error:e.toString()})
-      }
-    } else {
-      return res.status(500).send({message:"Database error",error:e.toString()})
+  } else if (e && "code" in e && typeof e.code === 'string') {
+    switch (e.code) {
+      case "23502":
+        // not-null violation
+        return res.status(400).send({message: "Not-null constraint violation", error: e.toString()})
+      case "23503":
+        // foreign_key_violation
+        return res.status(409).send({message:"Foreign key constraint violation",error:e.toString()})
+      case "23505":
+        // unique_violation
+        return res.status(409).send({message:"Duplicate key", error:e.toString()})
+      default:
+        return res.status(500).send({message:"Database error",error:e.toString()})
     }
   } else {
     return res.status(500).send({message:"Server error", error: e.toString()})

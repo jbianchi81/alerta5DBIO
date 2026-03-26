@@ -350,18 +350,23 @@ test("POST serie of owned fuente", async() => {
         }
       ])
       .set("Content-Type", "application/json")
-      .set("Authorization", `Bearer ${writer.token}`);
+      .set("Authorization", `Bearer ${admin_token}`);
     assert.equal(res.statusCode, 200);
     assert(Array.isArray(res.body))
     assert.equal(res.body.length,1)
     serie = res.body[0]
+    assert("tipo" in serie)
+    assert.equal(serie.tipo,"areal")
     assert("id" in serie)
-    assert("fuentes_id" in serie)
-    assert.equal(serie.fuentes_id, fuente.id)
-    assert("area_id" in serie)
-    assert.equal(serie.area_id, 876358)
-    assert("var_id" in serie)
-    assert.equal(serie.var_id, 1)
+    assert("fuente" in serie)
+    assert("id" in serie.fuente)
+    assert.equal(serie.fuente.id, fuente.id)
+    assert("estacion" in serie)
+    assert("id" in serie.estacion)
+    assert.equal(serie.estacion.id, 876358)
+    assert("var" in serie)
+    assert("id" in serie.var)
+    assert.equal(serie.var.id, 1)
 })
 
 test("POST serie of owned fuente fail unauthorized", async() => {

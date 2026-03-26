@@ -47,7 +47,7 @@ const { options } = require('marked');
 const {AuthError, NotFoundError, BadRequestError, ConflictError} = require('./custom_errors.js');
 
 const  AreaGroup = require('./models/area_group.js').default
-const Area = require('./models/area.js').default
+const Area = require('./models/area.js').Area
 const Fuente = require('./models/fuente.js').default
 
 const {withClient, withTransaction} = require('./db')
@@ -1470,7 +1470,7 @@ internal.fuente = class extends baseModel {
 	static async read(filter={},options,client) {
 		return withClient(client, async (client) => {
 			if(filter.id) {
-				return internal.CRUD.getFuente(filter.id, undefined, client)
+				return internal.CRUD.getFuente(filter.id, undefined, undefined, client)
 			}
 			return internal.CRUD.getFuentes(filter,client)
 		})
@@ -2371,7 +2371,7 @@ internal.serie = class extends baseModel {
 			return
 		}
 		return withClient(client, async (client) => {
-			var result = await internal.CRUD.deleteSerie(this.tipo,this.id,client)
+			var result = await internal.CRUD.deleteSerie(this.tipo,this.id,undefined,client)
 			return result
 		})
 	}
@@ -4934,7 +4934,7 @@ internal.observaciones = class extends BaseArray {
 	 */
 	 static async restore(filter={},options={},client) {
 		return withClient(client, async (client) => {
-			return internal.CRUD.restoreObservaciones(filter.tipo,filter,options,client)
+			return internal.CRUD.restoreObservaciones(filter.tipo,filter,options,undefined,client)
 		})
 	}
 }
@@ -5459,6 +5459,17 @@ internal.modelo = class extends baseModel {
 	toCSVless() {
 		return this.id + "," + this.nombre + "," + this.tipo
 	} 
+	static async create(modelos, options, client) {
+		const created = []
+		if(!Array.isArray(modelos)) {
+			modelos = [modelos]
+		}
+		for(const modelo of modelos) {
+			const m = new this(modelo)
+			created.push(await m.create(options, client))
+		}
+		return created
+	}
 	async create(options, client) {
 		const required_fields = ["nombre", "tipo", "def_var_id", "def_unit_id"]
 		required_fields.forEach(key=>{
@@ -5791,6 +5802,19 @@ internal.calibrado = class extends internal.genericModel {
 			return new internal.forzante(output)
 		})
 	}
+
+	static async create(calibrados, options, client) {
+		const created = []
+		if(!Array.isArray(calibrados)) {
+			calibrados = [calibrados]
+		}
+		for(const calibrado of calibrados) {
+			const c = new this(calibrado)
+			created.push(await c.create(options, client))
+		}
+		return created
+	}
+
 
 	async create(options, client) {
 		return withClient(client, async (client) => {
@@ -7112,7 +7136,7 @@ internal.asociacion = class extends baseModel {
 			return created
 		})
 	}
-	static async create(data, client) {
+	static async create(data, options, client) {
 		return withClient(client, async (client) => {
 			var asociaciones = await internal.CRUD.upsertAsociaciones(data,undefined, client)
 			return asociaciones.map(a=>new internal.asociacion(a))
@@ -7274,7 +7298,7 @@ internal.CRUD = class {
 			if(!estacion.tabla || !estacion.id_externo) {
 				throw new Error("Missing estacion.tabla and/or estacion.id_externo")
 			}
-			const has_access = await this.hasAccess(estacion.id,estacion.tabla,user_id,true)
+			const has_access = await this.hasAccess(estacion.id,estacion.tabla,user_id,true,undefined,undefined,client)
 			if(!has_access) {
 				throw new AuthError("El usuario no tiene acceso de escritura para la red")
 			}
@@ -7463,7 +7487,7 @@ internal.CRUD = class {
 				if(!estacion.tabla || !estacion.id_externo) {
 					return Promise.reject("Falta id o tabla + id_externo")
 				}
-				const has_access = await this.hasAccess(undefined,estacion.tabla,user_id,true) 
+				const has_access = await this.hasAccess(undefined,estacion.tabla,user_id,true,undefined,undefined, client) 
 				if(!has_access) {
 					throw new AuthError("El usuario no tiene derecho de escritura sobre esta estación")
 				}
@@ -7490,7 +7514,7 @@ internal.CRUD = class {
 				RETURNING unid id, nombre, st_asGeoJSON(geom)::json geom, distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev AS abreviatura, URL as "URL", localidad, real, cero_ign, altitud, tabla, id_externo, ubicacion`
 				query_params = [estacion.nombre, estacion.id_externo, (estacion.geom) ? estacion.geom.coordinates[0] : undefined, (estacion.geom) ? estacion.geom.coordinates[1] : undefined, estacion.tabla, estacion.provincia, estacion.pais, estacion.rio, estacion.has_obs, estacion.tipo, estacion.automatica, estacion.habilitar, estacion.propietario, estacion.abreviatura, estacion.URL, estacion.localidad, estacion.real, estacion.cero_ign, estacion.altitud, estacion.ubicacion]
 			} else {
-				const has_access = await this.hasAccess(estacion.id,undefined,user_id,true) 
+				const has_access = await this.hasAccess(estacion.id,undefined,user_id,true,undefined,undefined,client) 
 				if(!has_access) {
 					throw new AuthError("El usuario no tiene derecho de escritura sobre esta estación")
 				}
@@ -7603,7 +7627,7 @@ internal.CRUD = class {
 			
 	static async deleteEstacion(unid, client, user_id) {
 		return withClient(client, async (client) => {
-			const has_access = await this.hasAccess(unid, undefined, user_id, true)
+			const has_access = await this.hasAccess(unid, undefined, user_id, true,undefined,undefined,client)
 			if(!has_access) {
 				throw new AuthError("El usuario no tiene permisos para eliminar la estación")
 			}
@@ -8818,7 +8842,7 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getFuente(id,isPublic,user_id) {
+	static async getFuente(id,isPublic,user_id, client) {
 		return withClient(client, async (client) => {
 			const access_join = (user_id) ? `JOIN user_fuentes_access ON (user_fuentes_access.fuentes_id=fuentes.id AND user_id=${user_id})` : ""
 			const query = `SELECT 
@@ -8989,7 +9013,7 @@ internal.CRUD = class {
 					throw new BadRequestError("Falta estacion.id")
 				}
 				if(serie.tipo == "puntual") {
-					const has_access = await this.hasAccess(serie.estacion.id, undefined, user_id, true)
+					const has_access = await this.hasAccess(serie.estacion.id, undefined, user_id, true,undefined,undefined,client)
 					if(!has_access) {
 						throw new AuthError("Usuario no tiene acceso de escritura a la red especificada")
 					}
@@ -9012,7 +9036,7 @@ internal.CRUD = class {
 			if(serie.id) { // if id is given, looks for a match
 				const serie_match = await internal.serie.read({tipo:serie.tipo,id:serie.id}, undefined, client)
 				if(serie_match) {  // if exists, updates
-					const has_access = await this.hasAccess(undefined, undefined, user_id, true, serie_match.id, serie_match.tipo)
+					const has_access = await this.hasAccess(undefined, undefined, user_id, true, serie_match.id, serie_match.tipo,client)
 					if(!has_access) {
 						throw new AuthError("Usuario no tiene acceso de escritura a la serie especificada")
 					}	
@@ -9211,7 +9235,7 @@ internal.CRUD = class {
 						if(user_id && serie.fuente.id) {
 							const has_access = await Fuente.hasAccess(user_id, serie.fuente.id, true)
 							if(!has_access) {
-								throw AuthError("El usuario no tiene acceso de escritura para la fuente indicada")
+								throw new AuthError("El usuario no tiene acceso de escritura para la fuente indicada")
 							}
 						}
 					}
@@ -9219,11 +9243,11 @@ internal.CRUD = class {
 				if (all || upsert_estacion) {
 					// console.debug("Upsert estacion of new serie")
 					if(serie.estacion instanceof internal.estacion) {
-						const has_access = await this.hasAccess(undefined,serie.estacion.tabla, user_id, true)
+						const has_access = await this.hasAccess(undefined,serie.estacion.tabla, user_id, true,undefined,undefined,client)
 						if(!has_access) {
 							throw new AuthError("Usuario no tiene acceso de escritura a la red especificada")
 						}
-						serie_props.estacion = await this.upsertEstacion(serie.estacion,undefined,client,user_id) //await client.query(this.upsertEstacionQuery(serie.estacion,{no_update_id:no_update_estacion_id}))
+						serie_props.estacion = await this.upsertEstacion(serie.estacion,undefined,user_id,client) //await client.query(this.upsertEstacionQuery(serie.estacion,{no_update_id:no_update_estacion_id}))
 						// serie_props.estacion = new internal.estacion(result.rows[0])
 						// console.log("estacion: " + serie_props.estacion.toString())
 					} else if (serie.estacion instanceof internal.area) {
@@ -9241,7 +9265,7 @@ internal.CRUD = class {
 						var result = await this.upsertEscena(serie.estacion,client) // client.query(this.upsertEscenaQuery(serie.estacion))
 						serie_props.estacion = new internal.escena(result)
 					} else {
-						var result = await this.upsertEstacion(new internal.estacion(serie.estacion),undefined,client,user_id) // client.query(this.upsertEscenaQuery(serie.estacion))
+						var result = await this.upsertEstacion(new internal.estacion(serie.estacion),undefined,user_id, client) // client.query(this.upsertEscenaQuery(serie.estacion))
 						serie_props.estacion = new internal.estacion(result)
 					}
 				} else {
@@ -9296,7 +9320,7 @@ internal.CRUD = class {
 				}
 
 				if(serie.tipo == "puntual" && user_id) {
-					const has_access = await this.hasAccess(serie.estacion.id, undefined, user_id, true)
+					const has_access = await this.hasAccess(serie.estacion.id, undefined, user_id, true,undefined,undefined,client)
 					if(!has_access) {
 						throw new AuthError("Usuario no tiene acceso de escritura a la red especificada")
 					}
@@ -9410,7 +9434,7 @@ internal.CRUD = class {
 					console.log("id not found")
 					return
 				}
-				const has_access = await this.hasAccess(undefined, undefined, user_id, true, id, tipo)
+				const has_access = await this.hasAccess(undefined, undefined, user_id, true, id, tipo, client)
 				if(!has_access) {
 					throw new AuthError("El usuario no tiene permiso de escritura sobre la serie tipo=" + tipo + ", id=" + id)
 				}
@@ -9572,7 +9596,7 @@ internal.CRUD = class {
 				if(options.no_metadata) {
 					s =[{id:row.area_id},{id:row.var_id},{id:row.proc_id},{id:row.unit_id},{id:row.fuentes_id}]
 				} else {
-					s = [await this.getArea(row.area_id, client), await this.getVar(row.var_id, client), await this.getProcedimiento(row.proc_id, client), await this.getUnidad(row.unit_id, client), await this.getFuente(row.fuentes_id, client)]
+					s = [await this.getArea(row.area_id, client), await this.getVar(row.var_id, client), await this.getProcedimiento(row.proc_id, client), await this.getUnidad(row.unit_id, client), await this.getFuente(row.fuentes_id, undefined, undefined, client)]
 				}
 				const serie = new internal.serie({estacion:s[0],"var":s[1],procedimiento:s[2],unidades: s[3], tipo:"areal", fuente:s[4]})  // estacion,variable,procedimiento,unidades,tipo,fuente
 				serie.date_range = row.date_range
@@ -9640,18 +9664,18 @@ internal.CRUD = class {
 				if(options.no_metadata) {
 					s =[{id:row.area_id},{id:row.var_id},{id:row.proc_id},{id:row.unit_id},{id:row.fuentes_id}]
 				} else { 
-					s = [await this.getEscena(row.escena_id, undefined, client),await this.getVar(row.var_id, client),await this.getProcedimiento(row.proc_id, client),await this.getUnidad(row.unit_id, client),await this.getFuente(row.fuentes_id, undefined, client)]
+					s = [await this.getEscena(row.escena_id, undefined, client),await this.getVar(row.var_id, client),await this.getProcedimiento(row.proc_id, client),await this.getUnidad(row.unit_id, client),await this.getFuente(row.fuentes_id, undefined, user_id, client)]
 				}
 				if(timestart && timeend) {
 					if(!options.format) {
 						options.format="hex"
 					}
-					row.observaciones = new internal.observaciones(await this.getObservacionesRTS("rast",{series_id:row.id,timestart:timestart,timeend:timeend},options, undefined, client))
+					row.observaciones = new internal.observaciones(await this.getObservacionesRTS("rast",{series_id:row.id,timestart:timestart,timeend:timeend},options, undefined, user_id, client))
 				} else if(timeupdate) {
 					if(!options.format) {
 						options.format="hex"
 					}
-					row.observaciones = new internal.observaciones(await this.getObservacionesRTS("rast",{series_id:row.id,timeupdate:timeupdate},options))
+					row.observaciones = new internal.observaciones(await this.getObservacionesRTS("rast",{series_id:row.id,timeupdate:timeupdate},options,undefined,user_id,client))
 				}			
 				const serie = new internal.serie({estacion:s[0],"var":s[1],procedimiento:s[2],unidades:s[3], tipo:"rast", fuente:s[4]})  // estacion,variable,procedimiento,unidades,tipo,fuente
 				serie.setObservaciones(row.observaciones)
@@ -9709,11 +9733,11 @@ internal.CRUD = class {
 					if(options.regular) {
 						observaciones = await this.getRegularSeries("puntual",row.id,(options.dt) ? options.dt : "1 days", timestart, timeend,options, client)
 					} else {
-						observaciones = await this.getObservacionesRTS("puntual",{series_id:row.id,timestart:timestart,timeend:timeend,timeupdate:timeupdate},options,serie, client)
+						observaciones = await this.getObservacionesRTS("puntual",{series_id:row.id,timestart:timestart,timeend:timeend,timeupdate:timeupdate},options,serie, user_id,client)
 					}					
 				} else if(timeupdate) {
 					options.obs_type = serie["var"].type
-					observaciones = await this.getObservacionesRTS("puntual",{series_id:row.id,timeupdate:timeupdate},options,serie)
+					observaciones = await this.getObservacionesRTS("puntual",{series_id:row.id,timeupdate:timeupdate},options,serie, user_id, client)
 				}
 			}
 			if(options.asArray) {
@@ -9808,10 +9832,10 @@ internal.CRUD = class {
 			}
 			if(serie.tipo == "areal") {
 				if(!serie.fuente) {
-					promises.push(this.getFuente(serie.fuentes_id,undefined, client))
+					promises.push(this.getFuente(serie.fuentes_id,undefined, undefined, client))
 				} else if (serie.fuente.id) {
 					if(!serie.fuente instanceof internal.fuente) {
-						promises.push(this.getFuente(serie.fuente.id,undefined, client))
+						promises.push(this.getFuente(serie.fuente.id,undefined, undefined, client))
 					} else {
 						promises.push(serie.fuente)
 					}
@@ -10378,7 +10402,7 @@ internal.CRUD = class {
 				const obs_tabla = (observacion.tipo == "areal") ? "observaciones_areal" : "observaciones"
 				const val_tabla = (observacion.tipo == "areal") ? (val_type == "numarr") ? "valores_numarr_areal" : "valores_num_areal" : (val_type == "numarr") ? "valores_numarr" : "valores_num"
 				if(user_id && obs_tabla == "observaciones") {
-					const has_access = await this.hasAccess(undefined, undefined, user_id, true, observacion.series_id, "puntual")
+					const has_access = await this.hasAccess(undefined, undefined, user_id, true, observacion.series_id, "puntual",client)
 					if(!has_access) {
 						throw new AuthError("Usuario no tiene acceso de escritura a la serie")
 					}
@@ -10478,116 +10502,118 @@ internal.CRUD = class {
 	}
 	
 	static async upsertObservaciones(observaciones,tipo,series_id,options={},client, user_id) {
-		if(!observaciones) {
-			return Promise.reject("falta observaciones")
-		}
-		if(observaciones.length==0) {
-			console.log("upsertObservaciones: nothing to upsert (length==0)")
-			return Promise.resolve([]) // "upsertObservaciones: nothing to upsert (length==0)")
-		}
-		var serie
-		if(series_id) {
-			// console.log("setting series_id in each obs...")
-			observaciones = observaciones.map(o=>{
-				o.series_id = series_id
-				return o
-			})
-			observaciones = this.removeDuplicates(observaciones)
-			// console.log("done")
-		} else {
-			observaciones = this.removeDuplicatesMultiSeries(observaciones)
-		}
-		if(!tipo && observaciones[0].tipo) {
-			var tipo_guess = observaciones[0].tipo
-			var count = 0
-			for(var i in observaciones) {
-				if (observaciones[i].tipo != tipo_guess) {
-					break
-				}
-				count++
+		return withClient(client, async (client) => {
+			if(!observaciones) {
+				return Promise.reject("falta observaciones")
 			}
-			if(count == observaciones.length) {
-				tipo = tipo_guess
+			if(observaciones.length==0) {
+				console.log("upsertObservaciones: nothing to upsert (length==0)")
+				return Promise.resolve([]) // "upsertObservaciones: nothing to upsert (length==0)")
 			}
-		}
-		if(series_id && tipo) {
-			console.log("try read series_id " + series_id)
-			try {
-				serie = await this.getSerie(tipo,series_id,undefined,undefined,{no_metadata:true},undefined,undefined,client)
-				console.log("try read var_id " + serie.var.id)
-				serie.var = await this.getVar(serie.var.id,client) 
-			} catch(e) {
-				throw(e)
+			var serie
+			if(series_id) {
+				// console.log("setting series_id in each obs...")
+				observaciones = observaciones.map(o=>{
+					o.series_id = series_id
+					return o
+				})
+				observaciones = this.removeDuplicates(observaciones)
+				// console.log("done")
+			} else {
+				observaciones = this.removeDuplicatesMultiSeries(observaciones)
 			}
-			console.debug("got series, var.timeSupport=" + ((serie.var.timeSupport) ? serie.var.timeSupport.toString() : "null"))
-		}
-		if(config.verbose) {
-			console.debug("crud.upsertObservaciones: tipo: " + tipo)
-		}
-		if(tipo) {
-			if(tipo=="puntual") {
-				if(series_id) {
-					// check access level
-					const has_access = await this.hasAccess(undefined, undefined, user_id, true, series_id)
-					if(!has_access) {
-						throw new AuthError("El usuario no tiene permiso de escritura sobre la serie tipo=puntual id=" + series_id)
+			if(!tipo && observaciones[0].tipo) {
+				var tipo_guess = observaciones[0].tipo
+				var count = 0
+				for(var i in observaciones) {
+					if (observaciones[i].tipo != tipo_guess) {
+						break
 					}
-				} else {
-					const series_id_list = [...new Set(observaciones.map(o => o.series_id))]
-					for(const s_id of series_id_list) {
+					count++
+				}
+				if(count == observaciones.length) {
+					tipo = tipo_guess
+				}
+			}
+			if(series_id && tipo) {
+				console.log("try read series_id " + series_id)
+				try {
+					serie = await this.getSerie(tipo,series_id,undefined,undefined,{no_metadata:true},undefined,undefined,client)
+					console.log("try read var_id " + serie.var.id)
+					serie.var = await this.getVar(serie.var.id,client) 
+				} catch(e) {
+					throw(e)
+				}
+				console.debug("got series, var.timeSupport=" + ((serie.var.timeSupport) ? serie.var.timeSupport.toString() : "null"))
+			}
+			if(config.verbose) {
+				console.debug("crud.upsertObservaciones: tipo: " + tipo)
+			}
+			if(tipo) {
+				if(tipo=="puntual") {
+					if(series_id) {
 						// check access level
-						const has_access = await this.hasAccess(undefined, undefined, user_id, true, s_id)
+						const has_access = await this.hasAccess(undefined, undefined, user_id, true, series_id, undefined, client)
 						if(!has_access) {
-							throw new AuthError("El usuario no tiene permiso de escritura sobre la serie tipo=puntual id=" + s_id)
+							throw new AuthError("El usuario no tiene permiso de escritura sobre la serie tipo=puntual id=" + series_id)
+						}
+					} else {
+						const series_id_list = [...new Set(observaciones.map(o => o.series_id))]
+						for(const s_id of series_id_list) {
+							// check access level
+							const has_access = await this.hasAccess(undefined, undefined, user_id, true, s_id, undefined, client)
+							if(!has_access) {
+								throw new AuthError("El usuario no tiene permiso de escritura sobre la serie tipo=puntual id=" + s_id)
+							}
 						}
 					}
+					return this.upsertObservacionesPuntual(observaciones,options.skip_nulls,options.no_update,(serie) ? serie.var.timeSupport : undefined,client, (serie) ? serie.var.def_hora_corte : undefined)
+				} else if(tipo=="areal") {
+					return this.upsertObservacionesAreal(observaciones,options.skip_nulls,options.no_update, (serie) ? serie.var.timeSupport : undefined,client, (serie) ? serie.var.def_hora_corte : undefined)
 				}
-				return this.upsertObservacionesPuntual(observaciones,options.skip_nulls,options.no_update,(serie) ? serie.var.timeSupport : undefined,client, (serie) ? serie.var.def_hora_corte : undefined)
-			} else if(tipo=="areal") {
-				return this.upsertObservacionesAreal(observaciones,options.skip_nulls,options.no_update, (serie) ? serie.var.timeSupport : undefined,client, (serie) ? serie.var.def_hora_corte : undefined)
+				observaciones = observaciones.map(o=>{
+					o.tipo = tipo
+					return o
+				})
+			} 
+			if(config.verbose) {
+				console.debug("crud.upsertObservaciones: tipo: " + tipo)
 			}
-			observaciones = observaciones.map(o=>{
-				o.tipo = tipo
-				return o
-			})
-		} 
-		if(config.verbose) {
-			console.debug("crud.upsertObservaciones: tipo: " + tipo)
-		}
-		// check access level
-		const series_map = [
-			...new Set(observaciones.map(o => `${o.tipo ?? "puntual"}|${o.series_id}`))
-		].map(k => {
-			const [tipo, id] = k.split('|');
-			return { tipo, id: Number(id) };
-		});
-		for(const s of series_map) {
 			// check access level
-			const has_access = await this.hasAccess(undefined, undefined, user_id, true, s.id, s.tipo)
-			if(!has_access) {
-				throw new AuthError("El usuario no tiene permiso de escritura sobre la serie tipo=" + s.tipo + " id=" + s.id)
-			}
-		}
-
-		var upserted = []
-		var errors = []
-		for(var i=0; i<observaciones.length; i++) {
-			const observacion = new internal.observacion(observaciones[i])
-			if(options.skip_nulls && (observacion.valor === null || observacion.valor === undefined )) {
-				console.log("skipping null value, series_id:" + observacion.series_id + " timestart:" + observacion.timestart) 
-			} else {
-				try {
-					var o = await this.upsertObservacion(observacion,options.no_update,client)
-					upserted.push(o)
-				} catch (e) {
-					errors.push(e)
+			const series_map = [
+				...new Set(observaciones.map(o => `${o.tipo ?? "puntual"}|${o.series_id}`))
+			].map(k => {
+				const [tipo, id] = k.split('|');
+				return { tipo, id: Number(id) };
+			});
+			for(const s of series_map) {
+				// check access level
+				const has_access = await this.hasAccess(undefined, undefined, user_id, true, s.id, s.tipo, client)
+				if(!has_access) {
+					throw new AuthError("El usuario no tiene permiso de escritura sobre la serie tipo=" + s.tipo + " id=" + s.id)
 				}
 			}
-		}
-		if(!upserted.length && errors.length) {
-			throw(errors)
-		}
-		return upserted
+
+			var upserted = []
+			var errors = []
+			for(var i=0; i<observaciones.length; i++) {
+				const observacion = new internal.observacion(observaciones[i])
+				if(options.skip_nulls && (observacion.valor === null || observacion.valor === undefined )) {
+					console.log("skipping null value, series_id:" + observacion.series_id + " timestart:" + observacion.timestart) 
+				} else {
+					try {
+						var o = await this.upsertObservacion(observacion,options.no_update,client)
+						upserted.push(o)
+					} catch (e) {
+						errors.push(e)
+					}
+				}
+			}
+			if(!upserted.length && errors.length) {
+				throw(errors)
+			}
+			return upserted
+		})
 	}
 	
 			
@@ -10860,7 +10886,7 @@ internal.CRUD = class {
 				if(!obs) {
 					throw NotFoundError("Observacion not found. tipo=" + observacion.tipo + ", id=" + observacion.id)
 				}
-				const has_access = await this.hasAccess(undefined, undefined, user_id, true, obs.series_id, obs.tipo)
+				const has_access = await this.hasAccess(undefined, undefined, user_id, true, obs.series_id, obs.tipo, client)
 				if(!has_access) {
 					throw new AuthError("El usuario no tiene acceso de escritura para la serie tipo=" + obs.tipo + " id=" + obs.series_id)
 				}
@@ -10927,7 +10953,7 @@ internal.CRUD = class {
 				if(!obs) {
 					throw new NotFoundError("Observacion not found. tipo=" + tipo + ", id=" + id)
 				}
-				const has_access = await this.hasAccess(undefined, undefined, user_id, true, obs.series_id, obs.tipo)
+				const has_access = await this.hasAccess(undefined, undefined, user_id, true, obs.series_id, obs.tipo, client)
 				if(!has_access) {
 					throw new AuthError("El usuario no tiene acceso de escritura para la serie tipo=" + obs.tipo + " id=" + obs.series_id)
 				}
@@ -11109,14 +11135,14 @@ internal.CRUD = class {
 				var select_deleted_clause = (options.no_send_data) ? " SELECT count(id) FROM deleted" : "SELECT * FROM deleted"
 				var result_rows = []
 				let [access_join_clause, access_level] = ["", "'write'"]
+				if(obs_tabla == "observaciones" && user_id) {
+					[access_join_clause, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
+					access_join_clause = `JOIN series ON observaciones.series_id=series.id
+						JOIN estaciones ON estaciones.unid=series.estacion_id
+						JOIN redes ON redes.tabla_id=estaciones.tabla
+						${access_join_clause}`
+				} 
 				if(filter.id) {
-					if(obs_tabla == "observaciones" && user_id) {
-						[access_join_clause, access_level] = internal.red.getUserAccessClause(user_id, "redes.id")
-						access_join_clause = `JOIN series ON observaciones.series_id=series.id
-							JOIN estaciones ON estaciones.unid=series.estacion_id
-							JOIN redes ON redes.tabla_id=estaciones.tabla
-							${access_join_clause}`
-					} 
 					if(Array.isArray(filter.id)) {
 						if(filter.id.length == 0) {
 							console.info("crud/deleteObservaciones: Nothing to delete (passed zero length id array)")
@@ -12150,13 +12176,13 @@ internal.CRUD = class {
 					throw new AuthError("usuario no autorizado para acceder a la serie seleccionada")
 			}
 			// check access level
-			const has_access = await this.hasAccess(undefined, undefined, user_id, false, serie.id, tipo ?? serie.tipo)
+			const has_access = await this.hasAccess(undefined, undefined, user_id, false, serie.id, tipo ?? serie.tipo,client)
 			if(!has_access) {
 				throw new AuthError(`El usuario no tiene acceso a la serie tipo=${tipo ?? serie_tipo}, id=${serie.id}`)
 				}
 				serie_result = serie
 			} else {
-				serie_result = await this.getSerie(tipo,filter.series_id,undefined,undefined,undefined,filter.public,undefined,undefined,user_id,undefined, client) // tipo,id,timestart,timeend,options={},isPublic
+				serie_result = await this.getSerie(tipo,filter.series_id,undefined,undefined,undefined,filter.public,undefined,client,user_id,undefined, client) // tipo,id,timestart,timeend,options={},isPublic
 			}
 			serie = serie_result
 			if(!serie) {
@@ -12809,7 +12835,7 @@ internal.CRUD = class {
 		}
 		var fuente
 		return withClient(client, async (client) => {
-			const f = await this.getFuente(fuentes_id,isPublic,client)
+			const f = await this.getFuente(fuentes_id,isPublic,undefined,client)
 			if(!f) {
 				return Promise.reject("Data cube not found")
 			}
@@ -12929,7 +12955,7 @@ internal.CRUD = class {
 
 	static async upsertObservacionesCubo(id,observaciones,client) {
 		return withTransaction(client, async(client) => {
-			const fuente = await this.getFuente(id,undefined,client)
+			const fuente = await this.getFuente(id,undefined,undefined,client)
 			fuente.date_column = (fuente.date_column) ? fuente.date_column : "date"
 			var query = `INSERT INTO ${fuente.data_table} (${fuente.date_column},${fuente.data_column})\
 			VALUES ($1,ST_FromGDALRaster($2))\
@@ -12976,7 +13002,7 @@ internal.CRUD = class {
 			if(!fuentes_id) {
 				throw new Error("Missing fuentes_id")
 			}
-			var fuente = await this.getFuente(fuentes_id,isPublic,client)
+			var fuente = await this.getFuente(fuentes_id,isPublic,undefined,client)
 			if(!fuente) {
 				throw new Error("Fuente not found")
 			}
@@ -13040,7 +13066,7 @@ internal.CRUD = class {
 			throw new Error("Missing id")
 		}
 		return withClient(client, async (client) => {
-			const fuente = await this.getFuente(fuentes_id,undefined,client)
+			const fuente = await this.getFuente(fuentes_id,undefined,undefined,client)
 			if(!fuente) {
 				throw new Error("Fuente not found")
 			}
@@ -13853,7 +13879,7 @@ internal.CRUD = class {
 				}
 			}
 
-		const has_access = await this.hasAccess(undefined, undefined, user_id, false, series_id, tipo)
+		const has_access = await this.hasAccess(undefined, undefined, user_id, false, series_id, tipo, client)
 		if(!has_access) {
 			throw new AuthError("El usuario no tiene permiso de lectura para la serie tipo=puntual id=" + series_id)
 		}
@@ -13896,7 +13922,7 @@ internal.CRUD = class {
 				var ts = await this.date2obj(timestart, client)
 				var te = await this.date2obj(timeend, client) 
 				console.debug({timestart: ts.toISOString(), timeend: te.toISOString()})
-				dt_ = await this.interval2epoch(dt, client) * 1000
+				const dt_ = await this.interval2epoch(dt, client) * 1000
 				dt_epoch = (inst) ? 0 : dt_
 				var t_offset = await this.interval2epoch(t_offset, client) * 1000
 				var timestart_time = (timestart.getHours()*3600 + timestart.getMinutes()*60 + timestart.getSeconds()) * 1000 + timestart.getMilliseconds() // + timestart.getTimezoneOffset()*60*1000
@@ -14551,8 +14577,8 @@ internal.CRUD = class {
 			var campo = await this.initCampo(var_id,timestart,timeend,filter,options,user_id,client)
 			var dt = (campo.options.dt) ? campo.options.dt : (campo.variable.timeSupport) ? campo.variable.timeSupport : {days: 1} 
 			var dates = []
-			var timestart = new Date(campo.timestart)
-			var timeend = new Date(campo.timeend)
+			timestart = new Date(campo.timestart)
+			timeend = new Date(campo.timeend)
 			var campos = []
 			var dtepoch
 			try {
@@ -15111,11 +15137,11 @@ internal.CRUD = class {
 			throw new BadRequestError("missing dest_series_id")
 		}
 		return withTransaction(client, async (client) => {
-			const has_access_source = await this.hasAccess(undefined, undefined, user_id, false, asociacion.source_series_id, asociacion.source_tipo)
+			const has_access_source = await this.hasAccess(undefined, undefined, user_id, false, asociacion.source_series_id, asociacion.source_tipo, client)
 			if(!has_access_source) {
 				throw new AuthError("Usuario sin acceso de lectura a la serie de origen de la asociacion")
 			}
-			const has_access_dest = await this.hasAccess(undefined, undefined, user_id, true, asociacion.dest_series_id, asociacion.dest_tipo)
+			const has_access_dest = await this.hasAccess(undefined, undefined, user_id, true, asociacion.dest_series_id, asociacion.dest_tipo, client)
 			if(!has_access_dest) {
 				throw new AuthError("Usuario sin acceso de escritura a la serie de destino de la asociación")
 			}
@@ -15171,7 +15197,7 @@ internal.CRUD = class {
 			var results = []
 			for(var a of asociaciones) {
 				var opt = {aggFunction: a.agg_func, t_offset: a.t_offset, insertSeriesId: a.dest_series_id, insertSeriesTipo: a.dest_tipo}
-				const has_access = await this.hasAccess(undefined, undefined, user_id, true, a.dest_series_id, a.dest_tipo)
+				const has_access = await this.hasAccess(undefined, undefined, user_id, true, a.dest_series_id, a.dest_tipo, client)
 				if(!has_access) {
 					throw new AuthError("Usuario sin acceso de escritura a la serie de destino de la asociacion id=" + a.id)
 				}
@@ -15278,7 +15304,7 @@ internal.CRUD = class {
 		return withClient(client, async (client) => {
 			const a = await this.getAsociacion(id,client, user_id)
 			console.debug("Got asociacion " + a.id)
-			const has_access = await this.hasAccess(undefined, undefined, user_id, true, a.dest_series_id, a.dest_tipo)
+			const has_access = await this.hasAccess(undefined, undefined, user_id, true, a.dest_series_id, a.dest_tipo, client)
 			if(!has_access) {
 				throw new AuthError("El usuario no tiene acceso de escritura a la serie de destino de la asociación")
 			}
@@ -15467,7 +15493,7 @@ internal.CRUD = class {
 				if(!match) {
 					throw new NotFoundError("Asociacion id=" + id + " no encontrada")
 				}
-				let has_access = await this.hasAccess(undefined, undefined, user_id, true, match.dest_series_id, match.dest_tipo)
+				let has_access = await this.hasAccess(undefined, undefined, user_id, true, match.dest_series_id, match.dest_tipo, client)
 				if(!has_access) {
 					throw new AuthError("El usuario no tiene acceso de escritura para la serie de destino de la asociación")
 				}
@@ -15936,25 +15962,25 @@ internal.CRUD = class {
 		if(percentiles.length==0) {
 			return Promise.reject("missing percentiles, length 0")
 		}
-		if(tipo=="puntual" && user_id) {
-			const has_access = await this.hasAccess(undefined, undefined, user_id, true, series_id, tipo)
-			if(!has_access) {
-				throw new AuthError("El usuario no tiene acceso de escritura para la serie puntual id=" + series_id)
-			}
-		}
-		var rows = percentiles.map(d=> {
-			var d_clean = {}
-			for (let [key, value] of Object.entries(d)) {
-				d_clean[key] = (typeof value=='string') ? value.replace(/'/g,"") : (value instanceof Date) ? value.toISOString().substring(0,10) : value
-			}
-			return d_clean
-		}).map(d=> {
-			if(d.valor.toString() == "NaN") {
-				return
-			}
-			return `('${tipo}',${series_id}, ${d.doy}, ${d.percentil}, ${d.valor}, ${d.window_size}, '${d.timestart}'::date, '${d.timeend}'::date, ${d.count})`
-		}).filter(r=>r)
 		return withClient(client, async (client) => {
+			if(tipo=="puntual" && user_id) {
+				const has_access = await this.hasAccess(undefined, undefined, user_id, true, series_id, tipo, client)
+				if(!has_access) {
+					throw new AuthError("El usuario no tiene acceso de escritura para la serie puntual id=" + series_id)
+				}
+			}
+			var rows = percentiles.map(d=> {
+				var d_clean = {}
+				for (let [key, value] of Object.entries(d)) {
+					d_clean[key] = (typeof value=='string') ? value.replace(/'/g,"") : (value instanceof Date) ? value.toISOString().substring(0,10) : value
+				}
+				return d_clean
+			}).map(d=> {
+				if(d.valor.toString() == "NaN") {
+					return
+				}
+				return `('${tipo}',${series_id}, ${d.doy}, ${d.percentil}, ${d.valor}, ${d.window_size}, '${d.timestart}'::date, '${d.timeend}'::date, ${d.count})`
+			}).filter(r=>r)
 			const result = await client.query("INSERT INTO series_doy_percentiles (tipo,series_id, doy, percentil, valor, window_size, timestart, timeend, count)\
 		    VALUES " + rows.join(",") + " \
 		    ON CONFLICT (tipo,series_id,doy,percentil) \
@@ -18672,7 +18698,7 @@ ORDER BY cal.cal_id`
 			}
 			const serie = await this.getSerie(tipo,result.rows[0].id,startdate,enddate,{asArray:true,regular: regular, dt: dt},undefined,undefined, client, user_id)  // (tipo,id,timestart,timeend,options)
 			if(includeProno) {
-				const series_sim = await this.getSeries(tipo,{estacion_id: serie.estacion.id, var_id: serie.var.id, unit_id: serie.unidades.id, fuentes_id: (serie.fuente) ? serie.fuente.id : undefined},{fromView:from_view})
+				const series_sim = await this.getSeries(tipo,{estacion_id: serie.estacion.id, var_id: serie.var.id, unit_id: serie.unidades.id, fuentes_id: (serie.fuente) ? serie.fuente.id : undefined},{fromView:from_view},client,undefined, user_id)
 				if(!series_sim.length) {
 					console.log("No series sim found with id " + series_id + ", tipo " + tipo)
 					serie.pronosticos = []

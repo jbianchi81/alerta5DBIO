@@ -31,6 +31,8 @@ test('get files list last week', async (t) => {
             timeend: timeend
         }
     )
+    assert.ok(result.data.items)
+    assert.ok(Array.isArray(result.data.items))
     console.info("got " + result.data.items.length + " items")
     assert(result.data.items.length >= 7, "expected 7 items")
     fs.writeFileSync("/tmp/gpm_files_list.json",JSON.stringify(result.data.items, undefined, 2))
