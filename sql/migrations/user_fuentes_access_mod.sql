@@ -1,5 +1,7 @@
 BEGIN;
 
+DROP VIEW user_fuentes_access;
+
 CREATE OR REPLACE VIEW user_fuentes_access AS
 WITH access_join AS (
          SELECT u.id AS user_id,
@@ -36,6 +38,7 @@ WITH access_join AS (
     access_join.fuentes_id,
     access_join.fuentes_name,
     access_join.fuentes_owner_id,
+    MAX(access_join.priority) AS max_priority,
         CASE max(access_join.priority)
             WHEN 2 THEN 'write'::text
             ELSE 'read'::text
