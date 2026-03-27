@@ -12141,7 +12141,7 @@ internal.CRUD = class {
 
 	static async getObservacionesDateRange(tipo,filter,options, client) {
 		return withClient(client, async (client) => {
-			var tipo = this.getTipo(tipo)
+			tipo = this.getTipo(tipo)
 			var obs_table = this.getObsTable(tipo)
 			var filter_string = this.getObservacionesFilterString(tipo,filter,options) 
 			//~ console.log({filter_string:filter_string})
@@ -12174,11 +12174,11 @@ internal.CRUD = class {
 					// console.log("usuario no autorizado para acceder a la serie seleccionada")
 					// return Promise.reject("usuario no autorizado para acceder a la serie seleccionada")
 					throw new AuthError("usuario no autorizado para acceder a la serie seleccionada")
-			}
-			// check access level
-			const has_access = await this.hasAccess(undefined, undefined, user_id, false, serie.id, tipo ?? serie.tipo,client)
-			if(!has_access) {
-				throw new AuthError(`El usuario no tiene acceso a la serie tipo=${tipo ?? serie_tipo}, id=${serie.id}`)
+				}
+				// check access level
+				const has_access = await this.hasAccess(undefined, undefined, user_id, false, serie.id, tipo ?? serie.tipo,client)
+				if(!has_access) {
+					throw new AuthError(`El usuario no tiene acceso a la serie tipo=${tipo ?? serie_tipo}, id=${serie.id}`)
 				}
 				serie_result = serie
 			} else {
