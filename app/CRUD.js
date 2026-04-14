@@ -7411,7 +7411,24 @@ internal.CRUD = class {
 			if(!user_id) {
 				return true
 			}
-			if(series_id) {
+			if(tabla_id) {
+				var query = pasteIntoSQLQuery(`SELECT EXISTS (
+					SELECT 1 
+						FROM user_red_access 
+						WHERE tabla_id=$1
+						AND user_id=$2 
+						AND max_priority>=$3
+				)`,[tabla_id,user_id,max_priority])
+			} else if(estacion_id) {
+				var query = pasteIntoSQLQuery(`SELECT EXISTS (
+					SELECT 1
+						FROM user_red_access 
+						JOIN (SELECT unid,tabla FROM estaciones WHERE unid=$1) AS e  
+						ON e.tabla=user_red_access.tabla_id
+						WHERE user_id=$2 
+						AND max_priority>=$3
+				)`,[estacion_id,user_id,max_priority])
+			} else if(series_id) {
 				if(tipo.toLowerCase() == "puntual") {
 			
 					var query = pasteIntoSQLQuery(`SELECT EXISTS (
@@ -7443,23 +7460,6 @@ internal.CRUD = class {
 						}
 					} 
 				}	
-			} else if(estacion_id) {
-				var query = pasteIntoSQLQuery(`SELECT EXISTS (
-					SELECT 1
-						FROM user_red_access 
-						JOIN (SELECT unid,tabla FROM estaciones WHERE unid=$1) AS e  
-						ON e.tabla=user_red_access.tabla_id
-						WHERE user_id=$2 
-						AND max_priority>=$3
-				)`,[estacion_id,user_id,max_priority])
-			} else if(tabla_id) {
-				var query = pasteIntoSQLQuery(`SELECT EXISTS (
-					SELECT 1 
-						FROM user_red_access 
-						WHERE tabla_id=$1
-						AND user_id=$2 
-						AND max_priority>=$3
-				)`,[tabla_id,user_id,max_priority])
 			} else {
 				throw new Error("Falta series_id o estacion_id o tabla_id")
 			}
@@ -9320,7 +9320,7 @@ internal.CRUD = class {
 				}
 
 				if(serie.tipo == "puntual" && user_id) {
-					const has_access = await this.hasAccess(serie.estacion.id, undefined, user_id, true,undefined,undefined,client)
+					const has_access = await this.hasAccess(serie.estacion.id, serie.estacion.tabla, user_id, true,undefined,undefined,client)
 					if(!has_access) {
 						throw new AuthError("Usuario no tiene acceso de escritura a la red especificada")
 					}
