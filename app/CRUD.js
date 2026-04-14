@@ -15825,6 +15825,10 @@ internal.CRUD = class {
 	}
 
 	static async getMonthlyStats(tipo="puntual",series_id,isPublic,as_array, client) {
+		series_id = parseInt(series_id)
+		if(series_id.toString() == 'NaN') {
+			throw new Error("Invalid series_id")
+		}
 		return withClient(client, async (client) => {
 			const result = await client.query("SELECT * FROM series_mon_stats WHERE tipo=$1 AND series_id=$2 ORDER BY mon",[tipo,series_id])
 			
