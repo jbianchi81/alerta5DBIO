@@ -12803,7 +12803,7 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getCubeSeries(fuentes_id,tipo,def_proc_id,def_unit_id,def_var_id,data_table,isPublic,isTable,client) {
+	static async getCubeSeries(fuentes_id,tipo,def_proc_id,def_unit_id,def_var_id,data_table,isPublic,isTable,client, user_id) {
 		return withClient(client, async (client) => {
 	
 			var fuentes = await this.getFuentes({
@@ -12815,7 +12815,9 @@ internal.CRUD = class {
 				data_table: data_table,
 				public: isPublic,
 				is_table: isTable  
-			},client)
+			},
+			user_id,
+			client)
 			fuentes = fuentes.filter(f=>f.data_table)
 			const series = fuentes.map( fuente=>{
 				return new internal.serie({

@@ -2170,6 +2170,7 @@ function getCubeSerie(req,res) {
 
 function getCubeSeries(req,res) {
 	try {
+		var user_id = getUserId(req)
 		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
 	} catch (e) {
@@ -2178,7 +2179,7 @@ function getCubeSeries(req,res) {
 		return
 	}
 	filter.id = (filter.id) ? filter.id : (filter.fuentes_id) ? filter.fuentes_id : undefined
-	crud.getCubeSeries(filter.id,undefined,filter.proc_id,filter.unit_id,filter.var_id,filter.data_table,filter.public)
+	crud.getCubeSeries(filter.id,undefined,filter.proc_id,filter.unit_id,filter.var_id,filter.data_table,filter.public, undefined, undefined, user_id)
 	.then(result=>{
 		if(!result) {
 			res.status(404).send({message:"data not found"})
