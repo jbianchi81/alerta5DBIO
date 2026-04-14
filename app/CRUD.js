@@ -9556,6 +9556,10 @@ internal.CRUD = class {
 		
 	static async getSerie(tipo,id,timestart,timeend,options={},isPublic,timeupdate,client,user_id) {
 		return withClient(client, async(client) => {
+			id = parseInt(id)
+			if (id.toString() == 'NaN') {
+				throw new Error("Invalid id")
+			}
 			if(tipo == "areal") {
 				const [access_join, access_level] = internal.fuente.getUserAccessClause(user_id, "fuentes.id")
 				const area_access_join = AreaGroup.getUserAccessClause(user_id, "areas_pluvio.group_id")
