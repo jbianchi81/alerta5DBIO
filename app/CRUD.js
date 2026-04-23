@@ -7411,7 +7411,24 @@ internal.CRUD = class {
 			if(!user_id) {
 				return true
 			}
-			if(series_id) {
+			if(tabla_id) {
+				var query = pasteIntoSQLQuery(`SELECT EXISTS (
+					SELECT 1 
+						FROM user_red_access 
+						WHERE tabla_id=$1
+						AND user_id=$2 
+						AND max_priority>=$3
+				)`,[tabla_id,user_id,max_priority])
+			} else if(estacion_id) {
+				var query = pasteIntoSQLQuery(`SELECT EXISTS (
+					SELECT 1
+						FROM user_red_access 
+						JOIN (SELECT unid,tabla FROM estaciones WHERE unid=$1) AS e  
+						ON e.tabla=user_red_access.tabla_id
+						WHERE user_id=$2 
+						AND max_priority>=$3
+				)`,[estacion_id,user_id,max_priority])
+			} else if(series_id) {
 				if(tipo.toLowerCase() == "puntual") {
 			
 					var query = pasteIntoSQLQuery(`SELECT EXISTS (
@@ -7443,23 +7460,6 @@ internal.CRUD = class {
 						}
 					} 
 				}	
-			} else if(estacion_id) {
-				var query = pasteIntoSQLQuery(`SELECT EXISTS (
-					SELECT 1
-						FROM user_red_access 
-						JOIN (SELECT unid,tabla FROM estaciones WHERE unid=$1) AS e  
-						ON e.tabla=user_red_access.tabla_id
-						WHERE user_id=$2 
-						AND max_priority>=$3
-				)`,[estacion_id,user_id,max_priority])
-			} else if(tabla_id) {
-				var query = pasteIntoSQLQuery(`SELECT EXISTS (
-					SELECT 1 
-						FROM user_red_access 
-						WHERE tabla_id=$1
-						AND user_id=$2 
-						AND max_priority>=$3
-				)`,[tabla_id,user_id,max_priority])
 			} else {
 				throw new Error("Falta series_id o estacion_id o tabla_id")
 			}
@@ -9320,7 +9320,7 @@ internal.CRUD = class {
 				}
 
 				if(serie.tipo == "puntual" && user_id) {
-					const has_access = await this.hasAccess(serie.estacion.id, undefined, user_id, true,undefined,undefined,client)
+					const has_access = await this.hasAccess(serie.estacion.id, serie.estacion.tabla, user_id, true,undefined,undefined,client)
 					if(!has_access) {
 						throw new AuthError("Usuario no tiene acceso de escritura a la red especificada")
 					}
@@ -9556,6 +9556,10 @@ internal.CRUD = class {
 		
 	static async getSerie(tipo,id,timestart,timeend,options={},isPublic,timeupdate,client,user_id) {
 		return withClient(client, async(client) => {
+			id = parseInt(id)
+			if (id.toString() == 'NaN') {
+				throw new Error("Invalid id")
+			}
 			if(tipo == "areal") {
 				const [access_join, access_level] = internal.fuente.getUserAccessClause(user_id, "fuentes.id")
 				const area_access_join = AreaGroup.getUserAccessClause(user_id, "areas_pluvio.group_id")
@@ -12799,7 +12803,7 @@ internal.CRUD = class {
 		})
 	}
 
-	static async getCubeSeries(fuentes_id,tipo,def_proc_id,def_unit_id,def_var_id,data_table,isPublic,isTable,client) {
+	static async getCubeSeries(fuentes_id,tipo,def_proc_id,def_unit_id,def_var_id,data_table,isPublic,isTable,client, user_id) {
 		return withClient(client, async (client) => {
 	
 			var fuentes = await this.getFuentes({
@@ -12811,7 +12815,9 @@ internal.CRUD = class {
 				data_table: data_table,
 				public: isPublic,
 				is_table: isTable  
-			},undefined,client)
+			},
+			user_id,
+			client)
 			fuentes = fuentes.filter(f=>f.data_table)
 			const series = fuentes.map( fuente=>{
 				return new internal.serie({
@@ -15821,6 +15827,10 @@ internal.CRUD = class {
 	}
 
 	static async getMonthlyStats(tipo="puntual",series_id,isPublic,as_array, client) {
+		series_id = parseInt(series_id)
+		if(series_id.toString() == 'NaN') {
+			throw new Error("Invalid series_id")
+		}
 		return withClient(client, async (client) => {
 			const result = await client.query("SELECT * FROM series_mon_stats WHERE tipo=$1 AND series_id=$2 ORDER BY mon",[tipo,series_id])
 			
