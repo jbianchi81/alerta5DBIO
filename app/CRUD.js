@@ -1472,7 +1472,7 @@ internal.fuente = class extends baseModel {
 			if(filter.id) {
 				return internal.CRUD.getFuente(filter.id, undefined, undefined, client)
 			}
-			return internal.CRUD.getFuentes(filter,client)
+			return internal.CRUD.getFuentes(filter,undefined,client)
 		})
 	}
 
@@ -8977,7 +8977,7 @@ internal.CRUD = class {
 		return withClient(client, async (client) => {
 			var fuentes_areal
 			var fuentes_puntual
-			fuentes_areal = await this.getFuentes(filter, client) //, user_id)
+			fuentes_areal = await this.getFuentes(filter, user_id, client) //, user_id)
 			fuentes_puntual = await this.getRedes(filter, user_id, client)
 			fuentes_areal = fuentes_areal.map(f=>{
 				return {
@@ -12811,7 +12811,7 @@ internal.CRUD = class {
 				data_table: data_table,
 				public: isPublic,
 				is_table: isTable  
-			},client)
+			},undefined,client)
 			fuentes = fuentes.filter(f=>f.data_table)
 			const series = fuentes.map( fuente=>{
 				return new internal.serie({
