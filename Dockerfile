@@ -105,5 +105,7 @@ WORKDIR /sessions
 
 WORKDIR /
 
+COPY server.mjs ./
+
 # Default command (can override with `docker run ... <cmd>`)
 CMD [ "node", "server.mjs" ]
