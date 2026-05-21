@@ -164,7 +164,10 @@ function control_filter2(valid_filters, filter, default_table, crud, throw_on_er
                 }
             }
             else if (valid_filters[key].type == "geometry") {
-                if (!("archive" in filter[key] && typeof filter[key].toSQL === "function")) {
+                const geom = filter[key];
+                if (!geom ||
+                    typeof geom !== "object" ||
+                    typeof geom.toSQL !== "function") {
                     errors.push("Invalid geometry object");
                     console.error(errors[errors.length - 1]);
                 }

@@ -272,7 +272,7 @@ export class Area {
 				type: "integer"
 			}
 		}
-		var filter_string = control_filter2(valid_filters, filter, "areas_pluvio")
+		var filter_string = control_filter2(valid_filters, filter, "areas_pluvio", undefined, true)
 		if (!filter_string) {
 			throw ("Invalid filters")
 		}

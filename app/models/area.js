@@ -240,7 +240,7 @@ class Area {
                     type: "integer"
                 }
             };
-            var filter_string = (0, utils2_1.control_filter2)(valid_filters, filter, "areas_pluvio");
+            var filter_string = (0, utils2_1.control_filter2)(valid_filters, filter, "areas_pluvio", undefined, true);
             if (!filter_string) {
                 throw ("Invalid filters");
             }

@@ -132,7 +132,12 @@ export function control_filter2(valid_filters: Record<string, QueryFilter>, filt
           filter_string += " AND " + fullkey + "=false"
         }
       } else if (valid_filters[key].type == "geometry") {
-        if (!("archive" in filter[key] && typeof (filter[key] as any).toSQL === "function")) {
+        const geom = filter[key]
+        if (
+          !geom ||
+          typeof geom !== "object" ||
+          typeof (geom as any).toSQL !== "function"
+        ) {
           errors.push("Invalid geometry object")
           console.error(errors[errors.length - 1])
         } else {
