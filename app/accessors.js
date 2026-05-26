@@ -58,6 +58,7 @@ internal.persiann = require('./accessors/persiann').Client
 internal.pilcomayo = require('./accessors/pilcomayo').Client
 internal.emas = require('./accessors/emas').Client
 internal.sgb_sace_report = require('./accessors/sgb_sace_report').Client
+internal.agp = require('./accessors/agp').Client
 
 // Promise.allSettled polyfill
 

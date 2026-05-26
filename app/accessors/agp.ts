@@ -1,4 +1,4 @@
-import { AbstractAccessorEngine, AccessorEngine, ObservacionesFilter } from './abstract_accessor_engine'
+import { AbstractAccessorEngine, AccessorEngine, ObservacionesFilter, SeriesFilter } from './abstract_accessor_engine'
 import { fetchData } from '../accessor_utils'
 import { parse } from 'csv-string'
 import { estacion as CrudEstacion, serie as CrudSerie } from '../CRUD'
@@ -9,6 +9,7 @@ import { readFileSync, writeFileSync } from 'fs'
 type SeriesMapping = {
     series_id : number
     url : string
+    metadata? : CrudSerie
 }
 
 type SerieConEstId = {
@@ -24,25 +25,27 @@ type SerieConObs = {
 
 type Config = {
      url: string // not used
-     series_map : Record<number, SeriesMapping>
-     date_col : number
-     value_col : number
-     skip_rows : number
+     series_map? : Record<number, SeriesMapping>
+     date_col? : number
+     value_col? : number
+     skip_rows? : number
 }
 
 export class Client extends AbstractAccessorEngine implements AccessorEngine {
 
-    _get_is_multiseries = true
+    static _get_is_multiseries = true
 
-    series_map : Record<number, SeriesMapping>
+    series_map? : Record<number, SeriesMapping>
 
-    date_col : number
-    value_col : number
-    skip_rows : number
+    date_col? : number
+    value_col? : number
+    skip_rows? : number
 
     constructor(config : Config) {
         super(config)
-        this.series_map = config.series_map
+        if(config.series_map) {
+            this.series_map = config.series_map
+        }
         this.date_col = config.date_col
         this.value_col = config.value_col
         this.skip_rows = config.skip_rows
@@ -54,7 +57,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         return this.arrayToObs(parsed_data, this.date_col, this.value_col, this.skip_rows, timestart, timeend, series_id)
     }
 
-    arrayToObs(csv_data : Array<Array<string>>, date_col : number = 0, value_col : number = 2, skip_rows : number = 4, timestart?: Date, timeend?: Date, series_id?: number) : Observacion[] {
+    arrayToObs(csv_data : Array<Array<string>>, date_col : number = 0, value_col : number = 3, skip_rows : number = 4, timestart?: Date, timeend?: Date, series_id?: number) : Observacion[] {
         const result  : Observacion[] = []
         for(const [index, row] of csv_data.entries()) {
             if(index < skip_rows) {
@@ -78,6 +81,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
             }
             result.push({
                 "timestart": date,
+                "timeend": date,
                 "valor": value,
                 "series_id": series_id
             })
@@ -86,6 +90,9 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
     }
 
     getSerieFromId(s_id : number) : SerieConEstId {
+        if(!this.series_map) {
+            throw new Error("series_map not set")
+        }
         for(const [k, v] of Object.entries(this.series_map)) {
             if(v.series_id == s_id) {
                 return {...v, estacion_id: parseInt(k)}
@@ -94,25 +101,46 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         throw new Error("Serie not found with id=" + s_id)
     }
 
-    async getOne(estacion_id : number, timestart?: Date, timeend?: Date) : Promise<SerieConObs> {
-        const serie = this.series_map[estacion_id]
-        if(!serie) {
+    async getOne(estacion_id : number, timestart?: Date, timeend?: Date) : Promise<CrudSerie> {
+        if(!this.series_map) {
+            await this.getSeries()
+        }
+        if(!this.series_map) {
+            throw new Error("series_map not set")
+        }
+        const seriemap = this.series_map[estacion_id]
+        if(!seriemap) {
             throw new Error("Serie not found in series_map configuration for estacion_id=" + estacion_id)
         }
-        const obs = await this.downloadDataAndParseCSV(serie.url, timestart, timeend, serie.series_id)
-        return {
-            id: serie.series_id,
-            observaciones: obs
-        }
-
+        const obs = await this.downloadDataAndParseCSV(seriemap.url, timestart, timeend, seriemap.series_id)
+        const result : CrudSerie = seriemap.metadata
+        result.setObservaciones(obs)
+        return result
+        // return {
+        //     ...serie.metadata,
+        //     observaciones: obs
+        // }
     }
 
+
+    async get(filter : ObservacionesFilter,
+            options : {
+                return_series ? : true
+            }
+        ) : Promise<CrudSerie[]>;
     async get(
             filter : ObservacionesFilter,
             options : {
-            return_series ? : boolean
-        } = {}) : Promise<Serie[]|Observacion[]> {
-        const result : SerieConObs[] = []
+                return_series ? : false
+            }
+        ) : Promise<Observacion[]>
+    async get(
+            filter : ObservacionesFilter,
+            options : {
+                return_series ? : boolean
+            } = {}
+        ) : Promise<CrudSerie[]|Observacion[]> {
+        const result : CrudSerie[] = []
         if(!filter.series_id) {
             if(!filter.estacion_id) {
                 throw new Error("missing estacion_id or series_id")
@@ -128,22 +156,44 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
             if(filter.series_id instanceof Array) {
                 for(const s_id of filter.series_id) {
                     const serie = this.getSerieFromId(s_id)
-                    result.push(await this.getOne(serie.estacion_id))
+                    result.push(await this.getOne(serie.estacion_id, filter.timestart, filter.timeend))
                 }
             } else {
                 const serie = this.getSerieFromId(filter.series_id)
-                result.push(await this.getOne(serie.estacion_id))
+                result.push(await this.getOne(serie.estacion_id, filter.timestart, filter.timeend))
             }
         }
         if(options.return_series) {
             return result
         } else {
-            const all_obs : Observacion[] = []
+            let all_obs : Observacion[] = []
             for(const serie of result) {
-                all_obs.push(...serie.observaciones)
+                all_obs = all_obs.concat(serie.observaciones)
             }
             return all_obs
         }
+    }
+
+    async update(
+        filter : ObservacionesFilter,
+        options : {
+            return_series ? : boolean
+        } = {}
+    ) : Promise<CrudSerie[]|Observacion[]> {
+        const series = await this.get(filter, {return_series: true})
+        for(const serie of series) {
+            await serie.createObservaciones()
+        }
+        if(options.return_series) {
+            return series
+        } else {
+            let observaciones : Observacion[] = []
+            for(const serie of series) {
+                observaciones = observaciones.concat(serie.observaciones)
+            } 
+            return observaciones
+        }
+
     }
 
     readStationsCsv(
@@ -210,7 +260,23 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         return series
     }
 
-    async getSeries(filter={}) {
-        return CrudSerie.read(filter)
+    setSeriesMap(series : CrudSerie) {
+        this.series_map = {}
+        for(const serie of series) {
+            this.series_map[serie.estacion.id] = {
+                series_id: serie.id,
+                url: serie.estacion.id_externo,
+                metadata: serie
+            }
+        }
+    }
+
+    async getSeries(filter : SeriesFilter = {}) {
+        filter.tabla_id = "agp"
+        const series = await CrudSerie.read(filter)
+        if(!this.series_map) {
+            this.setSeriesMap(series)
+        }
+        return series
     }
 }

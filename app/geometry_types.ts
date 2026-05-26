@@ -14,3 +14,13 @@ export type Geometry = {
     coordinates: Position | LineString | Polygon | MultiPolygon
 }
 
+export type Feature = {
+    type : "Feature",
+    properties : Object,
+    geometry : Geometry
+}
+
+export type FeatureCollection = {
+    type : "FeatureCollection",
+    features : Feature[]
+}

@@ -18,8 +18,9 @@ const fs_1 = require("fs");
 class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     constructor(config) {
         super(config);
-        this._get_is_multiseries = true;
-        this.series_map = config.series_map;
+        if (config.series_map) {
+            this.series_map = config.series_map;
+        }
         this.date_col = config.date_col;
         this.value_col = config.value_col;
         this.skip_rows = config.skip_rows;
@@ -31,7 +32,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return this.arrayToObs(parsed_data, this.date_col, this.value_col, this.skip_rows, timestart, timeend, series_id);
         });
     }
-    arrayToObs(csv_data, date_col = 0, value_col = 2, skip_rows = 4, timestart, timeend, series_id) {
+    arrayToObs(csv_data, date_col = 0, value_col = 3, skip_rows = 4, timestart, timeend, series_id) {
         const result = [];
         for (const [index, row] of csv_data.entries()) {
             if (index < skip_rows) {
@@ -55,6 +56,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             }
             result.push({
                 "timestart": date,
+                "timeend": date,
                 "valor": value,
                 "series_id": series_id
             });
@@ -62,6 +64,9 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         return result;
     }
     getSerieFromId(s_id) {
+        if (!this.series_map) {
+            throw new Error("series_map not set");
+        }
         for (const [k, v] of Object.entries(this.series_map)) {
             if (v.series_id == s_id) {
                 return Object.assign(Object.assign({}, v), { estacion_id: parseInt(k) });
@@ -71,19 +76,28 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     }
     getOne(estacion_id, timestart, timeend) {
         return __awaiter(this, void 0, void 0, function* () {
-            const serie = this.series_map[estacion_id];
-            if (!serie) {
+            if (!this.series_map) {
+                yield this.getSeries();
+            }
+            if (!this.series_map) {
+                throw new Error("series_map not set");
+            }
+            const seriemap = this.series_map[estacion_id];
+            if (!seriemap) {
                 throw new Error("Serie not found in series_map configuration for estacion_id=" + estacion_id);
             }
-            const obs = yield this.downloadDataAndParseCSV(serie.url, timestart, timeend, serie.series_id);
-            return {
-                id: serie.series_id,
-                observaciones: obs
-            };
+            const obs = yield this.downloadDataAndParseCSV(seriemap.url, timestart, timeend, seriemap.series_id);
+            const result = seriemap.metadata;
+            result.setObservaciones(obs);
+            return result;
+            // return {
+            //     ...serie.metadata,
+            //     observaciones: obs
+            // }
         });
     }
-    get(filter, options = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    get(filter_1) {
+        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
             const result = [];
             if (!filter.series_id) {
                 if (!filter.estacion_id) {
@@ -102,23 +116,41 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 if (filter.series_id instanceof Array) {
                     for (const s_id of filter.series_id) {
                         const serie = this.getSerieFromId(s_id);
-                        result.push(yield this.getOne(serie.estacion_id));
+                        result.push(yield this.getOne(serie.estacion_id, filter.timestart, filter.timeend));
                     }
                 }
                 else {
                     const serie = this.getSerieFromId(filter.series_id);
-                    result.push(yield this.getOne(serie.estacion_id));
+                    result.push(yield this.getOne(serie.estacion_id, filter.timestart, filter.timeend));
                 }
             }
             if (options.return_series) {
                 return result;
             }
             else {
-                const all_obs = [];
+                let all_obs = [];
                 for (const serie of result) {
-                    all_obs.push(...serie.observaciones);
+                    all_obs = all_obs.concat(serie.observaciones);
                 }
                 return all_obs;
+            }
+        });
+    }
+    update(filter_1) {
+        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
+            const series = yield this.get(filter, { return_series: true });
+            for (const serie of series) {
+                yield serie.createObservaciones();
+            }
+            if (options.return_series) {
+                return series;
+            }
+            else {
+                let observaciones = [];
+                for (const serie of series) {
+                    observaciones = observaciones.concat(serie.observaciones);
+                }
+                return observaciones;
             }
         });
     }
@@ -157,14 +189,11 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     createSites(json_filepath) {
         return __awaiter(this, void 0, void 0, function* () {
             const estaciones = CRUD_1.estacion.fromGeojson(json_filepath);
-            for (const e of estaciones) {
-                yield e.create();
-            }
-            return estaciones;
+            return CRUD_1.estacion.create(estaciones);
         });
     }
-    createSeries(create = false) {
-        return __awaiter(this, void 0, void 0, function* () {
+    createSeries() {
+        return __awaiter(this, arguments, void 0, function* (create = false) {
             const estaciones = yield CRUD_1.estacion.read({ tabla: "agp" });
             const series = [];
             for (const e of estaciones) {
@@ -174,13 +203,34 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                     proc_id: 1,
                     unit_id: 11
                 });
-                if (create) {
-                    yield serie.create();
-                }
                 series.push(serie);
+            }
+            if (create) {
+                CRUD_1.serie.create(series);
+            }
+            return series;
+        });
+    }
+    setSeriesMap(series) {
+        this.series_map = {};
+        for (const serie of series) {
+            this.series_map[serie.estacion.id] = {
+                series_id: serie.id,
+                url: serie.estacion.id_externo,
+                metadata: serie
+            };
+        }
+    }
+    getSeries() {
+        return __awaiter(this, arguments, void 0, function* (filter = {}) {
+            filter.tabla_id = "agp";
+            const series = yield CRUD_1.serie.read(filter);
+            if (!this.series_map) {
+                this.setSeriesMap(series);
             }
             return series;
         });
     }
 }
 exports.Client = Client;
+Client._get_is_multiseries = true;
