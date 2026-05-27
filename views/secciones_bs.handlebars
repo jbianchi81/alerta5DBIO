@@ -2565,81 +2565,39 @@
 		}
 	}
 	function loadPointsNextPage(next_page_url,old_points,sourceEstaciones,writer,search_filters={}) {
-		console.log("Load points next page:" + next_page_url)
+		console.debug("Load points next page:" + next_page_url)
 		$("button#refresh").attr("disabled","disabled")
 		$("body").css("cursor","progress")
-		$.get(next_page_url)
-		.then(points=>{
-			$("body").css("cursor","default")
-			if(!points || !points.features) {
-				alert("0: No se encontraron series")
-			} else if (points.features.length == 0) {
-				alert("1: No se encontraron series")
-			}
-			$("button#refresh").removeAttr("disabled")
-			// old_points.push(...points.features)
-			// gPoints.push(...points.features)
-			// read points from GeoJSON and add features to layer
-			if(points.features.length) {
-				var featEstaciones = (new ol.format.GeoJSON()).readFeatures(points)
-				sourceEstaciones.addFeatures(featEstaciones)
-				if(points.next_page_url) {
-					loadPointsNextPage(points.next_page_url,points,sourceEstaciones,writer,search_filters)
+		$.ajax({
+			url: next_page_url,
+			success: function(points) {
+				$("body").css("cursor","default")
+				if(!points || !points.features) {
+					alert("0: No se encontraron series")
+				} else if (points.features.length == 0) {
+					alert("1: No se encontraron series")
 				}
-			}
-			/*
-			// llena tabla de series
-			addSeriesEditTable($("div.tabcontent#tabla_series"),points,writer)
-			var flag=false
-			var matched_point
-			var table_rows = []
-			var options = points.features.map(p=>{
-				var selected=false
-				if(search_filters.seriesId) {
-					if(p.properties.series_id == search_filters.seriesId) {
-						//~ console.log(p.properties)
-						flag=true
-						selected=true
-						matched_point=p
+				$("button#refresh").removeAttr("disabled")
+				if(points.features.length) {
+					var featEstaciones = (new ol.format.GeoJSON()).readFeatures(points)
+					sourceEstaciones.addFeatures(featEstaciones)
+					if(points.next_page_url) {
+						loadPointsNextPage(points.next_page_url,points,sourceEstaciones,writer,search_filters)
 					}
-				} 
-				var name = p.properties.estacion_id + ": " + ((p.properties.rio) ? p.properties.rio + "@" : "") + ((p.properties.nombre) ? p.properties.nombre.substring(0,30) : p.properties.estacion_id) + " (" + p.properties.var_name + ") [" + p.properties.series_id + "]"
-				return "<option value="+p.properties.series_id + " " + ((selected) ? "selected" : "" ) + " >" + name + "</option>"
-			})
-			$("select#seriesId").append(options.join(""))
-			$("form#chooseaddseries select[name=series_id]").append(options.join(""))
-			*/
-			
-			/*
-			if(!flag) {
-				console.log("seriesId not found")
-				return
-			}
-			var timestart, timeend
-			if(!search_filters.timestart) {
-				timestart = new Date()
-				timestart.setDate(timestart.getDate() - 90)
-			} else {
-				timestart = new Date(search_filters.timestart)
-				//~ console.log("timestart from querystring")
-			}
-			if(!search_filters.timeend) {
-				timeend = new Date()
-				timeend.setDate(timeend.getDate() +15)
-			} else {
-				timeend = new Date(search_filters.timeend)
-				//~ console.log("timeend from querystring")
-			}
-			$("input#timestart").val(timestart.toISOString().substring(0,10))
-			$("input#timeend").val(timeend.toISOString().substring(0,10))
-			$("form#chooseaddseries input[name=timestart]").val(timestart.toISOString().substring(0,10))
-			$("form#chooseaddseries input[name=timeend]").val(timeend.toISOString().substring(0,10))
-			$("form#choosepercentile input[name=timestart]").val(timestart.toISOString().substring(0,10))
-			$("form#choosepercentile input[name=timeend]").val(timeend.toISOString().substring(0,10))
-			*/
-		}).fail(e=>{
-			$("body").css("cursor","default")
-			alert(e.message)
+				}
+			},
+			error: function(jqXHR, textStatus, errorThrown) {
+				$("body").css("cursor","default")
+				if (textStatus === "timeout") {
+					console.error("El servidor tardó demasiado en responder")
+					alert("El servidor tardó demasiado en responder");
+				} else {
+					console.error(errorThrown)
+					alert("Falló la solicitud:", errorThrown);
+				}
+				alert(e.message)
+			},
+			timeout: 40000
 		})
 	}
 
