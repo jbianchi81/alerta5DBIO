@@ -4916,14 +4916,14 @@ internal.observaciones = class extends BaseArray {
 			console.info("Created " + result.rowCount + " observaciones")
 			return
 		} else {
-			const observaciones = client.query(`SELECT
+			const observaciones = await client.query(`SELECT
 				${obs_table}.*,
 				$1::text AS tipo,
 				stage_obs_map.valor
 				FROM ${obs_table}
 				JOIN stage_obs_map 
 				ON stage_obs_map.obs_id=${obs_table}.id`, [tipo])
-			return new internal.observaciones(observaciones)
+			return new internal.observaciones(observaciones.rows)
 		}
 	}
 
