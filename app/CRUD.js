@@ -3049,7 +3049,6 @@ function assignPercentileCategory(value, categories) {
  */
 internal.serie.build_read_query = function(filter={},options={},user_id) {
 	// var model = apidoc.serie
-	var valid_filters
 	var table
 	var tipo
 	var order_string
@@ -3062,26 +3061,40 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 	if(!filter.series_id && filter.id) {
 		filter.series_id = filter.id
 	}
-	var valid_filters = {
+	var valid_series_filters = {
 		id:{
 			type: "integer",
 			table: "series"
-		},var_id:{
+		},
+		var_id:{
 			type:"integer",
 			table: "series"
-		},proc_id:{
+		},
+		proc_id:{
 			type:"integer",
 			table: "series"
-		},unit_id:{
+		},
+		unit_id:{
 			type: "integer",
 			table: "series"
-		},public: {
-			type:"boolean_only_true"
-		},date_range_before: {
+		},
+		public: {
+			type:"boolean_only_true",
+			table: "series"
+		},
+		GeneralCategory: {
+			type: "string",
+			table: "var"
+		}
+	}
+
+	var valid_availability_filters = {
+		date_range_before: {
 			column: "timestart",
 			type: "timeend",
 			table: "date_range"
-		},date_range_after: {
+		},
+		date_range_after: {
 			column: "timeend",
 			type: "timestart",
 			table: "date_range"
@@ -3093,10 +3106,6 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 		data_availability: {
 			type: "data_availability",
 			table: "date_range"
-		},
-		GeneralCategory: {
-			type: "string",
-			table: "var"
 		}
 	}
 	// 					DATE RANGE / DATA AVAILABILITY FILTER
@@ -3109,30 +3118,7 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 		throw("Invalid timeend)")
 	}	
 	var date_range_table = internal.serie.getDateRangeTable(tipo,options)
-	var series_range_join = (filter.has_obs || (filter.data_availability && ["h","c","n","r"].indexOf(filter.data_availability.toLowerCase()) >= 0)) ? "INNER" : "LEFT OUTER"
-	var date_range_query = `
-		${series_range_join} JOIN (
-			SELECT 
-				"${date_range_table}".series_id::int,
-				"${date_range_table}".timestart::timestamptz,
-				"${date_range_table}".timeend::timestamptz,
-				"${date_range_table}".count::int,
-				CASE WHEN "${date_range_table}".timeend IS NOT NULL
-					THEN 
-						CASE WHEN now() - "${date_range_table}".timeend < '1 days'::interval
-							THEN 'RT'
-						WHEN now() - "${date_range_table}".timeend < '3 days'::interval
-							THEN 'NRT'
-						WHEN ("${date_range_table}".timestart <= coalesce(${(timeend) ? ("'" + timeend.toISOString() + "'") : "NULL"},now())) AND ("${date_range_table}".timeend >= coalesce(${(timestart) ? ("'" + timestart.toISOString() + "'") : "NULL"},now()-'90 days'::interval))
-							THEN 'C'
-						ELSE 'H'
-						END
-					ELSE NULL
-				END AS data_availability
-			FROM "${date_range_table}"
-		) AS date_range ON (
-			series.id=date_range.series_id
-		)`
+	// var series_range_join = (filter.has_obs || (filter.data_availability && ["h","c","n","r"].indexOf(filter.data_availability.toLowerCase()) >= 0)) ? "INNER" : "LEFT OUTER"
 	//					PRONOS FILTERS
 	var pronos_filter_string = internal.utils.control_filter2(
 		{
@@ -3141,71 +3127,44 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 			cal_grupo_id: {type: "integer"}		
 		},
 		filter,
-		"series_prono_date_range_last"
+		"p"
 	)
-	if(filter.has_prono || filter.cal_id || filter.cal_grupo_id) {
-		var pronos_join = "JOIN"
-	} else {
-		var pronos_join = "LEFT OUTER JOIN"
-	}
-	var pronos_grouped_query = `${pronos_join} (SELECT
-		series_table,
-		estacion_id,
-		var_id,
-		max(forecast_date)::timestamptz AS forecast_date,
-		json_agg(
-			json_build_object(
-				'series_id', series_id,
-				'series_table', series_table,
-				'begin_date',begin_date,
-				'end_date',end_date,
-				'count',count,
-				'cal_id',cal_id,
-				'forecast_date',forecast_date,
-				'public',public,
-				'cal_grupo_id',cal_grupo_id
-			   )
-		) AS pronosticos
-		FROM series_prono_date_range_last 
-		WHERE 1=1
-		${pronos_filter_string}
-		GROUP BY
-			series_table,
-			estacion_id,
-			var_id
-	) AS pronos ON (
-		pronos.estacion_id=series.${internal.serie.getFeatureIdColumn(tipo)}
-		AND pronos.var_id=series.var_id
-		AND pronos.series_table='${internal.serie.getSeriesTable(tipo)}'
-	)`
+	// if(filter.has_prono || filter.cal_id || filter.cal_grupo_id) {
+	// 	var pronos_join = "JOIN"
+	// } else {
+	// 	var pronos_join = "LEFT OUTER JOIN"
+	// }
 	//					SORT
 	var sort_fields = {
-		id:{column: "id",
-			table: "series"},
+		id:{
+			column: "id",
+			table: "s"},
 		estacion_id: {
-			table: "series",
+			table: "s",
 			column: internal.serie.getFeatureIdColumn(tipo),
 		},
 		var_id:{
-			table: "series"},
-		var_name:{table: "var", column: "nombre"},
+			table: "s"},
+		var_name:{
+			table: "var", 
+			column: "nombre"},
 		proc_id:{
-			table: "series"},
+			table: "s"},
 		unit_id:{
-			table: "series"},
+			table: "s"},
 		timestart:{
-			table: "date_range"},
+			table: "s"},
 		timeend:{
-			table: "date_range"},
+			table: "s"},
 		count:{
-			table: "date_range"},
+			table: "s"},
 		forecast_date:{
-			table: "pronos"},
+			table: "s"},
 		data_availability:{
-			table: null}
+			table: "s"}
 	}
 	sort_fields[internal.serie.getFeatureIdColumn(tipo)] = {
-		table: "series",
+		table: "s",
 		column: internal.serie.getFeatureIdColumn(tipo)
 	}
 	//						PAGINATION
@@ -3214,20 +3173,25 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 	//				JOIN CLAUSES
 	var join_clauses = [
 		`JOIN var 
-		ON (var.id=series.var_id)`,
+			ON (var.id=series.var_id)`,
 		`JOIN procedimiento 
-		ON (procedimiento.id=series.proc_id)`,
+			ON (procedimiento.id=series.proc_id)`,
 		`JOIN unidades
-		ON (unidades.id=series.unit_id)`,
-		pronos_grouped_query,
-		date_range_query
+			ON (unidades.id=series.unit_id)`
 	]
 	// 				SELECT FIELDS
+	var filtered_series_select_fields = [
+		"series.id",
+		"series.var_id",
+		"series.proc_id",
+		"series.unit_id",
+		"ura.effective_access"
+	]
 	if(options.no_metadata) {
 		var select_fields = [
 			`'${tipo}' AS tipo`,
-			"series.id AS id",
-			"series.id AS series_id",
+			"s.id AS id",
+			"s.id AS series_id",
 			"procedimiento.id AS proc_id",
 			"procedimiento.nombre AS proc_nombre",
 			"var.id AS var_id",
@@ -3235,26 +3199,17 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 			`var."GeneralCategory" AS "GeneralCategory"`,
 			"unidades.id AS unit_id",
 			"unidades.nombre AS unit_nombre",
-			`date_range.timestart AS timestart`,
-			`date_range.timeend AS timeend`,
-			`date_range.count AS count`,
-			`CASE WHEN date_range.data_availability IS NOT NULL
-			THEN CASE WHEN pronos.forecast_date IS NOT NULL
-				THEN date_range.data_availability || '+S'::text
-				ELSE date_range.data_availability
-				END
-			ELSE CASE WHEN pronos.forecast_date IS NOT NULL
-				THEN 'S'
-				ELSE 'N'
-				END
-			END
-			AS data_availability`,
-			`pronos.forecast_date AS forecast_date`
+			`s.timestart AS timestart`,
+			`s.timeend AS timeend`,
+			`s.count AS count`,
+			`s.data_availability AS data_availability`,
+			`s.forecast_date AS forecast_date`,
+			`s.total`
 		]
 	} else {
 		var select_fields = [
 			`'${tipo}' AS tipo`,
-			"series.id AS id",
+			"s.id AS id",
 			`json_build_object(
 				'id', procedimiento.id, 
 				'nombre', procedimiento.nombre, 
@@ -3284,27 +3239,20 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 				'UnitsType', unidades."UnitsType"
 			) AS unidades`,
 			`json_build_object(
-				'timestart', date_range.timestart, 
-				'timeend', date_range.timeend, 
-				'count', date_range.count,
-				'data_availability', CASE WHEN date_range.data_availability IS NOT NULL
-					THEN CASE WHEN pronos.forecast_date IS NOT NULL
-						THEN date_range.data_availability || '+S'::text
-						ELSE date_range.data_availability
-						END
-					ELSE CASE WHEN pronos.forecast_date IS NOT NULL
-						THEN 'S'
-						ELSE 'N'
-						END
-					END
+				'timestart', s.timestart, 
+				'timeend', s.timeend, 
+				'count', s.count,
+				'data_availability', s.data_availability
 			) AS date_range`,
-			`pronos.forecast_date AS forecast_date`,
-			`pronos.pronosticos AS pronosticos`
+			`s.forecast_date AS forecast_date`,
+			`s.pronosticos AS pronosticos`,
+			`s.total`
 		]
 	}
+	var final_joins = []
 	// 						TYPE SPECIFIC PARAMETERS
 	if(tipo.toUpperCase() == "AREAL" ) {
-		valid_filters = {...valid_filters,...{
+		valid_series_filters = {...valid_series_filters,...{
 			estacion_id: {
 				type: "integer",
 				table: "areas_pluvio",
@@ -3366,7 +3314,7 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 		// ACCESS LEVEL
 		const [access_join, access_level] = internal.fuente.getUserAccessClause(user_id,"fuentes.id")
 
-		join_clauses = [...join_clauses,...[
+		join_clauses = join_clauses.concat([
 			`JOIN fuentes 
 				ON (fuentes.id=series.fuentes_id)`,
 			`JOIN areas_pluvio 
@@ -3376,14 +3324,16 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 				ON (estaciones.unid = areas_pluvio.exutorio_id)`,
 			`LEFT JOIN redes
 				ON (estaciones.tabla = redes.tabla_id)`
-		]]
+		])
+		const feature_fields = [
+			"series.area_id AS estacion_id",
+			"areas_pluvio.nombre AS estacion_nombre",
+			"fuentes.id AS fuentes_id",
+			"fuentes.nombre AS fuentes_nombre"
+		]
+		filtered_series_select_fields = filtered_series_select_fields.concat(feature_fields)
 		if(options.no_metadata) {
-			select_fields = [...select_fields,...[
-				"series.area_id AS estacion_id",
-				"areas_pluvio.nombre AS estacion_nombre",
-				"fuentes.id AS fuentes_id",
-				"fuentes.nombre AS fuentes_nombre"
-			]]
+			select_fields = select_fields.concat(feature_fields)
 		} else {
 			select_fields.push(
 				`json_build_object(
@@ -3437,7 +3387,7 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 			}
 		}
 	} else if (tipo.toUpperCase() == "RASTER" || tipo.toUpperCase() == "RAST") {
-		valid_filters = {...valid_filters,...{
+		valid_series_filters = {...valid_series_filters,...{
 			estacion_id:{
 				type: "integer",
 				table: "escenas",
@@ -3480,21 +3430,23 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 		// ACCESS LEVEL
 		const [access_join, access_level] = internal.fuente.getUserAccessClause(user_id,"fuentes.id")
 
-		join_clauses = [...join_clauses,...[
+		join_clauses = join_clauses.concat([
 			`JOIN fuentes 
 				ON (fuentes.id=series.fuentes_id)`,
 			`JOIN escenas 
 				ON (escenas.id=series.escena_id)`,
 			access_join
-		]]
-		if(options.no_metadata) {
-			select_fields = [...select_fields,...[
-				"escenas.id AS estacion_id",
+		])
+		const feature_fields = [
+			"escenas.id AS estacion_id",
 				"series.nombre",
 				"escenas.nombre AS estacion_nombre",
 				"fuentes.id AS fuentes_id",
 				"fuentes.nombre AS fuentes_nombre"
-			]]
+		]
+		filtered_series_select_fields = filtered_series_select_fields.concat(feature_fields)
+		if(options.no_metadata) {
+			select_fields = select_fields.concat(feature_fields)
 		} else {
 			select_fields.push(
 				`json_build_object(
@@ -3540,7 +3492,7 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 		table = "series_rast"
 	} else if (tipo.toUpperCase() == "PUNTUAL") {
 		filter.red_id = (filter.red_id) ? filter.red_id : (filter.fuentes_id) ? filter.fuentes_id : undefined
-		valid_filters = {...valid_filters,...{
+		valid_series_filters = {...valid_series_filters,...{
 			estacion_id:{
 				type:"integer",
 				table: "estaciones",
@@ -3611,29 +3563,33 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 		// ACCESS LEVEL
 		const [access_join, access_level] = internal.red.getUserAccessClause(user_id,"redes.id")
 
-		join_clauses = [...join_clauses,...[
+		join_clauses = join_clauses.concat([
 			`JOIN estaciones 
 				ON (estaciones.unid=series.estacion_id)`,
 			`JOIN redes
 				ON (redes.tabla_id = estaciones.tabla)`,
-			access_join,
+			access_join
+		])
+		final_joins = final_joins.concat([
 			`LEFT OUTER JOIN alturas_alerta AS nivel_alerta 
 				ON (estaciones.unid = nivel_alerta.unid AND nivel_alerta.estado='a')`,
 			`LEFT OUTER JOIN alturas_alerta AS nivel_evacuacion 
 				ON (estaciones.unid = nivel_evacuacion.unid AND nivel_evacuacion.estado='e')`,
 			`LEFT OUTER JOIN alturas_alerta AS nivel_aguas_bajas 
 				ON (estaciones.unid = nivel_aguas_bajas.unid AND nivel_aguas_bajas.estado='b')`
-		]]
+		])
+		const feature_fields = [
+			"series.estacion_id AS estacion_id",
+			"estaciones.nombre AS estacion_nombre",
+			"estaciones.id_externo AS id_externo",
+			"estaciones.tabla AS tabla",
+			"st_asgeojson(estaciones.geom)::json AS geom",
+			"redes.nombre AS fuentes_nombre",
+			"redes.public AS public"
+		]
+		filtered_series_select_fields = filtered_series_select_fields.concat(feature_fields)
 		if(options.no_metadata) {
-			select_fields = [...select_fields,...[
-				"series.estacion_id AS estacion_id",
-				"estaciones.nombre AS estacion_nombre",
-				"estaciones.id_externo AS id_externo",
-				"estaciones.tabla AS tabla",
-				"st_asgeojson(estaciones.geom)::json AS geom",
-				"redes.nombre AS fuentes_nombre",
-				"redes.public AS public"
-			]]
+			select_fields = select_fields.concat(feature_fields)
 		} else {
 			select_fields.push(`json_build_object(
 				'id', estaciones.unid, 
@@ -3666,20 +3622,106 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 		}
 	} else {
 		console.error("invalid tipo")
-		throw "invalid tipo"
+		throw new Error("invalid tipo")
 	}
-	var filter_string=internal.utils.control_filter2(valid_filters,filter,undefined,true)
+	var series_filter_string=internal.utils.control_filter2(valid_series_filters,filter,undefined,true)
+	var availability_filter_string = internal.utils.control_filter2(valid_availability_filters, filter, "a", true)
 	// console.debug({filter:filter,filter_string:filter_string})
 	var order_string = internal.utils.build_order_by_clause(sort_fields,options.sort,"series",["estacion_id","var_id","proc_id"],options.order)
 	// console.log({order_string:order_string,sort:options.sort,order:options.order})
-	select_fields.push(`count(*) OVER() AS total`)
-	return `SELECT  ${select_fields.join(", \n")}  
-		FROM ${table} AS series 
+	// select_fields.push(`count(*) OVER() AS total`)
+	return `WITH filtered_series AS (
+		SELECT 
+			${filtered_series_select_fields.join(", \n")}
+		FROM "${table}" AS series
 		${join_clauses.join("\n")}
+		${series_filter_string}
+	), availability AS (
+		SELECT
+			date_range.series_id,
+			date_range.timestart,
+			date_range.timeend,
+			date_range.count,
+			CASE WHEN date_range.timeend IS NOT NULL
+				THEN 
+					CASE WHEN now() - date_range.timeend < '1 days'::interval
+						THEN 'RT'
+					WHEN now() - date_range.timeend < '3 days'::interval
+						THEN 'NRT'
+					WHEN (date_range.timestart <= coalesce(${(timeend) ? ("'" + timeend.toISOString() + "'") : "NULL"},now())) AND (date_range.timeend >= coalesce(${(timestart) ? ("'" + timestart.toISOString() + "'") : "NULL"},now()-'90 days'::interval))
+						THEN 'C'
+					ELSE 'H'
+					END
+				ELSE NULL
+			END AS data_availability
+		FROM filtered_series
+		JOIN "${date_range_table}" AS date_range 
+			ON filtered_series.id=date_range.series_id
+	), pronos AS (
+		SELECT
+			s.id,
+			p.series_table,
+			p.estacion_id,
+			p.var_id,
+			max(p.forecast_date)::timestamptz AS forecast_date,
+			json_agg(
+				json_build_object(
+					'series_id', p.series_id,
+					'series_table', p.series_table,
+					'begin_date',p.begin_date,
+					'end_date',p.end_date,
+					'count',p.count,
+					'cal_id',p.cal_id,
+					'forecast_date',p.forecast_date,
+					'public',p.public,
+					'cal_grupo_id',p.cal_grupo_id
+				)
+			) AS pronosticos
+		FROM series_prono_date_range_last AS p
+		JOIN filtered_series AS s 
+			ON (
+				s.estacion_id = p.estacion_id 
+				AND s.var_id = p.var_id
+			)
+		WHERE 1=1		
+		${pronos_filter_string} 
+		AND p.series_table='${internal.serie.getSeriesTable(tipo)}'
+		GROUP BY
+			p.series_table,
+			p.estacion_id,
+			p.var_id,
+			s.id
+	), limited_series AS (
+		SELECT 
+			s.id,
+			s.estacion_id,
+			s.var_id,
+			s.proc_id,
+			s.unit_id,
+			a.timestart,
+			a.timeend,
+			a.count,
+			a.data_availability,
+			s.effective_access,
+			p.forecast_date,
+			p.pronosticos,
+			count(*) OVER() AS total
+		FROM filtered_series AS s
+		LEFT OUTER JOIN availability AS a
+			ON s.id = a.series_id
+		LEFT OUTER JOIN pronos AS p
+			ON s.id = p.id
 		WHERE 1=1
-		${filter_string}
-		${order_string}
-		${limit_string}`	
+		${availability_filter_string}
+		${limit_string}
+	)
+	SELECT  ${select_fields.join(", \n")}
+		FROM limited_series AS s 
+		JOIN ${table} AS series 
+			ON (s.id=series.id)
+		${join_clauses.join("\n")}
+		${final_joins.join("\n")}
+		${order_string}`	
 }
 
 
