@@ -50,6 +50,8 @@ const  AreaGroup = require('./models/area_group.js').default
 const Area = require('./models/area.js').Area
 const Fuente = require('./models/fuente.js').default
 
+const batches = require('./utils2.js').batches
+
 const {withClient, withTransaction} = require('./db')
 
 const apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
@@ -2255,7 +2257,7 @@ internal.serie = class extends baseModel {
 
 	/**
 	 * Reads series from database
-	 * @param {SerieFilter} filter 
+	 * @param {SerieFilter} filter
 	 * valid parameters:
 	 * - tipo : str        - either "puntual", "areal" or "raster"
 	 * - id : int          - series identifier
@@ -2607,12 +2609,17 @@ internal.serie = class extends baseModel {
 		return new internal.observaciones(aggregated_timeseries)
 	}
 
-	async createObservaciones(client) {
+	async createObservaciones(client, options={}) {
 		return withClient(client, async (client) => {
 			if(this.observaciones && this.observaciones.length) {
 				this.observaciones.setTipo(this.tipo)
 				this.observaciones.setSeriesId(this.id)
-				this.observaciones = await this.observaciones.create(undefined, client)
+				this.observaciones = this.observaciones.removeDuplicates()
+				if(options.no_returning) {
+					await this.observaciones.create({no_returning: true}, client)
+				} else {
+					this.observaciones = await this.observaciones.create(undefined, client)
+				}
 			} else {
 				console.warn("serie: no observaciones to create")
 			}
@@ -4640,7 +4647,7 @@ internal.observaciones = class extends BaseArray {
 		const filtered = []
 		for(var i=0;i<this.length;i++) { 
 			if(timestarts.indexOf(this[i].timestart.toISOString()) >= 0) {
-				console.info("removing duplicate observacion, timestart: "+ this[i].timestart.toISOString())
+				console.warn("removing duplicate observacion, timestart: "+ this[i].timestart.toISOString())
 				// this.splice(i,1)
 				// i--
 				
@@ -4667,6 +4674,24 @@ internal.observaciones = class extends BaseArray {
 		})
 		return result
 	}
+	slice(start, end) {
+		start = start || 0
+		end = end || this.length
+		var result = []
+		var i = -1
+		if(start < 0) {
+			// negative start
+			start = this.length + start
+		}
+		this.forEach(o=>{
+			i = i + 1
+			if(i >= start && i < end) {
+				result.push(o)
+			} 
+		})
+		return result
+	}
+
 	pivot(inline=true) {
 		var pivoted = {}
 		var headers = new Set(["timestart","timeend"])
@@ -4770,7 +4795,7 @@ internal.observaciones = class extends BaseArray {
 		}
 	}
 	async create(options={}, client) {
-		return withClient(client, async (client) => {
+		return withTransaction(client, async (client) => {
 			var tipo = this.getTipo()
 			if(!this.length) {
 				console.warn("No observaciones to create")
@@ -4783,9 +4808,7 @@ internal.observaciones = class extends BaseArray {
 				}
 				return new internal.observaciones(results)
 			}
-			var query = this.createQuery(tipo,options)
-			// console.debug(query)
-			return new internal.observaciones(await executeQueryReturnRows(query,undefined))
+			return this.createInTransaction(tipo, options, client)
 		})
 	}
 	static async create(observaciones, options={}, client) {
@@ -4794,7 +4817,117 @@ internal.observaciones = class extends BaseArray {
 			return observaciones_instance.create(options, client)
 		})
 	}
-	createQuery(tipo,options={}) {
+
+	async createStageObsTable(client) {
+		await client.query(`CREATE TEMP TABLE stage_obs (
+			temp_id bigint,
+			series_id bigint,
+			timestart timestamptz,
+			timeend timestamptz,
+			timeupdate timestamptz,
+			unit_id int,
+			nombre text,
+			descripcion text,
+			valor double precision
+			) ON COMMIT DROP;`)
+		await client.query(`CREATE TEMP TABLE stage_obs_map (
+			temp_id bigint,
+			obs_id bigint,
+			valor double precision
+			) ON COMMIT DROP`)
+	}
+
+	async createInTransaction(tipo, options={}, client) { 
+		if(!this.length) {
+			throw("Nothing to create (no observaciones)")
+		}
+		const filtered_obs = this.filter(o=>o.valor!=null)
+		if(this.map(o=>(o.series_id) ? true : false).indexOf(false) >= 0) {
+			throw(new Error("Missing series_id"))
+		}
+		if(this.map(o=>(o.timestart) ? true : false).indexOf(false) >= 0) {
+			throw(new Error("Missing timestart"))
+		}
+		await this.createStageObsTable(client)
+		if(filtered_obs.length > 1000) {
+			// auto batching
+			const results = []
+			let index = 0
+			for (const batch of batches(filtered_obs, 1000)) {
+				console.debug(`processing batch, observations ${index} to ${Math.min(filtered_obs.length - 1, index + 1000)} `)
+				results.push(await this.createBatchInTransaction(tipo, options, client, batch))
+				index = index + 1000
+			}
+			if(options.no_returning) {
+				return
+			} else {
+				return flatten(results)
+			}
+		} else {
+			return this.createBatchInTransaction(tipo, options, client, filtered_obs)
+		}
+	}
+	async createBatchInTransaction(tipo, options={}, client, batch) {
+		tipo = (tipo) ? tipo : "puntual"
+		var val_on_conflict_clause = (options.no_update) ? "DO NOTHING" : "DO UPDATE"
+		var obs_on_conflict_clause = (options.update_obs_metadata) ? "DO UPDATE SET timeupdate=excluded.timeupdate, nombre=excluded.nombre, descripcion=excluded.descripcion,unit_id=excluded.unit_id" : "DO NOTHING"
+		var obs_table = (tipo == "areal") ? "observaciones_areal" : "observaciones"
+		var val_table = (tipo == "areal") ? "valores_num_areal" : "valores_num"
+		
+		await client.query("DELETE FROM stage_obs")
+		await client.query(`INSERT INTO stage_obs
+			SELECT *
+			FROM json_populate_recordset(null::observacion_num, $1)`,[JSON.stringify(batch.map((r, i) => ({temp_id: i, ...r, unit_id: parseInt(r.unit_id)})))])
+		await client.query(`
+			INSERT INTO ${obs_table} (series_id,timestart,timeend,timeupdate,nombre,descripcion,unit_id)
+			SELECT series_id,
+				timestart,
+				timeend,
+				coalesce(timeupdate,now()),
+				coalesce(nombre,'CRUD.serie.createObservacionesQuery'),
+				descripcion,
+				unit_id
+			FROM stage_obs
+			ON CONFLICT (series_id,timestart,timeend)
+			${obs_on_conflict_clause}`)
+		await client.query("DELETE FROM stage_obs_map")
+		await client.query(
+			`INSERT INTO stage_obs_map
+			SELECT
+				s.temp_id,
+				o.id AS obs_id,
+				s.valor
+			FROM stage_obs s
+			JOIN ${obs_table} o
+				ON (
+					o.series_id = s.series_id
+					AND o.timestart = s.timestart
+					AND o.timeend = s.timeend
+				);`)
+		const result = await client.query(`
+			INSERT INTO ${val_table} (obs_id,valor)
+				SELECT obs_id,valor
+				FROM stage_obs_map
+			ON CONFLICT (obs_id)
+			${val_on_conflict_clause}
+			SET valor=excluded.valor 
+			WHERE ${val_table}.valor IS DISTINCT FROM excluded.valor`)
+		if(options.no_returning) {
+			console.info("Created " + result.rowCount + " observaciones")
+			return
+		} else {
+			const observaciones = client.query(`SELECT
+				${obs_table}.*,
+				$1::text AS tipo,
+				stage_obs_map.valor
+				FROM ${obs_table}
+				JOIN stage_obs_map 
+				ON stage_obs_map.obs_id=${obs_table}.id`, [tipo])
+			return new internal.observaciones(observaciones)
+		}
+	}
+
+	createQuery(tipo,options={}, client) {
 		tipo = (tipo) ? tipo : "puntual"
 		var val_on_conflict_clause = (options.no_update) ? "DO NOTHING" : "DO UPDATE"
 		var obs_on_conflict_clause = (options.update_obs_metadata) ? "DO UPDATE SET timeupdate=excluded.timeupdate, nombre=excluded.nombre, descripcion=excluded.descripcion,unit_id=excluded.unit_id" : "DO NOTHING"

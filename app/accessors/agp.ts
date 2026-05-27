@@ -182,7 +182,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
     ) : Promise<CrudSerie[]|Observacion[]> {
         const series = await this.get(filter, {return_series: true})
         for(const serie of series) {
-            await serie.createObservaciones()
+            await serie.createObservaciones(undefined, {no_returning: true})
         }
         if(options.return_series) {
             return series

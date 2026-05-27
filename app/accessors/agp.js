@@ -140,7 +140,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
             const series = yield this.get(filter, { return_series: true });
             for (const serie of series) {
-                yield serie.createObservaciones();
+                yield serie.createObservaciones(undefined, { no_returning: true });
             }
             if (options.return_series) {
                 return series;
