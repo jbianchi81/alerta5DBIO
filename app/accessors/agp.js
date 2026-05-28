@@ -224,6 +224,9 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     getSeries() {
         return __awaiter(this, arguments, void 0, function* (filter = {}) {
             filter.tabla_id = "agp";
+            filter.var_id = 2;
+            filter.proc_id = 1;
+            filter.unit_id = 11;
             const series = yield CRUD_1.serie.read(filter);
             if (!this.series_map) {
                 this.setSeriesMap(series);
