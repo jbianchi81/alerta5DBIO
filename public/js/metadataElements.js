@@ -1224,6 +1224,7 @@ var metadataElements = {
 			},
 			escena_id: {
 				type: "select_api",
+				alias: "estacion_id",
 				title: "id de escena",
 				required: true,
 				filter: true,
@@ -1246,6 +1247,7 @@ var metadataElements = {
 			},
 			escena_nombre: {
 				type: "text",
+				alias: "estacion_nombre",
 				title: "nombre de escena",
 				required: false,
 				filter: false,

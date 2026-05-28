@@ -1866,6 +1866,9 @@ function loadMDTable(content,container,isWriter) {
 		var row = {}
 		Object.keys(global.mdElement.properties).forEach(key=>{
 			var prop = global.mdElement.properties[key]
+			if(f[key]==null && prop["alias"]!=null && f[prop.alias]!=null) {
+				f[key] = f[prop.alias]
+			}
 			var value = (key == "longitud") ? (f.geom) ? f.geom.coordinates[0] : 'undefined' : (key == "latitud") ? (f.geom) ? f.geom.coordinates[1] : 'undefined' : (prop.type == "interval") ? interval2string(f[key]) : f[key]
 			if(key == "longitud_exutorio") {
 				value = (f.exutorio) ? f.exutorio.coordinates[0] : 'undefined'

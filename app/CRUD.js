@@ -3091,21 +3091,17 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 	var valid_availability_filters = {
 		date_range_before: {
 			column: "timestart",
-			type: "timeend",
-			table: "date_range"
+			type: "timeend"
 		},
 		date_range_after: {
 			column: "timeend",
-			type: "timestart",
-			table: "date_range"
+			type: "timestart"
 		},
 		count: {
-			type: "numeric_min",
-			table: "date_range"
+			type: "numeric_min"
 		},
 		data_availability: {
-			type: "data_availability",
-			table: "date_range"
+			type: "data_availability"
 		}
 	}
 	// 					DATE RANGE / DATA AVAILABILITY FILTER
@@ -3140,7 +3136,7 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 			column: "id",
 			table: "s"},
 		estacion_id: {
-			table: "s",
+			table: "series",
 			column: internal.serie.getFeatureIdColumn(tipo),
 		},
 		var_id:{
@@ -3184,8 +3180,7 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 		"series.id",
 		"series.var_id",
 		"series.proc_id",
-		"series.unit_id",
-		"ura.effective_access"
+		"series.unit_id"
 	]
 	if(options.no_metadata) {
 		var select_fields = [
@@ -3391,7 +3386,8 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 			estacion_id:{
 				type: "integer",
 				table: "escenas",
-				column: "id"
+				column: "id",
+				alias: "escena_id"
 			},
 			fuentes_id:{
 				type:"integer",
@@ -3627,6 +3623,12 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 	var series_filter_string=internal.utils.control_filter2(valid_series_filters,filter,undefined,true)
 	var availability_filter_string = internal.utils.control_filter2(valid_availability_filters, filter, "a", true)
 	// console.debug({filter:filter,filter_string:filter_string})
+	if(filter.has_prono || filter.cal_id || filter.cal_grupo_id) { 
+		var has_prono_filter_string = `AND p.forecast_date IS NOT NULL`
+	} else {
+		var has_prono_filter_string = ""
+	}
+
 	var order_string = internal.utils.build_order_by_clause(sort_fields,options.sort,"series",["estacion_id","var_id","proc_id"],options.order)
 	// console.log({order_string:order_string,sort:options.sort,order:options.order})
 	// select_fields.push(`count(*) OVER() AS total`)
@@ -3635,6 +3637,7 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 			${filtered_series_select_fields.join(", \n")}
 		FROM "${table}" AS series
 		${join_clauses.join("\n")}
+		WHERE 1=1
 		${series_filter_string}
 	), availability AS (
 		SELECT
@@ -3701,8 +3704,17 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 			a.timestart,
 			a.timeend,
 			a.count,
-			a.data_availability,
-			s.effective_access,
+			CASE WHEN a.data_availability IS NOT NULL
+			THEN CASE WHEN p.forecast_date IS NOT NULL
+				THEN a.data_availability || '+S'::text
+				ELSE a.data_availability
+				END
+			ELSE CASE WHEN p.forecast_date IS NOT NULL
+				THEN 'S'
+				ELSE 'N'
+				END
+			END
+			AS data_availability,
 			p.forecast_date,
 			p.pronosticos,
 			count(*) OVER() AS total
@@ -3713,6 +3725,7 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 			ON s.id = p.id
 		WHERE 1=1
 		${availability_filter_string}
+		${has_prono_filter_string}
 		${limit_string}
 	)
 	SELECT  ${select_fields.join(", \n")}
@@ -4920,7 +4933,7 @@ internal.observaciones = class extends BaseArray {
 		await client.query(`INSERT INTO stage_obs
 			SELECT *
 			FROM json_populate_recordset(null::observacion_num, $1)`,[JSON.stringify(batch.map((r, i) => ({temp_id: i, ...r, unit_id: parseInt(r.unit_id)})))])
-		await client.query(`
+		const insert_obs_result =await client.query(`
 			INSERT INTO ${obs_table} (series_id,timestart,timeend,timeupdate,nombre,descripcion,unit_id)
 			SELECT series_id,
 				timestart,
@@ -4932,6 +4945,7 @@ internal.observaciones = class extends BaseArray {
 			FROM stage_obs
 			ON CONFLICT (series_id,timestart,timeend)
 			${obs_on_conflict_clause}`)
+		console.debug("Inserted " + insert_obs_result.rowCount + " rows into " + obs_table)
 		await client.query("DELETE FROM stage_obs_map")
 		await client.query(
 			`INSERT INTO stage_obs_map
@@ -20466,6 +20480,11 @@ internal.utils = {
 					var d_a_values_string = d_a_values.map(v=>`'${v}'`).join(",")
 					filter_string += ` AND ${fullkey} IN (${d_a_values_string})`
 				}
+			} else if(filter_def.type == "not_null") {
+				var truthy = (/^[yYtTvVsS1]/.test(filter[key])) ? true : false
+				if(truthy) {
+					filter_string += ` AND ${fullkey} IS NOT NULL`
+				}			
 			} else {
 				if(Array.isArray(filter[key])) {
 					if(filter[key].length) {

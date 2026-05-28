@@ -273,6 +273,9 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
 
     async getSeries(filter : SeriesFilter = {}) {
         filter.tabla_id = "agp"
+        filter.var_id = 2
+        filter.proc_id = 1
+        filter.unit_id = 11
         const series = await CrudSerie.read(filter)
         if(!this.series_map) {
             this.setSeriesMap(series)

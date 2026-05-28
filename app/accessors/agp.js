@@ -96,8 +96,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             // }
         });
     }
-    get(filter_1) {
-        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
+    get(filter, options = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
             const result = [];
             if (!filter.series_id) {
                 if (!filter.estacion_id) {
@@ -136,8 +136,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             }
         });
     }
-    update(filter_1) {
-        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
+    update(filter, options = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
             const series = yield this.get(filter, { return_series: true });
             for (const serie of series) {
                 yield serie.createObservaciones(undefined, { no_returning: true });
@@ -192,8 +192,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return CRUD_1.estacion.create(estaciones);
         });
     }
-    createSeries() {
-        return __awaiter(this, arguments, void 0, function* (create = false) {
+    createSeries(create = false) {
+        return __awaiter(this, void 0, void 0, function* () {
             const estaciones = yield CRUD_1.estacion.read({ tabla: "agp" });
             const series = [];
             for (const e of estaciones) {
@@ -221,9 +221,12 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             };
         }
     }
-    getSeries() {
-        return __awaiter(this, arguments, void 0, function* (filter = {}) {
+    getSeries(filter = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
             filter.tabla_id = "agp";
+            filter.var_id = 2;
+            filter.proc_id = 1;
+            filter.unit_id = 11;
             const series = yield CRUD_1.serie.read(filter);
             if (!this.series_map) {
                 this.setSeriesMap(series);
@@ -232,5 +235,5 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         });
     }
 }
-exports.Client = Client;
 Client._get_is_multiseries = true;
+exports.Client = Client;
