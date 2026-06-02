@@ -273,9 +273,9 @@ internal.createUrlParams = function(params) {
     return url_params
 }
 
-internal.fetchData = async function(url) {
+internal.fetchData = async function(url, options) {
     try {
-        const response = await axios.get(url);
+        const response = await axios.get(url, options);
         return response.data;
     } catch (error) {
         if (error.response) {

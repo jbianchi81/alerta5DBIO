@@ -7083,7 +7083,7 @@ internal.accessor = class extends baseModel {
 		})
 	}
 	
-	static async read(filter={}, client) {
+	static async read(filter={}, options={}, client) {
 		return withClient(client, async (client) => {
 			if(filter.name) {
 				var result = await client.query("SELECT * from accessors where name=$1",[filter.name])

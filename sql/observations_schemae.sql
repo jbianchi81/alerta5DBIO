@@ -74,7 +74,7 @@ CREATE TABLE public.areas_pluvio (
     as_max real,
     rast public.raster,
     mostrar boolean DEFAULT true,
-    exutorio_id integer,
+    exutorio_id integer
 --    group_id integer references area_groups(id)
 );
 

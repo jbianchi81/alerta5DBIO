@@ -260,7 +260,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         return series
     }
 
-    setSeriesMap(series : CrudSerie) {
+    setSeriesMap(series : CrudSerie[]) {
         this.series_map = {}
         for(const serie of series) {
             this.series_map[serie.estacion.id] = {

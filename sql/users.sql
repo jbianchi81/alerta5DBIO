@@ -111,9 +111,9 @@ ALTER TABLE ONLY public.users
 -- Name: users users_name_key; Type: CONSTRAINT; Schema: public; Owner: alerta5
 --
 
-ALTER TABLE ONLY public.users
-    ADD CONSTRAINT users_name_key UNIQUE (name);
-
+-- ALTER TABLE ONLY public.users
+--     ADD CONSTRAINT users_name_key UNIQUE (name);
+-- already exists
 
 --
 -- Name: users users_role_fkey; Type: FK CONSTRAINT; Schema: public; Owner: alerta5

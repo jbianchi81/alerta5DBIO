@@ -59,6 +59,7 @@ internal.pilcomayo = require('./accessors/pilcomayo').Client
 internal.emas = require('./accessors/emas').Client
 internal.sgb_sace_report = require('./accessors/sgb_sace_report').Client
 internal.agp = require('./accessors/agp').Client
+internal.fdxcloud = require('./accessors/fdxcloud').Client
 
 // Promise.allSettled polyfill
 

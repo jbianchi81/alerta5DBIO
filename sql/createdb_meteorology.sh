@@ -15,8 +15,8 @@ then
 fi
 read -r -p "Enter database name (if it exists it will be dropped and recreated) (default: meteorology): " a5database
 a5database=${a5database:-meteorology}
-read -r -p "Enter database default user (will be created with write privileges) (default: user): " a5user
-a5user=${a5user:-user}
+read -r -p "Enter database default user (will be created with write privileges) (default: usuario): " a5user
+a5user=${a5user:-usuario}
 read -r -p "Enter database default user password (default: password): " a5password
 a5password=${a5password:-password}
 # read -r -p "Enter database default user token (default: my_token): " a5token
@@ -29,7 +29,7 @@ echo "    PASSWORD: "$a5password
 read -p "This command will drop and recreate database $a5database from scratch. Are you sure? " -n 1 -r
 echo    
 if [[ $REPLY =~ ^[Yy]$ ]]
-then  
+then
     dropdb --if-exists --host $a5host --port $a5port $a5database
     if [[ "$?" != "0" ]]
     then
@@ -60,6 +60,12 @@ then
         echo "$a5database database creation and initialization failed"
         exit 1
     fi
+    psql --host $a5host --port $a5port $a5database -f sql/users.sql
+    if [[ "$?" != "0" ]]
+    then
+        echo "$a5database database creation and initialization failed"
+        exit 1
+    fi
     psql --host $a5host --port $a5port $a5database -f sql/observaciones_functions.sql
     if [[ "$?" != "0" ]]
     then
@@ -85,12 +91,6 @@ then
         exit 1
     fi
     psql --host $a5host --port $a5port $a5database -f sql/basic_tables_content_public.sql
-    if [[ "$?" != "0" ]]
-    then
-        echo "$a5database database creation and initialization failed"
-        exit 1
-    fi
-    psql --host $a5host --port $a5port $a5database -f sql/users.sql
     if [[ "$?" != "0" ]]
     then
         echo "$a5database database creation and initialization failed"
