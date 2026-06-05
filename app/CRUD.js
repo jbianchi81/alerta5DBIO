@@ -6711,14 +6711,22 @@ internal.SerieTemporalSim = class extends baseModel {
 		this.series_table = m.series_table
 		this.series_id = m.series_id
 		this.cor_id = m.cor_id
+		this.cal_id = m.cal_id
+		this.forecast_date = m.forecast_date
 		this.qualifier = m.qualifier
 		this.pronosticos = (m.pronosticos) ? m.pronosticos.map(p=>new internal.pronostico(p)) : []
 		this.var_id = m.var_id
+		this.proc_id = m.proc_id
+		this.unit_id = m.unit_id
+		this.fuentes_id = m.fuentes_id
 		this.begin_date = m.begin_date
 		this.end_date = m.end_date
 		this.qualifiers = m.qualifiers
 		this.count = m.count
 		this.estacion_id = m.estacion_id
+		this.tabla = m.tabla
+		this.red_id = m.red_id
+		this.tipo = (this.series_table == "series_areal") ? "areal" : (this.series_table == "series_rast") ? "raster" : "puntual"
 	}
 	toString() {
 		return JSON.stringify(this)
@@ -6732,7 +6740,7 @@ internal.SerieTemporalSim = class extends baseModel {
 
 	async getPronosticos(filter={},options={},client) {
 		filter.series_id = this.series_id
-		filter.tipo = (this.series_table) ? (this.series_table == "series_areal") ? "areal" : (this.series_table == "series") ? "puntual" : undefined : undefined 
+		filter.tipo = (this.series_table) ? (this.series_table == "series_areal") ? "areal" : (this.series_table == "series") ? "puntual" : (this.series_table == "series_rast") ? "raster" : undefined : undefined 
 		filter.cor_id = this.cor_id
 		filter.qualifier = filter.qualifier ?? this.qualifier
 		return internal.CRUD.getPronosticosArray(filter,options,client)
@@ -6833,6 +6841,195 @@ internal.SerieTemporalSim = class extends baseModel {
 	async create(options, client) {
 		await internal.CRUD.upsertPronosticos(client,this.pronosticos)
 		return
+	}
+
+	static async read(filter={},options={}, client) {
+		return withClient(client, async (client) => {
+			if(filter.tipo == "areal") {
+				var valid_filters = {
+					series_id: {type: "integer", table: "series_areal", column: "id"},
+					area_id: {type: "integer", table: "series_areal", alias: "estacion_id"},
+					tabla: {type: "string", table: "estaciones"},
+					fuentes_id: {type: "integer", table: "series_areal"},
+					var_id: {type: "integer", table: "series_areal"},
+					proc_id: {type: "integer", table: "series_areal"},
+					unit_id: {type: "integer", table: "series_areal"},
+					cor_id: {type: "integer", table: "corridas", column: "id"},
+					date: {type: "date", table: "corridas", alias: "forecast_date", trunc: "milliseconds"},
+					cal_id: {type: "integer", table: "corridas"},
+					begin_date: {type: "timestart", table: "series_areal_prono_date_range", alias: "timestart"},
+					end_date: {type: "timeend", table: "series_areal_prono_date_range", alias: "timeend"},
+					count: {type: "numeric_min", table: "series_areal_prono_date_range"},
+					qualifier: {type: "string_in", table: "series_areal_prono_date_range", column: "qualifiers", alias: "qualifiers"},
+					"model_id": { type: "integer", table: "calibrados"},
+					"isPublic": { type: "boolean", table: "calibrados", column: "public", alias: "public"},
+					"cal_grupo_id": { type: "integer", table: "calibrados", column: "grupo_id"},
+					"forecast_timestart": { type: "timestart", table: "corridas", column: "date"},
+					"forecast_timeend": { type: "timeend", table: "corridas", column: "date"},
+					geom: { type: "geometry", table: "areas_pluvio", column: "geom"}
+				}
+				var filter_string = internal.utils.control_filter2(valid_filters, filter, "series_areal_prono_date_range")
+				var result = await client.query(`
+					SELECT 
+					series_areal.id AS series_id,
+					'series_areal' AS series_table,
+					series_areal.area_id AS estacion_id,
+					estaciones.tabla,
+					series_areal.fuentes_id AS fuentes_id,
+					series_areal.var_id,
+					series_areal.proc_id,
+					series_areal.unit_id,
+					corridas.id AS cor_id,
+					corridas.date AS forecast_date,
+					corridas.cal_id AS cal_id,
+					series_areal_prono_date_range.begin_date,
+					series_areal_prono_date_range.end_date,
+					series_areal_prono_date_range.count,
+					series_areal_prono_date_range.qualifiers
+				FROM corridas 
+				JOIN series_areal_prono_date_range ON series_areal_prono_date_range.cor_id = corridas.id
+				JOIN series_areal ON series_areal.id=series_areal_prono_date_range.series_id
+				JOIN areas_pluvio ON series_areal.area_id = areas_pluvio.unid
+				JOIN calibrados ON corridas.cal_id = calibrados.id
+				LEFT JOIN estaciones ON areas_pluvio.exutorio_id = estaciones.unid
+				WHERE 1=1
+				${filter_string}`)
+			} else if(filter.tipo == "raster" || filter.tipo == "rast") {
+				var valid_filters = {
+					series_id: {type: "integer", table: "series_rast", column: "id"},
+					escena_id: {type: "integer", table: "series_rast", alias: "estacion_id"},
+					fuentes_id: {type: "integer", table: "series_rast"},
+					var_id: {type: "integer", table: "series_rast"},
+					proc_id: {type: "integer", table: "series_rast"},
+					unit_id: {type: "integer", table: "series_rast"},
+					cor_id: {type: "integer", table: "corridas", column: "id"},
+					date: {type: "date", table: "corridas", alias: "forecast_date", trunc: "milliseconds"},
+					cal_id: {type: "integer", table: "corridas"},
+					begin_date: {type: "timestart", table: "pronosticos_rast", alias: "timestart", column: "timestart"},
+					end_date: {type: "timeend", table: "pronosticos_rast", alias: "timeend", column: "timeend"},
+					qualifier: {type: "string", table: "pronosticos_rast", column: "qualifier", alias: "qualifiers"},
+					"model_id": { type: "integer", table: "calibrados"},
+					"isPublic": { type: "boolean", table: "calibrados", column: "public", alias: "public"},
+					"cal_grupo_id": { type: "integer", table: "calibrados", column: "grupo_id"},
+					"forecast_timestart": { type: "timestart", table: "corridas", column: "date"},
+					"forecast_timeend": { type: "timeend", table: "corridas", column: "date"},
+					geom: { type: "geometry", table: "escenas", column: "geom"}
+				}
+				var filter_string = internal.utils.control_filter2(valid_filters, filter, "series_rast")
+				var result = await client.query(`
+					SELECT 
+					series_rast.id AS series_id,
+					'series_rast' AS series_table,
+					series_rast.escena_id AS estacion_id,
+					series_rast.fuentes_id AS fuentes_id,
+					series_rast.var_id,
+					series_rast.proc_id,
+					series_rast.unit_id,
+					corridas.id AS cor_id,
+					corridas.date AS forecast_date,
+					corridas.cal_id AS cal_id,
+					min(pronosticos_rast.timestart) AS begin_date,
+					max(pronosticos_rast.timestart) AS end_date,
+					count(pronosticos_rast.timestart) AS count,
+					json_agg(DISTINCT pronosticos_rast.qualifier) AS qualifiers
+				FROM corridas 
+				JOIN pronosticos_rast ON pronosticos_rast.cor_id = corridas.id
+				JOIN series_rast ON series_rast.id=pronosticos_rast.series_id
+				JOIN calibrados ON corridas.cal_id = calibrados.id
+				JOIN escenas ON series_rast.escena_id = escenas.id
+				WHERE 1=1
+				${filter_string}
+				GROUP BY series_rast.id,
+				series_table,
+				series_rast.escena_id,
+				series_rast.fuentes_id,
+				series_rast.var_id,
+				series_rast.proc_id,
+				series_rast.unit_id,
+				corridas.id,
+				corridas.date,
+				corridas.cal_id`)
+			} else {
+				// puntual
+				var valid_filters = {
+					series_id: {type: "integer", table: "series", column: "id"},
+					estacion_id: {type: "integer", table: "series"},
+					tabla: {type: "string", table: "estaciones"},
+					var_id: {type: "integer", table: "series"},
+					proc_id: {type: "integer", table: "series"},
+					unit_id: {type: "integer", table: "series"},
+					cor_id: {type: "integer", table: "corridas", column: "id"},
+					date: {type: "date", table: "corridas", alias: "forecast_date", trunc: "milliseconds"},
+					cal_id: {type: "integer", table: "corridas"},
+					begin_date: {type: "timestart", table: "series_prono_date_range", alias: "timestart"},
+					end_date: {type: "timeend", table: "series_prono_date_range", alias: "timeend"},
+					count: {type: "numeric_min", table: "series_prono_date_range"},
+					qualifier: {type: "string_in", table: "series_prono_date_range", column: "qualifiers", alias: "qualifiers"},
+					"model_id": { type: "integer", table: "calibrados"},
+					"isPublic": { type: "boolean", table: "calibrados", column: "public", alias: "public"},
+					"cal_grupo_id": { type: "integer", table: "calibrados", column: "grupo_id"},
+					"forecast_timestart": { type: "timestart", table: "corridas", column: "date"},
+					"forecast_timeend": { type: "timeend", table: "corridas", column: "date"},
+					geom: { type: "geometry", table: "estaciones", column: "geom"}
+				}
+				var filter_string = internal.utils.control_filter2(valid_filters, filter, "series_prono_date_range")
+				var result = await client.query(`
+					SELECT 
+					series.id AS series_id,
+					'series' AS series_table,
+					series.area_id AS estacion_id,
+					estaciones.tabla,
+					series.fuentes_id AS fuentes_id,
+					series.var_id,
+					series.proc_id,
+					series.unit_id,
+					corridas.id AS cor_id,
+					corridas.date AS forecast_date,
+					corridas.cal_id AS cal_id,
+					series_prono_date_range.begin_date,
+					series_prono_date_range.end_date,
+					series_prono_date_range.count,
+					series_prono_date_range.qualifiers
+				FROM corridas 
+				JOIN series_prono_date_range ON series_prono_date_range.cor_id = corridas.id
+				JOIN series ON series.id=series_prono_date_range.series_id
+				JOIN estaciones ON series.estacion_id = estaciones.unid
+				JOIN calibrados ON corridas.cal_id = calibrados.id
+				WHERE 1=1
+				${filter_string}`)
+			}
+			const series = result.rows.map(r=> new this(r))
+			if(options.includeProno) {
+				for(const s of series) {
+					await s.setPronosticos({timestart: filter.timestart, timeend: filter.timeend})
+				}
+			}
+			return series
+		})
+	}
+
+	async toRaster(output_file) {
+		if(this.tipo != "raster") {
+			throw new Error("Can't export raster from point or area series")
+		}
+		if(!this.pronosticos.length) {
+			throw new Error("Can't export raster from series with no pronosticos")
+		}
+
+		const tmpfiles = []
+		const dates = []
+		for(const r of this.pronosticos) {
+			var rand = sprintf("%08d",Math.random()*100000000)
+			const tmpfile = `/tmp/a5rast${rand}.tif`
+			r.toRaster(tmpfile)
+			tmpfiles.push(tmpfile)
+			dates.push(r.timestart)
+		}
+		await pexec(`gdal_merge.py -o ${output_file} -separate ${tmpfiles.join(" ")}`)
+		for(const f of tmpfiles) {
+			fs.rmSync(f)
+		}
+		console.debug(`Wrote file ${output_file} with ${tmpfiles.length} layers`)
 	}
 }
 
@@ -17960,7 +18157,7 @@ ORDER BY cal.cal_id`
 			JOIN corridas ON pronosticos_rast.cor_id=corridas.id\
 			WHERE 1=1 " + filter_string + "\
 			ORDER BY pronosticos_rast.series_id,pronosticos_rast.timestart")
-			return result.rows
+			return result.rows.map(r => new internal.pronostico(r))
 		})
 	}
 
@@ -20250,6 +20447,21 @@ internal.utils = {
 						filter_string += " AND "+ fullkey + "='" + filter[key] + "'"
 					}
 				}
+			} else if (filter_def.type == "string_in") {
+
+				if(Array.isArray(filter[key])) {
+					if(filter[key].length) {
+						filter_string += ` AND ${fullkey}::jsonb @> '${JSON.stringify(filter[key])}'::jsonb`
+					} else if(filter_def.required) {
+						internal.utils.alert_error(
+							"Falta valor para filtro obligatorio " + key + " (array vacío)",
+							throw_if_invalid)
+						control_flag++
+					}
+				} else {
+					filter_string += ` AND ${fullkey}::jsonb @> '["${filter[key]}"]'::jsonb`
+				}
+			
 			} else if (filter_def.type == "boolean") {
 				var boolean = (/^[yYtTvVsS1]/.test(filter[key])) ? "true" : "false"
 				filter_string += " AND "+ fullkey + "=" + boolean + ""

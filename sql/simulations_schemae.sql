@@ -1523,8 +1523,11 @@ SELECT series.id AS series_id,
     'series' AS series_table,
     series.estacion_id,
     estaciones.tabla,
+    redes.id AS fuentes_id,
     series.var_id,
     corridas.id AS cor_id,
+    corridas.date AS forecast_date,
+    corridas.cal_id AS cal_id,
     series_puntual_prono_date_range.begin_date,
     series_puntual_prono_date_range.end_date,
     series_puntual_prono_date_range.count,
@@ -1533,6 +1536,7 @@ SELECT series.id AS series_id,
    JOIN series_puntual_prono_date_range ON series_puntual_prono_date_range.cor_id = corridas.id
    JOIN series ON series.id=series_puntual_prono_date_range.series_id
    JOIN estaciones ON estaciones.unid = series.estacion_id
+   JOIN redes ON estaciones.tabla = redes.tabla_id
 
 UNION ALL
 
@@ -1540,8 +1544,11 @@ SELECT series_areal.id AS series_id,
     'series_areal' AS series_table,
     series_areal.area_id AS estacion_id,
     estaciones.tabla,
+    series_areal.fuentes_id AS fuentes_id,
     series_areal.var_id,
     corridas.id AS cor_id,
+    corridas.date AS forecast_date,
+    corridas.cal_id AS cal_id,
     series_areal_prono_date_range.begin_date,
     series_areal_prono_date_range.end_date,
     series_areal_prono_date_range.count,
@@ -1557,9 +1564,12 @@ UNION ALL
 SELECT series_rast.id AS series_id,
     'series_rast' AS series_table,
     series_rast.escena_id AS estacion_id,
-    NULL AS tabla,
+    fuentes.nombre AS tabla,
+    series_rast.fuentes_id AS fuentes_id,
     series_rast.var_id,
     corridas.id AS cor_id,
+    corridas.date AS forecast_date,
+    corridas.cal_id AS cal_id,
     series_rast_prono_date_range.begin_date,
     series_rast_prono_date_range.end_date,
     series_rast_prono_date_range.count,
@@ -1568,6 +1578,7 @@ SELECT series_rast.id AS series_id,
    JOIN series_rast_prono_date_range ON series_rast_prono_date_range.cor_id = corridas.id
    JOIN series_rast ON series_rast.id=series_rast_prono_date_range.series_id
    JOIN escenas ON series_rast.escena_id = escenas.id
+   JOIN fuentes ON series_rast.fuentes_id = fuentes.id
 ;
 
 
