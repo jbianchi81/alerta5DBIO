@@ -7190,6 +7190,7 @@ internal.pronostico = class extends baseModel {
 					p.cor_id = options.cor_id
 				}
 		}
+		pronosticos = pronosticos.map(p => new this(p))
 		return withClient(client, async (client) => {
 			const results = await internal.CRUD.upsertPronosticos(client,pronosticos)
 			if(options.no_send_data) {

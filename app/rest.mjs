@@ -348,6 +348,7 @@ app.delete('/sim/calibrados/:cal_id/forzantes',auth.isAdmin,deleteForzantes)
 app.get('/sim/calibrados/:cal_id/forzantes/:orden',auth.isAuthenticated,getForzante)
 app.put('/sim/calibrados/:cal_id/forzantes/:orden',auth.isAdmin,upsertForzante)
 app.delete('/sim/calibrados/:cal_id/forzantes/:orden',auth.isAdmin,deleteForzante)
+app.post('/sim/corridas/:cor_id/pronosticos', auth.isAdmin,upsertPronosticos)
 //obs
 app.get('/obs/:tipo/fuentes',auth.isPublic,((req,res)=>{
 	if(req.params.tipo.toLowerCase()=="puntual") {
@@ -5000,6 +5001,31 @@ function deletePronostico(req,res) {
 		console.error(e)
 		res.status(400).send(e)
 	})
+}
+
+async function upsertPronosticos(req, res) {
+	try {
+		var filter = getFilter(req,res.locals)
+		var options = getOptions(req)
+	} catch (e) {
+		console.error(e)
+		res.status(400).send({message:"query error",error:e.toString()})
+		return
+	}
+	if(!filter.cor_id) {
+		res.status(400).send("upsertForzantes: missing cor_id")
+		return
+	}
+	var pronosticos = req.body
+	try {
+		var result = await CRUD.pronostico.create(pronosticos, {cor_id: filter.cor_id, tipo: filter.tipo})
+	} catch(e) {
+		console.error(e)
+		res.status(400).send(e.toString())
+		return
+	}	
+	res.send(result)
+
 }
 
 async function upsertPronostico(req,res) {
