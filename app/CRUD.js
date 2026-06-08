@@ -7008,13 +7008,15 @@ internal.SerieTemporalSim = class extends baseModel {
 		})
 	}
 
-	async toRaster(output_file) {
+	async toRaster(output_file, write_index_file=true) {
 		if(this.tipo != "raster") {
 			throw new Error("Can't export raster from point or area series")
 		}
 		if(!this.pronosticos.length) {
 			throw new Error("Can't export raster from series with no pronosticos")
 		}
+
+		const index_file = `${output_file}_index.csv`
 
 		const tmpfiles = []
 		const dates = []
@@ -7026,6 +7028,10 @@ internal.SerieTemporalSim = class extends baseModel {
 			dates.push(r.timestart)
 		}
 		await pexec(`gdal_merge.py -o ${output_file} -separate ${tmpfiles.join(" ")}`)
+		if(write_index_file) {
+			fs.writeFileSync(index_file, dates.map(d=>d.toISOString()).join("\n"))
+			console.debug(`Wrote index file ${index_file} with ${tmpfiles.length} dates`)
+		}
 		for(const f of tmpfiles) {
 			fs.rmSync(f)
 		}
@@ -7038,8 +7044,14 @@ internal.pronostico = class extends baseModel {
         super()
 		var m = arguments[0]
 		this.id = m.id
-		this.timestart = m.timestart
-		this.timeend = (m.timeend) ? m.timeend : m.timestart
+		this.timestart = (m.timestart instanceof Date) ? m.timestart : new Date(m.timestart)
+		if(this.timestart.toString() == "Invalid Date") {
+			throw new Error("Invalid timestart")
+		}
+		this.timeend = (m.timeend) ? (m.timeend instanceof Date) ? m.timeend : new Date(m.timeend) : this.timestart
+		if(this.timeend.toString() == "Invalid Date") {
+			throw new Error("Invalid timeend")
+		}
 		if(m.valor != null) {
 			if(m.valor instanceof Buffer) {
 				this.valor = m.valor
@@ -7155,7 +7167,29 @@ internal.pronostico = class extends baseModel {
 			return results
 		})
 	}
-	static async create(pronosticos, client) {
+	static async create(pronosticos, options={}, client) {
+		if(options.tipo) {
+			if(options.tipo == "areal") { 
+				for(const p of pronosticos) {
+					p.series_table = "series_areal"
+				}
+			} else if(options.tipo == "raster") {
+				for(const p of pronosticos) {
+					p.series_table = "series_rast"
+				}
+			} else if(options.tipo == "puntual") {
+				for(const p of pronosticos) {
+					p.series_table = "series"
+				}
+			} else {
+				throw new Error("Bad argument value options.tipo. Must be one of 'areal','raster','puntual'")
+			}
+		}
+		if(options.cor_id) {
+			for(const p of pronosticos) {
+					p.cor_id = options.cor_id
+				}
+		}
 		return withClient(client, async (client) => {
 			const results = await internal.CRUD.upsertPronosticos(client,pronosticos)
 			if(options.no_send_data) {
@@ -18885,7 +18919,7 @@ ORDER BY cal.cal_id`
 						p.cor_id, 
 						p.timestart.toISOString(),
 						timeend.toISOString(),
-						p.qualifier,
+						p.qualifier || "main",
 						parseFloat(p.valor)
 					]
 					try {
@@ -18910,7 +18944,7 @@ ORDER BY cal.cal_id`
 						p.cor_id, 
 						p.timestart.toISOString(), 
 						timeend.toISOString(), 
-						p.qualifier, 
+						p.qualifier || "main", 
 						// new Buffer.from(p.valor).toString('hex')
 						(p.valor instanceof Buffer) ?  "\\x" + p.valor.toString('hex') : p.valor
 					]
@@ -18936,7 +18970,7 @@ ORDER BY cal.cal_id`
 						p.cor_id, 
 						p.timestart.toISOString(), 
 						timeend.toISOString(), 
-						p.qualifier, 
+						p.qualifier || "main", 
 						parseFloat(p.valor)
 					]
 					try {

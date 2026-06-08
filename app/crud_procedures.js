@@ -3038,7 +3038,9 @@ internal.CreateProcedure = class extends internal.CrudProcedure {
                 upsert_estacion: this.options.upsert_estacion,
                 generate_id: this.options.generate_id,
                 refresh_date_range: this.options.refresh_date_range,
-                create_cube_table: this.options.create_cube_table
+                create_cube_table: this.options.create_cube_table,
+                tipo: this.options.tipo,
+                cor_id: this.options.cor_id
             } : {}
             this.result = await this.class.create((Array.isArray(data)) ? data : [data],options)
         } else {
@@ -3050,7 +3052,9 @@ internal.CreateProcedure = class extends internal.CrudProcedure {
                         series_metadata: this.options.all,
                         refresh_date_range: this.options.refresh_date_range,
                         create_cube_table: this.options.create_cube_table,
-                        no_update: this.options.no_update
+                        no_update: this.options.no_update,
+                        tipo: this.options.tipo,
+                        cor_id: this.options.cor_id
                     } : {}
                     // console.log({create_options:options})
                     this.result.push(await data[i].create(options)) //this.class.create(this.elements,this.class)
@@ -3059,7 +3063,9 @@ internal.CreateProcedure = class extends internal.CrudProcedure {
                 var options = (this.options) ? {
                     series_metadata: this.options.all,
                     refresh_date_range: this.options.refresh_date_range,
-                    create_cube_table: this.options.create_cube_table
+                    create_cube_table: this.options.create_cube_table,
+                    tipo: this.options.tipo,
+                    cor_id: this.options.cor_id
                 } : {}
                 this.result.push(await data.create(options))
             }
@@ -4189,6 +4195,8 @@ if(1==1) {
     .option("-a, --all", 'in serie creation, create parent objects (estacion, fuente, var, procedimiento, unidades')
     .option("-s, --station", "create parent station (estacion)")
     .option("-p, --property_name <value>", "read list of elements to create from this property of the root element, or of each item if the root element is a list")
+    .option("-T, --tipo <value>", "set tipo of all items to this value. Valid only for class pronostico")
+    .option("-c, --cor_id <value>", "set cor_id of all items to this value. Valid only for class pronostico")
     .action(async (crud_class,files,options) => {
         var test_result = true
         if(!CRUD.hasOwnProperty(crud_class)) {
@@ -4219,6 +4227,12 @@ if(1==1) {
                 }
                 if(options.property_name) {
                     params.property_name = options.property_name
+                }
+                if(options.tipo) {
+                    params.options.tipo = options.tipo
+                }
+                if(options.cor_id) {
+                    params.options.cor_id = options.cor_id
                 }
                 var procedure = new internal.CreateProcedure(params)
             } catch(e) {
