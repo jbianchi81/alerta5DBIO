@@ -59,6 +59,19 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             });
         });
     }
+    getTimeseries(measurement_point, since, to, device) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return (0, accessor_utils_1.fetchData)(`${this.url}/measures/timeseries`, {
+                params: {
+                    measurement_point: measurement_point,
+                    device: device,
+                    since: since,
+                    to: to
+                },
+                headers: this.headers()
+            });
+        });
+    }
     setSeriesMap(series) {
         this.series_map = {};
         for (const serie of series) {
@@ -137,9 +150,15 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                     throw new Error("estacion_id not found in series map");
                 }
             }
-            const measurements = yield this.getMeasuresWithPagination(serie_map.point_id, undefined, filter.timestart.toISOString().substring(0, 10), new Date(filter.timeend.getTime() + 24 * 3600 * 1000).toISOString().substring(0, 10) // avanza 1 día para que tome el día final completo
-            );
-            const obs = this.parseMeasurements(measurements, serie_map);
+            if (options.use_measures_endpoint) {
+                const measurements = yield this.getMeasuresWithPagination(serie_map.point_id, undefined, filter.timestart.toISOString().substring(0, 10), new Date(filter.timeend.getTime() + 24 * 3600 * 1000).toISOString().substring(0, 10) // avanza 1 día para que tome el día final completo
+                );
+                var obs = this.parseMeasurements(measurements, serie_map);
+            }
+            else {
+                const timeseries = yield this.getTimeseries(serie_map.point_id, filter.timestart.toISOString().substring(0, 19).replace("T", " "), filter.timeend.toISOString().substring(0, 19).replace("T", " "));
+                var obs = this.parseTimeseries(timeseries, serie_map);
+            }
             if (options.return_series) {
                 const serie = serie_map.metadata;
                 serie.observaciones = obs;
@@ -163,6 +182,21 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             timeend: new Date(m.measureDate),
             series_id: serie_map.series_id,
             valor: m.interpretedValue
+        };
+    }
+    parseTimeseries(timeseries, serie_map) {
+        const obs = [];
+        for (const tvp of timeseries) {
+            obs.push(this.parseTimeValuePair(tvp, serie_map));
+        }
+        return obs;
+    }
+    parseTimeValuePair(tvp, serie_map) {
+        return {
+            timestart: new Date(tvp.time),
+            timeend: new Date(tvp.time),
+            series_id: serie_map.series_id,
+            valor: tvp.value
         };
     }
 }

@@ -40,3 +40,4 @@ test('read upsert pronosticos areales', async(t) => {
     const upserted = await pronostico.create(pronosticos, {cor_id: 954778, tipo: "areal"})
     assert.equal(upserted.length, 7680)
 })
+

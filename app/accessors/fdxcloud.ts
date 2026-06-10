@@ -47,6 +47,11 @@ export type MeasuresResponse = {
     "length": number
 }
 
+export type TimeValuePair = {
+    "time": string, // ISO 8601
+    "value": number
+}
+
 export class Client extends AbstractAccessorEngine implements AccessorEngine {
 
     static _get_is_multiseries = false
@@ -121,6 +126,26 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         )
     }
 
+    async getTimeseries(
+        measurement_point : number,
+        since : string,
+        to : string,
+        device? : number
+    ) : Promise<TimeValuePair[]> {
+        return fetchData(
+            `${this.url}/measures/timeseries`,
+            {
+                params: {
+                    measurement_point: measurement_point,
+                    device: device,
+                    since : since,
+                    to : to
+                },
+                headers: this.headers()
+            }
+        )
+    }
+
     setSeriesMap(series : CrudSerie[]) {
         this.series_map = {}
         for(const serie of series) {
@@ -187,19 +212,22 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
 
     async get(filter : ObservacionesFilter,
             options : {
-                return_series ? : true
+                return_series ? : true,
+                use_measures_endpoint ? : boolean
             }
         ) : Promise<CrudSerie[]>;
     async get(
             filter : ObservacionesFilter,
             options : {
-                return_series ? : false
+                return_series ? : false,
+                use_measures_endpoint ? : boolean
             }
         ) : Promise<Observacion[]>
     async get(
             filter : ObservacionesFilter,
             options : {
-                return_series ? : boolean
+                return_series ? : boolean,
+                use_measures_endpoint ? : boolean
             } = {}
         ) : Promise<CrudSerie[]|Observacion[]> {
         if(!filter.timestart || !filter.timeend) {
@@ -228,13 +256,22 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                 throw new Error("estacion_id not found in series map")
             }            
         }
-        const measurements = await this.getMeasuresWithPagination(
-            serie_map.point_id,
-            undefined,
-            filter.timestart.toISOString().substring(0,10),
-            new Date(filter.timeend.getTime() + 24 * 3600 * 1000).toISOString().substring(0,10) // avanza 1 día para que tome el día final completo
-        )
-        const obs = this.parseMeasurements(measurements, serie_map)
+        if(options.use_measures_endpoint) {
+            const measurements = await this.getMeasuresWithPagination(
+                serie_map.point_id,
+                undefined,
+                filter.timestart.toISOString().substring(0,10),
+                new Date(filter.timeend.getTime() + 24 * 3600 * 1000).toISOString().substring(0,10) // avanza 1 día para que tome el día final completo
+            )
+            var obs = this.parseMeasurements(measurements, serie_map)
+        } else {
+            const timeseries = await this.getTimeseries(
+                serie_map.point_id,
+                filter.timestart.toISOString().substring(0,19).replace("T"," "),
+                filter.timeend.toISOString().substring(0,19).replace("T"," ")
+            )
+            var obs = this.parseTimeseries(timeseries, serie_map)
+        }
         if(options.return_series) {
             const serie = serie_map.metadata
             serie.observaciones = obs
@@ -260,5 +297,21 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
             valor: m.interpretedValue
         }
     }
-}
 
+    parseTimeseries(timeseries : TimeValuePair[], serie_map : SeriesMapping) : Observacion[] {
+        const obs : Observacion[] = []
+        for(const tvp of timeseries) {
+            obs.push(this.parseTimeValuePair(tvp, serie_map))
+        }
+        return obs
+    }
+
+    parseTimeValuePair(tvp : TimeValuePair, serie_map : SeriesMapping) : Observacion {
+        return {
+            timestart: new Date(tvp.time),
+            timeend: new Date(tvp.time),
+            series_id: serie_map.series_id,
+            valor: tvp.value
+        }
+    }
+}
