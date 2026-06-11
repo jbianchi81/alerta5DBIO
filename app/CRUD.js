@@ -8,8 +8,11 @@ var parsePGinterval = require('postgres-interval')
 //~ const Accessors = require('./accessors.js')
 var sprintf = require('sprintf-js').sprintf, vsprintf = require('sprintf-js').vsprintf
 var fs =require("promise-fs")
+const {tmpdir} = require("node:os")
+const {join} = require("node:path")
 const { exec, spawn, execSync } = require('child_process');
 const pexec = require('child-process-promise').exec;
+const pspawn = require('child-process-promise').spawn;
 const ogr2ogr = require("ogr2ogr").default
 var path = require('path');
 const validFilename = require('valid-filename');
@@ -973,6 +976,76 @@ internal.area = class extends baseModel  {
 			geojson.properties = {...geojson.properties, ...this.exutorio.properties}
 		}
 		return geojson
+	}
+
+	static async toRaster(
+		areas, 
+		output, 
+		format="GTiff", 
+		srs="EPSG:4326",
+		property="id",
+		n=-10, 
+		s=-40, 
+		w=-70, 
+		e=-40, 
+		x_res=0.05, 
+		y_res=0.05, 
+		output_type="Int16") {
+		const tmpFile_geom = tmp.fileSync({mode: "0644", prefix: 'areas',postfix:'.geojson'})
+		const areas_geojson = this.toGeoJSON(areas)
+		fs.writeFileSync(tmpFile_geom.name, JSON.stringify(areas_geojson), {encoding: "utf-8"})
+		try {
+			const p = pspawn(
+				"gdal_rasterize",
+				[
+					"-of",
+					format,
+					"-a",
+					property,
+					"-a_srs",
+					srs,
+					"-te",
+					w,
+					s,
+					e,
+					n,
+					"-tr",
+					x_res,
+					y_res,
+					"-ot",
+					output_type,
+					tmpFile_geom.name, 
+					output
+				])
+			p.childProcess.stdout.on("data", data => {
+					process.stdout.write(data);
+				});
+			await p
+		} catch(e) {
+			console.error(e)
+			throw e
+		}
+		console.debug("Wrote areas to raster file: " + output)
+	}
+
+	static toGeoJSON(areas, includeProperties=true, includeOutlet=true) {
+		var geojson_result = {
+			"type": "FeatureCollection",
+			"features": []
+		}
+		var i = 0
+		for(const area of areas) {
+			if(!area instanceof this) {
+				area = new this(area)
+			}
+			if(typeof area.toGeoJSON === 'function') {
+				geojson_result.features.push(area.toGeoJSON(includeProperties, includeOutlet))
+			} else {
+				throw new Error("toGeoJSON method not found in item " + i)
+			}
+			i = i + 1
+		}
+		return geojson_result
 	}
 }
 
@@ -6727,6 +6800,8 @@ internal.SerieTemporalSim = class extends baseModel {
 		this.tabla = m.tabla
 		this.red_id = m.red_id
 		this.tipo = (this.series_table == "series_areal") ? "areal" : (this.series_table == "series_rast") ? "raster" : "puntual"
+		this.timeSupport = m.timeSupport
+		this.metadata = null
 	}
 	toString() {
 		return JSON.stringify(this)
@@ -6736,6 +6811,22 @@ internal.SerieTemporalSim = class extends baseModel {
 	} 
 	toCSVless() {
 		return this.id + "," + this.forecast_date
+	}
+
+	async getMetadata() {
+		this.metadata = await internal.serie.read({id: this.series_id, tipo: this.tipo})
+		if(!this.metadata) {
+			throw new Error("Metadata not found for series_id=" + this.series_id + " tipo=" + this.tipo)
+		}
+		this.estacion_id = this.metadata.estacion.id
+		this.tabla = this.metadata.estacion.tabla
+		this.var_id = this.metadata.var.id
+		this.proc_id = this.metadata.procedimiento.id
+		this.unit_id = this.metadata.unidades.id
+		if(this.metadata.fuente) {
+			this.fuentes_id = this.metadata.fuente.id
+		}
+		this.timeSupport = this.metadata.var.timeSupport
 	}
 
 	async getPronosticos(filter={},options={},client) {
@@ -7016,7 +7107,7 @@ internal.SerieTemporalSim = class extends baseModel {
 			throw new Error("Can't export raster from series with no pronosticos")
 		}
 
-		const index_file = `${output_file}_index.csv`
+		const index_file = (typeof write_index_file == "string") ? write_index_file : `${output_file}_index.csv`
 
 		const tmpfiles = []
 		const dates = []
@@ -7027,7 +7118,13 @@ internal.SerieTemporalSim = class extends baseModel {
 			tmpfiles.push(tmpfile)
 			dates.push(r.timestart)
 		}
-		await pexec(`gdal_merge.py -o ${output_file} -separate ${tmpfiles.join(" ")}`)
+		try {
+			const {stdout, stderr} = await pexec(`gdal_merge.py -o ${output_file} -separate ${tmpfiles.join(" ")}`)
+			console.log(stdout)
+		} catch (e) {
+			console.error(e)
+			throw new Error("Failed to run gdal_merge.py")
+		}
 		if(write_index_file) {
 			fs.writeFileSync(index_file, dates.map(d=>d.toISOString()).join("\n"))
 			console.debug(`Wrote index file ${index_file} with ${tmpfiles.length} dates`)
@@ -7036,6 +7133,68 @@ internal.SerieTemporalSim = class extends baseModel {
 			fs.rmSync(f)
 		}
 		console.debug(`Wrote file ${output_file} with ${tmpfiles.length} layers`)
+	}
+
+	/**
+	 * Polygons will be converted to a single 'zones' raster, so pixels on overlapping areas will be given the id of the last matched feature. For each item in this.pronosticos zonal means are obtained and given the series_id of the areal series with matching estacion_id, var_id and fuentes_id
+	 */
+	async toAreal(
+        areas_filter={},
+        options={}) {
+		if(!global.config.zonal_means_exec) {
+			throw new Error("zonal_means_exec not set in config")
+		}
+		if(!this.metadata) {
+			await this.getMetadata()
+		}
+		const dir = fs.mkdtempSync(join(tmpdir(), "a5dbio-"));
+		await fs.chmod(dir, 0o777)
+		console.debug("created tmp dir: " + dir)
+		const tmpFile_cover = join(dir, "cover.tif") // tmp.fileSync({mode: "0644", prefix: 'rastersim',postfix:'.tif', dir: dir})
+		const tmpFile_dates = join(dir, "dates.csv") // tmp.fileSync({mode: "0644", prefix: 'dates',postfix:'.csv', dir: dir})
+		const tmpFile_series = join(dir, "series.json") // tmp.fileSync({mode: "0644", prefix: 'series',postfix:'.json', dir: dir})
+		const tmpFile_zones = join(dir, "zones.tif") // tmp.fileSync({mode: "0644", prefix: 'zones',postfix:'.tif', dir: dir})
+		const tmpFile_output = join(dir, "means.json") // tmp.fileSync({mode: 0o777, prefix: 'means',postfix:'.json', dir: dir})
+		// write rast prono series to files (values as multilayer .tif + dates index as .csv )
+		await this.toRaster(tmpFile_cover, tmpFile_dates)
+		// get areas
+		const areas = await internal.area.read(areas_filter)
+		// write areas to raster file
+		await internal.area.toRaster(areas, tmpFile_zones)
+		// get series areales
+		const series_areales = await internal.serie.read({
+			tipo: "areal",
+			estacion_id: areas.map(a=>a.id),
+			var_id: this.var_id,
+			proc_id: this.proc_id,
+			unit_id: this.unit_id,
+			fuentes_id: this.fuentes_id
+		},{
+			no_metadata: true
+		})
+		// write series_areales to json file
+		fs.writeFileSync(tmpFile_series, JSON.stringify(series_areales, undefined, 2), {encoding: "utf-8"})
+		// execute zonal means app
+		try {
+			const p = pspawn(global.config.zonal_means_exec,["-c",tmpFile_cover,"-o",tmpFile_output,"-f",this.fuentes_id,"-v",this.var_id,"-k",1,"-z",tmpFile_zones,"-d",timeSteps.interval2iso8601String(this.timeSupport),"-t",tmpFile_dates,"-i",this.cor_id,"-s",tmpFile_series])
+			p.childProcess.stdout.on("data", data => {
+				process.stdout.write(data);
+			});
+			p.childProcess.stderr.on("data", data => {
+				process.stderr.write(data);
+			})
+			await p
+		} catch (e) {
+			console.error(e)
+			throw new Error("Failed to run zonal means")
+		}
+		// read areal means from json file
+		const means = await internal.pronostico.readFile(tmpFile_output)
+		if(options.upload) {
+			return internal.pronostico.create(means, {tipo: this.tipo, cor_id: this.cor_id})
+		}
+		return means
+
 	}
 }
 
