@@ -10,7 +10,7 @@ var sprintf = require('sprintf-js').sprintf, vsprintf = require('sprintf-js').vs
 var fs =require("promise-fs")
 const {tmpdir} = require("node:os")
 const {join} = require("node:path")
-const { exec, spawn, execSync } = require('child_process');
+const { exec, spawn, execSync, spawnSync } = require('child_process');
 const pexec = require('child-process-promise').exec;
 const pspawn = require('child-process-promise').spawn;
 const ogr2ogr = require("ogr2ogr").default
@@ -1835,6 +1835,23 @@ internal.serie = class extends baseModel {
 		}
 		// console.log({serie:this})
 	}
+
+	get estacion_id() {
+		return (this.estacion) ? this.estacion.id : undefined
+	}
+	get var_id() {
+		return (this.var) ? this.var.id : undefined
+	}
+	get proc_id() {
+		return (this.procedimiento) ? this.procedimiento.id : undefined
+	}
+	get unit_id() {
+		return (this.unidades) ? this.unidades.id : undefined
+	}
+	get fuentes_id() {
+		return (this.fuente) ? this.fuente.id : undefined
+	}
+
 	toJSON() {
 		return {
 			tipo: (this.tipo) ? this.tipo : "puntual",
@@ -2916,6 +2933,39 @@ internal.serie = class extends baseModel {
 			})
 		})
 	}
+
+	/**
+	 * Polygons will be converted to a single 'zones' raster, so pixels on overlapping areas will be given the id of the last matched feature. For each item in this.pronosticos zonal means are obtained and given the series_id of the areal series with matching estacion_id, var_id and fuentes_id
+	 */
+	async toAreal(
+        areas_filter={},
+        options={}) {
+		
+		const means = await internal.CRUD.serieRasttoAreal(
+			this,
+			areas_filter,
+			{coef: options.coef}
+		)
+		for(const m of means) {
+			m.tipo = "areal"
+		}
+		if(options.upload) { 
+			return internal.observaciones.create(
+				means, 
+				{no_update: options.no_update}
+			)
+		}
+		return means
+	}
+
+	async toRaster(output_file, write_index_file=true) {
+		return internal.CRUD.serieRasttoGDAL(
+			this,
+			output_file,
+			write_index_file
+		)
+	}
+
 }
 
 const asc = arr => arr.sort((a, b) => a - b)
@@ -4347,9 +4397,30 @@ internal.observacion = class extends baseModel {
 	toMnemos(codigo_de_estacion,codigo_de_variable) {
 		return [codigo_de_estacion,codigo_de_variable,sprintf("%02d",this.timestart.getDate()),sprintf("%02d", this.timestart.getMonth()+1),sprintf("%04d", this.timestart.getFullYear()),sprintf("%02d", this.timestart.getHours()),sprintf("%02d", this.timestart.getMinutes()),this.valor].join(",")
 	}
-	toRaster(output_file) {
+	toRaster(
+		output_file, // str
+		band // int?
+		) {
 		if(this.valor != null) {
-			fs.writeFileSync(output_file,new Buffer.from(this.valor))
+			if(typeof this.valor == "string") {
+				var buffer = Buffer.from(this.valor.slice(2), "hex");
+			} else {
+				var buffer = Buffer.from(this.valor)
+			}
+			if(band) {
+				var rand = sprintf("%08d",Math.random()*100000000)
+				const tmpfile = `/tmp/a5rast${rand}.tif`
+				fs.writeFileSync(tmpfile, buffer)
+				const result = spawnSync("gdal_translate", ["-b", band, tmpfile, output_file])
+				// console.log(result.stdout)
+				// console.error(result.stderr)
+				// console.log(result.status)
+				if (result.error) {
+					throw result.error
+				}
+			} else {
+				fs.writeFileSync(output_file, buffer)
+			}
 			// await delay(100)
 			// var opt_md = (this.id) ? ` -mo "id=${this.id}"` : ""
 			// execSync(`gdal_edit.py -mo "series_id=${this.series_id}" -mo "timestart=${this.timestart.toISOString()}" -mo "timeend=${this.timeend.toISOString()}" -mo "timeupdate=${this.timeupdate.toISOString()}" ${opt_md} ${output_file}`) 
@@ -4939,6 +5010,7 @@ internal.observaciones = class extends BaseArray {
 			return this.createInTransaction(tipo, options, client)
 		})
 	}
+
 	static async create(observaciones, options={}, client) {
 		return withClient(client, async (client) => {
 			const observaciones_instance = new internal.observaciones(observaciones)
@@ -6775,6 +6847,61 @@ internal.corrida = class extends baseModel {
 			forecast_date: lastForecastDate
 		});
 	}
+
+	static async getLast(cal_id, client, isPublic) {
+		const filter_string = internal.utils.control_filter2(
+			{
+				public : {
+					table: "calibrados",
+					type: "boolean"
+				},
+				cal_id : {
+					table: "calibrados",
+					column: "id",
+					type: "integer"
+				}
+			},
+			{
+				public: isPublic,
+				cal_id: cal_id
+			},
+			"corridas"
+		)
+		const query = `WITH last AS (
+			SELECT 
+				corridas.cal_id,
+				max(corridas.date) AS max_date
+
+			FROM 
+				corridas
+			JOIN 
+			    calibrados 
+					ON corridas.cal_id = calibrados.id 
+			WHERE 1=1
+			${filter_string}
+			GROUP BY corridas.cal_id
+		) 
+		SELECT 
+			corridas.id,
+			corridas.date AS forecast_date,
+			corridas.cal_id
+		FROM
+			corridas
+		JOIN
+			last 
+				ON corridas.cal_id=last.cal_id
+				AND corridas.date=last.max_date`
+		
+		return withClient(client, async (client) => {
+			const result = await client.query(query)
+			if (!result.rows.length) {
+				console.error("No corridas found with filter {cal_id: " + cal_id + ", public: " + isPublic + "}")
+				return []
+			}
+			return result.rows.map(c => new this(c))
+		})
+
+	}
 }
 
 internal.SerieTemporalSim = class extends baseModel {
@@ -6936,6 +7063,13 @@ internal.SerieTemporalSim = class extends baseModel {
 
 	static async read(filter={},options={}, client) {
 		return withClient(client, async (client) => {
+			if(filter.cor_id && filter.cor_id == "last") {
+				const last_cor = await internal.corrida.getLast(filter.cal_id, client, filter.public)
+				if(!last_cor.length) {
+					return []
+				}
+				filter.cor_id = last_cor.map(c => c.id)
+			}
 			if(filter.tipo == "areal") {
 				var valid_filters = {
 					series_id: {type: "integer", table: "series_areal", column: "id"},
@@ -7100,39 +7234,11 @@ internal.SerieTemporalSim = class extends baseModel {
 	}
 
 	async toRaster(output_file, write_index_file=true) {
-		if(this.tipo != "raster") {
-			throw new Error("Can't export raster from point or area series")
-		}
-		if(!this.pronosticos.length) {
-			throw new Error("Can't export raster from series with no pronosticos")
-		}
-
-		const index_file = (typeof write_index_file == "string") ? write_index_file : `${output_file}_index.csv`
-
-		const tmpfiles = []
-		const dates = []
-		for(const r of this.pronosticos) {
-			var rand = sprintf("%08d",Math.random()*100000000)
-			const tmpfile = `/tmp/a5rast${rand}.tif`
-			r.toRaster(tmpfile)
-			tmpfiles.push(tmpfile)
-			dates.push(r.timestart)
-		}
-		try {
-			const {stdout, stderr} = await pexec(`gdal_merge.py -o ${output_file} -separate ${tmpfiles.join(" ")}`)
-			console.log(stdout)
-		} catch (e) {
-			console.error(e)
-			throw new Error("Failed to run gdal_merge.py")
-		}
-		if(write_index_file) {
-			fs.writeFileSync(index_file, dates.map(d=>d.toISOString()).join("\n"))
-			console.debug(`Wrote index file ${index_file} with ${tmpfiles.length} dates`)
-		}
-		for(const f of tmpfiles) {
-			fs.rmSync(f)
-		}
-		console.debug(`Wrote file ${output_file} with ${tmpfiles.length} layers`)
+		return internal.CRUD.serieRasttoGDAL(
+			this,
+			output_file,
+			write_index_file
+		)
 	}
 
 	/**
@@ -7141,60 +7247,20 @@ internal.SerieTemporalSim = class extends baseModel {
 	async toAreal(
         areas_filter={},
         options={}) {
-		if(!global.config.zonal_means_exec) {
-			throw new Error("zonal_means_exec not set in config")
-		}
+		
 		if(!this.metadata) {
 			await this.getMetadata()
 		}
-		const dir = fs.mkdtempSync(join(tmpdir(), "a5dbio-"));
-		await fs.chmod(dir, 0o777)
-		console.debug("created tmp dir: " + dir)
-		const tmpFile_cover = join(dir, "cover.tif") // tmp.fileSync({mode: "0644", prefix: 'rastersim',postfix:'.tif', dir: dir})
-		const tmpFile_dates = join(dir, "dates.csv") // tmp.fileSync({mode: "0644", prefix: 'dates',postfix:'.csv', dir: dir})
-		const tmpFile_series = join(dir, "series.json") // tmp.fileSync({mode: "0644", prefix: 'series',postfix:'.json', dir: dir})
-		const tmpFile_zones = join(dir, "zones.tif") // tmp.fileSync({mode: "0644", prefix: 'zones',postfix:'.tif', dir: dir})
-		const tmpFile_output = join(dir, "means.json") // tmp.fileSync({mode: 0o777, prefix: 'means',postfix:'.json', dir: dir})
-		// write rast prono series to files (values as multilayer .tif + dates index as .csv )
-		await this.toRaster(tmpFile_cover, tmpFile_dates)
-		// get areas
-		const areas = await internal.area.read(areas_filter)
-		// write areas to raster file
-		await internal.area.toRaster(areas, tmpFile_zones)
-		// get series areales
-		const series_areales = await internal.serie.read({
-			tipo: "areal",
-			estacion_id: areas.map(a=>a.id),
-			var_id: this.var_id,
-			proc_id: this.proc_id,
-			unit_id: this.unit_id,
-			fuentes_id: this.fuentes_id
-		},{
-			no_metadata: true
-		})
-		// write series_areales to json file
-		fs.writeFileSync(tmpFile_series, JSON.stringify(series_areales, undefined, 2), {encoding: "utf-8"})
-		// execute zonal means app
-		try {
-			const p = pspawn(global.config.zonal_means_exec,["-c",tmpFile_cover,"-o",tmpFile_output,"-f",this.fuentes_id,"-v",this.var_id,"-k",1,"-z",tmpFile_zones,"-d",timeSteps.interval2iso8601String(this.timeSupport),"-t",tmpFile_dates,"-i",this.cor_id,"-s",tmpFile_series])
-			p.childProcess.stdout.on("data", data => {
-				process.stdout.write(data);
-			});
-			p.childProcess.stderr.on("data", data => {
-				process.stderr.write(data);
-			})
-			await p
-		} catch (e) {
-			console.error(e)
-			throw new Error("Failed to run zonal means")
-		}
-		// read areal means from json file
-		const means = await internal.pronostico.readFile(tmpFile_output)
+
+		const means = await internal.CRUD.serieRasttoAreal(
+			this,
+			areas_filter,
+			options
+		)
 		if(options.upload) {
 			return internal.pronostico.create(means, {tipo: this.tipo, cor_id: this.cor_id})
 		}
 		return means
-
 	}
 }
 
@@ -17362,27 +17428,14 @@ ORDER BY cal.cal_id`
 
 	static async getLastCorrida(estacion_id,var_id,cal_id,timestart,timeend,qualifier,includeProno=false,isPublic,series_id,series_metadata,group_by_qualifier,tipo,tabla,client) {
 		var corrida = {}
-		var public_filter = (isPublic) ? "AND calibrados.public=true" : ""
-		
-		var query = "with last as (\
-			select max(date) \
-			from corridas,calibrados \
-			where cal_id=$1 \
-			AND corridas.cal_id=calibrados.id \
-			" + public_filter + ") \
-		select corridas.* \
-		from corridas,last \
-		where cal_id=$1 \
-		and date=last.max;"
 		
 		return withClient(client, async (client) => {
-			const result = await client.query(query,[cal_id])
-			if (!result.rows.length) {
+			const corrida = await internal.corrida.getLast(cal_id, client, isPublic)
+			if (!corrida.length) {
 				console.log("No rows found for cal_id:"+cal_id)
 				return []
 			} 
-			corrida = {cor_id:result.rows[0].id,cal_id:result.rows[0].cal_id,forecast_date:result.rows[0].date}
-			const corridas = await internal.CRUD.getPronosticos(corrida.cor_id,corrida.cal_id,undefined,undefined,corrida.forecast_date,timestart,timeend,qualifier,estacion_id,var_id,includeProno,isPublic,series_id,series_metadata,undefined,group_by_qualifier,undefined,tipo,tabla,undefined, undefined, client)
+			const corridas = await internal.CRUD.getPronosticos(corrida.id,corrida.cal_id,undefined,undefined,corrida.forecast_date,timestart,timeend,qualifier,estacion_id,var_id,includeProno,isPublic,series_id,series_metadata,undefined,group_by_qualifier,undefined,tipo,tabla,undefined, undefined, client)
 			return corridas[0]
 		})
 	}
@@ -20378,6 +20431,116 @@ ORDER BY cal.cal_id`
 			const observaciones = new internal.observaciones(corrida.series[0].pronosticos.map(p=> p.toObservacion(dest_series_id, dest_tipo)))
 			return observaciones.create(undefined,client)
 		})
+	}
+
+	static async serieRasttoAreal(
+		serie, // internal.serie | internal.SerieTemporalSim
+        areas_filter={},
+        options={}) {
+		if(!global.config.zonal_means_exec) {
+			throw new Error("zonal_means_exec not set in config")
+		}
+		const coef = (options.coef) ? options.coef : 1
+		const timeSupport = (serie.timeSupport) ? serie.timeSupport : (serie.var && serie.var.timeSupport) ? serie.var.timeSupport : {hours: 0}
+		const dir = fs.mkdtempSync(join(tmpdir(), "a5dbio-"));
+		await fs.chmod(dir, 0o777)
+		console.debug("created tmp dir: " + dir)
+		const tmpFile_cover = join(dir, "cover.tif") // tmp.fileSync({mode: "0644", prefix: 'rastersim',postfix:'.tif', dir: dir})
+		const tmpFile_dates = join(dir, "dates.csv") // tmp.fileSync({mode: "0644", prefix: 'dates',postfix:'.csv', dir: dir})
+		const tmpFile_series = join(dir, "series.json") // tmp.fileSync({mode: "0644", prefix: 'series',postfix:'.json', dir: dir})
+		const tmpFile_zones = join(dir, "zones.tif") // tmp.fileSync({mode: "0644", prefix: 'zones',postfix:'.tif', dir: dir})
+		const tmpFile_output = join(dir, "means.json") // tmp.fileSync({mode: 0o777, prefix: 'means',postfix:'.json', dir: dir})
+		// write rast prono series to files (values as multilayer .tif + dates index as .csv )
+		await serie.toRaster(tmpFile_cover, tmpFile_dates)
+		// get areas
+		const areas = await internal.area.read(areas_filter)
+		// write areas to raster file
+		await internal.area.toRaster(areas, tmpFile_zones)
+		// get series areales
+		const series_areales = await internal.serie.read({
+			tipo: "areal",
+			estacion_id: areas.map(a=>a.id),
+			var_id: serie.var_id,
+			proc_id: serie.proc_id,
+			unit_id: serie.unit_id,
+			fuentes_id: serie.fuentes_id
+		},{
+			no_metadata: true
+		})
+		// write series_areales to json file
+		fs.writeFileSync(tmpFile_series, JSON.stringify(series_areales, undefined, 2), {encoding: "utf-8"})
+		// execute zonal means app
+		const args = ["-c",tmpFile_cover,"-o",tmpFile_output,"-f",serie.fuentes_id,"-v",serie.var_id,"-k",coef,"-z",tmpFile_zones,"-d",timeSteps.interval2iso8601String(timeSupport),"-t",tmpFile_dates,"-s",tmpFile_series]
+		if(serie.cor_id) {
+			args.push(...["-i",serie.cor_id])
+		}
+		try {
+			const p = pspawn(global.config.zonal_means_exec,args)
+			p.childProcess.stdout.on("data", data => {
+				process.stdout.write(data);
+			});
+			p.childProcess.stderr.on("data", data => {
+				process.stderr.write(data);
+			})
+			await p
+		} catch (e) {
+			console.error(e)
+			throw new Error("Failed to run zonal means")
+		}
+		// read areal means from json file
+		if(serie.cor_id) {
+			var means = await internal.pronostico.readFile(tmpFile_output)
+		} else {
+			var means = await internal.observacion.readFile(tmpFile_output)
+		}
+		return means
+	}
+
+	static async serieRasttoGDAL(
+		serie, // internal.serie | internal.SerieTemporalSim
+		output_file,  // filepath
+		write_index_file=true // filepath or boolean
+		) {
+		if(serie.tipo != "raster" && serie.tipo != "rast") {
+			throw new Error("Can't export raster from point or area series")
+		}
+		if(!serie.observaciones) {
+			if(!serie.pronosticos || !serie.pronosticos.length) {
+				throw new Error("Can't export raster from series with no pronosticos")
+			}
+			var obs = serie.pronosticos
+		} else if(!serie.observaciones.length) {
+			throw new Error("Can't export raster from series with no observaciones")
+		} else {
+			var obs = serie.observaciones
+		}
+
+		const index_file = (typeof write_index_file == "string") ? write_index_file : `${output_file}_index.csv`
+
+		const tmpfiles = []
+		const dates = []
+		for(const r of obs) {
+			var rand = sprintf("%08d",Math.random()*100000000)
+			const tmpfile = `/tmp/a5rast${rand}.tif`
+			r.toRaster(tmpfile, 1)
+			tmpfiles.push(tmpfile)
+			dates.push(r.timestart)
+		}
+		try {
+			const {stdout, stderr} = await pexec(`gdal_merge.py -o ${output_file} -separate ${tmpfiles.join(" ")}`)
+			console.log(stdout)
+		} catch (e) {
+			console.error(e)
+			throw new Error("Failed to run gdal_merge.py")
+		}
+		if(write_index_file) {
+			fs.writeFileSync(index_file, dates.map(d=>d.toISOString()).join("\n"))
+			console.debug(`Wrote index file ${index_file} with ${tmpfiles.length} dates`)
+		}
+		for(const f of tmpfiles) {
+			fs.rmSync(f)
+		}
+		console.debug(`Wrote file ${output_file} with ${tmpfiles.length} layers`)
 	}
 }
 

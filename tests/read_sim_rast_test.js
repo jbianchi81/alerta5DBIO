@@ -41,3 +41,17 @@ test('read upsert pronosticos areales', async(t) => {
     assert.equal(upserted.length, 7680)
 })
 
+test('read serie temporal sim rast last', async(t) => {
+    const series = await SerieTemporalSim.read(
+        {
+            tipo: "raster",
+            series_id: 16,
+            cal_id: 676,
+            cor_id: "last"
+        },{
+            includeProno: true
+        })
+    assert.equal(series.length, 1)
+    const serie = series[0]
+    assert.equal(serie.pronosticos.length, 64)
+})
