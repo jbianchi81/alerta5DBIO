@@ -3,7 +3,7 @@ import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
 import parsePGinterval  from 'postgres-interval'
-import { escapeIdentifier, escapeLiteral } from 'pg'
+import { escapeIdentifier, escapeLiteral, Client } from 'pg'
 import { access, readFile } from 'fs/promises';
 
 

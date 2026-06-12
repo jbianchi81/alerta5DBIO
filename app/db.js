@@ -12,8 +12,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.withTransaction = exports.withClient = void 0;
+exports.streamQuery = exports.withTransaction = exports.withClient = void 0;
 const setGlobal_1 = __importDefault(require("a5base/setGlobal"));
+const pg_cursor_1 = __importDefault(require("pg-cursor"));
 const g = (0, setGlobal_1.default)();
 function withClient(client, fn, pool) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -84,3 +85,38 @@ function withTransaction(client, fn) {
     });
 }
 exports.withTransaction = withTransaction;
+function streamQuery(query, callback, client, max_rows = 100) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const ownClient = client == null;
+        if (ownClient) {
+            client = (yield g.pool.connect());
+            yield client.connect();
+        }
+        const cli = client;
+        const results = [];
+        try {
+            const cursor = cli.query(new pg_cursor_1.default(query));
+            try {
+                while (true) {
+                    const rows = yield cursor.read(max_rows);
+                    if (rows.length === 0) {
+                        break;
+                    }
+                    for (const row of rows) {
+                        results.push(yield callback(row));
+                    }
+                }
+            }
+            finally {
+                yield cursor.close();
+            }
+        }
+        finally {
+            if (ownClient) {
+                yield cli.end();
+            }
+        }
+        return results;
+    });
+}
+exports.streamQuery = streamQuery;

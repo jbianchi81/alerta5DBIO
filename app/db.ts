@@ -1,5 +1,6 @@
-import { Pool, PoolClient } from 'pg'
+import { Pool, PoolClient, Client } from 'pg'
 import setGlobal from 'a5base/setGlobal'
+import Cursor from "pg-cursor";
 const g = setGlobal()
 
 type TxClient = PoolClient & {
@@ -82,3 +83,47 @@ export async function withTransaction<T>(
       if (ownClient) txClient.release()
     }
   }
+
+export async function streamQuery<T>(
+    query: string,
+    callback: (row: any) => T | Promise<T>,
+    client?: Client,
+    max_rows: number=100
+): Promise<T[]> {
+    
+    const ownClient = client == null;
+
+    if (ownClient) {
+        client = await (g as any).pool.connect() as Client
+        await client.connect();
+    }
+    const cli = client as Client
+
+    const results: T[] = [];
+
+    try {
+        const cursor = cli.query(new Cursor(query));
+
+        try {
+            while (true) {
+                const rows = await cursor.read(max_rows);
+
+                if (rows.length === 0) {
+                    break;
+                }
+
+                for (const row of rows) {
+                    results.push(await callback(row));
+                }
+            }
+        } finally {
+            await cursor.close();
+        }
+    } finally {
+        if (ownClient) {
+            await cli.end();
+        }
+    }
+
+    return results;
+}

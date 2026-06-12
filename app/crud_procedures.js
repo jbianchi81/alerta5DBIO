@@ -3422,6 +3422,34 @@ internal.GetSeriesBySiteAndVarProcedure = class extends internal.CrudProcedure {
     }
 }
 
+internal.RastToArealWithZonesProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "RastToArealWithZonesProcedure"
+        this.series_id = arguments[0].series_id
+		this.timestart = DateFromDateOrInterval(arguments[0].timestart)
+		this.timeend = DateFromDateOrInterval(arguments[0].timeend)
+		this.areas_filter = arguments[0].areas_filter
+        if(arguments[0].options) {
+            this.run_options = {
+                upload: arguments[0].upload,
+                no_update: arguments[0].no_update,
+                coef: arguments[0].coef
+            }
+        }
+    }
+    async run() {
+        this.result = await crud.rastToArealWithZones(
+		this.series_id,
+		this.timestart,
+		this.timeend,
+		this.areas_filter,
+		this.run_options
+		)
+        return this.result
+    }
+}
+
 internal.RastToArealProcedure = class extends internal.CrudProcedure {
     constructor() {
         super(...arguments)

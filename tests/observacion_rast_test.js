@@ -195,6 +195,24 @@ test('observacion rast crud sequence', async(t) => {
         }
     })
 
+    await t.test("write to file", async(t) => {
+        const output_file = `/tmp/a5rast-8-${Math.random().toString().substring(2,8)}.tif`
+        const index_file = output_file.replace(".tif","_index.csv")
+        try {
+            await Serie.toRaster(
+                8,
+                new Date(2020,0,1,9),
+                new Date(2020,0,6,9),
+                output_file,
+                index_file
+            )
+        } catch(e) {
+            console.error(e)
+            throw new Error(e)
+        }
+        console.debug("wrote files: " + output_file + ", " + index_file)
+    })
+
     await t.test("delete observaciones", async t => {
         const observaciones = await Observaciones.delete({
             tipo: "rast",

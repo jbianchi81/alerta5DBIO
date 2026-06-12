@@ -55,7 +55,7 @@ const Fuente = require('./models/fuente.js').default
 
 const batches = require('./utils2.js').batches
 
-const {withClient, withTransaction} = require('./db')
+const {withClient, withTransaction, streamQuery} = require('./db');
 
 const apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
 var schemas = apidoc.components.schemas
@@ -2939,12 +2939,32 @@ internal.serie = class extends baseModel {
 	 */
 	async toAreal(
         areas_filter={},
-        options={}) {
+        options={},
+		obs_filter) {
+
+		if(obs_filter) {
+			// writes raster directly from db to file
+			if(!obs_filter.timestart) {
+				throw new Error("missing timestart")
+			}
+			if(!obs_filter.timeend) {
+				throw new Error("missing timeend")
+			}
+			var {cover_file, dates_file} = await this.toRaster(
+				undefined,
+				undefined,
+				obs_filter
+			)
+		} else {
+    		var {cover_file, dates_file} = {}
+		}
 		
 		const means = await internal.CRUD.serieRasttoAreal(
 			this,
 			areas_filter,
-			{coef: options.coef}
+			{coef: options.coef},
+			cover_file,
+			dates_file
 		)
 		for(const m of means) {
 			m.tipo = "areal"
@@ -2958,12 +2978,91 @@ internal.serie = class extends baseModel {
 		return means
 	}
 
-	async toRaster(output_file, write_index_file=true) {
+	async toRaster(output_file, write_index_file=true,obs_filter) {
 		return internal.CRUD.serieRasttoGDAL(
 			this,
 			output_file,
-			write_index_file
+			write_index_file,
+			obs_filter
 		)
+	}
+
+	/**
+	 * queries raster series and writes to multi-band gdal file
+	 * @param {number} series_id 
+	 * @param {Date} timestart 
+	 * @param {Date} timeend 
+	 * @param {string} output_file 
+	 * @param {boolean|string} write_index_file 
+	 * @returns {Promise<{cover_file: string, dates_file: string}>}
+	 */
+	static async toRaster(
+		series_id,
+		timestart,
+		timeend,
+		output_file,
+		write_index_file=true,
+		client,
+		max_rows
+	) {
+		return withClient(client, async (client) => {
+			const query = pasteIntoSQLQuery(`
+				SELECT 
+					observaciones_rast.timestart,
+					ST_AsGDALRaster(ST_Band(observaciones_rast.valor,1), 'GTiff') AS valor
+				FROM
+					observaciones_rast
+				WHERE
+					series_id = $1
+				AND
+					timestart >= $2
+				AND
+					timestart <= $3
+				ORDER BY timestart`,
+				[series_id, timestart, timeend])
+
+			const dir = fs.mkdtempSync(join(tmpdir(), "a5dbio-"));
+			await fs.chmod(dir, 0o777)
+			console.debug("created tmp dir: " + dir)
+
+			output_file = (output_file) ? output_file : join(dir, "cover_file.tif")
+
+			const result = await streamQuery(
+				query,
+				(row) => {
+					const tmpfile = join(dir, `a5rast-${series_id}-${row.timestart.toISOString()}.tif`)
+					fs.writeFileSync(tmpfile, row.valor)
+					return {filename: tmpfile, date: row.timestart}
+				},
+				client,
+				max_rows
+			)
+			if(!result.length) {
+				throw new Error("Cannot write gdal file: no records matched the query")
+			}
+			const tmpfiles = result.map(r=>r.filename)
+			const dates = result.map(r=>r.date.toISOString())
+			try {
+				const {stdout, stderr} = await pexec(`gdal_merge.py -o ${output_file} -separate ${tmpfiles.join(" ")}`)
+				console.log(stdout)
+			} catch (e) {
+				console.error(e)
+				throw new Error("Failed to run gdal_merge.py")
+			}
+			const index_file = (typeof write_index_file == "string") ? write_index_file : `${output_file}_index.csv`
+			if(write_index_file) {
+				fs.writeFileSync(index_file, dates.join("\n"))
+				console.debug(`Wrote index file ${index_file} with ${result.length} dates`)
+			}
+			for(const f of tmpfiles) {
+				fs.rmSync(f)
+			}
+			console.debug(`Wrote file ${output_file} with ${result.length} layers`)
+			return {
+				cover_file: output_file,
+				dates_file: index_file
+			}
+		})
 	}
 
 }
@@ -20436,7 +20535,10 @@ ORDER BY cal.cal_id`
 	static async serieRasttoAreal(
 		serie, // internal.serie | internal.SerieTemporalSim
         areas_filter={},
-        options={}) {
+        options={},
+		cover_file,
+		dates_file
+	) {
 		if(!global.config.zonal_means_exec) {
 			throw new Error("zonal_means_exec not set in config")
 		}
@@ -20445,13 +20547,23 @@ ORDER BY cal.cal_id`
 		const dir = fs.mkdtempSync(join(tmpdir(), "a5dbio-"));
 		await fs.chmod(dir, 0o777)
 		console.debug("created tmp dir: " + dir)
-		const tmpFile_cover = join(dir, "cover.tif") // tmp.fileSync({mode: "0644", prefix: 'rastersim',postfix:'.tif', dir: dir})
-		const tmpFile_dates = join(dir, "dates.csv") // tmp.fileSync({mode: "0644", prefix: 'dates',postfix:'.csv', dir: dir})
-		const tmpFile_series = join(dir, "series.json") // tmp.fileSync({mode: "0644", prefix: 'series',postfix:'.json', dir: dir})
-		const tmpFile_zones = join(dir, "zones.tif") // tmp.fileSync({mode: "0644", prefix: 'zones',postfix:'.tif', dir: dir})
-		const tmpFile_output = join(dir, "means.json") // tmp.fileSync({mode: 0o777, prefix: 'means',postfix:'.json', dir: dir})
-		// write rast prono series to files (values as multilayer .tif + dates index as .csv )
-		await serie.toRaster(tmpFile_cover, tmpFile_dates)
+		const tmpFile_cover = join(dir, "cover.tif") 
+		const tmpFile_dates = join(dir, "dates.csv") 
+		const tmpFile_series = join(dir, "series.json") 
+		const tmpFile_zones = join(dir, "zones.tif") 
+		const tmpFile_output = join(dir, "means.json") 
+		if(!cover_file) {
+			// write rast series to files (values as multilayer .tif + dates index as .csv )
+			await serie.toRaster(tmpFile_cover, tmpFile_dates)
+		} else {
+			// copy cover file to work dir
+			fs.copyFileSync(cover_file, tmpFile_cover)
+			if(!dates_file) {
+				throw new Error("Missing dates_file")
+			}
+			// copy dates file to work dir
+			fs.copyFileSync(dates_file, tmpFile_dates)
+		}
 		// get areas
 		const areas = await internal.area.read(areas_filter)
 		// write areas to raster file
@@ -20499,10 +20611,20 @@ ORDER BY cal.cal_id`
 	static async serieRasttoGDAL(
 		serie, // internal.serie | internal.SerieTemporalSim
 		output_file,  // filepath
-		write_index_file=true // filepath or boolean
+		write_index_file=true, // filepath or boolean
+		obs_filter
 		) {
 		if(serie.tipo != "raster" && serie.tipo != "rast") {
 			throw new Error("Can't export raster from point or area series")
+		}
+		if(obs_filter) {
+			return internal.serie.toRaster(
+				serie.id,
+				obs_filter.timestart,
+				obs_filter.timeend,
+				output_file,
+				write_index_file
+			)
 		}
 		if(!serie.observaciones) {
 			if(!serie.pronosticos || !serie.pronosticos.length) {
@@ -20541,6 +20663,75 @@ ORDER BY cal.cal_id`
 			fs.rmSync(f)
 		}
 		console.debug(`Wrote file ${output_file} with ${tmpfiles.length} layers`)
+	}
+
+	/**
+	 * compute areal means of serie rast using zonal stats (py+grass)
+	 * @param {number} series_id
+	 * @param {Date} timestart
+	 * @param {Date} timeend
+	 * @param {Object} areas_filter
+	 * @param {boolean} areas_filter.mostrar
+	 * @param {boolean} areas_filter.activar
+	 * @param {number|number[]} areas_filter.id
+	 * @param {string} areas_filter.nombre
+	 * @param {Object} areas_filter.geom
+	 * @param {Object} areas_filter.exutorio
+	 * @param {number} areas_filter.exutorio_id
+	 * @param {Object} options
+	 * @param {boolean} options.upload
+	 * @param {boolean} options.no_update
+	 * @param {number} options.coef
+	 * @returns {Promise<internal.observacion[]>}
+	 */
+	static async rastToArealWithZones(
+		series_id,
+		timestart,
+		timeend,
+		areas_filter,
+		options={}
+		) {
+		if(!series_id) {
+			throw new Error("Missing series_id")
+		}
+		if(!timestart) {
+			throw new Error("Missing timestart")
+		}
+		if(!timeend) {
+			throw new Error("Missing timeend")
+		}
+		if(!areas_filter) {
+			throw new Error("Missing areas_filter")
+		}
+		const has_any = ["mostrar","activar","id","unid","nombre","geom","exutorio","exutorio_id"].some(key => areas_filter[key] !== undefined)
+		if(!has_any) {
+			throw new Error('At least one of "mostrar","activar","id","unid","nombre","geom","exutorio","exutorio_id" must be present in areas_filter')
+		}
+		const serie_rast = await internal.serie.read({
+			tipo: "raster",
+			id: series_id
+		})
+		const result = await serie_rast.toAreal(
+			{ // areas filter
+				mostrar: areas_filter.mostrar,
+				activar: areas_filter.activar,
+				id: areas_filter.id || areas_filter.unid,
+				nombre: areas_filter.nombre,
+				geom: areas_filter.geom,
+				exutorio: areas_filter.exutorio,
+				exutorio_id: areas_filter.exutorio_id
+			},
+			{ // options
+				upload: options.upload,
+				coef: options.coef,
+				no_update: options.no_update
+			},
+			{ // obs filter
+				timestart: timestart,
+				timeend: timeend
+			}
+		)
+		return result    
 	}
 }
 

@@ -1,9 +1,10 @@
 const test = require('node:test')
 const assert = require('assert')
 // process.env.NODE_ENV = "test"
-const {serie} = require('../app/CRUD')
+const {serie, CRUD} = require('../app/CRUD')
 // const {CreateProcedure} = require('../app/crud_procedures')
 const fs = require('fs')
+const { spawnSync } = require("node:child_process")
 
 test('serie rast to gdal', async(t) => {
     const serie_rast = await serie.read({ // pronos filter
@@ -20,8 +21,49 @@ test('serie rast to gdal', async(t) => {
     // const serie_rast_ = await 
 })
 
+test('serie rast to gdal directo', async(t) => {
+    const output_file = `/tmp/a5rast-3-${Math.random().toString().substring(2,8)}.tif`
+    const index_file = output_file.replace(".tif","_index.csv")
+        try {
+            await serie.toRaster(
+                3,
+                new Date(2025,0,1),
+                new Date(2026,0,1),
+                output_file,
+                index_file
+            )
+        } catch(e) {
+            console.error(e)
+            throw new Error(e)
+        }
+        console.debug("wrote files: " + output_file + ", " + index_file)
+    assert(fs.existsSync(output_file))
+    assert(fs.existsSync(index_file))
+    const result = spawnSync(
+        "gdalinfo",
+        ["-json", output_file],
+        { encoding: "utf8" }
+    );
+
+    const info = JSON.parse(result.stdout);
+
+    assert.equal(info.bands.length, 365);
+})
+
+test('rast to areal w/ zonal_means directo', async(t) => {
+    const result = await CRUD.rastToArealWithZones(
+		3,
+		new Date(2025,0,1),
+		new Date(2026,0,1),
+		{id: [337, 669, 252, 621, 367, 366, 365, 361, 447, 363, 362, 786, 100, 113, 132, 240]},
+		options={upload:false}
+    )  
+    assert.equal(result.length, 16 * 365)
+})
+
+
 test('rast to areal w/ zonal_means', async(t) => {
-    const serie_rast = await serie.read({ // pronos filter
+    const serie_rast = await serie.read({
             tipo: "raster",
             id: 3,
             timestart: new Date(2026,0,1),
