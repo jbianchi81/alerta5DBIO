@@ -14511,12 +14511,12 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async rastExtractByPoint(series_id,timestart,timeend,point,options={}, client) {
+	static async rastExtractByPoint(series_id,timestart,timeend,point_,options={}, client) {
 		return withClient(client, async (client) => {
-			if(typeof(point) == 'object' || typeof(point) == 'string' && /\,/.test(point)) {
-				var point = new internal.estacion({nombre:"Punto arbitrario", geom: point})
+			if(typeof(point_) == 'object' || typeof(point_) == 'string' && /\,/.test(point_)) {
+				var point = new internal.estacion({nombre:"Punto arbitrario", geom: point_})
 			} else {
-				var point = await this.getEstacion(parseInt(point), undefined, undefined, client)
+				var point = await this.getEstacion(parseInt(point_), undefined, undefined, undefined, client)
 			}
 			if(!point) {
 				throw("Missing point or station not found")
