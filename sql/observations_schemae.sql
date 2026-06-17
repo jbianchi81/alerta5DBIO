@@ -326,7 +326,8 @@ CREATE TABLE public.fuentes (
     def_pixeltype character varying(5) DEFAULT '32BF'::character varying,
     abstract character varying,
     source character varying,
-    public boolean DEFAULT true
+    public boolean DEFAULT true,
+    owner_id integer references users(id)
 );
 
 

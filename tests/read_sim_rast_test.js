@@ -55,3 +55,46 @@ test('read serie temporal sim rast last', async(t) => {
     const serie = series[0]
     assert.equal(serie.pronosticos.length, 64)
 })
+
+test('read serie temporal sim rast to gdal', async(t) => {
+    const result = await SerieTemporalSim.toRaster(
+        16,
+        676,
+        "last",
+        undefined,
+        undefined,
+        "/tmp/serie_rast_prono_16_676.tif",
+        "/tmp/serie_rast_prono_16_676.csv",
+        undefined,
+        10
+    )
+    assert.equal(result.cover_file, "/tmp/serie_rast_prono_16_676.tif")
+    assert.equal(result.dates_file, "/tmp/serie_rast_prono_16_676.csv")
+    assert(fs.existsSync("/tmp/serie_rast_prono_16_676.tif"))
+    assert(fs.existsSync("/tmp/serie_rast_prono_16_676.csv"))
+})
+
+test('read serie temporal sim rast, toRaster', async(t) => {
+    const series = await SerieTemporalSim.read(
+        {
+            tipo: "raster",
+            series_id: 16,
+            cal_id: 676,
+            cor_id: 954778
+        },{
+            includeProno: false
+        })
+    assert.equal(series.length, 1)
+    const serie = series[0]
+    assert.equal(serie.pronosticos.length, 0)
+    await serie.toRaster("/tmp/a5rast_16_676.tif",undefined, {})
+    assert(fs.existsSync("/tmp/a5rast_16_676.tif"))
+    assert(fs.existsSync("/tmp/a5rast_16_676.tif_index.csv"))
+    const index_csv = fs.readFileSync("/tmp/a5rast_16_676.tif_index.csv",{encoding: "utf-8"})
+    const index = index_csv.split("\n").map(r=>new Date(r))
+    assert.equal(index.length, 64)
+    for(const d of index) {
+        const date = new Date(d)
+        assert(date.toString() != "Invalid Date")
+    }
+})    

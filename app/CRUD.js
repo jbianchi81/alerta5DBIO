@@ -55,7 +55,7 @@ const Fuente = require('./models/fuente.js').default
 
 const batches = require('./utils2.js').batches
 
-const {withClient, withTransaction, streamQuery} = require('./db');
+const {withClient, withTransaction, streamQuery, queryToRaster} = require('./db');
 
 const apidoc = JSON.parse(fs.readFileSync(path.resolve(__dirname,'../public/json/apidocs.json'),'utf-8'))
 var schemas = apidoc.components.schemas
@@ -3006,7 +3006,7 @@ internal.serie = class extends baseModel {
 		max_rows
 	) {
 		return withClient(client, async (client) => {
-			const query = pasteIntoSQLQuery(`
+			const stmt = pasteIntoSQLQuery(`
 				SELECT 
 					observaciones_rast.timestart,
 					ST_AsGDALRaster(ST_Band(observaciones_rast.valor,1), 'GTiff') AS valor
@@ -3021,47 +3021,13 @@ internal.serie = class extends baseModel {
 				ORDER BY timestart`,
 				[series_id, timestart, timeend])
 
-			const dir = fs.mkdtempSync(join(tmpdir(), "a5dbio-"));
-			await fs.chmod(dir, 0o777)
-			console.debug("created tmp dir: " + dir)
-
-			output_file = (output_file) ? output_file : join(dir, "cover_file.tif")
-
-			const result = await streamQuery(
-				query,
-				(row) => {
-					const tmpfile = join(dir, `a5rast-${series_id}-${row.timestart.toISOString()}.tif`)
-					fs.writeFileSync(tmpfile, row.valor)
-					return {filename: tmpfile, date: row.timestart}
-				},
+			return queryToRaster(
+				stmt,
+				output_file,
+				write_index_file,
 				client,
 				max_rows
 			)
-			if(!result.length) {
-				throw new Error("Cannot write gdal file: no records matched the query")
-			}
-			const tmpfiles = result.map(r=>r.filename)
-			const dates = result.map(r=>r.date.toISOString())
-			try {
-				const {stdout, stderr} = await pexec(`gdal_merge.py -o ${output_file} -separate ${tmpfiles.join(" ")}`)
-				console.log(stdout)
-			} catch (e) {
-				console.error(e)
-				throw new Error("Failed to run gdal_merge.py")
-			}
-			const index_file = (typeof write_index_file == "string") ? write_index_file : `${output_file}_index.csv`
-			if(write_index_file) {
-				fs.writeFileSync(index_file, dates.join("\n"))
-				console.debug(`Wrote index file ${index_file} with ${result.length} dates`)
-			}
-			for(const f of tmpfiles) {
-				fs.rmSync(f)
-			}
-			console.debug(`Wrote file ${output_file} with ${result.length} layers`)
-			return {
-				cover_file: output_file,
-				dates_file: index_file
-			}
 		})
 	}
 
@@ -7332,12 +7298,88 @@ internal.SerieTemporalSim = class extends baseModel {
 		})
 	}
 
-	async toRaster(output_file, write_index_file=true) {
+	async toRaster(
+		output_file, 
+		write_index_file=true,
+		obs_filter) {
 		return internal.CRUD.serieRasttoGDAL(
 			this,
 			output_file,
-			write_index_file
+			write_index_file,
+			obs_filter
 		)
+	}
+
+	/**
+	 * queries raster series prono and writes to multi-band gdal file
+	 * @param {number} series_id 
+	 * @param {Date} timestart 
+	 * @param {Date} timeend 
+	 * @param {string} output_file 
+	 * @param {boolean|string} write_index_file 
+	 * @returns {Promise<{cover_file: string, dates_file: string}>}
+	 */
+	static async toRaster(
+		series_id,
+		cal_id,
+		cor_id="last",
+		timestart,
+		timeend,
+		output_file,
+		write_index_file=true,
+		client,
+		max_rows,
+		isPublic
+	) {
+		return withClient(client, async (client) => {
+			if(cor_id == "last") {
+				if(!cal_id) {
+					throw new Error("cal_id must be set")
+				}
+				const last_cor = await internal.corrida.getLast(cal_id, client, isPublic)
+				if(!last_cor.length) {
+					throw new Error("Last corrida for cal_id=" + cal_id + " not found")
+				}
+				cor_id = last_cor[0].id
+			}
+			const filter_string = internal.utils.control_filter2(
+				{
+					timestart: {
+						type: "timestart"
+					},
+					timeend: {
+						type: "timeend",
+						column: "timestart"
+					}
+				},
+				{
+					timestart: timestart,
+					timeend: timeend
+				},
+				"pronosticos_rast"
+			)
+			const stmt = pasteIntoSQLQuery(`
+				SELECT 
+					pronosticos_rast.timestart,
+					ST_AsGDALRaster(ST_Band(pronosticos_rast.valor,1), 'GTiff') AS valor
+				FROM
+					pronosticos_rast
+				WHERE
+					series_id = $1
+				AND
+					cor_id = $2
+				${filter_string}
+				ORDER BY timestart`,
+				[series_id, cor_id])
+
+			return queryToRaster(
+				stmt,
+				output_file,
+				write_index_file,
+				client,
+				max_rows
+			)
+		})
 	}
 
 	/**
@@ -20618,13 +20660,25 @@ ORDER BY cal.cal_id`
 			throw new Error("Can't export raster from point or area series")
 		}
 		if(obs_filter) {
-			return internal.serie.toRaster(
-				serie.id,
-				obs_filter.timestart,
-				obs_filter.timeend,
-				output_file,
-				write_index_file
-			)
+			if(serie instanceof internal.SerieTemporalSim) {
+				return internal.SerieTemporalSim.toRaster(
+					serie.series_id,
+					serie.cal_id,
+					serie.cor_id,
+					obs_filter.timestart,
+					obs_filter.timeend,
+					output_file,
+					write_index_file
+				)
+			} else {
+				return internal.serie.toRaster(
+					serie.id,
+					obs_filter.timestart,
+					obs_filter.timeend,
+					output_file,
+					write_index_file
+				)
+			}
 		}
 		if(!serie.observaciones) {
 			if(!serie.pronosticos || !serie.pronosticos.length) {

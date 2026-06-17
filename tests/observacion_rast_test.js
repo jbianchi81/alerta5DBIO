@@ -2,6 +2,7 @@ const test = require('node:test')
 const assert = require('assert')
 process.env.NODE_ENV = "test"
 const {serie: Serie, observacion: Observacion, observaciones: Observaciones, escena: Escena, fuente: Fuente} = require('../app/CRUD')
+const fs = require('promise-fs')
 
 test('observacion rast crud sequence', async(t) => {
 
@@ -211,6 +212,8 @@ test('observacion rast crud sequence', async(t) => {
             throw new Error(e)
         }
         console.debug("wrote files: " + output_file + ", " + index_file)
+        assert(fs.existsSync(output_file))
+        assert(fs.existsSync(index_file))
     })
 
     await t.test("delete observaciones", async t => {
