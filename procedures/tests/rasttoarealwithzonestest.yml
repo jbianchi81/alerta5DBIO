@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../public/schemas/sequence.json 
+sequence:
+- procedureName: RastToArealWithZonesProcedure
+  arguments:
+    series_id: 8
+    timestart: 2026-01-01T12:00:00.000Z
+    timeend: 2026-01-15T12:00:00.000Z
+    areas_filter: 
+      id: [713, 188, 632, 417, 414, 380, 368, 416, 415, 683, 413, 410, 409, 364, 778, 65, 206, 208, 319, 618, 2, 885, 500, 729, 603, 897, 101]
+    options:
+      output: outputs/pmad_campo_505.json
+      upload: false
+  tests:
+  - testName: ArrayLengthTest
+    arguments:
+      min_length: 390
+      max_length: 390

@@ -121,6 +121,12 @@
                     },
                     {
                         "$ref": "deleteremotefromaccessorprocedure.json"
+                    },
+                    {
+                        "$ref": "rasttoarealwithzonesprocedure.json"
+                    },
+                    {
+                        "$ref": "simrasttoarealwithzonesprocedure.json"
                     }
                 ]
             }

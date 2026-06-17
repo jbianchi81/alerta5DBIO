@@ -1,7 +1,7 @@
 {
-    "$id": "rastextractprocedure.json",
+    "$id": "rasttoarealprocedure.json",
     "schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "RastExtractProcedure",
+    "title": "RastToArealProcedure",
     "type": "object",
     "allOf": [{ "$ref": "rastextractprocedure.json" }],
     "properties": {

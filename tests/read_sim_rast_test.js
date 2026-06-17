@@ -1,7 +1,7 @@
 const test = require('node:test')
 const assert = require('assert')
 // process.env.NODE_ENV = "test"
-const {SerieTemporalSim, pronostico} = require('../app/CRUD')
+const {SerieTemporalSim, pronostico, simRastToArealWithZones} = require('../app/CRUD')
 // const {CreateProcedure} = require('../app/crud_procedures')
 const fs = require('fs')
 

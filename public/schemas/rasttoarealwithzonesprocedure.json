@@ -1,0 +1,76 @@
+{
+    "$id": "rasttoarealwithzonesprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "RastToArealWithZonesProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "RastToArealWithZonesProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "series_id": {
+                    "type": "integer"
+                },
+                "timestart": {
+                    "$ref": "dateorinterval.json"
+                },
+                "timeend": {
+                    "$ref": "dateorinterval.json"
+                },
+                "areas_filter": {
+                    "type": "object",
+                    "properties": {
+                        "mostrar": {
+                            "type": "boolean"
+                        },
+                        "activar": {
+                            "type": "boolean"
+                        },
+                        "id": {
+                            "oneOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "number"
+                                    }
+                                }
+                            ]
+                        },
+                        "nombre": {
+                            "type": "string"
+                        },
+                        "geom": {
+                            "$ref": "geometry.json"
+                        },
+                        "exutorio": {
+                            "$ref": "geometry.json"
+                        },
+                        "exutorio_id": {
+                            "type": "number"
+                        }
+                    }
+                },
+                "options": {
+                    "type": "object",
+                    "properties": {
+                        "upload": {
+                            "type": "boolean"
+                        }
+                    }
+                }
+            },
+            "required": [
+                "series_id",
+                "timestart",
+                "timeend",
+                "areas_filter"
+            ]
+        }
+    }
+}

@@ -7387,17 +7387,36 @@ internal.SerieTemporalSim = class extends baseModel {
 	 */
 	async toAreal(
         areas_filter={},
-        options={}) {
+        options={},
+		obs_filter) {
 		
 		if(!this.metadata) {
 			await this.getMetadata()
 		}
 
+		if(obs_filter) {
+			// writes raster directly from db to file
+			
+			var {cover_file, dates_file} = await this.toRaster(
+				undefined,
+				undefined,
+				obs_filter
+			)
+		} else {
+    		var {cover_file, dates_file} = {}
+		}
+
 		const means = await internal.CRUD.serieRasttoAreal(
 			this,
 			areas_filter,
-			options
+			{coef: options.coef},
+			cover_file,
+			dates_file
 		)
+		// for(const m of means) {
+		// 	m.tipo = "areal"
+		// 	m.series_table = "series_areal"
+		// }
 		if(options.upload) {
 			return internal.pronostico.create(means, {tipo: this.tipo, cor_id: this.cor_id})
 		}
@@ -20765,6 +20784,82 @@ ORDER BY cal.cal_id`
 			tipo: "raster",
 			id: series_id
 		})
+		const result = await serie_rast.toAreal(
+			{ // areas filter
+				mostrar: areas_filter.mostrar,
+				activar: areas_filter.activar,
+				id: areas_filter.id || areas_filter.unid,
+				nombre: areas_filter.nombre,
+				geom: areas_filter.geom,
+				exutorio: areas_filter.exutorio,
+				exutorio_id: areas_filter.exutorio_id
+			},
+			{ // options
+				upload: options.upload,
+				coef: options.coef,
+				no_update: options.no_update
+			},
+			{ // obs filter
+				timestart: timestart,
+				timeend: timeend
+			}
+		)
+		return result    
+	}
+
+		/**
+	 * compute areal means of serie rast using zonal stats (py+grass)
+	 * @param {number} series_id
+	 * @param {Date} timestart
+	 * @param {Date} timeend
+	 * @param {Object} areas_filter
+	 * @param {boolean} areas_filter.mostrar
+	 * @param {boolean} areas_filter.activar
+	 * @param {number|number[]} areas_filter.id
+	 * @param {string} areas_filter.nombre
+	 * @param {Object} areas_filter.geom
+	 * @param {Object} areas_filter.exutorio
+	 * @param {number} areas_filter.exutorio_id
+	 * @param {Object} options
+	 * @param {boolean} options.upload
+	 * @param {boolean} options.no_update
+	 * @param {number} options.coef
+	 * @returns {Promise<internal.observacion[]>}
+	 */
+	static async simRastToArealWithZones(
+		series_id,
+		cal_id,
+		cor_id="last",
+		timestart,
+		timeend,
+		areas_filter,
+		options={}
+		) {
+		if(!series_id) {
+			throw new Error("Missing series_id")
+		}
+		if(!areas_filter) {
+			throw new Error("Missing areas_filter")
+		}
+		const has_any = ["mostrar","activar","id","unid","nombre","geom","exutorio","exutorio_id"].some(key => areas_filter[key] !== undefined)
+		if(!has_any) {
+			throw new Error('At least one of "mostrar","activar","id","unid","nombre","geom","exutorio","exutorio_id" must be present in areas_filter')
+		}
+		const series_rast = await internal.SerieTemporalSim.read(
+			{
+				tipo: "raster",
+				series_id: series_id,
+				cal_id: cal_id,
+				cor_id: cor_id
+			},
+			{
+				includeProno: false
+			}
+		)
+		if(!series_rast.length) {
+			throw new Error("Series prono not found with series_id=" + series_id)
+		}
+		const serie_rast = series_rast[0]
 		const result = await serie_rast.toAreal(
 			{ // areas filter
 				mostrar: areas_filter.mostrar,

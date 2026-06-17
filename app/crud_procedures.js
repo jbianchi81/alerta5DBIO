@@ -3450,6 +3450,37 @@ internal.RastToArealWithZonesProcedure = class extends internal.CrudProcedure {
     }
 }
 
+internal.SimRastToArealWithZonesProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "SimRastToArealWithZonesProcedure"
+        this.series_id = arguments[0].series_id
+		this.timestart = DateFromDateOrInterval(arguments[0].timestart)
+		this.timeend = DateFromDateOrInterval(arguments[0].timeend)
+		this.areas_filter = arguments[0].areas_filter
+        if(arguments[0].options) {
+            this.run_options = {
+                upload: arguments[0].upload,
+                no_update: arguments[0].no_update,
+                coef: arguments[0].coef
+            }
+        }
+    }
+    async run() {
+        this.result = await crud.simRastToArealWithZones(
+		this.series_id,
+        this.cal_id,
+        this.cor_id,
+		this.timestart,
+		this.timeend,
+		this.areas_filter,
+		this.run_options
+		)
+        return this.result
+    }
+}
+
+
 internal.RastToArealProcedure = class extends internal.CrudProcedure {
     constructor() {
         super(...arguments)
@@ -3755,7 +3786,9 @@ const availableCrudProcedures = {
     "UpdateSerieFromPronoProcedure": internal.UpdateSerieFromPronoProcedure,
     "ImportNetcdfProcedure": internal.ImportNetcdfProcedure,
     "ImportTifProcedure": internal.ImportTifProcedure,
-    "DownloadThreddsProcedure": internal.DownloadThreddsProcedure
+    "DownloadThreddsProcedure": internal.DownloadThreddsProcedure,
+    "RastToArealWithZonesProcedure": internal.RastToArealWithZonesProcedure,
+    "SimRastToArealWithZonesProcedure": internal.SimRastToArealWithZonesProcedure
 }
 
 internal.availableTests = {
