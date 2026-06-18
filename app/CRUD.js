@@ -5155,7 +5155,7 @@ internal.observaciones = class extends BaseArray {
 			FROM stage_obs
 			ON CONFLICT (series_id,timestart,timeend)
 			${obs_on_conflict_clause}`)
-		console.debug("Inserted " + insert_obs_result.rowCount + " rows into " + obs_table)
+		// console.debug("Inserted " + insert_obs_result.rowCount + " rows into " + obs_table)
 		await client.query("DELETE FROM stage_obs_map")
 		await client.query(
 			`INSERT INTO stage_obs_map
@@ -5189,6 +5189,7 @@ internal.observaciones = class extends BaseArray {
 				FROM ${obs_table}
 				JOIN stage_obs_map 
 				ON stage_obs_map.obs_id=${obs_table}.id`, [tipo])
+			console.debug("inserted/updated " + observaciones.rowCount + " rows into " + obs_table)
 			return new internal.observaciones(observaciones.rows)
 		}
 	}
@@ -7418,7 +7419,7 @@ internal.SerieTemporalSim = class extends baseModel {
 		// 	m.series_table = "series_areal"
 		// }
 		if(options.upload) {
-			return internal.pronostico.create(means, {tipo: this.tipo, cor_id: this.cor_id})
+			return internal.pronostico.create(means, {tipo: "areal", cor_id: this.cor_id})
 		}
 		return means
 	}

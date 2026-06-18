@@ -43,7 +43,17 @@
                             "type": "boolean"
                         },
                         "id": {
-                            "type": "number"
+                            "oneOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "number"
+                                    }
+                                }
+                            ]
                         },
                         "nombre": {
                             "type": "string"

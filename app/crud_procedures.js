@@ -3432,9 +3432,9 @@ internal.RastToArealWithZonesProcedure = class extends internal.CrudProcedure {
 		this.areas_filter = arguments[0].areas_filter
         if(arguments[0].options) {
             this.run_options = {
-                upload: arguments[0].upload,
-                no_update: arguments[0].no_update,
-                coef: arguments[0].coef
+                upload: arguments[0].options.upload,
+                no_update: arguments[0].options.no_update,
+                coef: arguments[0].options.coef
             }
         }
     }
@@ -3460,21 +3460,21 @@ internal.SimRastToArealWithZonesProcedure = class extends internal.CrudProcedure
 		this.areas_filter = arguments[0].areas_filter
         if(arguments[0].options) {
             this.run_options = {
-                upload: arguments[0].upload,
-                no_update: arguments[0].no_update,
-                coef: arguments[0].coef
+                upload: arguments[0].options.upload,
+                no_update: arguments[0].options.no_update,
+                coef: arguments[0].options.coef
             }
         }
     }
     async run() {
         this.result = await crud.simRastToArealWithZones(
-		this.series_id,
-        this.cal_id,
-        this.cor_id,
-		this.timestart,
-		this.timeend,
-		this.areas_filter,
-		this.run_options
+            this.series_id,
+            this.cal_id,
+            this.cor_id,
+            this.timestart,
+            this.timeend,
+            this.areas_filter,
+            this.run_options
 		)
         return this.result
     }
