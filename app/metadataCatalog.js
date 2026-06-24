@@ -101,7 +101,7 @@ class MetadataCatalog {
 exports.MetadataCatalog = MetadataCatalog;
 function describeFeatureType(geoserverUrl, layer // including namespace
 ) {
-    var _a, _b;
+    var _a, _b, _c, _d, _e, _f;
     return __awaiter(this, void 0, void 0, function* () {
         const url = `${geoserverUrl}/wfs` +
             `?service=WFS` +
@@ -116,8 +116,10 @@ function describeFeatureType(geoserverUrl, layer // including namespace
         const xsd = parser.parse(response.data);
         const schema = (_a = xsd["xsd:schema"]) !== null && _a !== void 0 ? _a : xsd.schema;
         const complexType = (_b = schema["xsd:complexType"]) !== null && _b !== void 0 ? _b : schema.complexType;
-        const sequence = complexType["xsd:complexContent"]["xsd:extension"]["xsd:sequence"];
-        const elements = sequence["xsd:element"];
+        const complexContent = (_c = complexType["xsd:complexContent"]) !== null && _c !== void 0 ? _c : complexType.complexContent;
+        const extension = (_d = complexContent["xsd:extension"]) !== null && _d !== void 0 ? _d : complexContent.extension;
+        const sequence = (_e = extension["xsd:sequence"]) !== null && _e !== void 0 ? _e : extension.sequence;
+        const elements = (_f = sequence["xsd:element"]) !== null && _f !== void 0 ? _f : sequence.element;
         return (Array.isArray(elements) ? elements : [elements])
             .map((e) => (parseAttributeTableElement(e)));
     });

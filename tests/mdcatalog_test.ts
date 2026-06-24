@@ -14,6 +14,15 @@ test('get and parse field descriptions', async(t) => {
     }
 }) 
 
+test('get and parse field descriptions older geoserver', async(t) => {
+    const fd = await describeFeatureType("https://alerta.ina.gob.ar/geoserver", "public2:tramos_condicion_params")
+    assert(Array.isArray(fd))
+    for(const field of fd) {
+        assert(field.name)
+    }
+}) 
+
+
 test('get capabilities', async(t) => {
     const c = await getWFSCapabilities("http://localhost:8080/geoserver")
     assert(Array.isArray(c))

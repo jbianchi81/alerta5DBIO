@@ -157,12 +157,21 @@ export async function describeFeatureType(
         schema["xsd:complexType"] ??
         schema.complexType;
 
-    const sequence =
-        complexType["xsd:complexContent"]
-            ["xsd:extension"]
-            ["xsd:sequence"];
+    const complexContent =
+        complexType["xsd:complexContent"] ??
+        complexType.complexContent;
+    
+    const extension =
+        complexContent["xsd:extension"] ??
+        complexContent.extension;
 
-    const elements = sequence["xsd:element"];
+    const sequence =
+        extension["xsd:sequence"] ??
+        extension.sequence;
+
+    const elements =
+        sequence["xsd:element"] ??
+        sequence.element;
 
     return (Array.isArray(elements) ? elements : [elements])
         .map((e: any) => (parseAttributeTableElement(e)));
