@@ -27,6 +27,7 @@ const {getDeepValue, delay} = require('./utils')
 const { accessor_feature_of_interest } = require('./accessor_mapping')
 const { updateFlowcatSeries } = require('./update_flowcat_series')
 const { Client: ThreddsClient, tifDirToObservacionesRaster, rastToArealAll} = require('./accessors/thredds')
+const { MetadataCatalog } = require("./metadataCatalog.js")
 const internal = {}
 
 /**
@@ -2903,6 +2904,25 @@ internal.ImportTifProcedure = class extends internal.CrudProcedure {
     }
 }
 
+internal.UpdateMetadataCatalogProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "UpdateMetadataCatalogProcedure"
+        if(!arguments[0].geoserver_url) {
+            throw new Error("Missing geoserver_url")
+        }
+        this.geoserver_url = arguments[0].geoserver_url
+        if(arguments[0].layer_name) {
+            this.layer_name = arguments[0].layer_name
+        }
+    }    
+    async run() {
+        const md_items = await MetadataCatalog.update(this.geoserver_url, true, undefined, this.layer_name)
+        this.result = md_items
+        return this.result
+    }
+}
+
 
 internal.ValidateProcedure = class extends internal.CrudProcedure {
     /**
@@ -3788,7 +3808,8 @@ const availableCrudProcedures = {
     "ImportTifProcedure": internal.ImportTifProcedure,
     "DownloadThreddsProcedure": internal.DownloadThreddsProcedure,
     "RastToArealWithZonesProcedure": internal.RastToArealWithZonesProcedure,
-    "SimRastToArealWithZonesProcedure": internal.SimRastToArealWithZonesProcedure
+    "SimRastToArealWithZonesProcedure": internal.SimRastToArealWithZonesProcedure,
+    "UpdateMetadataCatalogProcedure": internal.UpdateMetadataCatalogProcedure
 }
 
 internal.availableTests = {

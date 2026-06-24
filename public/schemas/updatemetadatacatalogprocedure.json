@@ -1,0 +1,45 @@
+{
+    "$id": "updatemetadatacatalogprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "UpdateMetadataCatalogProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "UpdateMetadataCatalogProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "geoserver_url": {
+                    "type": "string",
+                    "description": "Url of the wfs service"
+                },
+                "layer_name": {
+                    "oneOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "array",
+                            "items": "string"
+                        }
+                    ],
+                    "description": "One or more layer names. If missing, updates all"
+                },
+                "options": {
+                    "type": "object",
+                    "properties": {
+                        "output": {
+                            "type": "string",
+                            "description": "path to the output file"
+                        }
+                    }
+                }
+            },
+            "required": [
+                "geoserver_url"
+            ]
+        }
+    }
+}

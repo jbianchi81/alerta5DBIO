@@ -127,6 +127,9 @@
                     },
                     {
                         "$ref": "simrasttoarealwithzonesprocedure.json"
+                    },
+                    {
+                        "$ref": "updatemetadatacatalogprocedure.json"
                     }
                 ]
             }
