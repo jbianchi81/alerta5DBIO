@@ -62,6 +62,9 @@ const printRast = require('./print_rast')
 const print_rast = printRast.print_rast
 const print_rast_series = printRast.print_rast_series
 
+// metadata catalog
+const {MetadataCatalog} = require('./metadataCatalog')
+
 // CORS
 const cors = require('cors')
 if(config.enable_cors) {
@@ -312,6 +315,9 @@ app.get('/deletePointsLayer',auth.isAuthenticated,geoserverDeletePointsLayer)
 app.post('/deletePointsLayer',auth.isAuthenticated,geoserverDeletePointsLayer)
 app.get('/deleteAreasLayer',auth.isAuthenticated,geoserverDeleteAreasLayer)
 app.post('/deleteAreasLayer',auth.isAuthenticated,geoserverDeleteAreasLayer)
+// metadata catalog
+app.get('/metadataCatalog',auth.isAuthenticated,getMetadataCatalog)
+app.get('/metadataCatalog/:name',auth.isAuthenticated,getMetadataItem)
 // REST API
 // UI
 app.get('/apiUI',auth.isPublicView,(req,res)=>{
@@ -7007,6 +7013,41 @@ function getAlturasMareaFull(req,res) {
 	})
 }
 
+async function getMetadataCatalog(req, res) {
+	try {
+		var filter = getFilter(req,res.locals)
+		var options = getOptions(req)
+	} catch (e) {
+		console.error(e)
+		res.status(400).send({message:"query error",error:e.toString()})
+		return
+	}
+	try {
+		const md = await MetadataCatalog.list()
+		send_output(options, md, res)
+	} catch(e) {
+		res.status(400).send({message:"query error",error:e.toString()})
+	}
+}
+
+async function getMetadataItem(req, res) {
+	try {
+		var filter = getFilter(req,res.locals)
+		var options = getOptions(req)
+	} catch (e) {
+		console.error(e)
+		res.status(400).send({message:"query error",error:e.toString()})
+		return
+	}
+	try {
+		const md = await MetadataCatalog.readOne(filter.name)
+		send_output(options, md, res)
+	} catch(e) {
+		res.status(400).send({message:"query error",error:e.toString()})
+	}
+}
+
+
 // aux functions
 
 function arr2csv(arr) {
@@ -7861,6 +7902,9 @@ function getFilter(req,locals) {
 		}
 		if(req.params.col_id) {
 			filter.col_id = req.params.col_id
+		}
+		if(req.params.name) {
+			filter.name = req.params.name
 		}
 	}
 	if(locals) {
