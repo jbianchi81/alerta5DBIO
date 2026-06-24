@@ -316,8 +316,8 @@ app.post('/deletePointsLayer',auth.isAuthenticated,geoserverDeletePointsLayer)
 app.get('/deleteAreasLayer',auth.isAuthenticated,geoserverDeleteAreasLayer)
 app.post('/deleteAreasLayer',auth.isAuthenticated,geoserverDeleteAreasLayer)
 // metadata catalog
-app.get('/metadataCatalog',auth.isAuthenticated,getMetadataCatalog)
-app.get('/metadataCatalog/:name',auth.isAuthenticated,getMetadataItem)
+app.get('/metadataCatalog',auth.isPublic,getMetadataCatalog)
+app.get('/metadataCatalog/:name',auth.isPublic,getMetadataItem)
 // REST API
 // UI
 app.get('/apiUI',auth.isPublicView,(req,res)=>{
