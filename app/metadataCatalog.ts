@@ -157,6 +157,11 @@ export async function describeFeatureType(
         schema["xsd:complexType"] ??
         schema.complexType;
 
+    if(!complexType) {
+        console.warn("No attribute metadata found for layer " + layer)
+        return []
+    }
+
     const complexContent =
         complexType["xsd:complexContent"] ??
         complexType.complexContent;
