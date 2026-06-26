@@ -52,7 +52,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
     }
 
     async downloadDataAndParseCSV(url : string, timestart?: Date, timeend?: Date, series_id?: number) : Promise<Array<Observacion>> {
-        const data : string = await fetchData(url)
+        const data : string = await fetchData(url, {disable_validation: true})
         const parsed_data : Array<Array<string>> = parse(data)
         return this.arrayToObs(parsed_data, this.date_col, this.value_col, this.skip_rows, timestart, timeend, series_id)
     }

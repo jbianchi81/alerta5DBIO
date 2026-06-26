@@ -4,6 +4,7 @@ var fs = require('fs')
 const axios = require('axios')
 const Observacion = require('./CRUD').observacion
 const { booleanPointInPolygon } = require('@turf/boolean-point-in-polygon')
+const https = require('https')
 
 // accessors aux functions 
 
@@ -274,8 +275,15 @@ internal.createUrlParams = function(params) {
 }
 
 internal.fetchData = async function(url, options) {
+    if(options && options.disable_validation) {
+        var agent = new https.Agent({
+           rejectUnauthorized: false,
+        })
+    } else {
+        agent = new https.Agent()
+    }
     try {
-        const response = await axios.get(url, options);
+        const response = await axios.get(url, {...options, httpsAgent: agent});
         return response.data;
     } catch (error) {
         if (error.response) {
