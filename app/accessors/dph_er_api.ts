@@ -1,7 +1,9 @@
-import { AbstractAccessorEngine, AccessorEngine, ObservacionesFilter, SeriesFilter, SitesFilter, ObservacionesFilterWithArrays } from './abstract_accessor_engine'
+import { AbstractAccessorEngine, AccessorEngine, ObservacionesFilter, SeriesFilter, SitesFilter } from './abstract_accessor_engine'
+// @ts-ignore
 import { fetchData } from '../accessor_utils'
 import { Observacion, Serie} from '../a5_types'
-import { estacion as CrudEstacion, serie as CrudSerie, red as CrudRed } from '../CRUD'
+// @ts-ignore
+import { estacion as CrudEstacion, serie as CrudSerie, red as CrudRed, observaciones as CrudObservaciones } from '../CRUD'
 import { Location } from '../a5_types'
 
 type Config = {
@@ -155,6 +157,12 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         }))
     }    
 
+    /**
+     * El rango entre 'desde' y 'hasta' no puede superar 7 días.
+     * @param desde 
+     * @param hasta 
+     * @returns 
+     */
     async get_precipitaciones_global(
         desde? : string,
         hasta? : string
@@ -193,6 +201,8 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
             })
     }
 
+    parsePrecipitacion(p : Precipitacion, series_id : number) : Observacion|null
+    parsePrecipitacion(p : PrecipitacionGlobal) : Observacion|null
     parsePrecipitacion(p : Precipitacion|PrecipitacionGlobal, series_id? : number) : Observacion|null {
         const timestart = new Date(
             parseInt(p.fecha.substring(0,4)),
@@ -203,13 +213,13 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         if(timestart.toString() == "Invalid Date") {
             throw new Error(`Invalid date: ${timestart.toString()}`)
         }
-        if(!p.medicion_realizada || !p.precipitacion_mm) {
+        if(!p.medicion_realizada || p.precipitacion_mm == null) {
             console.warn(`medicion nula`)
             return null
         }
         const timeend = new Date(timestart)
         timeend.setDate(timeend.getDate() + 1)
-        if(!series_id && p.hasOwnProperty("estacion_id")) {
+        if("estacion_id" in p) {
             series_id = this.findSerie(undefined, undefined, p.estacion_id).series_id
         }
         return {
@@ -240,9 +250,9 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         }
     }
 
-    findSerie(estacion_id? : number, series_id? : number) {
-        if(!estacion_id && !series_id) {
-            throw new Error("At least one of estacion_id, series_id must be set")
+    findSerie(estacion_id? : number, series_id? : number, id_externo? : number) {
+        if(!estacion_id && !series_id && !id_externo) {
+            throw new Error("At least one of estacion_id, series_id, id_externo must be set")
         }
         if(!this.series_map) {
             throw new Error("series_map not set")
@@ -252,8 +262,12 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                 if(mapping.estacion_id == estacion_id) {
                     return mapping
                 }
-            } else {
+            } else if(series_id) {
                 if(mapping.series_id == series_id) {
+                    return mapping
+                }
+            } else {
+                if(mapping.id_externo == id_externo) {
                     return mapping
                 }
             }
@@ -267,7 +281,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         return response.data.precipitaciones.map(p => this.parsePrecipitacion(p, mapping.series_id)).filter(o=>o != null)
     }
 
-    async get(filter : ObservacionesFilterWithArrays, options : {} ={}) : Promise<Observaciones[]> {
+    async get(filter : ObservacionesFilter, options : {} ={}) : Promise<Observacion[]> {
         if(!this.series_map) {
             await this.getSeriesMap()
         }
@@ -275,6 +289,7 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         const hasta = (filter.timeend) ? formatLocalDate(filter.timeend) : undefined
 
         if(filter.estacion_id) {
+            checkMaxDays(desde, hasta, 365)
             const observaciones : Observacion[] = []
             if(Array.isArray(filter.estacion_id)) {
                 for(const estacion_id of filter.estacion_id) {
@@ -286,7 +301,9 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                 observaciones.push(...obs)
             }
             return observaciones
-        } else if(filter.series_id) {
+        } 
+        if(filter.series_id) {
+            checkMaxDays(desde, hasta, 365)
             const observaciones : Observacion[] = []
             if(Array.isArray(filter.series_id)) {
                 for(const series_id of filter.series_id) {
@@ -300,9 +317,15 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
             return observaciones
         }
         // all stations
+        checkMaxDays(desde, hasta, 7)
         const response = await this.get_precipitaciones_global(desde, hasta)
         const observaciones : Observacion[] = response.data.precipitaciones.map(p => this.parsePrecipitacion(p)).filter(o => o != null)
         return observaciones
+    }
+
+    async update(filter : ObservacionesFilter, options : {} ={}) : Promise<Observacion[]> {
+        const results = await this.get(filter)
+        return CrudObservaciones.create(results)
     }
 }
 
@@ -310,4 +333,17 @@ function formatLocalDate(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
 
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function checkMaxDays(desde? : string, hasta? : string, maxDays : number=7) : void {
+    if(!desde || !hasta) {
+        return
+    }
+    const startDate = new Date(desde);
+    const endDate = new Date(hasta);
+    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays > maxDays) {
+        throw new Error(`The date range between ${desde} and ${hasta} exceeds the maximum allowed days (${maxDays})`);
+    }
 }

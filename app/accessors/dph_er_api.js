@@ -11,7 +11,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Client = void 0;
 const abstract_accessor_engine_1 = require("./abstract_accessor_engine");
+// @ts-ignore
 const accessor_utils_1 = require("../accessor_utils");
+// @ts-ignore
 const CRUD_1 = require("../CRUD");
 class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     constructor(config) {
@@ -65,8 +67,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             habilitar: true
         });
     }
-    getSites(filter = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    getSites() {
+        return __awaiter(this, arguments, void 0, function* (filter = {}) {
             const response = yield this.get_estaciones();
             const estaciones = response.data.estaciones.map(e => this.parseEstacion(e));
             for (const e of estaciones) {
@@ -75,8 +77,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return estaciones;
         });
     }
-    getSeries(filter = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    getSeries() {
+        return __awaiter(this, arguments, void 0, function* (filter = {}) {
             const estaciones = yield this.getSites();
             return estaciones.map(e => new CRUD_1.serie({
                 tipo: "puntual",
@@ -87,6 +89,12 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             }));
         });
     }
+    /**
+     * El rango entre 'desde' y 'hasta' no puede superar 7 días.
+     * @param desde
+     * @param hasta
+     * @returns
+     */
     get_precipitaciones_global(desde, hasta) {
         return __awaiter(this, void 0, void 0, function* () {
             return (0, accessor_utils_1.fetchData)(`${this.url}/precipitaciones`, {
@@ -121,13 +129,13 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         if (timestart.toString() == "Invalid Date") {
             throw new Error(`Invalid date: ${timestart.toString()}`);
         }
-        if (!p.medicion_realizada || !p.precipitacion_mm) {
+        if (!p.medicion_realizada || p.precipitacion_mm == null) {
             console.warn(`medicion nula`);
             return null;
         }
         const timeend = new Date(timestart);
         timeend.setDate(timeend.getDate() + 1);
-        if (!series_id && p.hasOwnProperty("estacion_id")) {
+        if ("estacion_id" in p) {
             series_id = this.findSerie(undefined, undefined, p.estacion_id).series_id;
         }
         return {
@@ -156,9 +164,9 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             }
         });
     }
-    findSerie(estacion_id, series_id) {
-        if (!estacion_id && !series_id) {
-            throw new Error("At least one of estacion_id, series_id must be set");
+    findSerie(estacion_id, series_id, id_externo) {
+        if (!estacion_id && !series_id && !id_externo) {
+            throw new Error("At least one of estacion_id, series_id, id_externo must be set");
         }
         if (!this.series_map) {
             throw new Error("series_map not set");
@@ -169,8 +177,13 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                     return mapping;
                 }
             }
-            else {
+            else if (series_id) {
                 if (mapping.series_id == series_id) {
+                    return mapping;
+                }
+            }
+            else {
+                if (mapping.id_externo == id_externo) {
                     return mapping;
                 }
             }
@@ -184,14 +197,15 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return response.data.precipitaciones.map(p => this.parsePrecipitacion(p, mapping.series_id)).filter(o => o != null);
         });
     }
-    get(filter, options = {}) {
-        return __awaiter(this, void 0, void 0, function* () {
+    get(filter_1) {
+        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
             if (!this.series_map) {
                 yield this.getSeriesMap();
             }
             const desde = (filter.timestart) ? formatLocalDate(filter.timestart) : undefined;
             const hasta = (filter.timeend) ? formatLocalDate(filter.timeend) : undefined;
             if (filter.estacion_id) {
+                checkMaxDays(desde, hasta, 365);
                 const observaciones = [];
                 if (Array.isArray(filter.estacion_id)) {
                     for (const estacion_id of filter.estacion_id) {
@@ -205,7 +219,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 }
                 return observaciones;
             }
-            else if (filter.series_id) {
+            if (filter.series_id) {
+                checkMaxDays(desde, hasta, 365);
                 const observaciones = [];
                 if (Array.isArray(filter.series_id)) {
                     for (const series_id of filter.series_id) {
@@ -220,15 +235,34 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 return observaciones;
             }
             // all stations
+            checkMaxDays(desde, hasta, 7);
             const response = yield this.get_precipitaciones_global(desde, hasta);
             const observaciones = response.data.precipitaciones.map(p => this.parsePrecipitacion(p)).filter(o => o != null);
             return observaciones;
         });
     }
+    update(filter_1) {
+        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
+            const results = yield this.get(filter);
+            return CRUD_1.observaciones.create(results);
+        });
+    }
 }
-Client._get_is_multiseries = true;
 exports.Client = Client;
+Client._get_is_multiseries = true;
 function formatLocalDate(date) {
     const pad = (n) => String(n).padStart(2, "0");
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+function checkMaxDays(desde, hasta, maxDays = 7) {
+    if (!desde || !hasta) {
+        return;
+    }
+    const startDate = new Date(desde);
+    const endDate = new Date(hasta);
+    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays > maxDays) {
+        throw new Error(`The date range between ${desde} and ${hasta} exceeds the maximum allowed days (${maxDays})`);
+    }
 }
