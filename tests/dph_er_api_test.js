@@ -444,3 +444,49 @@ test('update with series_id', async(t) => {
         }
     })
 })
+
+test('update with global', async(t) => {
+
+    await t.test("update with global", async (t) => {
+        const timeend = new Date()
+        const timestart = new Date(timeend.getTime() - 6 * 24 * 3600 * 1000)        
+        // const timestart = new Date(2026,5,25)
+        // const timeend = new Date(2026,6,2)
+        const ts = new Date(timestart)
+        ts.setHours(9,0,0,0)
+        const te = new Date(timeend)
+        te.setHours(9,0,0,0)
+        te.setDate(te.getDate()+1)
+        try {
+            const accessor = await accessors.new("dph_er_api")
+            var observaciones = await accessor.updateSeries(
+                {
+                    timestart:timestart, 
+                    timeend:timeend
+                },
+                {
+                    no_update_date_range: true
+                }
+            )
+        } catch (e) {
+            console.error(e)
+            var observaciones = undefined
+        }
+        assert(observaciones)
+        assert(Array.isArray(observaciones))
+        assert(observaciones.length)
+        const series_ids = new Set()
+        for(const o of observaciones) {
+            assert("timestart" in o)
+            assert(o.timestart instanceof Date)
+            assert(o.timestart.getTime() >= ts.getTime())
+            assert("timeend" in o)
+            assert(o.timeend instanceof Date)
+            assert(o.timeend.getTime() <= te.getTime())
+            assert.equal(typeof o.valor, "number")
+            assert.equal(typeof o.series_id, "number")
+            series_ids.add(o.series_id)
+        }
+        assert(series_ids.size > 10)
+    })
+})
