@@ -66,7 +66,9 @@ internal.feature_of_interest = class extends accessor_feature_of_interest {
             propietario: propietario,
             ubicacion: (monitoring_point_parameters.hasOwnProperty("identifier")) ? monitoring_point_parameters.identifier: undefined, 
             real: true, 
-            has_obs: true
+            has_obs: true,
+            habilitar: true,
+            tipo: 'A'
         })
     }
 }
