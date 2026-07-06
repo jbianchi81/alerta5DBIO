@@ -204,21 +204,21 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
     parsePrecipitacion(p : Precipitacion, series_id : number) : Observacion|null
     parsePrecipitacion(p : PrecipitacionGlobal) : Observacion|null
     parsePrecipitacion(p : Precipitacion|PrecipitacionGlobal, series_id? : number) : Observacion|null {
-        const timestart = new Date(
+        const timeend = new Date(
             parseInt(p.fecha.substring(0,4)),
             parseInt(p.fecha.substring(5,7)) - 1,
             parseInt(p.fecha.substring(8,10)),
             9
         )
-        if(timestart.toString() == "Invalid Date") {
-            throw new Error(`Invalid date: ${timestart.toString()}`)
+        if(timeend.toString() == "Invalid Date") {
+            throw new Error(`Invalid date: ${timeend.toString()}`)
         }
         if(!p.medicion_realizada || p.precipitacion_mm == null) {
             console.warn(`medicion nula`)
             return null
         }
-        const timeend = new Date(timestart)
-        timeend.setDate(timeend.getDate() + 1)
+        const timestart = new Date(timeend)
+        timestart.setDate(timestart.getDate() - 1)
         if("estacion_id" in p) {
             series_id = this.findSerie(undefined, undefined, p.estacion_id).series_id
         }

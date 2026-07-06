@@ -67,8 +67,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             habilitar: true
         });
     }
-    getSites() {
-        return __awaiter(this, arguments, void 0, function* (filter = {}) {
+    getSites(filter = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
             const response = yield this.get_estaciones();
             const estaciones = response.data.estaciones.map(e => this.parseEstacion(e));
             for (const e of estaciones) {
@@ -77,8 +77,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return estaciones;
         });
     }
-    getSeries() {
-        return __awaiter(this, arguments, void 0, function* (filter = {}) {
+    getSeries(filter = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
             const estaciones = yield this.getSites();
             return estaciones.map(e => new CRUD_1.serie({
                 tipo: "puntual",
@@ -125,16 +125,16 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         });
     }
     parsePrecipitacion(p, series_id) {
-        const timestart = new Date(parseInt(p.fecha.substring(0, 4)), parseInt(p.fecha.substring(5, 7)) - 1, parseInt(p.fecha.substring(8, 10)), 9);
-        if (timestart.toString() == "Invalid Date") {
-            throw new Error(`Invalid date: ${timestart.toString()}`);
+        const timeend = new Date(parseInt(p.fecha.substring(0, 4)), parseInt(p.fecha.substring(5, 7)) - 1, parseInt(p.fecha.substring(8, 10)), 9);
+        if (timeend.toString() == "Invalid Date") {
+            throw new Error(`Invalid date: ${timeend.toString()}`);
         }
         if (!p.medicion_realizada || p.precipitacion_mm == null) {
             console.warn(`medicion nula`);
             return null;
         }
-        const timeend = new Date(timestart);
-        timeend.setDate(timeend.getDate() + 1);
+        const timestart = new Date(timeend);
+        timestart.setDate(timestart.getDate() - 1);
         if ("estacion_id" in p) {
             series_id = this.findSerie(undefined, undefined, p.estacion_id).series_id;
         }
@@ -197,8 +197,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return response.data.precipitaciones.map(p => this.parsePrecipitacion(p, mapping.series_id)).filter(o => o != null);
         });
     }
-    get(filter_1) {
-        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
+    get(filter, options = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
             if (!this.series_map) {
                 yield this.getSeriesMap();
             }
@@ -241,15 +241,15 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return observaciones;
         });
     }
-    update(filter_1) {
-        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
+    update(filter, options = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
             const results = yield this.get(filter);
             return CRUD_1.observaciones.create(results);
         });
     }
 }
-exports.Client = Client;
 Client._get_is_multiseries = true;
+exports.Client = Client;
 function formatLocalDate(date) {
     const pad = (n) => String(n).padStart(2, "0");
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
