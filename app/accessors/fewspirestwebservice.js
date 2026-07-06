@@ -1,6 +1,6 @@
 const AbstractAccessorEngine = require('./abstract_accessor_engine').AbstractAccessorEngine
 const axios = require('axios')
-const { estacion: Estacion, variable: Variable, serie: Serie, SerieTemporalSim, corrida: Corrida } = require('../CRUD')
+const { estacion: Estacion, variable: Variable, serie: Serie, SerieTemporalSim, corrida: Corrida, fuente: Fuente } = require('../CRUD')
 const sprintf = require('sprintf-js').sprintf
 const {createUrlParams, filterSites, filterSeries} = require('../accessor_utils')
 const {DateFromInterval} = require('../timeSteps')
@@ -643,6 +643,47 @@ internal.Client = class extends AbstractAccessorEngine {
         const corrida = await this.getPronostico(filter, options)
         await corrida.create()        
         return corrida
+    }
+
+    async getSeriesAreales(locations, id_pattern="(\\d+)$", create=false) {
+        var series = []
+        if(!locations) {
+            locations = await this.getSites()
+        }
+        this.series_map = {}
+        for(const l of locations) {
+            const area_id = parseInt(new RegExp(id_pattern).exec(l.id_externo)[0])
+            for(const [var_id, var_id_externo] of Object.entries(this.config.variable_map)) {
+                const serie = new Serie({
+                    tipo: "areal",
+                    estacion_id: area_id,
+                    fuentes_id: this.config.fuentes_id,
+                    var_id: var_id,
+                    proc_id: (this.config.procedure_map) ? this.config.procedure_map[var_id] : 3,
+                    unit_id: (this.config.unit_map) ? this.config.unit_map[var_id] : 22
+                })
+                await serie.getId()
+                series.push(serie)
+                this.series_map[serie.id] = {
+                    metadata: serie,
+                    id_externo: l.id_externo,
+                    var_id_externo: var_id_externo
+                }
+            }
+        }
+        if(create) {
+            series = await Serie.create(series)
+        } 
+        return series
+    }
+
+    async createFuente() {
+        const fuente = new Fuente({
+            nombre: "fewspiservice",
+            public: false,
+            source: this.config.url
+        })
+        return fuente.create()
     }
 }
 
