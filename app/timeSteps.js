@@ -380,6 +380,40 @@ internal.date2tste = function(date) {
 	return [ts, te]
 }
 
+internal.setTimePart = function(date, interval, utc=false) {
+	const date_ = new Date(date)
+	interval = internal.createInterval(interval)
+	if(interval.hours) {
+		if(utc) {
+			date_.setUTCHours(interval.hours)
+		} else {
+			date_.setHours(interval.hours)
+		}
+	}
+	if(interval.minutes) {
+		if(utc) {
+			date_.setUTCMinutes(interval.minutes)
+		} else {
+			date_.setMinutes(interval.minutes)
+		}
+	}
+	if(interval.seconds) {
+		if(utc) {
+			date_.setUTCSeconds(interval.seconds)
+		} else {
+			date_.setSeconds(interval.seconds)
+		}
+	}
+	if(interval.milliseconds) {
+		if(utc) {
+			date_.setUTCMilliseconds(interval.milliseconds)
+		} else {
+			date_.setMilliseconds(interval.milliseconds)
+		}
+	}
+	return date_
+}
+
 internal.setTOffset = function(date,t_offset) {
 	if(!t_offset) {
 		t_offset = {"days":1}

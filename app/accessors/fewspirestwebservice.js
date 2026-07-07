@@ -3,7 +3,8 @@ const axios = require('axios')
 const { estacion: Estacion, variable: Variable, serie: Serie, SerieTemporalSim, corrida: Corrida, fuente: Fuente } = require('../CRUD')
 const sprintf = require('sprintf-js').sprintf
 const {createUrlParams, filterSites, filterSeries} = require('../accessor_utils')
-const {DateFromInterval} = require('../timeSteps')
+const {DateFromInterval, setTimePart, advanceTimeStep} = require('../timeSteps')
+const {withClient} = require('../db')
 
 const internal = {}
 
@@ -119,12 +120,16 @@ internal.Client = class extends AbstractAccessorEngine {
             "documentFormat": document_format,
             "documentVersion": document_version
         })
-        const response = await axios.get(
-            sprintf("%s/timeseries", this.config.url),
-            {
-                "params": params
-            }
-        )
+        try {
+            var response = await axios.get(
+                sprintf("%s/timeseries", this.config.url),
+                {
+                    "params": params
+                }
+            )
+        } catch(e) {
+            throw e
+        }
         console.debug(sprintf("GET %03d %s?%s", response.status, response.config.url, params.toString()))
         this.last_response = response
         return response.data  
@@ -141,7 +146,8 @@ internal.Client = class extends AbstractAccessorEngine {
         ts, 
         includeObservations = true, 
         series_id_map,
-        asForecast = false) {
+        asForecast = false,
+        tipo = "puntual") {
         var var_id
         for(const [key, value] of Object.entries(this.config.variable_map)) {
             if(value == ts["header"]["parameterId"]) {
@@ -177,7 +183,7 @@ internal.Client = class extends AbstractAccessorEngine {
         }
         if(asForecast) {
             var serie = new SerieTemporalSim({
-                series_table: "series",
+                series_table: (tipo == "areal") ? "series_areal" : "series",
 		        series_id: series_id,
 		        // cor_id: undefined,
 		        // qualifier: undefined,
@@ -191,7 +197,7 @@ internal.Client = class extends AbstractAccessorEngine {
             })
         } else {
             var serie = new Serie({
-                tipo: "puntual",
+                tipo: tipo,
                 id: series_id,
                 "var": {
                 "id": var_id
@@ -199,7 +205,18 @@ internal.Client = class extends AbstractAccessorEngine {
                 unidades: {
                     id: unit_id
                 },
-                estacion: {
+                estacion: (tipo == "areal") ? {
+                    "id": this.getAreaId(ts["header"]["locationId"]),
+                    "nombre": ts["header"]["stationName"],
+                    "geom": {
+                        "type": "Point",
+                        "coordinates": [
+                            Number.parseFloat(ts["header"]["lon"]), 
+                            Number.parseFloat(ts["header"]["lat"])
+                        ]
+                    },
+                    activar: true
+                } : {
                     "tabla": this.config.tabla_id,
                     "id_externo": ts["header"]["locationId"],
                     "nombre": ts["header"]["stationName"],
@@ -215,6 +232,9 @@ internal.Client = class extends AbstractAccessorEngine {
                 procedimiento: {
                     id: this.config.proc_id
                 },
+                fuente: (tipo == "areal") ? {
+                    id: this.config.fuentes_id
+                } : undefined,
                 observaciones: (includeObservations && ts["events"] != null) ? this.parseEvents(ts["events"],ts.header.forecastDate) : undefined,
                 beginTime: (ts.header.firstValueTime != null) ? this.parseDate(ts.header.firstValueTime) : undefined,
                 endTime: (ts.header.lastValueTime != null) ? this.parseDate(ts.header.lastValueTime) : undefined,
@@ -240,16 +260,25 @@ internal.Client = class extends AbstractAccessorEngine {
             event=>(parseFloat(event["value"]) != -999)
         ).map(
             event=>{
+                var timestart = this.parseDate({
+                    "date": event["date"],
+                    "time": event["time"]
+                })
+                var timeend = this.parseDate({
+                    "date": event["date"],
+                    "time": event["time"]
+                })
+                if(this.config.t_offset) {
+                    timestart = setTimePart(timestart, this.config.t_offset)
+                    timeend = setTimePart(timeend, this.config.t_offset)
+                }
+                if(this.config.timeSupport) {
+                    timeend = advanceTimeStep(timeend, this.config.timeSupport)
+                }
                 return {
                     "timeupdate": (forecastDate != null) ? this.parseDate(forecastDate) : undefined,
-                    "timestart": this.parseDate({
-                        "date": event["date"],
-                        "time": event["time"]
-                    }),
-                    "timeend": this.parseDate({
-                        "date": event["date"],
-                        "time": event["time"]
-                    }),
+                    "timestart": timestart,
+                    "timeend": timeend,
                     "valor": Number.parseFloat(event["value"])
                 }
             }
@@ -518,27 +547,30 @@ internal.Client = class extends AbstractAccessorEngine {
             console.warn("Accessor: no timeseries found")
             return []
         }
-        return series_response.timeSeries.map(ts=>this.parseTimeSeries(ts, true, series_id_map))
+        const tipo = filter.tipo || this.config.series_tipo || "puntual"
+        return series_response.timeSeries.map(ts=>this.parseTimeSeries(ts, true, series_id_map, undefined,tipo))
     }
 
     async getLocationParameterSeriesFilters(
         filter={}
     ) {
+        const tipo = filter.tipo || this.config.series_tipo || "puntual"
         const series = await Serie.read({
-            tipo: "puntual",
+            tipo: tipo,
             id: filter.series_id,
             estacion_id: filter.estacion_id,
-            tabla_id: this.config.tabla_id,
-            var_id: filter.var_id,
-            proc_id: filter.proc_id,
-            unit_id: filter.unit_id,
+            tabla_id: (tipo == "areal") ? undefined : this.config.tabla_id,
+            var_id: filter.var_id || this.config.var_id,
+            proc_id: filter.proc_id || this.config.proc_id,
+            unit_id: filter.unit_id || this.config.unit_id,
             geom: filter.geom,
-            id_externo: filter.id_externo
+            id_externo: filter.id_externo,
+            fuentes_id: filter.fuentes_id || this.config.fuentes_id
         })
         if(!series.length) {
             throw(new Error("accessor get: No series found. Run updateSeries or change filter"))
         }
-        const location_ids = new Set(series.map(s=>s.estacion.id_externo))
+        const location_ids = (tipo == "areal") ? new Set(series.map(s=>this.getLocationId(s.estacion.id))) : new Set(series.map(s=>s.estacion.id_externo))
         const parameter_ids = new Set()
         const series_id_map = {}
         for(const serie of series) {
@@ -546,12 +578,17 @@ internal.Client = class extends AbstractAccessorEngine {
                 console.warn("Accessor get: var " + serie.var.id + " not mapped. Skipping.")
                 continue
             }
-            parameter_ids.add(this.config.variable_map[serie.var.id])            
-            if(serie.estacion.id_externo in series_id_map) {
-                series_id_map[serie.estacion.id_externo][this.config.variable_map[serie.var.id]] = serie.id
+            parameter_ids.add(this.config.variable_map[serie.var.id])
+            if(tipo == "areal") {
+                var id_externo = this.getLocationId(serie.estacion.id)
             } else {
-                series_id_map[serie.estacion.id_externo] = {}
-                series_id_map[serie.estacion.id_externo][this.config.variable_map[serie.var.id]] = serie.id
+                var id_externo = serie.estacion.id_externo
+            }
+            if(id_externo in series_id_map) {
+                series_id_map[id_externo][this.config.variable_map[serie.var.id]] = serie.id
+            } else {
+                series_id_map[id_externo] = {}
+                series_id_map[id_externo][this.config.variable_map[serie.var.id]] = serie.id
             }
         }
         return [location_ids, parameter_ids, series_id_map]
@@ -562,11 +599,13 @@ internal.Client = class extends AbstractAccessorEngine {
         options={}
     ) {
         const series = await this.get(filter, options)
-        for(const serie of series) {
-            const created_obs = await serie.observaciones.create()
-            serie.setObservaciones(created_obs)
-        }
-        return series
+        return withClient( null, async (client) => {
+            for(const serie of series) {
+                const created_obs = await serie.createObservaciones(client)
+                serie.setObservaciones(created_obs)
+            }
+            return series
+        })
     }
 
     async getPronostico(
@@ -645,6 +684,15 @@ internal.Client = class extends AbstractAccessorEngine {
         return corrida
     }
 
+    getLocationId(estacion_id, location_id_pattern) {
+        location_id_pattern = location_id_pattern || this.location_id_pattern || "INA.%d"
+        return sprintf(location_id_pattern, estacion_id)
+    }
+
+    getAreaId(location_id, id_pattern="(\\d+)$") {
+        return parseInt(new RegExp(id_pattern).exec(location_id)[0])
+    }
+
     async getSeriesAreales(locations, id_pattern="(\\d+)$", create=false) {
         var series = []
         if(!locations) {
@@ -652,7 +700,7 @@ internal.Client = class extends AbstractAccessorEngine {
         }
         this.series_map = {}
         for(const l of locations) {
-            const area_id = parseInt(new RegExp(id_pattern).exec(l.id_externo)[0])
+            const area_id = this.getAreaId(l.id_externo, id_pattern)
             for(const [var_id, var_id_externo] of Object.entries(this.config.variable_map)) {
                 const serie = new Serie({
                     tipo: "areal",
