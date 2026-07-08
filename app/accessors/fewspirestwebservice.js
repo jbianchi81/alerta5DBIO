@@ -3,7 +3,7 @@ const axios = require('axios')
 const { estacion: Estacion, variable: Variable, serie: Serie, SerieTemporalSim, corrida: Corrida, fuente: Fuente } = require('../CRUD')
 const sprintf = require('sprintf-js').sprintf
 const {createUrlParams, filterSites, filterSeries} = require('../accessor_utils')
-const {DateFromInterval, setTimePart, advanceTimeStep} = require('../timeSteps')
+const {DateFromInterval, setTimePart, advanceTimeStep, createInterval} = require('../timeSteps')
 const {withClient} = require('../db')
 
 const internal = {}
@@ -269,11 +269,13 @@ internal.Client = class extends AbstractAccessorEngine {
                     "time": event["time"]
                 })
                 if(this.config.t_offset) {
-                    timestart = setTimePart(timestart, this.config.t_offset)
-                    timeend = setTimePart(timeend, this.config.t_offset)
+                    const t_offset = createInterval(this.config.t_offset)
+                    timestart = advanceTimeStep(timestart, t_offset) // setTimePart(timestart, this.config.t_offset)
+                    timeend = advanceTimeStep(timeend, t_offset) // setTimePart(timeend, this.config.t_offset)
                 }
                 if(this.config.timeSupport) {
-                    timeend = advanceTimeStep(timeend, this.config.timeSupport)
+                    const timeSupport = createInterval(this.config.timeSupport)
+                    timeend = advanceTimeStep(timeend, timeSupport)
                 }
                 return {
                     "timeupdate": (forecastDate != null) ? this.parseDate(forecastDate) : undefined,
