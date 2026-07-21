@@ -727,7 +727,7 @@ internal.getHourlyTimeseries = function(timestart,timeend,inst=false) {
 internal.isoDurationToHours = function(aggregationDuration) {
     // ACcording to: ISO 8601 (https://tc39.es/proposal-temporal/docs/duration.html)
     var duration = moment.duration(aggregationDuration)
-    return duration._data
+    return new internal.Interval(duration._data)
 }
 
 

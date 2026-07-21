@@ -4,7 +4,7 @@ const {baseModel} = require('a5base/baseModel')
 const { estacion, escena, serie, VariableName, unidades, "var": Variable, observacion } = require('./CRUD')
 const {Geometry} = require('./geometry')
 const utils = require('./utils')
-const {isoDurationToHours, interval2string, advanceInterval, retreatInterval} = require('./timeSteps')
+const {isoDurationToHours, interval2string, advanceInterval, retreatInterval, Interval} = require('./timeSteps')
 const { control_filter2 } = require('./utils')
 const CSV = require('csv-string')
 const internal = {}
@@ -619,6 +619,9 @@ internal.accessor_timeseries_observation = class extends baseModel {
 		// 	unit_of_measurement: this.unit_of_measurement,
 		// 	observed_property: this.observed_property
 		// }
+		if(result.rows[0].time_support) {
+			result.rows[0].time_support = new Interval(result.rows[0].time_support)
+		}
 		this.set(result.rows[0]) // new_tso)
 		return this//new this.constructor(new_tso)
 	}
@@ -854,7 +857,7 @@ internal.accessor_timeseries_observation = class extends baseModel {
 			var: this.observed_property.name.substring(0,6),
 			GeneralCategory: "Hydrology",
 			nombre: this.observed_property.name,
-			datatype: (this.data_type) ? this.constructor.mapToDatatypeCV(this.data_type) : (this.time_support && this.time_support.toEpoch() > 0) ? "Preceding Total" : "Continuous",
+			datatype: (this.data_type) ? this.constructor.mapToDatatypeCV(this.data_type) : (this.time_support && new Interval(this.time_support).toEpoch() > 0) ? "Preceding Total" : "Continuous",
 			VariableName: this.observed_property.variable_name,
 			def_unit_id: this.unit_of_measurement.unit_id,
 			timeSupport: this.time_support,
