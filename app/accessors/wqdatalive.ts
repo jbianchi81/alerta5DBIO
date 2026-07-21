@@ -1,6 +1,7 @@
-import {fetchData} from './accessor_utils.js'
+import {fetchData, parseUtcDateTime, filterSeries} from './accessor_utils.js'
 import { AbstractAccessorEngine } from './abstract_accessor_engine.js'
-import {estacion as Estacion, serie as Serie, var as Variable, procedimiento as Procedimiento, unidades as Unidades} from '../CRUD.js'
+import {estacion as Estacion, serie as Serie, var as Variable, procedimiento as Procedimiento, unidades as Unidades, observacion as Observacion} from '../CRUD.js'
+import {Interval, advanceTimeStep} from '../timeSteps.js'
 
 type Sensor = {
     uid : number
@@ -24,6 +25,7 @@ type Config = {
     tabla_id? : string
     coordinates? : Record<number, number[]> // mapping of device ids --> [lon, lat]
     var_map? : Record<number, VarMap>
+    dt?: {hours?: number, minutes?: number}
 }
 
 type GetDevicesResponse = {
@@ -112,6 +114,19 @@ export class Client extends AbstractAccessorEngine {
     tabla_id? : string
     coordinates?: Record<number, number[]>
     var_map?: Record<number, VarMap>
+    dt?: Interval
+
+    getParameterId(var_id : number, proc_id : number, unit_id: number) : number|void {
+        if(!this.var_map) {
+            return
+        }
+        for(const [par_id, vmap] of Object.entries(this.var_map)) {
+            if (vmap.var_id == var_id && vmap.proc_id == proc_id && vmap.unit_id == unit_id) {
+                return parseInt(par_id)
+            }
+        }
+        return        
+    }
 
     /**
      * https://www.nexsens.com/knowledge-base-v2/software/wqdatalive/user-guide/wqdata-live-data-api-doc#operation/devicesInfo
@@ -271,6 +286,7 @@ export class Client extends AbstractAccessorEngine {
         this.tabla_id = config.tabla_id
         this.coordinates = config.coordinates
         this.var_map = config.var_map
+        this.dt = (config.dt) ? new Interval(config.dt) : undefined
     }
 
     async getDevices() : Promise<GetDevicesResponse> {
@@ -444,6 +460,115 @@ export class Client extends AbstractAccessorEngine {
             const series_ : Serie[] = await this.parseParameters(parameters, estacion)
             series.push(...series_)
         }
-        return series
+        return filterSeries(series, filter)
     }
+
+    parseData(
+        data : ParameterDataPoint[],
+        series_id : number
+    ) : Observacion[] {
+        const obs : Observacion[] = []
+        for(const d of data) {
+            if(d.value == null) {
+                // skips null
+                continue
+            }
+
+            const valor = parseFloat(d.value)
+            if(valor.toString() == "NaN") {
+                // skip invalid
+                continue
+            }
+            if(valor <= -100000) {
+                // skip error code
+                continue
+            }
+
+            const ts = parseUtcDateTime(d.timestamp)
+            var te = new Date(ts)
+            if(this.dt) {
+                te = advanceTimeStep(te, this.dt)
+            }
+            obs.push({
+                tipo: "puntual", 
+                series_id: series_id, 
+                timestart: ts, 
+                timeend: te, 
+                valor: valor
+            })
+        }
+        return obs
+    }
+
+    /**
+     * No multiseries, retrieves only first series match
+     * @param filter 
+     * @param options 
+     * @returns 
+     */
+    async get(
+        filter : {
+            series_id?: number|number[],
+            estacion_id?: number|number[],
+            var_id?: number|number[],
+            unit_id?:number|number[]
+            timestart: Date,
+            timeend: Date
+        },
+        options : {
+            return_series ? : boolean
+        } = {}
+    ) : Promise<Observacion[]|Serie[]> {
+        if(!filter) {
+            throw new Error("Missing filter")
+        }
+        if(!filter.timestart || !filter.timeend) {
+            throw new Error("Missing timestart+timeend")
+        }
+
+        // find matching serie
+        if(filter.series_id) {
+            const series = await Serie.read({id: filter.series_id})
+            if(!series) {
+                throw new Error("serie not found with id=" + filter.series_id)
+            }
+            if(Array.isArray(series)) {
+                var serie = series[0]
+            } else {
+                var serie = series
+            }
+        } else if(filter.estacion_id && filter.var_id) {
+            const series = await Serie.read(filter)
+            if(!series.length) {
+                throw new Error("series not found with filter: estacion_id" + filter.estacion_id + " var_id=" + filter.var_id)
+            }
+            var serie = series[0]
+        } else {
+            throw new Error("missing filter.series_id or filter.var_id+filter.estacion_id")
+        }
+
+        // find matching parameter id
+        const par_id = this.getParameterId(serie.var.id, serie.procedimiento.id, serie.unidades.id)
+        if(!par_id) {
+            throw new Error("Parameter id not found for series_id " + serie.id)
+        }
+
+        // retrieve data
+        const data = await this.getParameterData(
+            parseInt(serie.estacion.id_externo),
+            par_id,
+            filter.timestart,
+            filter.timeend
+        )
+        const observaciones = this.parseData(data.data, serie.id)
+        
+        // return
+        if(options.return_series) {
+            serie.observaciones = observaciones
+            return [serie]
+        } else {
+            return observaciones
+        }
+    }
+    
 }

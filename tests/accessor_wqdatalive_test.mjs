@@ -2,7 +2,8 @@ import test from 'node:test'
 import assert from 'assert'
 process.env.NODE_ENV = "test"
 import { Client } from "../app/accessors/wqdatalive.js"
-// import {new as Accessor} from "../app/accessors"
+import accessor_pkg from "../app/accessors.js"
+const Accessor = accessor_pkg.Accessor
 // import { serie as CrudSerie } from "../app/CRUD"
 import {readFile, writeFile} from 'fs/promises' 
 import {parseUtcDateTime} from "../app/accessors/accessor_utils.js"
@@ -188,27 +189,92 @@ import {parseUtcDateTime} from "../app/accessors/accessor_utils.js"
 //     await writeFile("/tmp/wqdatalive-sites.json", JSON.stringify(estaciones, undefined, 2))
 // })
 
-test('wqdatalive accessor get series', async(t) => {
+// test('wqdatalive accessor get series', async(t) => {
+//     const accessor_ = await readFile("tmp/accessor_boyas_atucha.json", {encoding: "utf-8"})
+//     const accessor = JSON.parse(accessor_)
+//     const client = new Client(accessor.config)
+    
+//     const series = await client.getSeries()
+//     assert(Array.isArray(series))
+//     for(const serie of series) {
+//         assert("estacion" in serie)
+//         assert("id" in serie.estacion)
+//         assert("geom" in serie.estacion)
+//         assert("coordinates" in serie.estacion.geom)
+//         assert.equal(serie.estacion.geom.coordinates.length,2)
+//         assert("var" in serie)
+//         assert(serie.var.id)
+//         assert(serie.var.nombre)
+//         assert(serie.procedimiento.id)
+//         assert(serie.procedimiento.nombre)
+//         assert(serie.unidades.id)
+//         assert(serie.unidades.nombre)
+//         assert.equal(serie.tipo, "puntual")
+//     }
+//     await writeFile("/tmp/wqdatalive-series.json", JSON.stringify(series, undefined, 2))
+// })
+
+
+// test('wqdatalive accessor get data', async(t) => {
+//     const accessor_ = await readFile("tmp/accessor_boyas_atucha.json", {encoding: "utf-8"})
+//     const accessor = JSON.parse(accessor_)
+//     const client = new Client(accessor.config)
+//     const to = new Date()
+//     const from = new Date(to)
+//     from.setDate(from.getDate() - 1)
+    
+//     const observaciones = await client.get({
+//         estacion_id: 8637,
+//         var_id: 73,
+//         timestart: from,
+//         timeend: to
+//     })
+
+//     assert(Array.isArray(observaciones))
+//     assert(observaciones.length)
+//     for(const o of observaciones) {
+//         assert("series_id" in o)
+//         assert.equal(o.series_id, 44492)
+//         assert.equal(o.tipo, "puntual")
+//         assert(o.timestart instanceof Date)
+//         assert(o.timestart >= from)
+//         assert(o.timeend instanceof Date)
+//         assert(o.timestart <= to)
+//         assert.equal(o.timeend.getTime(),o.timestart.getTime())
+//     }
+//     await writeFile("/tmp/wqdatalive-obs.json", JSON.stringify(observaciones, undefined, 2))
+// })
+
+test('wqdatalive a5 accessor getSeries', async(t) => {
     const accessor_ = await readFile("tmp/accessor_boyas_atucha.json", {encoding: "utf-8"})
     const accessor = JSON.parse(accessor_)
-    const client = new Client(accessor.config)
+    const client = new Accessor(accessor)
+    const to = new Date()
+    const from = new Date(to)
+    from.setDate(from.getDate() - 1)
     
-    const series = await client.getSeries()
+    const series = await client.getSeries({
+        estacion_id: 8637,
+        var_id: 73,
+        timestart: from,
+        timeend: to
+    })
+
     assert(Array.isArray(series))
-    for(const serie of series) {
-        assert("estacion" in serie)
-        assert("id" in serie.estacion)
-        assert("geom" in serie.estacion)
-        assert("coordinates" in serie.estacion.geom)
-        assert.equal(serie.estacion.geom.coordinates.length,2)
-        assert("var" in serie)
-        assert(serie.var.id)
-        assert(serie.var.nombre)
-        assert(serie.procedimiento.id)
-        assert(serie.procedimiento.nombre)
-        assert(serie.unidades.id)
-        assert(serie.unidades.nombre)
-        assert.equal(serie.tipo, "puntual")
+    assert.equal(series.length,1)
+    assert.equal(series[0].id, 44492)
+    const observaciones = series[0].observaciones
+    assert(Array.isArray(observaciones))
+    assert(observaciones.length)
+    for(const o of observaciones) {
+        assert("series_id" in o)
+        assert.equal(o.series_id, 44492)
+        assert.equal(o.tipo, "puntual")
+        assert(o.timestart instanceof Date)
+        assert(o.timestart >= from)
+        assert(o.timeend instanceof Date)
+        assert(o.timestart <= to)
+        assert.equal(o.timeend.getTime(),o.timestart.getTime())
     }
-    await writeFile("/tmp/wqdatalive-series.json", JSON.stringify(series, undefined, 2))
+    await writeFile("/tmp/wqdatalive-obs.json", JSON.stringify(observaciones, undefined, 2))
 })

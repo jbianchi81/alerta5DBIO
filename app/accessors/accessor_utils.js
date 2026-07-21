@@ -12,12 +12,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.parseUtcDateTime = exports.fetchData = void 0;
+exports.fetchData = fetchData;
+exports.parseUtcDateTime = parseUtcDateTime;
+exports.filterByParam = filterByParam;
+exports.filterSeries = filterSeries;
+exports.filterSeriesByIds = filterSeriesByIds;
 const axios_1 = __importDefault(require("axios"));
 const https_1 = __importDefault(require("https"));
 function fetchData(url, options) {
-    var _a, _b;
     return __awaiter(this, void 0, void 0, function* () {
+        var _a, _b;
         const agent = new https_1.default.Agent({
             rejectUnauthorized: !(options === null || options === void 0 ? void 0 : options.disable_validation),
         });
@@ -36,11 +40,54 @@ function fetchData(url, options) {
         }
     });
 }
-exports.fetchData = fetchData;
 function parseUtcDateTime(s) {
     const [date, time] = s.split(" ");
     const [year, month, day] = date.split("-").map(Number);
     const [hour, minute, second] = time.split(":").map(Number);
     return new Date(Date.UTC(year, month - 1, day, hour, minute, second));
 }
-exports.parseUtcDateTime = parseUtcDateTime;
+function filterByParam(filter_value, item_value, func) {
+    if (filter_value == undefined || (Array.isArray(filter_value) && filter_value.length == 0)) {
+        return true;
+    }
+    if (func) {
+        return func(filter_value, item_value);
+    }
+    else if (item_value == undefined) {
+        return false;
+    }
+    if (Array.isArray(filter_value)) {
+        if (filter_value.indexOf(item_value) >= 0) {
+            return true;
+        }
+    }
+    else if (item_value == filter_value) {
+        return true;
+    }
+    return false;
+}
+function filterSeries(series = [], params = {}) {
+    return series.filter(serie => {
+        return ([
+            filterByParam(params.estacion_id, serie.estacion.id),
+            filterByParam(params.var_id, serie.var.id),
+            filterByParam(params.unit_id, serie.unidades.id),
+            filterByParam(params.id_externo, serie.estacion.id_externo),
+            filterByParam(params.series_id, serie.id),
+            filterByParam(params.id, serie.id),
+            filterByParam(params.tipo, serie.tipo)
+        ].indexOf(false) < 0);
+    });
+}
+function filterSeriesByIds(series = [], params = {}) {
+    return series.filter(serie => {
+        return ([
+            filterByParam(params.estacion_id, serie.estacion_id),
+            filterByParam(params.var_id, serie.var_id),
+            filterByParam(params.unit_id, serie.unit_id),
+            filterByParam(params.series_id, serie.id),
+            filterByParam(params.id, serie.id),
+            filterByParam(params.tipo, serie.tipo)
+        ].indexOf(false) < 0);
+    });
+}
