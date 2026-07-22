@@ -17591,12 +17591,12 @@ ORDER BY cal.cal_id`
 		var corrida = {}
 		
 		return withClient(client, async (client) => {
-			const corrida = await internal.corrida.getLast(cal_id, client, isPublic)
-			if (!corrida.length) {
+			const corridas_last = await internal.corrida.getLast(cal_id, client, isPublic)
+			if (!corridas_last.length) {
 				console.log("No rows found for cal_id:"+cal_id)
 				return []
 			} 
-			const corridas = await internal.CRUD.getPronosticos(corrida.id,corrida.cal_id,undefined,undefined,corrida.forecast_date,timestart,timeend,qualifier,estacion_id,var_id,includeProno,isPublic,series_id,series_metadata,undefined,group_by_qualifier,undefined,tipo,tabla,undefined, undefined, client)
+			const corridas = await internal.CRUD.getPronosticos(corridas_last[0].id,corridas_last[0].cal_id,undefined,undefined,corridas_last[0].forecast_date,timestart,timeend,qualifier,estacion_id,var_id,includeProno,isPublic,series_id,series_metadata,undefined,group_by_qualifier,undefined,tipo,tabla,undefined, undefined, client)
 			return corridas[0]
 		})
 	}
