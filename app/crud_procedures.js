@@ -2375,11 +2375,11 @@ internal.DeleteObservacionesProcedure = class extends internal.CrudProcedure {
         for(var i in series) {
             logger.info("serie id:" + series[i].id)
             const filter = {
-                series_id: series[i].id,
+                series_id: series[i].id, // series.id
                 timestart: this.filter.timestart,
                 timeend: this.filter.timeend,
                 timeupdate: this.filter.timeupdate,
-                id: this.filter.id,
+                id: this.filter.id, // observaciones.id
                 valor: this.filter.valor,
                 unit_id: this.filter.unit_id
             }

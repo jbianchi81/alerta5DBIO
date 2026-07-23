@@ -3309,8 +3309,8 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 	} else {
 		tipo = filter.tipo
 	}
-	if(!filter.series_id && filter.id) {
-		filter.series_id = filter.id
+	if(!filter.id && filter.series_id) {
+		filter.id = filter.series_id
 	}
 	var valid_series_filters = {
 		id:{
@@ -12383,7 +12383,7 @@ internal.CRUD = class {
 		}
 		if(tipo=="puntual") {
 			valid_filters["red_id"] = {type:"integer",table:"redes",column:"id"}
-			valid_filters["tabla_id"] = {type:"integer",table:"redes"}
+			valid_filters["tabla_id"] = {type:"string",table:"redes"}
 			valid_filters["tabla"] = {type: "string", table: "estaciones"}
 			valid_filters["estacion_id"] = {type:"integer",table: series_table}
 		} else if(tipo=="areal") {
