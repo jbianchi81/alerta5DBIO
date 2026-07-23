@@ -3031,6 +3031,69 @@ internal.serie = class extends baseModel {
 		})
 	}
 
+	static async getDailyDifferenceStats(series_id, timestart, timeend) {
+		const date_filter = internal.utils.control_filter2(
+			{
+				timestart: {type: "timestart"},
+				timeend: {type: "timeend"}
+			},
+			{
+				timestart: timestart,
+				timeend: timeend
+			},
+			"observaciones"
+		)
+		const stmt = `WITH daily AS (
+			SELECT
+				series_id,
+				date_trunc('day', timestart) AS day,
+				avg(valor) AS value
+			FROM observaciones
+			JOIN valores_num ON obs_id=observaciones.id
+			JOIN series ON series.id=series_id
+			WHERE series_id=$1
+			${date_filter}
+			GROUP BY series_id, date_trunc('day', timestart)
+		),
+		diffs AS (
+			SELECT
+				series_id,
+				day,
+				value,
+				lag(value) OVER w AS prev_value,
+				lag(day) OVER w AS prev_day
+			FROM daily
+			WINDOW w AS (
+				PARTITION BY series_id
+				ORDER BY day
+			)
+		)
+		SELECT
+			series_id,
+			count(abs(value - prev_value))                AS n,
+			min(abs(value - prev_value))                  AS min_diff,
+			percentile_cont(0.25) WITHIN GROUP (ORDER BY abs(value - prev_value)) AS q1,
+			percentile_cont(0.50) WITHIN GROUP (ORDER BY abs(value - prev_value)) AS median,
+			avg(abs(value - prev_value))                  AS mean_diff,
+			percentile_cont(0.75) WITHIN GROUP (ORDER BY abs(value - prev_value)) AS q3,
+			percentile_cont(0.95) WITHIN GROUP (ORDER BY abs(value - prev_value)) AS p95,
+			percentile_cont(0.99) WITHIN GROUP (ORDER BY abs(value - prev_value)) AS p99,
+			percentile_cont(0.995) WITHIN GROUP (ORDER BY abs(value - prev_value)) AS p995,
+			percentile_cont(0.998) WITHIN GROUP (ORDER BY abs(value - prev_value)) AS p998,
+			percentile_cont(0.999) WITHIN GROUP (ORDER BY abs(value - prev_value)) AS p999,
+			max(abs(value - prev_value))                  AS max_diff,
+			stddev(abs(value - prev_value))               AS stddev_diff
+		FROM diffs
+		WHERE abs(value - prev_value) IS NOT NULL
+		AND prev_day IS NOT NULL
+		AND day - prev_day = interval '1 day'
+		GROUP BY series_id;`
+		const result = await global.pool.query(stmt, [series_id])
+		if(!result.rowCount) {
+			throw new Error("Series " + series_id + " not found")
+		}
+		return result.rows[0]
+	}
 }
 
 const asc = arr => arr.sort((a, b) => a - b)
