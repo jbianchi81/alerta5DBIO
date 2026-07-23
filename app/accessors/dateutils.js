@@ -12,9 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateDailyDates = generateDailyDates;
-exports.getDayOfYear = getDayOfYear;
-exports.downloadFile = downloadFile;
+exports.downloadFile = exports.getDayOfYear = exports.generateDailyDates = void 0;
 function generateDailyDates(from, to) {
     const result = [];
     // Normalize start date to 09:00
@@ -29,12 +27,14 @@ function generateDailyDates(from, to) {
     }
     return result;
 }
+exports.generateDailyDates = generateDailyDates;
 function getDayOfYear(date) {
     const startOfYear = new Date(date.getFullYear(), 0, 1); // Jan 1, midnight
     const diff = date.getTime() - startOfYear.getTime();
     const oneDayMs = 1000 * 60 * 60 * 24;
     return Math.floor(diff / oneDayMs) + 1; // +1 because Jan 1 is day 1
 }
+exports.getDayOfYear = getDayOfYear;
 const axios_1 = __importDefault(require("axios"));
 const fs_1 = require("fs");
 const path_1 = require("path");
@@ -52,3 +52,4 @@ function downloadFile(url, outputPath, params) {
         });
     });
 }
+exports.downloadFile = downloadFile;

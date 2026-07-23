@@ -194,8 +194,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return estaciones;
         });
     }
-    getSeries() {
-        return __awaiter(this, arguments, void 0, function* (filter = {}) {
+    getSeries(filter = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
             if (!this.tokenAuth) {
                 yield this.login();
             }
@@ -413,5 +413,5 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         });
     }
 }
-exports.Client = Client;
 Client._get_is_multiseries = false;
+exports.Client = Client;

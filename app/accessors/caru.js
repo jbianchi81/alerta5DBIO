@@ -131,16 +131,16 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 return new CRUD_1.serie({
                     tipo: "puntual",
                     id: parseInt(series_id),
-                    var: variable, //{id: 2},
-                    unidades: unidades, // {id: 11},
+                    var: variable,
+                    unidades: unidades,
                     estacion: this.config.estaciones_map[series_id],
                     procedimiento: proc // {id: 1}
                 });
             });
         });
     }
-    get(filter_1) {
-        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
+    get(filter, options = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
             if (!filter.series_id) {
                 throw new Error("Missing series_id");
             }
@@ -177,12 +177,12 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return observaciones;
         });
     }
-    update(filter_1) {
-        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
+    update(filter, options = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
             var observaciones = yield this.get(filter, options);
             return CRUD_1.observaciones.create(observaciones);
         });
     }
 }
-exports.Client = Client;
 Client._get_is_multiseries = false;
+exports.Client = Client;

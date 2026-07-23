@@ -33,8 +33,8 @@ class Client extends abstract_accessor_engine_js_1.AbstractAccessorEngine {
      * @param apiKey
      * @returns
      */
-    static getDevices() {
-        return __awaiter(this, arguments, void 0, function* (baseUrl = "https://www.wqdatalive.com/api/v1", apiKey = "") {
+    static getDevices(baseUrl = "https://www.wqdatalive.com/api/v1", apiKey = "") {
+        return __awaiter(this, void 0, void 0, function* () {
             return (0, accessor_utils_js_1.fetchData)(`${baseUrl}/devices`, { "params": { "apiKey": apiKey } });
         });
     }
@@ -45,8 +45,8 @@ class Client extends abstract_accessor_engine_js_1.AbstractAccessorEngine {
      * @param deviceId
      * @returns
      */
-    static getDevice() {
-        return __awaiter(this, arguments, void 0, function* (baseUrl = "https://www.wqdatalive.com/api/v1", apiKey = "", deviceId) {
+    static getDevice(baseUrl = "https://www.wqdatalive.com/api/v1", apiKey = "", deviceId) {
+        return __awaiter(this, void 0, void 0, function* () {
             return (0, accessor_utils_js_1.fetchData)(`${baseUrl}/devices/${deviceId}`, { "params": { "apiKey": apiKey } });
         });
     }
@@ -57,8 +57,8 @@ class Client extends abstract_accessor_engine_js_1.AbstractAccessorEngine {
      * @param deviceId
      * @returns
      */
-    static getParameters() {
-        return __awaiter(this, arguments, void 0, function* (baseUrl = "https://www.wqdatalive.com/api/v1", apiKey = "", deviceId) {
+    static getParameters(baseUrl = "https://www.wqdatalive.com/api/v1", apiKey = "", deviceId) {
+        return __awaiter(this, void 0, void 0, function* () {
             return (0, accessor_utils_js_1.fetchData)(`${baseUrl}/devices/${deviceId}/parameters`, { "params": { "apiKey": apiKey } });
         });
     }
@@ -70,8 +70,8 @@ class Client extends abstract_accessor_engine_js_1.AbstractAccessorEngine {
      * @param parameterId
      * @returns
      */
-    static getParameter() {
-        return __awaiter(this, arguments, void 0, function* (baseUrl = "https://www.wqdatalive.com/api/v1", apiKey = "", deviceId, parameterId) {
+    static getParameter(baseUrl = "https://www.wqdatalive.com/api/v1", apiKey = "", deviceId, parameterId) {
+        return __awaiter(this, void 0, void 0, function* () {
             return (0, accessor_utils_js_1.fetchData)(`${baseUrl}/devices/${deviceId}/parameters/${parameterId}`, { "params": { "apiKey": apiKey } });
         });
     }
@@ -84,8 +84,8 @@ class Client extends abstract_accessor_engine_js_1.AbstractAccessorEngine {
      * @param to - end time in UTC YYYY-MM-DD HH:mm:ss
      * @returns
      */
-    static getData() {
-        return __awaiter(this, arguments, void 0, function* (baseUrl = "https://www.wqdatalive.com/api/v1", apiKey = "", deviceId, from, to, parameterIds) {
+    static getData(baseUrl = "https://www.wqdatalive.com/api/v1", apiKey = "", deviceId, from, to, parameterIds) {
+        return __awaiter(this, void 0, void 0, function* () {
             from = (from instanceof Date) ? from.toISOString().replace("T", " ").substring(0, 19) : from;
             to = (to instanceof Date) ? to.toISOString().replace("T", " ").substring(0, 19) : to;
             const parameterIds_str = (parameterIds) ? parameterIds.join(",") : undefined;
@@ -102,21 +102,21 @@ class Client extends abstract_accessor_engine_js_1.AbstractAccessorEngine {
      * @param to
      * @returns
      */
-    static getParameterData() {
-        return __awaiter(this, arguments, void 0, function* (baseUrl = "https://www.wqdatalive.com/api/v1", apiKey = "", deviceId, parameterId, from, to) {
+    static getParameterData(baseUrl = "https://www.wqdatalive.com/api/v1", apiKey = "", deviceId, parameterId, from, to) {
+        return __awaiter(this, void 0, void 0, function* () {
             from = (from instanceof Date) ? from.toISOString().replace("T", " ").substring(0, 19) : from;
             to = (to instanceof Date) ? to.toISOString().replace("T", " ").substring(0, 19) : to;
             return (0, accessor_utils_js_1.fetchData)(`${baseUrl}/devices/${deviceId}/parameters/${parameterId}/data`, { "params": { "apiKey": apiKey, "from": from, "to": to } });
         });
     }
-    static getDataLatest() {
-        return __awaiter(this, arguments, void 0, function* (baseUrl = "https://www.wqdatalive.com/api/v1", apiKey = "", deviceId, parameterIds) {
+    static getDataLatest(baseUrl = "https://www.wqdatalive.com/api/v1", apiKey = "", deviceId, parameterIds) {
+        return __awaiter(this, void 0, void 0, function* () {
             const parameterIds_str = (parameterIds) ? parameterIds.join(",") : undefined;
             return (0, accessor_utils_js_1.fetchData)(`${baseUrl}/devices/${deviceId}/parameters/data/latest`, { "params": { "apiKey": apiKey, "parameterIds": parameterIds_str } });
         });
     }
-    static getParameterDataLatest() {
-        return __awaiter(this, arguments, void 0, function* (baseUrl = "https://www.wqdatalive.com/api/v1", apiKey = "", deviceId, parameterId) {
+    static getParameterDataLatest(baseUrl = "https://www.wqdatalive.com/api/v1", apiKey = "", deviceId, parameterId) {
+        return __awaiter(this, void 0, void 0, function* () {
             return (0, accessor_utils_js_1.fetchData)(`${baseUrl}/devices/${deviceId}/parameters/${parameterId}/data/latest`, { "params": { "apiKey": apiKey } });
         });
     }
@@ -181,8 +181,8 @@ class Client extends abstract_accessor_engine_js_1.AbstractAccessorEngine {
             nombre: `${device.site} - ${device.name}`
         });
     }
-    getSites() {
-        return __awaiter(this, arguments, void 0, function* (filter = {}) {
+    getSites(filter = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
             if (!this.tabla_id) {
                 throw new Error("missing tabla_id from config");
             }
@@ -202,8 +202,8 @@ class Client extends abstract_accessor_engine_js_1.AbstractAccessorEngine {
             return estaciones;
         });
     }
-    parseParameters(parameters_1, estacion_1) {
-        return __awaiter(this, arguments, void 0, function* (parameters, estacion, skip_unmatched = true) {
+    parseParameters(parameters, estacion, skip_unmatched = true) {
+        return __awaiter(this, void 0, void 0, function* () {
             if (!this.var_map) {
                 throw new Error("Var map missing");
             }
@@ -279,8 +279,8 @@ class Client extends abstract_accessor_engine_js_1.AbstractAccessorEngine {
      * @param options
      * @returns
      */
-    get(filter_1) {
-        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
+    get(filter, options = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
             if (!filter) {
                 throw new Error("Missing filter");
             }

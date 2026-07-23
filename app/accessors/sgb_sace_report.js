@@ -113,8 +113,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             };
         });
     }
-    getPronostico() {
-        return __awaiter(this, arguments, void 0, function* (filter = {}) {
+    getPronostico(filter = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
             return this.readMdTableFile(filter.file || this.config.file);
         });
     }

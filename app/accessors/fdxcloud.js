@@ -82,8 +82,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             };
         }
     }
-    getSeries() {
-        return __awaiter(this, arguments, void 0, function* (filter = {}) {
+    getSeries(filter = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
             filter.tabla_id = this.tabla_id;
             filter.var_id = 2;
             filter.proc_id = 1;
@@ -93,8 +93,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             return series;
         });
     }
-    getMeasuresWithPagination(measurement_point_1, device_1, since_1, to_1) {
-        return __awaiter(this, arguments, void 0, function* (measurement_point, device, since, to, length = this.pagination_length, start_page = 1) {
+    getMeasuresWithPagination(measurement_point, device, since, to, length = this.pagination_length, start_page = 1) {
+        return __awaiter(this, void 0, void 0, function* () {
             let last = false;
             let page = start_page;
             let measurements = [];
@@ -121,8 +121,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         }
         throw new Error("Serie not found with id=" + s_id);
     }
-    get(filter_1) {
-        return __awaiter(this, arguments, void 0, function* (filter, options = {}) {
+    get(filter, options = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
             if (!filter.timestart || !filter.timeend) {
                 throw new Error("Missing filter.timestart, filter.timeend");
             }
@@ -200,5 +200,5 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         };
     }
 }
-exports.Client = Client;
 Client._get_is_multiseries = false;
+exports.Client = Client;

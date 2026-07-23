@@ -12,16 +12,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.fetchData = fetchData;
-exports.parseUtcDateTime = parseUtcDateTime;
-exports.filterByParam = filterByParam;
-exports.filterSeries = filterSeries;
-exports.filterSeriesByIds = filterSeriesByIds;
+exports.filterSeriesByIds = exports.filterSeries = exports.filterByParam = exports.parseUtcDateTime = exports.fetchData = void 0;
 const axios_1 = __importDefault(require("axios"));
 const https_1 = __importDefault(require("https"));
 function fetchData(url, options) {
+    var _a, _b;
     return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b;
         const agent = new https_1.default.Agent({
             rejectUnauthorized: !(options === null || options === void 0 ? void 0 : options.disable_validation),
         });
@@ -40,12 +36,14 @@ function fetchData(url, options) {
         }
     });
 }
+exports.fetchData = fetchData;
 function parseUtcDateTime(s) {
     const [date, time] = s.split(" ");
     const [year, month, day] = date.split("-").map(Number);
     const [hour, minute, second] = time.split(":").map(Number);
     return new Date(Date.UTC(year, month - 1, day, hour, minute, second));
 }
+exports.parseUtcDateTime = parseUtcDateTime;
 function filterByParam(filter_value, item_value, func) {
     if (filter_value == undefined || (Array.isArray(filter_value) && filter_value.length == 0)) {
         return true;
@@ -66,6 +64,7 @@ function filterByParam(filter_value, item_value, func) {
     }
     return false;
 }
+exports.filterByParam = filterByParam;
 function filterSeries(series = [], params = {}) {
     return series.filter(serie => {
         return ([
@@ -79,6 +78,7 @@ function filterSeries(series = [], params = {}) {
         ].indexOf(false) < 0);
     });
 }
+exports.filterSeries = filterSeries;
 function filterSeriesByIds(series = [], params = {}) {
     return series.filter(serie => {
         return ([
@@ -91,3 +91,4 @@ function filterSeriesByIds(series = [], params = {}) {
         ].indexOf(false) < 0);
     });
 }
+exports.filterSeriesByIds = filterSeriesByIds;
