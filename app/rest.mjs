@@ -3679,7 +3679,7 @@ async function upsertAsociacion(req,res) {
 	}
 	const client = await global.pool.connect()
 	try {
-		const result = await crud.upsertAsociacion(req.body.asociacion, user_id, client)
+		const result = await crud.upsertAsociacion({...req.params, ...req.body.asociacion}, user_id, client)
 		res.send(result)
 	} catch(e) {
 		handleCrudError(e, res)
