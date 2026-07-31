@@ -1051,6 +1051,43 @@ function buildMetadataForm2(mdElement,mdKey,formContainer,values={}) {
 						 .append(input)
 					);
 			  }),
+
+			  // run params
+			  Object.keys( (mdElement.run_params) ? mdElement.run_params : {} ).map(key=>{
+				var e = mdElement.run_params[key]
+				var label = $('<label></label>').attr('for',key).text(e.title)
+				var input = $('<input></input>')
+				$(input).attr('type',e.type)
+				if(e.step) {
+					$(input).attr('step',e.step)
+				}
+				$(input).attr('class', 'run-params')
+						.attr('disabled',true)
+						.attr('name',key)
+						.attr('title',e.title)
+						.val(values[key]);
+				if(e.required) {
+					$(input).attr('required','required')
+				}
+				if(e.style) {
+					$(input).attr('style',e.style)
+				} else {
+					$(input).attr('style',"width: 260px")
+				}
+				return $("<div></div>")
+					.addClass("row")
+					.addClass("run-params")
+					.append(
+						$("<div></div>")
+						.addClass("col-sm")
+						.append(label),
+						$("<div></div>")
+							.addClass("col-sm")
+							.append(input)
+					)
+					.hide();
+			  }),
+
 			  $("<div></div>")
 				.addClass("row")
 				.append(
@@ -1079,6 +1116,11 @@ function buildMetadataForm2(mdElement,mdKey,formContainer,values={}) {
 function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create') {
 	$(formContainer).find("input.confirm.upload").removeAttr('required').hide()
 	// console.log(values)
+
+	// hide+disable run-params
+	$(formContainer).find(".row.run-params").hide()
+	$(formContainer).find("input.run-params").attr("disabled", "disabled")
+
 	switch(action) {
 		case "create":
 			$("div#myModalMetadata div.modal-content div.modal-header h4.modal-title").text("Crear " + mdElement.objectName)
@@ -1120,6 +1162,16 @@ function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create'
 			$(formContainer).find("button[type=submit]").attr('formnovalidate',"formnovalidate")
 			//~ $(formContainer).find("button[type=submit]").unbind('submit').submit(onSubmitMetadataRemove)
 			break;		
+		case "run":
+			$("div#myModalMetadata div.modal-content div.modal-header h4.modal-title").text("Ejecutar " + mdElement.objectName + " id:" + values.id)
+			$(formContainer).find(".confirm.edit").hide()
+			$(formContainer).find("label").hide()
+			$(formContainer).find(".confirm.edit[name=id]").val(values.id).attr('required','required')
+			$(formContainer).attr('action','#run').attr('method','GET')
+			$(formContainer).find(".row.run-params").show()
+			$(formContainer).find("input.run-params").removeAttr("disabled")
+			break;
+			// $(formContainer).find("button[type=submit]").attr('formnovalidate',"formnovalidate")
 		// case "download":
 		// 	$("div#myModalMetadata div.modal-content div.modal-header h4.modal-title").text("Descargar " + mdElement.objectName + " id:" + values.id)
 		// 	$(formContainer).find(".confirm.edit").hide()
@@ -1146,7 +1198,7 @@ function onSubmitMetadata(event) {
 	var objectNamePlural = global.mdElement.objectNamePlural
 	requestBody[objectName] = {}
 	var md_keys = Object.keys(global.mdElement.properties).filter(p=>(!global.mdElement.properties[p].no_md && global.mdElement.properties[p].edit))
-	if(action != "delete" && action != "upload") {
+	if(action != "delete" && action != "upload" && action != "run") {
 		for(var i in md_keys) {
 			var key = md_keys[i]
 			var value = $(this).find(".edit[name=" + key + "]").val()  
@@ -1180,7 +1232,7 @@ function onSubmitMetadata(event) {
 					requestBody[objectName][key] = value
 				}
 			}
-		}
+		} 
 		if(global.mdKey == "estacion") {
 			requestBody[objectName].geom = {
 				type: "point",
@@ -1207,6 +1259,14 @@ function onSubmitMetadata(event) {
 			delete requestBody[objectName].longitud_exutorio
 			delete requestBody[objectName].latitud_exutorio
 		}
+	} else if (action == "run") {
+		requestBody = {
+			run: true
+		}
+		Object.keys(mdElement.run_params).forEach( key => {
+			const value = $(this).find(".run-params[name=" + key + "]").val()
+			requestBody[key] = value
+		})
 	}
 	var ajaxParams = {}
 	//~ var url = buildMetadataSearchRequestUrl(global.mdElement,
@@ -1319,6 +1379,24 @@ function onSubmitMetadata(event) {
 					$("div#myModalMetadata").modal('hide')
 					loadMDElement()//~ location.reload()
 					$("form#selectorform").submit()
+				}
+			}
+			break;
+		case "run": 
+			ajaxParams = {
+				url: global.mdElement.endpoint + "/" + id,
+				type: "GET",
+				data: requestBody,
+				success: function(response){
+					$("body").css("cursor","default")
+					if(!Array.isArray(response) || !response.length) {
+						alert("Nothing done")
+						$("div#myModalMetadata").modal("hide")
+						$("div#myModalMetadata form#confirm").find("button[type=submit]").prop('disabled',false)
+						return
+					}
+					alert("Se ejecutó el elemento " + objectName + " id:" + id + ". El procedimiento generó " + response.length + " registros")
+					$("div#myModalMetadata").modal('hide')
 				}
 			}
 			break;
@@ -2005,6 +2083,13 @@ function loadMDElement(content) {
 			.click(event=>{
 				setMetadataForm(global.mdElement,global.mdKey,$("div#myModalMetadata form#confirm"),global.selectedFeature,"create")
 			}))
+		// add runAsociacion button
+		if(global.mdElement.objectName == "asociacion") {
+			actions.push($('<a class="run-asoc" title="Ejecutar asociación" data-toggle="tooltip"><img style="vertical-align: top;" src="img/directions_run.png" alt=run></img></a>')
+			.click(event=>{
+				setMetadataForm(global.mdElement,global.mdKey,$("div#myModalMetadata form#confirm"),global.selectedFeature,"run")
+			}))
+		}
 	}
 	$("div.tab-pane#general").empty().append(
 		$('<div style="display:flex; justify-content: space-between;" id=generalHeadingRow></div>').append(

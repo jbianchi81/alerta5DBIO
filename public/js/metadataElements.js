@@ -1786,6 +1786,20 @@ var metadataElements = {
 		title: "Asociaciones",
 		endpoint: "obs/asociaciones",
 		nameProperty: "id",
+		run_params: {
+			timestart: {
+				type: "date",
+				title: "fecha/hora inicial",
+				required: true,
+				description: "fecha/hora inicial"
+			},
+			timeend: {
+				type: "date",
+				title: "fecha/hora finale",
+				required: true,
+				description: "fecha/hora final"
+			}
+		}
 	},
 	observacion: {
 		properties: {
