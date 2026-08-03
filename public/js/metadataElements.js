@@ -1795,7 +1795,7 @@ var metadataElements = {
 			},
 			timeend: {
 				type: "date",
-				title: "fecha/hora finale",
+				title: "fecha/hora final",
 				required: true,
 				description: "fecha/hora final"
 			}

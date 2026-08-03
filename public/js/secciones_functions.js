@@ -1021,7 +1021,7 @@ function buildMetadataForm2(mdElement,mdKey,formContainer,values={}) {
 						.attr('title',input_title)
 						.val(value);
 				if(e.required) {
-					$(input).attr('required','required')
+					$(input).addClass("create-required").attr('required','required')
 				}
 				if(e.style) {
 					$(input).attr('style',e.style)
@@ -1067,7 +1067,7 @@ function buildMetadataForm2(mdElement,mdKey,formContainer,values={}) {
 						.attr('title',e.title)
 						.val(values[key]);
 				if(e.required) {
-					$(input).attr('required','required')
+					$(input).addClass("run-required")
 				}
 				if(e.style) {
 					$(input).attr('style',e.style)
@@ -1119,7 +1119,9 @@ function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create'
 
 	// hide+disable run-params
 	$(formContainer).find(".row.run-params").hide()
-	$(formContainer).find("input.run-params").attr("disabled", "disabled")
+	$(formContainer).find(".run-params").attr("disabled", "disabled")
+	$(formContainer).find(".run-params.run-required").removeAttr('required')
+	$(formContainer).find(".confirm.create-required").attr('required','required')
 
 	switch(action) {
 		case "create":
@@ -1166,10 +1168,13 @@ function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create'
 			$("div#myModalMetadata div.modal-content div.modal-header h4.modal-title").text("Ejecutar " + mdElement.objectName + " id:" + values.id)
 			$(formContainer).find(".confirm.edit").hide()
 			$(formContainer).find("label").hide()
+			$(formContainer).find(".confirm.create-required").removeAttr('required')
 			$(formContainer).find(".confirm.edit[name=id]").val(values.id).attr('required','required')
 			$(formContainer).attr('action','#run').attr('method','GET')
 			$(formContainer).find(".row.run-params").show()
+			$(formContainer).find(".row.run-params label").show()
 			$(formContainer).find("input.run-params").removeAttr("disabled")
+			$(formContainer).find("input.run-params.run-required").attr('required','required')
 			break;
 			// $(formContainer).find("button[type=submit]").attr('formnovalidate',"formnovalidate")
 		// case "download":
@@ -1263,7 +1268,7 @@ function onSubmitMetadata(event) {
 		requestBody = {
 			run: true
 		}
-		Object.keys(mdElement.run_params).forEach( key => {
+		Object.keys(global.mdElement.run_params).forEach( key => {
 			const value = $(this).find(".run-params[name=" + key + "]").val()
 			requestBody[key] = value
 		})
@@ -1799,6 +1804,11 @@ function makeMDTable(metadataElement,container,isWriter) {
 		var content = $(container).find("table.md_edit_table").bootstrapTable('getRowByUniqueId',id)
 		loadMDElement(content)
 	})
+	$(container).on("click", ".run", function(){		
+		$(this).tooltip('hide')
+		var id = $(this).parents("tr").attr("data-uniqueid") // find("td:first-child").eq(1).html()
+		setMetadataForm(global.mdElement,global.mdKey,$("div#myModalMetadata form#confirm"),{id:id},"run")
+	})
 	// $(container).on("click", ".download", function(){		
 	// 	$(this).tooltip('hide')
 	// 	var id = $(this).parents("tr").attr("data-uniqueid") // find("td:first-child").eq(1).html()
@@ -1930,6 +1940,9 @@ function loadMDTable(content,container,isWriter) {
 	var actions = '<a class="edit" title="Editar" data-toggle="tooltip"><i class="material-icons">&#xE254;</i></a> ' +
 						'<a class="delete" title="Eliminar" data-toggle="tooltip"><i class="material-icons">&#xE872;</i></a>' +
 						'<a class="view" title="Ver metadatos" data-toggle="tooltip"><i class="material-icons">adjust</i></a>'
+	if(global.mdElement.run_params) {
+		actions = actions + '<a class="run" title="Ejecutar" data-toggle="tooltip"><img style="vertical-align: top;" src="img/directions_run.png" alt=run></img></a>'
+	}
 	var public_actions = '<a class="view" title="Ver metadatos" data-toggle="tooltip"><i class="material-icons">adjust</i></a>'
 	// parse result into table rows
 	if(Array.isArray(content)) {
@@ -2085,7 +2098,7 @@ function loadMDElement(content) {
 			}))
 		// add runAsociacion button
 		if(global.mdElement.objectName == "asociacion") {
-			actions.push($('<a class="run-asoc" title="Ejecutar asociación" data-toggle="tooltip"><img style="vertical-align: top;" src="img/directions_run.png" alt=run></img></a>')
+			actions.push($('<a class="run" title="Ejecutar asociación" data-toggle="tooltip"><img style="vertical-align: top;" src="img/directions_run.png" alt=run></img></a>')
 			.click(event=>{
 				setMetadataForm(global.mdElement,global.mdKey,$("div#myModalMetadata form#confirm"),global.selectedFeature,"run")
 			}))
