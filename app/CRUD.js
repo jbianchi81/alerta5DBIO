@@ -11071,14 +11071,49 @@ internal.CRUD = class {
 			}
 			if(options.no_metadata) {  // RETURN WITH NO METADATA (SOLO IDS)
 				if(options.pagination) {
-					return {
-						rows: res.rows,
-						total: total,
-						is_last_page: is_last_page,
-						next_offset: next_offset // (is_last_page) ? undefined : offset + filter.limit
+					if(options.format && options.format.toLowerCase() == "geojson") {
+						return {
+							"type": "FeatureCollection",
+							"features": res.rows.map(row=> {
+								const properties = {...row};
+								delete properties.geom;
+								return {
+									type: "Feature",
+									id: row.id,
+									geometry: row.geom,
+									properties: properties
+								};
+							}),
+							total: total,
+							is_last_page: is_last_page,
+							next_offset: next_offset
+						}
+					} else {
+						return {
+							rows: res.rows,
+							total: total,
+							is_last_page: is_last_page,
+							next_offset: next_offset // (is_last_page) ? undefined : offset + filter.limit
+						}
 					}
 				} else {
-					return res.rows
+					if(options.format && options.format.toLowerCase() == "geojson") {
+						return {
+							"type": "FeatureCollection",
+							"features": res.rows.map(row=> {
+								const properties = {...row};
+								delete properties.geom;
+								return {
+									type: "Feature",
+									id: row.id,
+									geometry: row.geom,
+									properties: properties
+								};
+							})
+						}
+					} else {
+						return res.rows
+					}
 				}
 			}
 			if(options.format && options.format.toLowerCase() == "geojson") {
