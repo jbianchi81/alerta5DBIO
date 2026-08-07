@@ -487,15 +487,19 @@ internal.Client = class extends AbstractAccessorEngine {
             const data_items = []
             while(date < filter.timeend) {
                 // console.debug("date: " + date.toISOString().substring(0,10))
-                const data = await this.getHidroinfoanaSerieTelemetricaAdotada(
-                    id_externo,
-                    "DATA_LEITURA",
-                    date.toISOString().substring(0,10),
-                    "HORA_24",
-                    undefined,
-                    token
-                )
-                data_items.push(...data.items)
+                try {
+                    const data = await this.getHidroinfoanaSerieTelemetricaAdotada(
+                        id_externo,
+                        "DATA_LEITURA",
+                        date.toISOString().substring(0,10),
+                        "HORA_24",
+                        undefined,
+                        token
+                    )
+                    data_items.push(...data.items)
+                } catch(e) {
+                    console.error(`getHidroinfoanaSerieTelemetricaAdotada failed for station_id ${id_externo}, date ${date.toISOString().substring(0,10)}. Message: ${e.toString()}`)
+                }
                 date.setUTCDate(date.getUTCDate() + 1)
             }
             for(var serie of estacion_series) {
