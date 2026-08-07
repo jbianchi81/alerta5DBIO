@@ -3023,64 +3023,68 @@ internal.ana = class {
 		})
 	}
 
-	getDadosANA(codEstacao,dataInicio,dataFim,series_id={}) {
+	async getDadosANA(codEstacao,dataInicio,dataFim,series_id={}) {
 		console.log({series_id:series_id})
-		return axios.get("https://telemetriaws1.ana.gov.br/serviceANA.asmx/DadosHidrometeorologicos", {
-			params: {
-				codEstacao: codEstacao,
-				dataInicio: dataInicio,
-				dataFim: dataFim
-			}
-		}) //,{responseType:'stream'})
-		.then(response=>{
-			//~ console.log(response.data) 
-			return new Promise((resolve, reject)=> {
-				var data = xmlparser.parseString(response.data, function(error, result) {
-					if(error === null) {
-						//~ console.log(result.DataTable["diffgr:diffgram"][0].DocumentElement[0]);
-						if(!result.DataTable["diffgr:diffgram"][0].DocumentElement[0].DadosHidrometereologicos) {
-							console.error("no data found")
-							reject(result.DataTable["diffgr:diffgram"][0].DocumentElement[0].ErrorTable)
-							return
+		try {
+			var response = await axios.get("https://telemetriaws1.ana.gov.br/serviceANA.asmx/DadosHidrometeorologicos", {
+				params: {
+					codEstacao: codEstacao,
+					dataInicio: dataInicio,
+					dataFim: dataFim
+				}
+			}) //,{responseType:'stream'})
+		} catch(e) {
+			console.error(`Failed GET DadosHidrometeorologicos for codEstacao ${codEstacao}, dataInicio ${dataInicio}, dataFim ${dataFim}. Message: ${e.toString()}` )
+			return []
+		}
+		//~ console.log(response.data) 
+		return new Promise((resolve, reject)=> {
+			var data = xmlparser.parseString(response.data, function(error, result) {
+				if(error === null) {
+					//~ console.log(result.DataTable["diffgr:diffgram"][0].DocumentElement[0]);
+					if(!result.DataTable["diffgr:diffgram"][0].DocumentElement[0].DadosHidrometereologicos) {
+						console.error("no data found")
+						reject(result.DataTable["diffgr:diffgram"][0].DocumentElement[0].ErrorTable)
+						return
+					}
+					var observaciones = []
+					result.DataTable["diffgr:diffgram"][0].DocumentElement[0].DadosHidrometereologicos.forEach(d=>{
+						if(series_id.Vazao && d.Vazao[0] != "") {
+							observaciones.push({
+								series_id: series_id.Vazao,
+								timestart: new Date(d.DataHora[0].replace(/\s+$/,"")),
+								timeend: new Date(d.DataHora[0].replace(/\s+$/,"")),
+								valor: parseFloat(d.Vazao[0])
+							})
 						}
-						var observaciones = []
-						result.DataTable["diffgr:diffgram"][0].DocumentElement[0].DadosHidrometereologicos.forEach(d=>{
-							if(series_id.Vazao && d.Vazao[0] != "") {
-								observaciones.push({
-									series_id: series_id.Vazao,
-									timestart: new Date(d.DataHora[0].replace(/\s+$/,"")),
-									timeend: new Date(d.DataHora[0].replace(/\s+$/,"")),
-									valor: parseFloat(d.Vazao[0])
-								})
-							}
-							if(series_id.Nivel && d.Nivel[0] != "") {
-								observaciones.push({
-									series_id: series_id.Nivel,
-									timestart: new Date(d.DataHora[0].replace(/\s+$/,"")),
-									timeend: new Date(d.DataHora[0].replace(/\s+$/,"")),
-									valor: parseFloat(d.Nivel[0])*0.01
-								})
-							}
-							if(series_id.Chuva && d.Chuva[0] != "") {
-								observaciones.push({
-									series_id: series_id.Chuva,
-									timestart: new Date(d.DataHora[0].replace(/\s+$/,"")), // new Date(new Date(d.DataHora[0].replace(/\s+$/,"")).getTime()-1000*3600),
-									timeend: new Date(d.DataHora[0].replace(/\s+$/,"")),
-									valor: parseFloat(d.Chuva[0])
-								})
-							}
-						})
-						//~ console.log({observaciones: observaciones})
-						resolve(observaciones)
-					}
-					else {
-						console.log(error);
-						reject(error)
-					}
-				})
+						if(series_id.Nivel && d.Nivel[0] != "") {
+							observaciones.push({
+								series_id: series_id.Nivel,
+								timestart: new Date(d.DataHora[0].replace(/\s+$/,"")),
+								timeend: new Date(d.DataHora[0].replace(/\s+$/,"")),
+								valor: parseFloat(d.Nivel[0])*0.01
+							})
+						}
+						if(series_id.Chuva && d.Chuva[0] != "") {
+							observaciones.push({
+								series_id: series_id.Chuva,
+								timestart: new Date(d.DataHora[0].replace(/\s+$/,"")), // new Date(new Date(d.DataHora[0].replace(/\s+$/,"")).getTime()-1000*3600),
+								timeend: new Date(d.DataHora[0].replace(/\s+$/,"")),
+								valor: parseFloat(d.Chuva[0])
+							})
+						}
+					})
+					//~ console.log({observaciones: observaciones})
+					resolve(observaciones)
+				}
+				else {
+					console.log(error);
+					reject(error)
+				}
 			})
 		})
 	}
+
 	async getSeries(filter={},options={}) {
 		const estaciones = await this.getSitesANA(this.config.sites_local_file,true,0,0,undefined)
 		const variables = [
