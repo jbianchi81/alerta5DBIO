@@ -1073,6 +1073,8 @@ internal.client = class {
             // reads from accessor_timeseries_observation.series_puntual_id
             const timeseries_observations = await internal.timeseries_observation.read({series_puntual_id:filter.series_id})
             ts_filter.observationIdentifier = (timeseries_observations.length) ? timeseries_observations.map(tso=>tso.timeseries_id) : undefined
+            const series = await Serie.read({id: timeseries_observations.map(tso => tso.series_puntual_id)})
+            estaciones.push(...series.map(s => s.estacion))
         } else if (filter.var_id || filter.proc_id || filter.unit_id || filter.fuentes_id || filter.tipo || filter.observed_property_id || filter.variable_name) {
             const read_filter = {
                 var_id: filter.var_id,
@@ -1089,6 +1091,8 @@ internal.client = class {
                 throw(new Error("No timeseries observations found in database matching the provided criteria. Run getSeries to update database."))
             }
             ts_filter.observationIdentifier = timeseries_observations.map(tso=>tso.timeseries_id)
+            const series = await Serie.read({id: timeseries_observations.map(tso => tso.series_puntual_id)})
+            estaciones.push(...series.map(s => s.estacion))
         }
         for(const key of this.om_api_filter_keys) {
             if(key in filter) {
