@@ -1,7 +1,7 @@
 import axios, { AxiosRequestConfig, AxiosError } from "axios";
 import https from "https";
 
-type SeriesFilter = {
+export type SeriesFilter = {
     id? : number|number[]
     tipo? : "puntual" | "areal" | "raster"
     series_id? : number|number[]
