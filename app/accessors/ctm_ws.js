@@ -8,6 +8,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Client = void 0;
 const fast_xml_parser_1 = require("fast-xml-parser");
@@ -16,6 +19,7 @@ const accessor_utils_1 = require("./accessor_utils");
 const CRUD_1 = require("../CRUD");
 const variable_1 = require("a5base/variable");
 const abstract_accessor_engine_1 = require("./abstract_accessor_engine");
+const axios_1 = __importDefault(require("axios"));
 function escapeRegExp(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
 }
@@ -82,19 +86,17 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         </m:HidroSerieHistorica>
     </soap:Body>
 </soap:Envelope>`;
-            const response = yield fetch(this.url, {
-                method: "POST",
+            const response = yield axios_1.default.post(this.url, xml, {
                 headers: {
                     "Content-Type": "text/xml;charset=UTF-8",
                     "SOAPAction": "HidroSerieHistorica",
-                },
-                body: xml,
+                }
             });
-            const responseText = yield response.text();
+            const responseText = yield response.data;
             if (options.save_raw_result) {
                 yield (0, promises_1.writeFile)(options.save_raw_result, responseText);
             }
-            if (!response.ok) {
+            if (response.statusText != "OK") {
                 throw new Error(`Salto Grande SOAP request failed: ${response.status} ${response.statusText}`);
             }
             const parser = new fast_xml_parser_1.XMLParser({
@@ -148,16 +150,14 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
 			</m:ListaEstacionesTelemetricas>
 		</soap:Body>
 	</soap:Envelope>`;
-            const response = yield fetch(this.url, {
-                method: "POST",
+            const response = yield axios_1.default.post(this.url, xml, {
                 headers: {
                     "Content-Type": "text/xml;charset=UTF-8",
                     "SOAPAction": "ListaEstacionesTelemetricas",
-                },
-                body: xml,
+                }
             });
-            const responseText = yield response.text();
-            if (!response.ok) {
+            const responseText = yield response.data;
+            if (response.statusText != "OK") {
                 throw new Error(`Salto Grande SOAP request failed: ${response.status} ${response.statusText}`);
             }
             const parser = new fast_xml_parser_1.XMLParser({

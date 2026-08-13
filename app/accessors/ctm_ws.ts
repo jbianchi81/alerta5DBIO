@@ -5,6 +5,7 @@ import {ObservacionesFilter, SeriesFilter, filterSeries } from "./accessor_utils
 import {serie as A5Serie, estacion as A5Estacion, procedimiento as A5Procedimiento, unidades as A5Unidades, ObservacionDict, observaciones as A5Observaciones} from "../CRUD"
 import {Variable as A5Variable} from "a5base/variable"
 import { AbstractAccessorEngine } from "./abstract_accessor_engine";
+import axios from 'axios'
 
 function escapeRegExp(str : string) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
@@ -155,22 +156,24 @@ export class Client extends AbstractAccessorEngine {
     </soap:Body>
 </soap:Envelope>`;
 
-        const response = await fetch(this.url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "text/xml;charset=UTF-8",
-                "SOAPAction": "HidroSerieHistorica",
-            },
-            body: xml,
-        });
+        const response = await axios.post(
+			this.url, 
+			xml,
+			{
+				headers: {
+					"Content-Type": "text/xml;charset=UTF-8",
+					"SOAPAction": "HidroSerieHistorica",
+				}
+			}
+		);
 
-        const responseText = await response.text();
+        const responseText = await response.data;
 
         if (options.save_raw_result) {
             await writeFile(options.save_raw_result, responseText);
         }
 
-        if (!response.ok) {
+        if (response.statusText != "ok") {
             throw new Error(
                 `Salto Grande SOAP request failed: ${response.status} ${response.statusText}`,
             );
@@ -239,18 +242,20 @@ export class Client extends AbstractAccessorEngine {
 		</soap:Body>
 	</soap:Envelope>`;
 
-		const response = await fetch(this.url, {
-			method: "POST",
-			headers: {
-				"Content-Type": "text/xml;charset=UTF-8",
-				"SOAPAction": "ListaEstacionesTelemetricas",
-			},
-			body: xml,
-		});
+		const response = await axios.post(
+			this.url,
+			xml,
+			{
+				headers: {
+					"Content-Type": "text/xml;charset=UTF-8",
+					"SOAPAction": "ListaEstacionesTelemetricas",
+				}
+			}
+		);
 
-		const responseText = await response.text();
+		const responseText = await response.data;
 
-		if (!response.ok) {
+		if (response.statusText != "ok") {
 			throw new Error(
 				`Salto Grande SOAP request failed: ${response.status} ${response.statusText}`,
 			);
