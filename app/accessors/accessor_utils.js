@@ -44,7 +44,7 @@ function parseUtcDateTime(s) {
     return new Date(Date.UTC(year, month - 1, day, hour, minute, second));
 }
 exports.parseUtcDateTime = parseUtcDateTime;
-function filterByParam(filter_value, item_value, func) {
+function filterByParam(filter_value, item_value, func, is_numeric) {
     if (filter_value == undefined || (Array.isArray(filter_value) && filter_value.length == 0)) {
         return true;
     }
@@ -55,7 +55,27 @@ function filterByParam(filter_value, item_value, func) {
         return false;
     }
     if (Array.isArray(filter_value)) {
-        if (filter_value.indexOf(item_value) >= 0) {
+        if (is_numeric) {
+            const filter_values_num = filter_value.map(v => parseFloat(v));
+            if (filter_values_num.map(v => v.toString()).indexOf("NaN") >= 0) {
+                throw new Error("Invalid filter, must be numeric");
+            }
+            if (filter_values_num.indexOf(parseFloat(item_value)) >= 0) {
+                return true;
+            }
+        }
+        else {
+            if (filter_value.indexOf(item_value) >= 0) {
+                return true;
+            }
+        }
+    }
+    else if (is_numeric) {
+        const filter_value_num = parseFloat(filter_value);
+        if (filter_value_num.toString() == "NaN") {
+            throw new Error("Invalid filter, must be numeric");
+        }
+        if (parseFloat(item_value) == filter_value_num) {
             return true;
         }
     }
@@ -68,12 +88,12 @@ exports.filterByParam = filterByParam;
 function filterSeries(series = [], params = {}) {
     return series.filter(serie => {
         return ([
-            filterByParam(params.estacion_id, serie.estacion.id),
-            filterByParam(params.var_id, serie.var.id),
-            filterByParam(params.unit_id, serie.unidades.id),
+            filterByParam(params.estacion_id, serie.estacion.id, undefined, true),
+            filterByParam(params.var_id, serie.var.id, undefined, true),
+            filterByParam(params.unit_id, serie.unidades.id, undefined, true),
             filterByParam(params.id_externo, serie.estacion.id_externo),
-            filterByParam(params.series_id, serie.id),
-            filterByParam(params.id, serie.id),
+            filterByParam(params.series_id, serie.id, undefined, true),
+            filterByParam(params.id, serie.id, undefined, true),
             filterByParam(params.tipo, serie.tipo)
         ].indexOf(false) < 0);
     });

@@ -173,7 +173,7 @@ export class Client extends AbstractAccessorEngine {
             await writeFile(options.save_raw_result, responseText);
         }
 
-        if (response.statusText != "ok") {
+        if (response.statusText != "OK") {
             throw new Error(
                 `Salto Grande SOAP request failed: ${response.status} ${response.statusText}`,
             );
@@ -255,7 +255,7 @@ export class Client extends AbstractAccessorEngine {
 
 		const responseText = await response.data;
 
-		if (response.statusText != "ok") {
+		if (response.statusText != "OK") {
 			throw new Error(
 				`Salto Grande SOAP request failed: ${response.status} ${response.statusText}`,
 			);
