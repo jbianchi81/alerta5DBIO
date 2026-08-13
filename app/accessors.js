@@ -62,6 +62,7 @@ internal.agp = require('./accessors/agp').Client
 internal.fdxcloud = require('./accessors/fdxcloud').Client
 internal.dph_er_api = require('./accessors/dph_er_api').Client
 internal.wqdatalive = require('./accessors/wqdatalive').Client
+internal.ctm_ws = require('./accessors/ctm_ws').Client
 
 
 // Promise.allSettled polyfill
@@ -2268,6 +2269,20 @@ internal.getFromSource = function (crud,tipo="puntual",series_id,timestart,timee
 					break;
 				case "estaciones_salto_grande":
 					switch(result.rows[0].var_id) {
+						case 2:
+						case 4:
+						case 27:
+							return internal.new("ctm_ws")
+							.then(accessor=>{
+								return accessor.engine.get(
+									{
+										series_id: rows[0].series_id,
+										timestart:timestart, 
+										timeend:timeend
+									}
+								)
+							})
+							break;
 						case 1:
 						case 31:
 						case 34:
@@ -2277,7 +2292,7 @@ internal.getFromSource = function (crud,tipo="puntual",series_id,timestart,timee
 							return internal.getFromAsociaciones(crud,"puntual",series_id,timestart,timeend)
 							break;
 						default:
-							throw("getFromSource not defined for tabla=estaciones_salto_grande, var_id=" + result.rows[0].var_id)
+							throw new Error("getFromSource not defined for tabla=estaciones_salto_grande, var_id=" + result.rows[0].var_id)
 					}
 					break;
 				case "ina_delta":

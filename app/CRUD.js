@@ -1354,6 +1354,9 @@ internal.unidades = class extends baseModel  {
 	}
 	static async read(filter={}, options, client) {
 		return withClient(client, async (client) => {
+			if(typeof filter == 'number') {
+				return internal.CRUD.getUnidad(filter, client)
+			}
 			if(filter.id && !Array.isArray(filter.id)) {
 				return internal.CRUD.getUnidad(filter.id, client)
 			}
@@ -2331,7 +2334,7 @@ internal.serie = class extends baseModel {
 	}
 	static async create(series,options={},client) {
 		return withClient(client, async (client) => {
-			const results = await internal.CRUD.upsertSeries(series,options.all,options.upsert_estacion,options.generate_id,client)
+			const results = await internal.CRUD.upsertSeries(series,options.all,options.upsert_estacion,options.generate_id,client,undefined,undefined, undefined, options.no_update)
 			if(options && options.refresh_date_range) {
 				if(results.length) {
 					const types = [new Set(results.map(r=>r.tipo))]
@@ -8174,9 +8177,14 @@ internal.CRUD = class {
 			}
 			const estaciones = await this.getEstaciones({tabla:estacion.tabla, id_externo: estacion.id_externo},undefined,client)
 			if(estaciones.length) {
-				// console.log("instance found in database, updating non-key fields")
-				estacion.id = undefined
-				estacion = await this.updateEstacion(estacion,options,client)
+				if(options.no_update) {
+					console.info(`Estacion found: id_externo: ${estacion.id_externo}, tabla: ${estacion.tabla}, id: ${estaciones[0].id}. Skipping upsert`)
+					estacion = estaciones[0]
+				} else {
+					// console.log("instance found in database, updating non-key fields")
+					estacion.id = undefined
+					estacion = await this.updateEstacion(estacion,options,client)			
+				} 
 			} else {
 				// instance not found, inserting new row
 				// console.log("estacion instance not found, inserting new row")
@@ -10035,7 +10043,7 @@ internal.CRUD = class {
 	 * @param {pg.Client=} client - pg client to use within transaction block 
 	 * @returns {Promise<internal.serie[]>} The created/updated series
 	 */
-	static async upsertSeries(series,all=false,upsert_estacion=false,generate_id=false,client, upsert_fuente=true, update_obs, user_id) {
+	static async upsertSeries(series,all=false,upsert_estacion=false,generate_id=false,client, upsert_fuente=true, update_obs, user_id, no_update) {
 		// var promises=[]
 		// console.log({all:all})
 		return withTransaction(client, async (client) => {
@@ -10117,7 +10125,7 @@ internal.CRUD = class {
 						if(!has_access) {
 							throw new AuthError("Usuario no tiene acceso de escritura a la red especificada")
 						}
-						serie_props.estacion = await this.upsertEstacion(serie.estacion,undefined,user_id,client) //await client.query(this.upsertEstacionQuery(serie.estacion,{no_update_id:no_update_estacion_id}))
+						serie_props.estacion = await this.upsertEstacion(serie.estacion,{no_update: no_update},user_id,client) //await client.query(this.upsertEstacionQuery(serie.estacion,{no_update_id:no_update_estacion_id}))
 						// serie_props.estacion = new internal.estacion(result.rows[0])
 						// console.log("estacion: " + serie_props.estacion.toString())
 					} else if (serie.estacion instanceof internal.area) {
@@ -10195,15 +10203,16 @@ internal.CRUD = class {
 						throw new AuthError("Usuario no tiene acceso de escritura a la red especificada")
 					}
 				}
-				var query_string
 				// check if series exists already
 				var series_match = await this.getSeries(serie.tipo,{estacion_id:serie.estacion.id,var_id:serie.var.id,proc_id:serie.procedimiento.id,unit_id:serie.unidades.id,fuentes_id:serie.fuente.id},{},client)
+				let query_string
 				if(series_match.length) {
 					// match found
 					if(serie.id) {
 						if(series_match[0].id == serie.id) {
 							// serie already exists and with the same id, do nothing
 							// console.log("serie already exists and with the same id, do nothing")
+							query_string = null
 						} else {
 							// check if the id is already taken
 							console.log("existing id: " + series_match[0].id + ", new id: " + serie.id)
@@ -10215,7 +10224,7 @@ internal.CRUD = class {
 									query_string = this.upsertSerieQuery(serie)
 								} else {
 									// throws error
-									throw("series.id already taken. Try with generate_id=true")
+									throw new Error("series.id already taken. Try with generate_id=true")
 								}
 							} else {
 								// id not taken, will update
@@ -10224,6 +10233,7 @@ internal.CRUD = class {
 						}
 					} else {
 						serie.id = series_match[0].id
+						query_string = null
 						// console.debug("serie already exists and no new id provided, only update observaciones (if present)")
 					}
 				} else {
@@ -10238,7 +10248,7 @@ internal.CRUD = class {
 								query_string = this.upsertSerieQuery(serie)
 							} else {
 								// throws error
-								throw("series.id " + serie.id + " already taken. Try with generate_id=true")
+								throw new Error("series.id " + serie.id + " already taken. Try with generate_id=true")
 							}
 						} else {
 							// id not taken, will update
@@ -10249,7 +10259,7 @@ internal.CRUD = class {
 					}
 				}
 				// var query_string = this.upsertSerieQuery(serie)
-				var new_serie
+				let new_serie
 				if(query_string) {
 					var result = await client.query(query_string)
 					new_serie = result.rows[0]

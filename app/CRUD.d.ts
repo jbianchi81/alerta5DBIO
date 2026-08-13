@@ -209,42 +209,42 @@ export type SeriesDateRange = {
 export type VariableDict = {
 
     /** unique int id */
-    id : number,
+    id? : number,
 
     /** varchar id of max length=6 */
-    var : string,
+    var? : string,
 
     /** Nombre de la variable */
-    nombre : string,
+    nombre? : string,
 
     /** Abreviatura de la variable */
-    abrev : string,
+    abrev? : string,
 
     /** tipo de la variable */
-    type : string,
+    type? : string,
     
     /** tipo de dato de la variable según ODM */
-    datatype : string,
+    datatype? : string,
     
     /** tipo de valor de la variable según ODM */
-    valuetype : string,
+    valuetype? : string,
     
     /** categoría general de la variable según ODM */
-    GeneralCategory : string,
+    GeneralCategory? : string,
     
     /** nombre de la variable según ODM */
-    VariableName : string,
+    VariableName? : string,
 
     /** Medio de muestreo según ODM */
-    SampleMedium : string,
+    SampleMedium? : string,
 
     /** id de unidades por defecto */
-    def_unit_id : number,
+    def_unit_id? : number,
     
     /** soporte temporal de la medición */
-    timeSupport : Interval,
+    timeSupport? : string | IntervalDict,
 
-    def_hora_corte : string | Interval
+    def_hora_corte? : string | IntervalDict
 }
 
 export type MonthlyStats = {
@@ -269,6 +269,17 @@ export interface Area extends Location {
     exutorio ? : Geometry
 }
 
+interface AreasFilter {
+    id?: number|number[]
+    nombre?: string,
+    unid?: number|number[]
+    geom?: Geometry
+    exutorio?: Geometry
+    exutorio_id?: number|number[]
+    activar?: boolean
+    mostrar?: boolean
+}
+
 export interface Escena extends Location {
 }
 
@@ -278,13 +289,13 @@ export type ProcedimientoDict = {
     id : number,
     
     /** Nombre del Procedimiento */
-    nombre : string,
+    nombre? : string,
     
     /** Nombre abreviado del Procedimiento */
-    abrev : string,
+    abrev? : string,
 
     /** descripción del Procedimiento */
-    descripcion : string
+    descripcion? : string
 }
 
 interface ProcedimientoFilter {
@@ -315,29 +326,29 @@ export class procedimiento  extends baseModel {
         options?: ReadOptions, 
         client?: Client
     ) : Promise<this[]>
-    static async read(
-        filter : number|{id: number}|ProcedimientoFilter={}, 
-        options?: ReadOptions, 
-        client?: Client
-    ) : Promise<this[]|this>
+    // static async read(
+    //     filter : number|{id: number}|ProcedimientoFilter={}, 
+    //     options?: ReadOptions, 
+    //     client?: Client
+    // ) : Promise<this[]|this>
 }
 
 export type UnidadesDict = {
     
     /** id de la unidades */
-    id : number,
+    id? : number,
 
     /** Nombre de las unidades */
-    nombre : string,
+    nombre? : string,
 
     /** Nombre abreviado de las unidades */
-    abrev : string,
+    abrev? : string,
 
     /** ID de unidades según ODM */
-    UnitsID : number,
+    UnitsID? : number,
 
     /** tipo de unidades según ODM */
-    UnitsType : string
+    UnitsType? : string
 }
 
 interface UnidadesFilter {
@@ -369,10 +380,6 @@ export class unidades extends baseModel {
         filter : UnidadesFilter={}, 
         options? : ReadOptions, 
         client? : Client) : Promise<this[]>
-    static async read(
-        filter : number|{id: number}|UnidadesFilter={}, 
-        options? : ReadOptions, 
-        client? : Client) : Promise<this|this[]>
 }
 
 interface TableConstraintDict {
@@ -629,7 +636,7 @@ export type SerieAbstracta = {
 }
 
 export interface SerieDict extends SerieAbstracta {
-    estacion : EstacionDict | Area | Escena
+    estacion : estacion | EstacionDict | Area | Escena
     fuente ? : FuenteDict,
 }
 
@@ -684,6 +691,22 @@ export class percentiles extends baseModel {
     toCSVless() : string
 }
 
+interface DailyDifferenceStatsDict {
+    series_id : number
+    n : number
+    min_diff : number
+    q1 : number
+    median : number
+    mean_diff : number
+    q3 : number
+    p95 : number
+    p99 : number
+    p995 : number
+    p998 : number
+    p999 : number
+    max_diff : number
+    stddev_diff : number
+}
 
 export class serie extends baseModel {
     constructor(args: SerieDict)
@@ -793,7 +816,8 @@ export class serie extends baseModel {
             series_metadata?: boolean,
             all?: boolean,
             upsert_estacion?: boolean,
-            generate_id?: boolean
+            generate_id?: boolean,
+            no_update?: boolean
         }={},
         client?: Client
     ) : Promise<this[]>
@@ -886,7 +910,52 @@ export class serie extends baseModel {
 		create_observaciones : boolean = false,
 		unit_id? : number = undefined
 	) : Promise<this>
-
+    static computeExpression(
+		series : this[]=[],
+		method : string="expression",
+		expression : string="${valor_0}",
+		join_type : string="left",
+		output_series_id? : number=undefined,
+		unit_id? : number=undefined
+	) : this
+    async setPercentilesRef(client?: Client) : Promise<void>
+    async toAreal(
+        areas_filter : AreasFilter={},
+        options: {
+            coef?: number,
+            upload?: boolean,
+            no_update?: boolean
+        }={},
+		obs_filter?: {
+            timestart: Date,
+            timeend: Date
+        }
+    ) : Promise<this|this[]>
+    async toRaster(
+        output_file : string, 
+        write_index_file : boolean=true,
+        obs_filter?: {
+            timestart: Date,
+            timeend: Date
+        }
+    ) : Promise<void>
+    static async toRaster(
+		series_id: number,
+		timestart: Date,
+		timeend: Date,
+		output_file: string,
+		write_index_file: boolean=true,
+		client?: Client,
+		max_rows?: number
+	) : Promise<{
+      cover_file: string,
+      dates_file: string
+    }>
+    static async getDailyDifferenceStats(
+        series_id: number, 
+        timestart: Date, 
+        timeend: Date
+    ) : Promise<DailyDifferenceStatsDict>
 }
 
 export interface SeriePuntual extends SerieAbstracta {

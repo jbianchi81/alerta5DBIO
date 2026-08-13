@@ -1,8 +1,18 @@
 import { XMLParser } from "fast-xml-parser";
 import { writeFile } from "node:fs/promises";
 import { PathLike } from "node:fs";
-import {SeriesFilter, filterSeries } from "./accessor_utils"
-import {serie as A5Serie, estacion as A5Estacion} from "../CRUD"
+import {ObservacionesFilter, SeriesFilter, filterSeries } from "./accessor_utils"
+import {serie as A5Serie, estacion as A5Estacion, procedimiento as A5Procedimiento, unidades as A5Unidades, ObservacionDict, observaciones as A5Observaciones} from "../CRUD"
+import {Variable as A5Variable} from "a5base/variable"
+import { AbstractAccessorEngine } from "./abstract_accessor_engine";
+
+function escapeRegExp(str : string) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+}
+
+function replaceAll(str : string, find : string, replace : string) {
+  return str.replace(new RegExp(escapeRegExp(find), 'g'), replace);
+}
 
 interface Point {
 	type: "Point";
@@ -40,7 +50,12 @@ interface GetDataOptions {
     save_raw_result?: PathLike | string;
 }
 
-export interface Observaciones {
+interface UpdateOptions {
+    save_raw_result?: PathLike | string;
+	no_update?: boolean
+}
+
+export interface Observacion {
     idEstacion: string;
 	variable: string;
     fecha: Date;
@@ -48,6 +63,8 @@ export interface Observaciones {
 }
 
 interface Config {
+	[key: string]: unknown
+	
 	url: string;
 	tabla_id: string;
 }
@@ -61,12 +78,18 @@ interface Site {
     variables: string[];
 }
 
-export class Client {
+interface SerieMap {
+	idEstacion: string,
+	variable: string,
+	serie: A5Serie
+}
+
+export class Client extends AbstractAccessorEngine {
 
 	url: string
 	tabla_id: string
 
-	var_map: Record<string, {var_id: number, proc_id: number, unit_id: number}> = {
+	var_map: Record<string, {var_id: number, proc_id: number, unit_id: number, "var"?: A5Variable, procedimiento?: A5Procedimiento, unidades?: A5Unidades}> = {
 		"P": {
 			var_id: 27,
 			proc_id: 1,
@@ -84,7 +107,22 @@ export class Client {
 		}
 	}
 
+	serie_map? : Record<number, SerieMap>
+
+	private getVariableFromVarId(var_id : number) : string {
+		if(!this.var_map) {
+			throw new Error("var map not set")
+		}
+		for(const [key, varmap] of Object.entries(this.var_map)) {
+			if(varmap.var_id == var_id) {
+				return key
+			}
+		}
+		throw new Error(`Var map for var_id=${var_id} not found`)
+	}
+
     constructor(public readonly config: Config) {
+		super(config)
 		this.config = config
 		this.url = config.url
 		this.tabla_id = config.tabla_id
@@ -93,7 +131,7 @@ export class Client {
     async getData(
         filter: GetDataFilter,
         options: GetDataOptions = {},
-    ): Promise<Observaciones[]> {
+    ): Promise<Observacion[]> {
         const { idEstacion, variable, fechaDesde, fechaHasta } = filter;
 		if(!idEstacion) {
 			throw new Error("Missing idEstacion")
@@ -157,7 +195,7 @@ export class Client {
             : [itemValue];
 
         return items
-            .map((item): Observaciones | undefined => {
+            .map((item): Observacion | undefined => {
                 const fecha = item?.Fecha["#text"];
                 const valor = Number(item?.Valor["#text"]);
 
@@ -184,11 +222,11 @@ export class Client {
                 };
             })
             .filter(
-                (item): item is Observaciones => item !== undefined,
+                (item): item is Observacion => item !== undefined,
             );
     }
 
-	async getSites(options : GetDataOptions={}): Promise<Site[]> {
+	async getListaEstacionesTelemetricas(options : GetDataOptions={}): Promise<Site[]> {
 		const xml = `<?xml version="1.0"?>
 	<soap:Envelope
 		xmlns:soap="http://www.w3.org/2003/05/soap-envelope"
@@ -250,16 +288,16 @@ export class Client {
 			const variables = item.Variables?.item;
 
 			return {
-				id: String(item.Id),
-				name: String(item.Nombre),
-				lat: Number(item.Latitud),
-				lon: Number(item.Longitud),
-				date: new Date(item.Fecha),
+				id: String(item.Id["#text"]),
+				name: String(item.Nombre["#text"]),
+				lat: Number(item.Latitud["#text"]),
+				lon: Number(item.Longitud["#text"]),
+				date: new Date(item.Fecha["#text"]),
 				variables: variables == null
 					? []
 					: Array.isArray(variables)
-						? variables.map(String)
-						: [String(variables)],
+						? variables.map(v => String(v["#text"]))
+						: [String(variables["#text"])],
 			};
 		});
 	}
@@ -275,15 +313,24 @@ export class Client {
 				type: "Point",
 				coordinates: [site.lon, site.lat]
 			},
-			tabla: this.tabla_id
+			tabla: this.tabla_id,
+			automatica: true,
+			habilitar: true,
+			propietario: "Salto Grande",
+			real: true,
+			tipo: "A"
 		})
 		return site.variables.map(v => {
+			if(!(v in this.var_map)) {
+				throw new Error(`Variable not found in mapping: ${v}`)
+			}
 			const varmap = this.var_map[v]
 			return new A5Serie({
+				tipo: "puntual",
 				estacion: estacion,
-				variable: {id: varmap.var_id},
-				procedimiento: {id: varmap.proc_id},
-				unidades: {id: varmap.unit_id}
+				"var": (varmap.var) ? varmap.var : {id: varmap.var_id},
+				procedimiento: (varmap.procedimiento) ? varmap.procedimiento : {id: varmap.proc_id},
+				unidades: (varmap.unidades) ? varmap.unidades : {id: varmap.unit_id}
 			})
 		})
 	}
@@ -299,25 +346,145 @@ export class Client {
     }
 
     private escapeXml(value: string): string {
-        return value
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&apos;");
+		value = replaceAll(value,"&", "&amp;")
+        value = replaceAll(value,"<", "&lt;")
+        value = replaceAll(value,">", "&gt;")
+        value = replaceAll(value,'"', "&quot;")
+        value = replaceAll(value,"'", "&apos;");
+		return value
     }
 
-	async getSeries(filter : SeriesFilter={}, options={}) : Promise<Serie[]> {
-		const sites = await this.getSites(options)
-		const series : Serie[] = []
+	async getMetadataOfVarMap() : Promise<void> {
+		for(const key of Object.keys(this.var_map)) {
+			const varmap = this.var_map[key]
+			if(!varmap.var) {
+				varmap.var = await A5Variable.read(varmap.var_id)
+			}
+			if(!varmap.procedimiento) {
+				varmap.procedimiento = await A5Procedimiento.read({id: varmap.proc_id})
+			}
+			if(!varmap.unidades) {
+				varmap.unidades = await A5Unidades.read(varmap.unit_id)
+			}
+		}
+	}
+
+	mapSeries(series : A5Serie[]) : void {
+		this.serie_map = {}
+		for (const s of series) {
+			if(!s.var.id) {
+				throw new Error(`Missing var id for series id=${s.id}`)
+			}
+			this.serie_map[s.id] = {
+				idEstacion: s.estacion.id_externo,
+				variable: this.getVariableFromVarId(s.var.id),
+				serie: s
+			}
+		}
+	}
+
+	async getSeries(filter : SeriesFilter={}, options: GetDataOptions={}) : Promise<A5Serie[]> {
+		await this.getMetadataOfVarMap()
+		const sites = await this.getListaEstacionesTelemetricas(options)
+		const series : A5Serie[] = []
 		for(const s of sites) {
 			const se : A5Serie[] = this.parseSite(s)
 			for(const ser of se) {
 				await ser.estacion.getEstacionId()
-				await ser.getId()
+				await ser.getId(false)
 			}
 			series.push(...se)
 		}
+		this.mapSeries(series)
 		return filterSeries(series, filter)
+	}
+
+	async updateSeries(filter : SeriesFilter={}, options : UpdateOptions={}) : Promise<A5Serie[]> {
+		const series = await this.getSeries(filter, options)
+		return A5Serie.create(
+			series,
+			{
+				refresh_date_range: false,
+				series_metadata: true,
+				upsert_estacion: true,
+				no_update: options.no_update
+			})
+	}
+
+	private parseObservacion(
+		o : Observacion, 
+		series_id?: number) : ObservacionDict {
+			return {
+				series_id: series_id,
+				timestart: o.fecha,
+				timeend: o.fecha,
+				valor: o.valor
+			}
+		}
+
+	async get(
+		filter : ObservacionesFilter,
+		options : {
+			save_raw_response?: boolean,
+			return_series: true
+		}
+	) : Promise<A5Serie[]>	
+	async get(
+		filter : ObservacionesFilter,
+		options? : {
+			save_raw_response?: boolean,
+			return_series?: false
+		}
+	) : Promise<A5Observaciones>
+	async get(
+		filter : ObservacionesFilter,
+		options? : {
+			save_raw_response?: boolean,
+			return_series?: boolean
+		}
+	) : Promise<A5Observaciones|A5Serie[]> {
+		const series_id = filter.series_id
+		if(!series_id) {
+			throw new Error("Missing series_id")
+		}
+		if(Array.isArray(series_id)) {
+			throw new Error("Bad filter series_id. must be a number, not an array")
+		}
+		if(!(typeof series_id == "number")) {
+			throw new Error("Bad filter series_id. must be a number")
+		}
+		if(!filter.timestart) {
+			throw new Error("Missing timestart")
+		}
+		if(!filter.timeend) {
+			throw new Error("Missing timeend")
+		}
+		if(!this.serie_map) {
+			console.debug("serie map not set. Calling .getSeries()")
+			await this.getSeries()
+		}
+		if(!this.serie_map) {
+			throw new Error("Failed to get series")
+		}
+		if(!(series_id in this.serie_map)) {
+			throw new Error(`series_id=${series_id} not found in series mapping`)
+		}
+		const seriemap = this.serie_map[series_id]
+		const data = await this.getData(
+			{
+				idEstacion: seriemap.idEstacion,
+				variable: seriemap.variable,
+				fechaDesde: filter.timestart,
+				fechaHasta: filter.timeend
+			}
+		)
+		const observaciones = data.map(d => this.parseObservacion(d, series_id))
+		if(options?.return_series) {
+			const serie = seriemap.serie
+			serie.setObservaciones(observaciones)
+			return [serie]			
+		} else {
+			return new A5Observaciones(observaciones)
+		}
 	}
 }

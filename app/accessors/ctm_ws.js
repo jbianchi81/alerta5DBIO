@@ -14,8 +14,28 @@ const fast_xml_parser_1 = require("fast-xml-parser");
 const promises_1 = require("node:fs/promises");
 const accessor_utils_1 = require("./accessor_utils");
 const CRUD_1 = require("../CRUD");
-class Client {
+const variable_1 = require("a5base/variable");
+const abstract_accessor_engine_1 = require("./abstract_accessor_engine");
+function escapeRegExp(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+}
+function replaceAll(str, find, replace) {
+    return str.replace(new RegExp(escapeRegExp(find), 'g'), replace);
+}
+class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
+    getVariableFromVarId(var_id) {
+        if (!this.var_map) {
+            throw new Error("var map not set");
+        }
+        for (const [key, varmap] of Object.entries(this.var_map)) {
+            if (varmap.var_id == var_id) {
+                return key;
+            }
+        }
+        throw new Error(`Var map for var_id=${var_id} not found`);
+    }
     constructor(config) {
+        super(config);
         this.config = config;
         this.var_map = {
             "P": {
@@ -114,7 +134,7 @@ class Client {
                 .filter((item) => item !== undefined);
         });
     }
-    getSites(options = {}) {
+    getListaEstacionesTelemetricas(options = {}) {
         var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function* () {
             const xml = `<?xml version="1.0"?>
@@ -161,16 +181,16 @@ class Client {
                 var _a;
                 const variables = (_a = item.Variables) === null || _a === void 0 ? void 0 : _a.item;
                 return {
-                    id: String(item.Id),
-                    name: String(item.Nombre),
-                    lat: Number(item.Latitud),
-                    lon: Number(item.Longitud),
-                    date: new Date(item.Fecha),
+                    id: String(item.Id["#text"]),
+                    name: String(item.Nombre["#text"]),
+                    lat: Number(item.Latitud["#text"]),
+                    lon: Number(item.Longitud["#text"]),
+                    date: new Date(item.Fecha["#text"]),
                     variables: variables == null
                         ? []
                         : Array.isArray(variables)
-                            ? variables.map(String)
-                            : [String(variables)],
+                            ? variables.map(v => String(v["#text"]))
+                            : [String(variables["#text"])],
                 };
             });
         });
@@ -186,15 +206,24 @@ class Client {
                 type: "Point",
                 coordinates: [site.lon, site.lat]
             },
-            tabla: this.tabla_id
+            tabla: this.tabla_id,
+            automatica: true,
+            habilitar: true,
+            propietario: "Salto Grande",
+            real: true,
+            tipo: "A"
         });
         return site.variables.map(v => {
+            if (!(v in this.var_map)) {
+                throw new Error(`Variable not found in mapping: ${v}`);
+            }
             const varmap = this.var_map[v];
             return new CRUD_1.serie({
+                tipo: "puntual",
                 estacion: estacion,
-                variable: { id: varmap.var_id },
-                procedimiento: { id: varmap.proc_id },
-                unidades: { id: varmap.unit_id }
+                "var": (varmap.var) ? varmap.var : { id: varmap.var_id },
+                procedimiento: (varmap.procedimiento) ? varmap.procedimiento : { id: varmap.proc_id },
+                unidades: (varmap.unidades) ? varmap.unidades : { id: varmap.unit_id }
             });
         });
     }
@@ -207,26 +236,122 @@ class Client {
         ].join("-") + ` ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
     }
     escapeXml(value) {
-        return value
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&apos;");
+        value = replaceAll(value, "&", "&amp;");
+        value = replaceAll(value, "<", "&lt;");
+        value = replaceAll(value, ">", "&gt;");
+        value = replaceAll(value, '"', "&quot;");
+        value = replaceAll(value, "'", "&apos;");
+        return value;
+    }
+    getMetadataOfVarMap() {
+        return __awaiter(this, void 0, void 0, function* () {
+            for (const key of Object.keys(this.var_map)) {
+                const varmap = this.var_map[key];
+                if (!varmap.var) {
+                    varmap.var = yield variable_1.Variable.read(varmap.var_id);
+                }
+                if (!varmap.procedimiento) {
+                    varmap.procedimiento = yield CRUD_1.procedimiento.read({ id: varmap.proc_id });
+                }
+                if (!varmap.unidades) {
+                    varmap.unidades = yield CRUD_1.unidades.read(varmap.unit_id);
+                }
+            }
+        });
+    }
+    mapSeries(series) {
+        this.serie_map = {};
+        for (const s of series) {
+            if (!s.var.id) {
+                throw new Error(`Missing var id for series id=${s.id}`);
+            }
+            this.serie_map[s.id] = {
+                idEstacion: s.estacion.id_externo,
+                variable: this.getVariableFromVarId(s.var.id),
+                serie: s
+            };
+        }
     }
     getSeries(filter = {}, options = {}) {
         return __awaiter(this, void 0, void 0, function* () {
-            const sites = yield this.getSites(options);
+            yield this.getMetadataOfVarMap();
+            const sites = yield this.getListaEstacionesTelemetricas(options);
             const series = [];
             for (const s of sites) {
                 const se = this.parseSite(s);
                 for (const ser of se) {
                     yield ser.estacion.getEstacionId();
-                    yield ser.getId();
+                    yield ser.getId(false);
                 }
                 series.push(...se);
             }
+            this.mapSeries(series);
             return (0, accessor_utils_1.filterSeries)(series, filter);
+        });
+    }
+    updateSeries(filter = {}, options = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const series = yield this.getSeries(filter, options);
+            return CRUD_1.serie.create(series, {
+                refresh_date_range: false,
+                series_metadata: true,
+                upsert_estacion: true,
+                no_update: options.no_update
+            });
+        });
+    }
+    parseObservacion(o, series_id) {
+        return {
+            series_id: series_id,
+            timestart: o.fecha,
+            timeend: o.fecha,
+            valor: o.valor
+        };
+    }
+    get(filter, options) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const series_id = filter.series_id;
+            if (!series_id) {
+                throw new Error("Missing series_id");
+            }
+            if (Array.isArray(series_id)) {
+                throw new Error("Bad filter series_id. must be a number, not an array");
+            }
+            if (!(typeof series_id == "number")) {
+                throw new Error("Bad filter series_id. must be a number");
+            }
+            if (!filter.timestart) {
+                throw new Error("Missing timestart");
+            }
+            if (!filter.timeend) {
+                throw new Error("Missing timeend");
+            }
+            if (!this.serie_map) {
+                console.debug("serie map not set. Calling .getSeries()");
+                yield this.getSeries();
+            }
+            if (!this.serie_map) {
+                throw new Error("Failed to get series");
+            }
+            if (!(series_id in this.serie_map)) {
+                throw new Error(`series_id=${series_id} not found in series mapping`);
+            }
+            const seriemap = this.serie_map[series_id];
+            const data = yield this.getData({
+                idEstacion: seriemap.idEstacion,
+                variable: seriemap.variable,
+                fechaDesde: filter.timestart,
+                fechaHasta: filter.timeend
+            });
+            const observaciones = data.map(d => this.parseObservacion(d, series_id));
+            if (options === null || options === void 0 ? void 0 : options.return_series) {
+                const serie = seriemap.serie;
+                serie.setObservaciones(observaciones);
+                return [serie];
+            }
+            else {
+                return new CRUD_1.observaciones(observaciones);
+            }
         });
     }
 }

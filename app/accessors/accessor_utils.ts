@@ -12,6 +12,11 @@ export type SeriesFilter = {
     unit_id?: number|number[]
 }
 
+export interface ObservacionesFilter extends SeriesFilter {
+    timestart: Date,
+    timeend: Date
+}
+
 export interface FetchDataOptions extends AxiosRequestConfig {
     disable_validation?: boolean;
 }
