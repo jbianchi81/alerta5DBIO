@@ -5,6 +5,15 @@ const obs_row_actions = '<a class="add" title="Add/Update" data-toggle="tooltip"
 					'<a class="delete" title="Delete" data-toggle="tooltip"><i class="material-icons">&#xE872;</i></a>' +
 					'<a class="cancel" title="Cancel" data-toggle="tooltip" style="display:none"><i class="material-icons">cancel</i></a>'
 var isWriter
+
+function setDateValue(query_selector, d) {
+	const date = new Date(d);
+	const yyyy = date.getFullYear();
+	const mm = String(date.getMonth() + 1).padStart(2, '0');
+	const dd = String(date.getDate()).padStart(2, '0');
+	document.querySelector(query_selector).value = `${yyyy}-${mm}-${dd}`;
+}
+
 function makeObsEditTable(container,series,isW) {
 	isWriter = (isW) ? isW : false 
 	$.get("html/obs_edit_table_container.html", html => { 
@@ -294,9 +303,14 @@ function makeObsEditTable(container,series,isW) {
 				</div>')
 			//~ $("div#myModal span#getfromsource input[name=timestart]").val($("form#selectorform input#timestart").val())
 			//~ $("div#myModal span#getfromsource input[name=timeend]").val($("form#selectorform input#timeend").val())
-			$("div#myModal input[name=timestart]").val($("form#selectorform input#timestart").val())
+			const end_date = new Date()
+			const start_date = new Date()
+			start_date.setDate(start_date.getDate() - 7)
+			setDateValue("div#myModal input[name=timestart]", start_date)
+			// $("div#myModal input[name=timestart]").val($("form#selectorform input#timestart").val())			
 			$("div#myModal div#timestart").attr('hidden',false)
-			$("div#myModal input[name=timeend]").val($("form#selectorform input#timeend").val())
+			setDateValue("div#myModal input[name=timeend]", end_date)
+			// $("div#myModal input[name=timeend]").val($("form#selectorform input#timeend").val())
 			$("div#myModal div#timeend").attr('hidden',false)
 			$("div#myModal span#getfromsource").show()
 			$('div#myModal').modal('show').on('hide.bs.modal', function (e) {

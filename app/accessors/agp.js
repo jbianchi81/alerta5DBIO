@@ -113,6 +113,9 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 }
             }
             else {
+                if (!this.series_map) {
+                    yield this.getSeries();
+                }
                 if (filter.series_id instanceof Array) {
                     for (const s_id of filter.series_id) {
                         const serie = this.getSerieFromId(s_id);

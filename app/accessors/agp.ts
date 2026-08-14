@@ -153,6 +153,9 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
                 result.push(await this.getOne(filter.estacion_id, filter.timestart, filter.timeend))
             }
         } else {
+            if(!this.series_map) {
+                await this.getSeries()
+            }
             if(filter.series_id instanceof Array) {
                 for(const s_id of filter.series_id) {
                     const serie = this.getSerieFromId(s_id)
