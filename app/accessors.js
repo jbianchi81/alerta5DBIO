@@ -273,7 +273,12 @@ internal.Accessor = class {
 					series,
 					undefined,
 					(options.upsert_estacion != undefined) ? options.upsert_estacion : true,
-					undefined
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					options.no_update
 				)
 				if(options.refresh_series_json) {
 					crud.refreshSeriesJson()
