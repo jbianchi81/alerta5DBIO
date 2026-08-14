@@ -2183,7 +2183,15 @@ internal.getFromSource2 = function (crud,tipo="puntual",series_id,timestart,time
 			if(redAccessor.accessor) {
 				return internal.new(redAccessor.accessor)
 				.then(accessor=>{
-					return accessor.engine.get({estacion_id:serie.estacion.id,var_id:serie.var.id,timestart:timestart,timeend:timeend})
+					return accessor.engine.get(
+						{
+							series_id: serie.id,
+							estacion_id:serie.estacion.id,
+							var_id:serie.var.id,
+							timestart: new Date(timestart),
+							timeend: new Date(timeend)
+						}
+					)
 				})
 			} else {
 				return internal.getFromAsociaciones(crud,tipo,series_id,timestart,timeend)
