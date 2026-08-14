@@ -3053,12 +3053,14 @@ internal.ana = class {
 
 	async getDadosANA(codEstacao,dataInicio,dataFim,series_id={}) {
 		console.log({series_id:series_id})
+		const dataInicio_str = (typeof dataInicio == "string") ? dataInicio : new Date(dataInicio).toISOString().substring(0,10)
+		const dataFim_str = (typeof dataFim == "string") ? dataFim : new Date(dataFim).toISOString().substring(0,10)
 		try {
 			var response = await axios.get("https://telemetriaws1.ana.gov.br/serviceANA.asmx/DadosHidrometeorologicos", {
 				params: {
 					codEstacao: codEstacao,
-					dataInicio: dataInicio,
-					dataFim: dataFim
+					dataInicio: dataInicio_str,
+					dataFim: dataFim_str
 				}
 			}) //,{responseType:'stream'})
 		} catch(e) {
