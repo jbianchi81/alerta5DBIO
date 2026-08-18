@@ -214,8 +214,8 @@ internal.Client = class extends AbstractAccessorEngine {
                 geom: {
                     type: "Point",
                     coordinates: [
-                        item.Longitude,
-                        item.Latitude
+                        parseFloat(item.Longitude),
+                        parseFloat(item.Latitude)
                     ]
                 },
                 localidad: item.Municipio_Nome,
