@@ -445,7 +445,7 @@ internal.Client = class extends AbstractAccessorEngine {
         }
         const token = await this.getToken()
         filter.series_id = filter.id ?? filter.series_id
-        const series = await Serie.read({
+        var series = await Serie.read({
             id: filter.series_id,
             tipo: "puntual",
             estacion_id: filter.estacion_id,
