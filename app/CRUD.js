@@ -14800,10 +14800,10 @@ internal.CRUD = class {
 				}
 			}
 
-		const has_access = await this.hasAccess(undefined, undefined, user_id, false, series_id, tipo, client)
-		if(!has_access) {
-			throw new AuthError("El usuario no tiene permiso de lectura para la serie tipo=puntual id=" + series_id)
-		}
+			const has_access = await this.hasAccess(undefined, undefined, user_id, false, series_id, tipo, client)
+			if(!has_access) {
+				throw new AuthError("El usuario no tiene permiso de lectura para la serie tipo=puntual id=" + series_id)
+			}
 
 			var serie = await this.getSerie(tipo,series_id, undefined, undefined, undefined, undefined, undefined, client)
 			if(!serie) {

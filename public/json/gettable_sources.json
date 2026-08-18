@@ -56,6 +56,8 @@
     {"tipo":"puntual","tabla":"alturas_prefe","var_id":51},
     {"tipo":"puntual","tabla":"alturas_prefe","var_id":52},
     {"tipo":"puntual","tabla":"ina_delta","var_id":2},
+    {"tipo":"puntual","tabla":"quilmes","var_id":2},
+    {"tipo":"puntual","tabla":"na-sa","var_id":2},
     {"tipo":"puntual","tabla":"estaciones_salto_grande","var_id":2},
     {"tipo":"puntual","tabla":"estaciones_salto_grande","var_id":4},
     {"tipo":"puntual","tabla":"estaciones_salto_grande","var_id":27},

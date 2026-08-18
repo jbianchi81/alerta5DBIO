@@ -2171,33 +2171,29 @@ internal.ctm = class {
 }
 
 
-internal.getFromSource2 = function (crud,tipo="puntual",series_id,timestart,timeend) {
-	return crud.getSerie(tipo,series_id)
-	.then(serie=>{
-		return crud.getRedesAccessors({tipo:tipo,tabla_id:serie.estacion.tabla,var_id:serie.var.id})
-		.then(redesAccessors=>{
-			if(redesAccessors.length == 0) {
-				throw("No se encontró la fuente de la serie " + serie.tipo + " " + serie.id)
+internal.getFromSource2 = async function (crud,tipo="puntual",series_id,timestart,timeend) {
+	timestart = timeSteps.parseDateString(timestart)
+	timeend = timeSteps.parseDateString(timeend)
+	const serie = await crud.getSerie(tipo,series_id)
+	const redesAccessors = await crud.getRedesAccessors({tipo:tipo,tabla_id:serie.estacion.tabla,var_id:serie.var.id})
+	if(redesAccessors.length == 0) {
+		throw("No se encontró la fuente de la serie " + serie.tipo + " " + serie.id)
+	}
+	const redAccessor = redesAccessors[0]
+	if(redAccessor.accessor) {
+		const accessor = await internal.new(redAccessor.accessor)
+		return accessor.engine.get(
+			{
+				series_id: serie.id,
+				estacion_id:serie.estacion.id,
+				var_id:serie.var.id,
+				timestart: timestart,
+				timeend: timeend
 			}
-			const redAccessor = redesAccessors[0]
-			if(redAccessor.accessor) {
-				return internal.new(redAccessor.accessor)
-				.then(accessor=>{
-					return accessor.engine.get(
-						{
-							series_id: serie.id,
-							estacion_id:serie.estacion.id,
-							var_id:serie.var.id,
-							timestart: new Date(timestart),
-							timeend: new Date(timeend)
-						}
-					)
-				})
-			} else {
-				return internal.getFromAsociaciones(crud,tipo,series_id,timestart,timeend)
-			}
-		})
-	})
+		)
+	} else {
+		return internal.getFromAsociaciones(crud,tipo,series_id,timestart,timeend)
+	}
 }
 
 internal.getFromSource = function (crud,tipo="puntual",series_id,timestart,timeend) {
