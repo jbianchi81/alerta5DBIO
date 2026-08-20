@@ -133,6 +133,9 @@
                     }
                 ]
             }
+        },
+        "continue": {
+            "description": "Continue with next procedure if one fails. Defaults to false"
         }
     },
     "required": [

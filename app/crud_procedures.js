@@ -3862,10 +3862,19 @@ internal.CrudProcedureSequenceRunner = class {
         if(client) {
             this.client = client
         }
+        this.continue = (args.continue) ? true : false
     }
     async run() {
         for (var i in this.sequence) {
-            await this.runProcedure(i)
+            try {
+                await this.runProcedure(i)
+            } catch(e) {
+                if(this.continue) {
+                    logger.error(`Procedure ${i} failed. Message: ${e.toString()}`)
+                    continue
+                }
+                throw e
+            }
             // console.log(`Running procedure ${i}, class ${this.sequence[i].procedureClass}`)
             // await this.sequence[i].run()
         }

@@ -13833,7 +13833,7 @@ internal.CRUD = class {
 			if(!results.length) {
 				return Promise.reject("Nothing found")
 			}
-			results = results.map(r=>{
+			const results_ = results.map(r=>{
 				r.series_id = series_id
 				if(t_offset) {
 					r.timestart = timeSteps.advanceInterval(r.timestart,t_offset)
@@ -13845,7 +13845,7 @@ internal.CRUD = class {
 				}
 				return r
 			})
-			return this.upsertObservaciones(results,undefined, undefined, undefined, client)
+			return this.upsertObservaciones(results_,undefined, undefined, undefined, client)
 		})
 	}
 
