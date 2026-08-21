@@ -1113,6 +1113,14 @@ function buildMetadataForm2(mdElement,mdKey,formContainer,values={}) {
 	return
 }
 
+function isoDateToDateTimeLocal(iso) {
+    const date = new Date(iso);
+
+    const pad = (n) => String(n).padStart(2, "0");
+
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create') {
 	$(formContainer).find("input.confirm.upload").removeAttr('required').hide()
 	// console.log(values)
@@ -1145,7 +1153,7 @@ function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create'
 			$("div#myModalMetadata div.modal-content div.modal-header h4.modal-title").text("Editar " + mdElement.objectName)
 			$(formContainer).find(".confirm.edit").each((i,e)=>{
 				var key = $(e).attr('name')
-				var value = (key == "longitud") ? (values.longitud) ? values.longitud : (values.geom) ? values.geom.coordinates[0] : null : (key == "latitud") ? (values.latitud) ? values.latitud : (values.geom) ? values.geom.coordinates[1] : null : (e.type == "interval") ? interval2string(values[key]) : (typeof values[key] == "object") ? (JSON.stringify(values[key]) == "null") ? null : JSON.stringify(values[key]) : (typeof values[key] == "boolean") ? values[key].toString() : values[key]
+				var value = (key == "longitud") ? (values.longitud) ? values.longitud : (values.geom) ? values.geom.coordinates[0] : null : (key == "latitud") ? (values.latitud) ? values.latitud : (values.geom) ? values.geom.coordinates[1] : null : (e.type == "interval") ? interval2string(values[key]) : (typeof values[key] == "object") ? (JSON.stringify(values[key]) == "null") ? null : JSON.stringify(values[key]) : (typeof values[key] == "boolean") ? values[key].toString() : (e.type == "datetime-local") ? isoDateToDateTimeLocal(values[key]) : values[key]
 				// console.log({key: key, value: value})
 				$(e).val(value)
 			}).show()
@@ -1551,6 +1559,15 @@ function buildFilter(metadataObject,filterContainer,editFormContainer) {
 				$(input).attr('type',e.type)
 				if(e.step) {
 					$(input).attr('step',e.step)
+				}
+				if(e.filter_default != null) {
+					if(e.type == "date" || e.type == "datetime-local") {
+						const def_date = new Date()
+						def_date.setDate(def_date.getDate() + e.filter_default)
+						input.val(def_date.toISOString().slice(0,16))
+					} else {
+						input.val(e.filter_default)
+					}
 				}
 				promise = Promise.resolve(input)
 			}

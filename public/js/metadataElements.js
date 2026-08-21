@@ -1819,7 +1819,7 @@ var metadataElements = {
 				title: "tipo",
 				description: "tipo de observación",
 				filter: true,
-				edit: false,
+				edit: true,
 				where: "path",
 				filterRequired: true,
 				disabled: true,
@@ -1829,7 +1829,7 @@ var metadataElements = {
 				title: "id de serie",
 				required: true,
 				filter: true,
-				edit: false,
+				edit: true,
 				description: "Identificador numérico único de serie. Ver catálogo -> seriesPuntuales, seriesAreales y seriesRaster",
 				min: 0,					
 				where: "path",
@@ -1851,22 +1851,24 @@ var metadataElements = {
 				disabled: true
 			},
 			timestart: {
-				type: "date",
+				type: "datetime-local",
 				title: "fecha/hora inicial",
 				required: false,
 				filter: true,
 				edit: true,
 				description: "fecha/hora inicial",
-				filterRequired: true
+				filterRequired: true,
+				filter_default: -7
 			},
 			timeend: {
-				type: "date",
+				type: "datetime-local",
 				title: "fecha/hora final",
 				required: false,
 				filter: true,
 				edit: true,
 				description: "fecha/hora final",
-				filterRequired: true
+				filterRequired: true,
+				filter_default: 0
 			},
 			valor: {
 				type: "number",

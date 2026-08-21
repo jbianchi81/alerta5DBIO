@@ -104,8 +104,8 @@ function makeObsEditTable(container,series,isW) {
 			$(container).find("table.obs_edit_table").bootstrapTable('prepend', 
 				{
 					id:-1, 
-					timestart: '<input type="text" class="form-control" name="timestart" id="timestart" placeholder="'+ placeholders[2]+'" style="width: 200px" min=10 max=24 pattern="^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3}Z)?)?$">', 
-					timeend: '<input type="text" class="form-control" name="timeend" id="timeend" placeholder="'+ placeholders[3]+'" style="width: 200px" min=10 max=24 pattern="^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3}Z)?)?$">', 
+					timestart: '<input type="datetime-local" class="form-control" name="timestart" id="timestart" placeholder="'+ placeholders[2]+'" style="width: 200px" min=10 max=24 pattern="^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3}Z)?)?$">', 
+					timeend: '<input type="datetime-local" class="form-control" name="timeend" id="timeend" placeholder="'+ placeholders[3]+'" style="width: 200px" min=10 max=24 pattern="^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3}Z)?)?$">', 
 					valor: '<input type="text" class="form-control" name="valor" id="valor" placeholder="'+ placeholders[4]+'" style="width: 140px" pattern="^\\d+(\\.\\d+)?$">',
 					action: isWriter ? obs_row_actions : ""
 			})
@@ -125,7 +125,7 @@ function makeObsEditTable(container,series,isW) {
 			$("div#myModal form#confirm input[name=timestart]").val("")
 			$("div#myModal form#confirm input[name=timeend]").val("")
 			$("div#myModal form#confirm input[name=valor]").val("")
-			var input = $(this).parents("tr").find('input[type="text"]');
+			var input = $(this).parents("tr").find('input[type="datetime-local"], input[type="text"]');
 			$(this).parents("tr").addClass("rowToAdd")
 			input.each(function(){
 				if(!$(this).val()){
