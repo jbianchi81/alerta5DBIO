@@ -443,6 +443,12 @@
 				setMetadataForm(mdElement,mdKey,$("div#myModalMetadata form#confirm"),undefined,'upload')
 				$("div#myModalMetadata").modal('show')
 			})
+			$("div.tabcontent#tabla button.remove-selected").click(function(){
+				var selected = $("div.tabcontent#tabla").bootstrapTable('getAllSelections')
+				console.debug(selected)
+				setMetadataForm(mdElement,mdKey,$("div#myModalMetadata form#confirm"),selected,'delete')
+				$("div#myModalMetadata").modal('show')				
+			})
 			if(filterCount) { // si hay filtros en el URL, submit selector
 				var count_empty = 0
 				$("form#selectorform .form-control:required").each((i,e)=>{

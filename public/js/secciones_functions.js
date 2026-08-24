@@ -1203,10 +1203,11 @@ function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create'
 			//~ $(formContainer).find("button[type=submit]").unbind('submit').submit(onSubmitMetadata)
 			break;
 		case "delete":
+			const feature_id = (Array.isArray(values)) ? values.map(f=> f.id).join(",") : values.id
 			$("div#myModalMetadata div.modal-content div.modal-header h4.modal-title").text("Eliminar " + mdElement.objectName + " id:" + values.id)
 			$(formContainer).find(".confirm.edit").hide()
 			$(formContainer).find("label").hide()
-			$(formContainer).find(".confirm.edit[name=id]").val(values.id).attr('required','required')
+			$(formContainer).find(".confirm.edit[name=id]").val(feature_id).attr('required','required')
 			$(formContainer).attr('action','#delete').attr('method','DELETE')
 			$(formContainer).find("button[type=submit]").attr('formnovalidate',"formnovalidate")
 			//~ $(formContainer).find("button[type=submit]").unbind('submit').submit(onSubmitMetadataRemove)
@@ -1325,7 +1326,7 @@ function onSubmitMetadata(event) {
 	switch(action) {
 		case "edit": 
 			ajaxParams = {
-				url: global.mdElement.endpoint + "/" + id,
+				url: `${replacePlaceholders(global.mdElement.endpoint, requestBody[objectName])}/${id}`,
 				type: "PUT",
 				data: JSON.stringify(requestBody),
 				contentType:"application/json; charset=utf-8",
@@ -1359,7 +1360,7 @@ function onSubmitMetadata(event) {
 			var requestBodyP = {}
 			requestBodyP[objectNamePlural] = [requestBody[objectName]]
 			ajaxParams = {
-				url: global.mdElement.endpoint,
+				url: replacePlaceholders(global.mdElement.endpoint, requestBody[objectName]),
 				type: "POST",
 				data: JSON.stringify(requestBodyP),
 				contentType:"application/json; charset=utf-8",
@@ -1414,7 +1415,7 @@ function onSubmitMetadata(event) {
 			break;
 		case "delete": 
 			ajaxParams = {
-				url: global.mdElement.endpoint + "/" + id,
+				url: `${replacePlaceholders(global.mdElement.endpoint, global.features[0])}/${id}`,
 				type: "DELETE",
 				dataType: "json",
 				success: function(response){
@@ -1852,7 +1853,8 @@ function makeMDTable(metadataElement,container,isWriter) {
 	$(container).on("click", ".delete", function(){		
 		$(this).tooltip('hide')
 		var id = $(this).parents("tr").attr("data-uniqueid") // find("td:first-child").eq(1).html()
-		setMetadataForm(global.mdElement,global.mdKey,$("div#myModalMetadata form#confirm"),{id:id},"delete")
+		var feature = $(container).find("table.md_edit_table").bootstrapTable('getRowByUniqueId',id)
+		setMetadataForm(global.mdElement,global.mdKey,$("div#myModalMetadata form#confirm"),feature,"delete")
 	})
 	$(container).on("click", ".view", function(){		
 		$(this).tooltip('hide')
@@ -2132,13 +2134,14 @@ function loadMDElement(content) {
 		)
 		return
 	}
+	var read_endpoint = replacePlaceholders(global.mdElement.endpoint, global.selectedFeature) 
 	var actions = [$('<a class="export-feature-csv" title="descargar csv" data-toggle="tooltip" target=_blank style="color: black;"><i class="fa fa-download" aria-hidden="true"></i>csv</a>')
 		.attr('href',gurl)
 		.attr("download",global.mdKey + ".csv"),
 		$('<a class="export-feature-json" title="descargar json" data-toggle="tooltip" target=_blank style="color: black;"><i class="fa fa-download" aria-hidden="true"></i>json</a>')
-		.attr('href',global.mdElement.endpoint + "/" + global.selectedFeature.id),
+		.attr('href',read_endpoint + "/" + global.selectedFeature.id),
 		$('<a class="export-feature-geojson" title="descargar geojson" data-toggle="tooltip" target=_blank style="color: black;"><i class="fa fa-download" aria-hidden="true"></i>geojson</a>')
-		.attr('href',global.mdElement.endpoint + "/" + global.selectedFeature.id + "?format=geojson")];
+		.attr('href',read_endpoint + "/" + global.selectedFeature.id + "?format=geojson")];
 	if (global.isWriter) {
 		actions.push($('<a class="edit" title="Editar" data-toggle="tooltip"><i class="material-icons">&#xE254;</i></a>')
 			.click(event=>{
@@ -2399,4 +2402,10 @@ function addSeriesEditTable(container,monitoringPoints,isWriter) {
 		return row
 	})
 	$(container).find("table.series_edit_table").bootstrapTable('append', features)
+}
+
+function replacePlaceholders(url, values) {
+	return url.replace(/\{(\w+)\}/g, (match, key) =>
+		key in values ? values[key] : match
+	);
 }
