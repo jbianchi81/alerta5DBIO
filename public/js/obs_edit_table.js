@@ -104,9 +104,9 @@ function makeObsEditTable(container,series,isW) {
 			$(container).find("table.obs_edit_table").bootstrapTable('prepend', 
 				{
 					id:-1, 
-					timestart: '<input type="datetime-local" class="form-control" name="timestart" id="timestart" placeholder="'+ placeholders[2]+'" style="width: 200px" min=10 max=24 pattern="^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3}Z)?)?$">', 
-					timeend: '<input type="datetime-local" class="form-control" name="timeend" id="timeend" placeholder="'+ placeholders[3]+'" style="width: 200px" min=10 max=24 pattern="^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3}Z)?)?$">', 
-					valor: '<input type="text" class="form-control" name="valor" id="valor" placeholder="'+ placeholders[4]+'" style="width: 140px" pattern="^\\d+(\\.\\d+)?$">',
+					timestart: `<div style="display: flex"><input type="datetime-local" class="form-control" name="timestart" id="timestart" placeholder="${placeholders[2]}" style="width: 200px" min=10 max=24 pattern="^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3}Z)?)?$"><button type="button" class=toggle-date-input>📅</button></div>`, 
+					timeend: `<div style="display: flex"><input type="datetime-local" class="form-control" name="timeend" id="timeend" placeholder="${placeholders[3]}" style="width: 200px" min=10 max=24 pattern="^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}(\\.\\d{3}Z)?)?$"><button type="button" class=toggle-date-input>📅</button></div>`, 
+					valor: `<input type="text" class="form-control" name="valor" id="valor" placeholder="${placeholders[4]}" style="width: 140px" pattern="^\\d+(\\.\\d+)?$">`,
 					action: isWriter ? obs_row_actions : ""
 			})
 			//~ $(container).find("table.obs_edit_table").prepend(row);		
@@ -116,6 +116,29 @@ function makeObsEditTable(container,series,isW) {
 			$(container).find('table.obs_edit_table tbody tr[data-uniqueid="-1"] td input:eq(0)').focus()
 			$(container).find("ul.pagination li").addClass("disabled");
 			$(container).find("span.page-list .btn-secondary").addClass("disabled")
+			$(container).find("table.obs_edit_table button.toggle-date-input").on(
+				"click",
+				function() {
+					const input = $(this).parent().find("input")[0];
+
+					if (input.type === "text") {
+						// ISO string → datetime-local
+						const value = input.value;
+
+						if (value) {
+							input.value = isoDateToDateTimeLocal(value)
+						}
+
+						input.type = "datetime-local";
+					} else {
+						// datetime-local → ISO string
+						input.type = "text";
+						if (input.value) {
+							input.value = new Date(input.value).toISOString();
+						}
+					}
+				}
+			)
 			
 		});
 		// Add row on add button click
@@ -131,9 +154,19 @@ function makeObsEditTable(container,series,isW) {
 				if(!$(this).val()){
 					$(this).addClass("error");
 					empty = true;
-				} else{
+				} else {
 					$(this).removeClass("error");
-					$("div#myModal form#confirm input.confirm[name="+$(this).attr("name")+"]").val($(this).val())
+					if($(this).attr("name") == "timestart") {
+						const [datetime_part, s_ms] = isoDateToDateTimeLocal(new Date($(this).val()), true)
+						$("div#myModal form#confirm input.confirm[name=timestart]").val(datetime_part)
+						$("div#myModal form#confirm input[name=ts_seconds]").val(s_ms)
+					} else if($(this).attr("name") == "timeend") {
+						const [datetime_part, s_ms] = isoDateToDateTimeLocal(new Date($(this).val()), true)
+						$("div#myModal form#confirm input.confirm[name=timeend]").val(datetime_part)
+						$("div#myModal form#confirm input[name=te_seconds]").val(s_ms)
+					} else {
+						$("div#myModal form#confirm input.confirm[name="+$(this).attr("name")+"]").val($(this).val())
+					}
 				}
 			});
 			$(this).parents("tr").find(".error").first().focus();
@@ -161,6 +194,9 @@ function makeObsEditTable(container,series,isW) {
 			var newData = {}
 			obs_input_fields.forEach((f,i)=>{
 				newData[f] = '<input type="text" name="'+f+'" class="form-control" value="' + oldData[f] + '" placeholder="' + oldData[f] + '">'
+				if(f == "timestart" || f == "timeend") {
+					newData[f] = `<div style="display: flex">${newData[f]}<button type="button" class=toggle-date-input>📅</button></div>`
+				}
 				$(container).find("table.obs_edit_table tbody tr[data-uniqueid="+idForEdition+"] td").eq(2+i).html(newData[f])
 			})
 			//~ $(container).find("table.obs_edit_table").bootstrapTable('updateByUniqueId',{id:idForEdition, row: newData})
@@ -170,6 +206,29 @@ function makeObsEditTable(container,series,isW) {
 			$(container).find(".export-csv-all").attr("disabled", "disabled");
 			$(container).find("ul.pagination li").addClass("disabled");
 			$("span.page-list .btn-secondary").addClass("disabled")
+			$(container).find("table.obs_edit_table button.toggle-date-input").on(
+				"click",
+				function() {
+					const input = $(this).parent().find("input")[0];
+
+					if (input.type === "text") {
+						// ISO string → datetime-local
+						const value = input.value;
+
+						if (value) {
+							input.value = isoDateToDateTimeLocal(value)
+						}
+
+						input.type = "datetime-local";
+					} else {
+						// datetime-local → ISO string
+						input.type = "text";
+						if (input.value) {
+							input.value = new Date(input.value).toISOString();
+						}						
+					}
+				}
+			)
 		});
 		// Delete row on delete button click
 		$(container).on("click", ".delete", function(){
@@ -306,10 +365,12 @@ function makeObsEditTable(container,series,isW) {
 			const end_date = new Date()
 			const start_date = new Date()
 			start_date.setDate(start_date.getDate() - 7)
-			setDateValue("div#myModal input[name=timestart]", start_date)
+			document.querySelector("div#myModal input[name=timestart]").value = isoDateToDateTimeLocal(start_date)
+			document.querySelector("div#myModal input[name=timeend]").value = isoDateToDateTimeLocal(end_date)
+			// setDateValue("div#myModal input[name=timestart]", start_date)
 			// $("div#myModal input[name=timestart]").val($("form#selectorform input#timestart").val())			
 			$("div#myModal div#timestart").attr('hidden',false)
-			setDateValue("div#myModal input[name=timeend]", end_date)
+			// setDateValue("div#myModal input[name=timeend]", end_date)
 			// $("div#myModal input[name=timeend]").val($("form#selectorform input#timeend").val())
 			$("div#myModal div#timeend").attr('hidden',false)
 			$("div#myModal span#getfromsource").show()
@@ -425,13 +486,24 @@ function makeObsEditTable(container,series,isW) {
 					requestBody[i.name].push(i.value)
 				}
 			})
-			Object.keys(requestBody).forEach(k=>{ 
+			Object.keys(requestBody).forEach(k=>{
+				if(k == "timestart" && requestBody[k].length && requestBody[k][0] != "") {
+					if(requestBody["ts_seconds"] && requestBody["ts_seconds"].length && requestBody["ts_seconds"][0] != "") {
+						requestBody[k][0] = dateTimeLocalToIsoDate(requestBody[k][0], requestBody["ts_seconds"][0])
+					}
+				} else if(k == "timeend" && requestBody[k].length && requestBody[k][0] != "") {
+					if(requestBody["te_seconds"] && requestBody["te_seconds"].length && requestBody["te_seconds"] != "") {
+						requestBody[k][0] = dateTimeLocalToIsoDate(requestBody[k][0], requestBody["te_seconds"][0])
+					}
+				}
 				if(requestBody[k].length==1) {
 					requestBody[k] = requestBody[k][0]
 				} else if (requestBody[k].length > 1) {
 					requestBody[k] = requestBody[k].filter(v => v != "null")
 				}
 			})
+			delete requestBody["ts_seconds"]
+			delete requestBody["te_seconds"]
 			//~ var jqxhr = $.post($(event.currentTarget).attr('action'),requestBody,function(response) {
 			var jqxhr = $.ajax({
 				url:$(event.currentTarget).attr('action'),

@@ -912,6 +912,9 @@ function buildMetadataForm(metadataElement) {
 					.attr('name',key)
 					.attr('title',e.title)
 					.val(value);
+			if(e.fixed) {
+				$(input).addClass("fixed")
+			}
 			if(e.required) {
 				$(input).attr('required','required')
 			}
@@ -947,7 +950,7 @@ function buildMetadataForm(metadataElement) {
 }
 
 
-function buildMetadataForm2(mdElement,mdKey,formContainer,values={}) {
+function buildMetadataForm2(mdElement,mdKey,formContainer,values={},filter_values={}) {
 	if(!mdElement) {
 		console.log("metadataElement not found")
 		return
@@ -1040,6 +1043,9 @@ function buildMetadataForm2(mdElement,mdKey,formContainer,values={}) {
 				if(parseInt(e.min).toString() != 'NaN') {
 					$(input).attr('min',e.min)
 				}
+				if(e.fixed) {
+					$(input).addClass("fixed")
+				}
 				return $("<div></div>")
 					.addClass("row")
 					.append(
@@ -1113,12 +1119,31 @@ function buildMetadataForm2(mdElement,mdKey,formContainer,values={}) {
 	return
 }
 
-function isoDateToDateTimeLocal(iso) {
+function isoDateToDateTimeLocal(iso, return_seconds=false) {
     const date = new Date(iso);
 
     const pad = (n) => String(n).padStart(2, "0");
 
+	if(return_seconds) {
+		return [
+			`${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`,
+			date.toISOString().slice(16)
+		];
+	} 
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function dateTimeLocalToIsoDate(datetime, s_ms) {
+    const date = new Date(datetime);
+	const iso = date.toISOString()
+	if(s_ms) {
+		const full_iso = iso.slice(0, 16) + s_ms + iso.slice(16 + s_ms.length);
+		if(new Date(full_iso).toString() == "Invalid Date") {
+			throw new Error(`Invalid datetime-local + seconds: ${full_iso}`)
+		}
+		return full_iso
+	}
+	return iso
 }
 
 function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create') {
@@ -1140,6 +1165,20 @@ function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create'
 			$(formContainer).find("button[type=submit]").removeAttr('formnovalidate')
 			$(formContainer).find("input.confirm.edit[name=id]").removeAttr('required')
 			//~ $(formContainer).find("button[type=submit]").unbind('submit').submit(onSubmitMetadata)
+			// set fixed from first query result
+			$(formContainer).find(".confirm.edit.fixed").each((i,e)=>{
+				var key = $(e).attr('name')
+				if(values[key] != null) {
+					$(e).val(values[key])
+				} else if(global.features && global.features.length && global.features[0][key]  && global.features[0][key] != null) {
+					console.debug("Se encontró valor para el campo " + key + ": " + global.features[0][key])
+					$(e).val(global.features[0][key])
+				} else {
+					console.error("No se encontró valor para el campo " + key + " y no se puede editar")
+				}
+
+			})
+			
 			break;
 		case "upload":
 			$("div#myModalMetadata div.modal-content div.modal-header h4.modal-title").text("Importar " + mdElement.objectName + " (JSON)")
