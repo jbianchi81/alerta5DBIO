@@ -1155,6 +1155,8 @@ function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create'
 	$(formContainer).find(".run-params").attr("disabled", "disabled")
 	$(formContainer).find(".run-params.run-required").removeAttr('required')
 	$(formContainer).find(".confirm.create-required").attr('required','required')
+	$(formContainer).find(".confirm.edit.fixed").attr("disabled", "disabled")
+	$(formContainer).find(".confirm.edit[name=id]").attr("type","number")
 
 	switch(action) {
 		case "create":
@@ -1173,13 +1175,11 @@ function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create'
 				} else if(global.features && global.features.length && global.features[0][key]  && global.features[0][key] != null) {
 					console.debug("Se encontró valor para el campo " + key + ": " + global.features[0][key])
 					$(e).val(global.features[0][key])
-				} else {
-					console.error("No se encontró valor para el campo " + key + " y no se puede editar")
-				}
-
-			})
-			
+				} 
+				$(e).removeAttr('disabled')
+			})			
 			break;
+
 		case "upload":
 			$("div#myModalMetadata div.modal-content div.modal-header h4.modal-title").text("Importar " + mdElement.objectName + " (JSON)")
 			$(formContainer).find(".confirm.edit").hide()
@@ -1203,12 +1203,21 @@ function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create'
 			//~ $(formContainer).find("button[type=submit]").unbind('submit').submit(onSubmitMetadata)
 			break;
 		case "delete":
-			const feature_id = (Array.isArray(values)) ? values.map(f=> f.id).join(",") : values.id
 			$("div#myModalMetadata div.modal-content div.modal-header h4.modal-title").text("Eliminar " + mdElement.objectName + " id:" + values.id)
 			$(formContainer).find(".confirm.edit").hide()
 			$(formContainer).find("label").hide()
-			$(formContainer).find(".confirm.edit[name=id]").val(feature_id).attr('required','required')
+			$(formContainer).find(".confirm.edit[name=id]").val(values.id).attr('required','required')
 			$(formContainer).attr('action','#delete').attr('method','DELETE')
+			$(formContainer).find("button[type=submit]").attr('formnovalidate',"formnovalidate")
+			//~ $(formContainer).find("button[type=submit]").unbind('submit').submit(onSubmitMetadataRemove)
+			break;		
+		case "delete_many":
+			const feature_id = (Array.isArray(values)) ? values.map(f=> f.id).join(",") : values.id
+			$("div#myModalMetadata div.modal-content div.modal-header h4.modal-title").text("Eliminar " + mdElement.objectName + " id:" + feature_id)
+			$(formContainer).find(".confirm.edit").hide()
+			$(formContainer).find("label").hide()
+			$(formContainer).find(".confirm.edit[name=id]").attr("type","text").val(feature_id).attr('required','required')
+			$(formContainer).attr('action','#delete_many').attr('method','DELETE')
 			$(formContainer).find("button[type=submit]").attr('formnovalidate',"formnovalidate")
 			//~ $(formContainer).find("button[type=submit]").unbind('submit').submit(onSubmitMetadataRemove)
 			break;		
@@ -1251,7 +1260,7 @@ function onSubmitMetadata(event) {
 	var objectNamePlural = global.mdElement.objectNamePlural
 	requestBody[objectName] = {}
 	var md_keys = Object.keys(global.mdElement.properties).filter(p=>(!global.mdElement.properties[p].no_md && global.mdElement.properties[p].edit))
-	if(action != "delete" && action != "upload" && action != "run") {
+	if(action != "delete" && action != "upload" && action != "run" && action != "delete_many") {
 		for(var i in md_keys) {
 			var key = md_keys[i]
 			var value = $(this).find(".edit[name=" + key + "]").val()  
@@ -1428,6 +1437,28 @@ function onSubmitMetadata(event) {
 						return
 					}
 					alert("Se eliminó el elemento " + objectName + " id:" + id)
+					global.selectedFeature = undefined
+					$("div#myModalMetadata").modal('hide')
+					loadMDElement()//~ location.reload()
+					$("form#selectorform").submit()
+				}
+			}
+			break;
+		case "delete_many": 
+			ajaxParams = {
+				url: `${replacePlaceholders(global.mdElement.endpoint, global.features[0])}?id=${id}`,
+				type: "DELETE",
+				dataType: "json",
+				success: function(response){
+					$("body").css("cursor","default")
+					console.log({response:response})
+					if(!response.length) {
+						alert("Nothing done")
+						$("div#myModalMetadata").modal("hide")
+						$("div#myModalMetadata form#confirm").find("button[type=submit]").prop('disabled',false)
+						return
+					}
+					alert("Se eliminaron los elementos " + objectName + " id:" + response.map(item => item.id).join(","))
 					global.selectedFeature = undefined
 					$("div#myModalMetadata").modal('hide')
 					loadMDElement()//~ location.reload()
@@ -1746,13 +1777,14 @@ function showLastFilterParams() {
 function buildMetadataSearchRequestUrl(metadataElement,searchParams,useEndpoint2) {
 	var formData = new URLSearchParams(searchParams)
 	var baseurl = (useEndpoint2) ? metadataElement.endpoint2 : metadataElement.endpoint
+	baseurl = replacePlaceholders(baseurl, Object.fromEntries(formData.entries()))
 	var keys = Object.keys(metadataElement.properties)
 	for(var key of keys) {
 		var property = metadataElement.properties[key]
 		//~ console.log(key + ":" + formData.get(key))
 		if(property.where && property.where=="path") {
-			var regexp = "{" + key + "}"
-			baseurl = baseurl.replace(regexp,formData.get(key))
+			// var regexp = "{" + key + "}"
+			// baseurl = baseurl.replace(regexp,formData.get(key))
 			formData.delete(key)
 		}
 	}
@@ -2406,6 +2438,6 @@ function addSeriesEditTable(container,monitoringPoints,isWriter) {
 
 function replacePlaceholders(url, values) {
 	return url.replace(/\{(\w+)\}/g, (match, key) =>
-		key in values ? values[key] : match
+		key in values && values[key] != null && values[key] != "" ? values[key] : match
 	);
 }

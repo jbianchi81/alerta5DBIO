@@ -444,9 +444,9 @@
 				$("div#myModalMetadata").modal('show')
 			})
 			$("div.tabcontent#tabla button.remove-selected").click(function(){
-				var selected = $("div.tabcontent#tabla").bootstrapTable('getAllSelections')
+				var selected = $("table.md_edit_table.bootstraped").bootstrapTable('getAllSelections')
 				console.debug(selected)
-				setMetadataForm(mdElement,mdKey,$("div#myModalMetadata form#confirm"),selected,'delete')
+				setMetadataForm(mdElement,mdKey,$("div#myModalMetadata form#confirm"),selected,'delete_many')
 				$("div#myModalMetadata").modal('show')				
 			})
 			if(filterCount) { // si hay filtros en el URL, submit selector

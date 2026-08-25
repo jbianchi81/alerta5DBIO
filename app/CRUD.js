@@ -11458,7 +11458,10 @@ internal.CRUD = class {
 				console.log("try read series_id " + series_id)
 				try {
 					serie = await this.getSerie(tipo,series_id,undefined,undefined,{no_metadata:true},undefined,undefined,client)
-					console.log("try read var_id " + serie.var.id)
+					if(!serie) {
+						throw new Error(`No se encontró la serie ${tipo} ${series_id}`)
+					}
+					// console.log("try read var_id " + serie.var.id)
 					serie.var = await this.getVar(serie.var.id,client) 
 				} catch(e) {
 					throw(e)
