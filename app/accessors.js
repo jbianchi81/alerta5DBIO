@@ -375,7 +375,7 @@ internal.Accessor = class {
 				)
 				results.push(series[i])
 			} catch (e) {
-				console.error(e)
+				console.error(`Failed to retrieve data for series ${series[i].tipo} id ${series[i].id}. Message: ${e.toString()}`)
 			}
 		}
 		return results
@@ -440,7 +440,7 @@ internal.Accessor = class {
 					series[i].setObservaciones(await this.engine.updateSerie(series[i].id,filter.timestart,filter.timeend))
 					results.push(series[i])
 				} catch(e) {
-					console.error(e)
+					console.error(`Failed to retrieve data for series ${series[i].tipo} id ${series[i].id}. Message: ${e.toString()}`)
 				}
 			} else {
 				if(!series[i].id) {
@@ -8056,21 +8056,20 @@ internal.api_smn = class {
 			throw("invalid estacion_id")
 		}
 		var url = `${this.config.url}/history/precipitation/station/${stationId}`
-		console.log({url: url})
-		return axios.get(url,{
-			params: {
-				start: new Date(timestart).toISOString(),
-				end: new Date(timeend).toISOString() 
-			},
-			headers: {
-				"Authorization": `JWT ${token}`
-			}
-		})
-		.then(response=>{
+		console.debug(`GET ${url}`)
+		try {
+			const response = await axios.get(url,{
+				params: {
+					start: new Date(timestart).toISOString(),
+					end: new Date(timeend).toISOString() 
+				},
+				headers: {
+					"Authorization": `JWT ${token}`
+				}
+			})
 			this.last_response_data = response.data
 			return this.parsePrecipList(response.data.list,series_id)
-		})
-		.catch(error=>{
+		} catch (error) {
 			this.last_error = error
 			if(error.response) {
 				if(error.response.status == 404) {
@@ -8085,7 +8084,7 @@ internal.api_smn = class {
 			} else {
 				throw(error)
 			}
-		})
+		}
 	}
 
 	async getSeriesMap(client) {
@@ -8216,7 +8215,13 @@ internal.api_smn = class {
 					series = series.filter(s=> filter.var_id.includes(s.var_id))
 				}
 			}
-			return series
+			return series.map(s => new CRUD.serie({
+				id: s.id,
+				estacion: {id: s.estacion_id},
+				var: {id: s.var_id},
+				procedimiento: {id: s.proc_id},
+				unidades: {id: s.unit_id}
+			}))
 		})
 	}
 	
@@ -8274,6 +8279,56 @@ internal.api_smn = class {
 			}
 		}
 		var observaciones = []
+		var series = []
+		if(filter.series_id) {
+			const filter_series_id = (Array.isArray(filter.series_id)) ? filter.series_id : [filter.series_id]
+			for(const s of this.config.series_map) {
+				if(filter_series_id.indexOf(s.id) < 0) {
+					continue
+				}
+				if(s.var_id == 1) {
+					var obs = await this.getPrecip(s.estacion_id,filter.timestart,filter.timeend)
+				} else if(s.var_id == 5 || s.var_id == 6) {
+					var obs = await this.getTemp(s.estacion_id,filter.timestart,filter.timeend,s.var_id)
+				} else {
+					console.warn(`var_id: ${s.var_id} of series_id: ${s.id} not mapped to a API endpoint`)
+					continue
+				}
+				if(options.update) {
+					var upserted = await crud.upsertObservaciones(obs,"puntual")
+					if(options.return_series) {
+						series.push(new CRUD.serie({
+							id: s.id,
+							estacion: {id: s.estacion_id},
+							var: {id: s.var_id},
+							procedimiento: {id: s.proc_id},
+							unidades: {id: s.unit_id},
+							observaciones: upserted
+						}))
+					} else {
+						observaciones.push(...upserted)
+					}
+				} else {
+					if(options.return_series) {
+						series.push(new CRUD.serie({
+							id: s.id,
+							estacion: {id: s.estacion_id},
+							var: {id: s.var_id},
+							procedimiento: {id: s.proc_id},
+							unidades: {id: s.unit_id},
+							observaciones: obs
+						}))
+					} else {
+						observaciones.push(...obs)
+					}
+				}
+			}
+			if(options.return_series) {
+				return series
+			} else {
+				return observaciones
+			}
+		}
 		for(var estacion_id of Object.keys(this.config.estaciones_map)) {
 			if(filter.estacion_id) {
 				if(filter.estacion_id.indexOf(parseInt(estacion_id)) < 0) {
