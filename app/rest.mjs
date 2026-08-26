@@ -2495,10 +2495,12 @@ function upsertSeries(req,res) {
 	if(!req.body.series) {
 		if(!Array.isArray(req.body)) {
 			if(!req.body.rows) {
-				res.status(400).send({message:"query error",error:"Falta atributo 'series' y el cuerpo del mensaje no es un array"})
-				return
+				series = [req.body]
+				// res.status(400).send({message:"query error",error:"Falta atributo 'series' y el cuerpo del mensaje no es un array"})
+				// return
+			} else {
+				series = req.body.rows
 			}
-			series = req.body.rows
 		} else {
 			series = req.body
 		}

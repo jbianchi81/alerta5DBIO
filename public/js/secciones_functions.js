@@ -1175,7 +1175,12 @@ function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create'
 				} else if(global.features && global.features.length && global.features[0][key]  && global.features[0][key] != null) {
 					console.debug("Se encontró valor para el campo " + key + ": " + global.features[0][key])
 					$(e).val(global.features[0][key])
-				} 
+				} else {
+					const filter_value = $(`.form-control[name=${key}]`).val()
+					if(filter_value != null && filter_value != "") {
+						$(e).val(filter_value)
+					}
+				}
 				$(e).removeAttr('disabled')
 			})			
 			break;
