@@ -296,7 +296,8 @@ function makeObsEditTable(container,series,isW) {
 			   reader.onload = function(event) {
 				 $("div#myModal table#rowstoinsert").bootstrapTable('destroy')
 				 $("div#myModal table#rowstoinsert").remove()
-				 var obs = csv2obs(series.tipo,series.id,event.target.result);
+				 var obs = str2obs(series.tipo,series.id,event.target.result);
+				//  var obs = csv2obs(series.tipo,series.id,event.target.result);
 				 if(!obs) {
 					 alert("Invalid file")
 					 return
@@ -638,6 +639,58 @@ function closemodal (jqxhr) {
 		}
 	})
 }
+
+function isJson(str) {
+    try {
+        JSON.parse(str);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function str2obs(tipo,series_id,str) {
+	if(isJson(str)) {
+		return json2obs(tipo, series_id, str)
+	} else {
+		return csv2obs(tipo, series_id, str)
+	}
+}
+function json2obs(tipo, series_id, str) {
+	const data = JSON.parse(str)
+	if(!data.observaciones) {
+		if(!data.rows) {
+			if(Array.isArray(data)) {
+				var observaciones = data
+			} else {
+				var observaciones = [data]
+			}
+		} else {
+			var observaciones = data.rows
+		}
+	} else if(typeof data.observaciones == "string") {
+		var observaciones = JSON.parse(data.observaciones.trim())
+	} else {
+		var observaciones = data.observaciones
+	}
+	// parse and control items
+	const result = []
+	for(const i in observaciones) {
+		var obs = {
+			tipo:tipo, 
+			series_id:series_id, 
+			timestart: new Date(observaciones[i].timestart), 
+			timeend: new Date(observaciones[i].timeend), 
+			valor: parseFloat(observaciones[i].valor)
+		}
+		if(obs.timestart.toString() == "Invalid Date" || obs.timeend.toString() == "Invalid Date" || obs.valor.toString() == "NaN") {
+			throw new Error("Valores no válidos en el item " + i + "del archivo JSON")
+		}
+		result.push(obs)
+	}
+	return result
+}
+
 function csv2obs(tipo,series_id,csv) {
 	// CSV fields must be: timestart, timeend, valor
 	try {
