@@ -15,6 +15,14 @@
                     "type": "string",
                     "description": "Identifier of the Accessor class to be called for update"
                 },
+                "classname": {
+                    "type": "string",
+                    "description": "Class of the accessor. Together with 'config', sets a new accessor instance without reading the configuration from the database"
+                },
+                "config": {
+                    "type": "string",
+                    "description": "Configuration of the accessor. Together with 'classname', sets a new accessor instance without reading the configuration from the database"
+                },
                 "filter": {
                     "descrition": "filter to select which records to update from the source",
                     "type": "object",

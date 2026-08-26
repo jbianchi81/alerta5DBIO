@@ -19,6 +19,10 @@
                 "name": {
                     "type": "string",
                     "description": "Assign this name to the accessor. Defaults to class name"
+                },
+                "config": {
+                    "type": "object",
+                    "description": "accessor configuration"
                 }
             },
             "required": [

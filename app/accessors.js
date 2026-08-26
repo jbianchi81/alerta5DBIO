@@ -6491,7 +6491,8 @@ internal.a5 = class {
 			qualifier: filter.qualifier,
 			includeProno: options.includeProno ?? filter.includeProno,
 			tabla: filter.tabla,
-			tipo: filter.tipo
+			tipo: filter.tipo,
+			estacion_id: filter.estacion_id ?? filter.area_id
 		}
 		var cor_id = (filter.cor_id) ? filter.cor_id : "last" 
 		return axios.get(`${this.config.url}/sim/calibrados/${filter.cal_id}/corridas/${cor_id}`,{

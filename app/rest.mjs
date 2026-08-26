@@ -1069,8 +1069,9 @@ function upsertFuentes(req,res) {
 		if(Array.isArray(req.body)) {
 			fuentes = req.body
 		} else {
-			res.status(400).send({message:"query error",error:"Falta atributo 'fuentes' y el cuerpo del mensaje no es un array"})
-			return
+			fuentes = [req.body]
+			// res.status(400).send({message:"query error",error:"Falta atributo 'fuentes' y el cuerpo del mensaje no es un array"})
+			// return
 		}
 	} else if (typeof req.body.fuentes == "string") {
 		fuentes = JSON.parse(req.body.fuentes.trim())
@@ -1284,8 +1285,9 @@ function upsertVariables(req,res) {
 	} else if(Array.isArray(req.body)) {
 			variables = req.body
 	} else {
-		res.status(400).send({message:"query error",error:"Falta atributo 'variables'"})
-		return
+		variables  = [req.body]
+		// res.status(400).send({message:"query error",error:"Falta atributo 'variables'"})
+		// return
 	}
 	if(typeof variables == "string") {
 		variables = JSON.parse(variables.trim())
