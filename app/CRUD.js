@@ -14799,7 +14799,7 @@ internal.CRUD = class {
 			}
 			if(!cor_id && cal_id) {
 				if(!forecast_date) {
-					return Promise.reject("If cal_id is set, forecast_date must be defined")
+					return Promise.reject(new Error("If cal_id is set, forecast_date must be defined"))
 				}
 			}
 
@@ -16346,7 +16346,7 @@ internal.CRUD = class {
 		return withClient(client, async (client) => {
 			if(!cor_id && cal_id) {
 				if(!forecast_date) {
-					return Promise.reject("If cal_id is set, forecast_date must be defined")
+					return Promise.reject(new Error("If cal_id is set, forecast_date must be defined"))
 				}
 			}
 			if(cor_id || cal_id) {
