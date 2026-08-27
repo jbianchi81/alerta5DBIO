@@ -3473,7 +3473,26 @@ function getRegularSeries (req,res) {
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	} 
-	crud.getRegularSeries(filter.tipo,filter.series_id,options.dt,filter.timestart,filter.timeend,{t_offset:filter.t_offset, aggFunction:filter.agg_func,inst:filter.inst,timeSupport:filter.time_support,precision:filter.precision},undefined,undefined,undefined,undefined,undefined,user_id) // options: t_offset,aggFunction,inst,timeSupport,precision
+	crud.getRegularSeries(
+		filter.tipo,
+		filter.series_id,
+		options.dt,
+		filter.timestart,
+		filter.timeend,
+		{
+			t_offset: filter.t_offset, 
+			aggFunction: filter.agg_func,
+			inst: filter.inst,
+			timeSupport: filter.time_support,
+			precision: filter.precision
+		},
+		undefined,
+		filter.cal_id,
+		filter.cor_id,
+		filter.forecast_date,
+		filter.qualifier,
+		user_id
+	) // options: t_offset,aggFunction,inst,timeSupport,precision
 	.then(result=>{
 		send_output(options,result,res)
 	})
