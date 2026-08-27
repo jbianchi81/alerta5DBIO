@@ -1477,7 +1477,7 @@ ALTER TABLE ONLY public.asociaciones ALTER COLUMN id SET DEFAULT nextval('public
 --
 
 ALTER TABLE ONLY public.asociaciones
-    ADD CONSTRAINT asociaciones_dest_tipo_dest_series_id_key UNIQUE (dest_tipo, dest_series_id);
+    ADD CONSTRAINT asociaciones_dest_tipo_dest_series_id_cal_id_key UNIQUE (dest_tipo, dest_series_id, cal_id);
 
 
 --
@@ -1488,12 +1488,12 @@ ALTER TABLE ONLY public.asociaciones
     ADD CONSTRAINT asociaciones_pkey PRIMARY KEY (id);
 
 
---
--- Name: asociaciones asociaciones_source_tipo_source_series_id_dest_tipo_dest_se_key; Type: CONSTRAINT; Schema: public; Owner: -
---
+-- --
+-- -- Name: asociaciones asociaciones_source_tipo_source_series_id_dest_tipo_dest_se_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- --
 
-ALTER TABLE ONLY public.asociaciones
-    ADD CONSTRAINT asociaciones_source_tipo_source_series_id_dest_tipo_dest_se_key UNIQUE (source_tipo, source_series_id, dest_tipo, dest_series_id, dt, t_offset, agg_func);
+-- ALTER TABLE ONLY public.asociaciones
+--     ADD CONSTRAINT asociaciones_source_tipo_source_series_id_dest_tipo_dest_se_key UNIQUE (source_tipo, source_series_id, dest_tipo, dest_series_id, dt, t_offset, agg_func);
 
 
 --
