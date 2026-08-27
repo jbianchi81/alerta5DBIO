@@ -4942,6 +4942,7 @@ function getPronosticos(req,res) {
 		res.status(400).send({message:"missing cor_id or cal_id or cal_grupo_id",error:"missing cor_id or cal_id or cal_grupo_id"})
 		return
 	}
+	filter.limit = (config.rest && config.rest.max_corridas) ? (filter.limit) ? Math.min(filter.limit, config.rest.max_corridas) : config.rest.max_corridas : filter.limit
 	//~ console.log({filter:filter,options:options})
 	CRUD.corrida.read(filter, options)
 	// crud.getPronosticos(filter.cor_id,filter.cal_id,filter.forecast_timestart,filter.forecast_timeend,filter.forecast_date,filter.timestart,filter.timeend,filter.qualifier,filter.estacion_id,filter.var_id,options.includeProno,filter.public,filter.series_id,options.series_metadata,filter.cal_grupo_id,options.group_by_qualifier,filter.model_id,filter.tipo)

@@ -6593,8 +6593,9 @@ internal.corrida = class extends baseModel {
 				filter.model_id,filter.tipo,
 				undefined,
 				(options.concat) ? 1 : undefined,
-				undefined,
-				client
+				filter.limit,
+				client,
+				options.no_metadata
 			)
 			if(options.concat) {
 				return this.concat(corridas, filter.series_id, filter.tipo, filter.qualifier, filter.forecast_timestart, filter.forecast_timeend, options.group_by_qualifier)
@@ -18137,7 +18138,31 @@ ORDER BY cal.cal_id`
 		})
 	}
 
-	static async getPronosticos(cor_id,cal_id,forecast_timestart,forecast_timeend,forecast_date,timestart,timeend,qualifier,estacion_id,var_id,includeProno=false,isPublic,series_id,series_metadata,cal_grupo_id,group_by_qualifier,model_id,tipo,tabla,series_limit,corridas_limit, client) {
+	static async getPronosticos(
+		cor_id,
+		cal_id,
+		forecast_timestart,
+		forecast_timeend,
+		forecast_date,
+		timestart,
+		timeend,
+		qualifier,
+		estacion_id,
+		var_id,
+		includeProno=false,
+		isPublic,
+		series_id,
+		series_metadata,
+		cal_grupo_id,
+		group_by_qualifier,
+		model_id,
+		tipo,
+		tabla,
+		series_limit,
+		corridas_limit, 
+		client,
+		no_date_range
+	) {
 		return withClient(client, async (client) => {
 			const filter_string = control_filter2(
 				{
@@ -18183,7 +18208,7 @@ ORDER BY cal.cal_id`
 				ON corridas.cal_id=calibrados.id 
 			WHERE 1=1 
 			${filter_string}
-			ORDER BY corridas.cal_id, corridas.date
+			ORDER BY corridas.cal_id, corridas.date DESC
 			${limit_block}`
 			const result = await client.query(query)
 			if(!result.rows) {
@@ -18194,7 +18219,6 @@ ORDER BY cal.cal_id`
 				return new internal.corrida(r) // {cor_id:r.id,cal_id:r.cal_id,forecast_date:r.forecast_date}
 			})
 			if(!includeProno) {
-				const promises = []
 				const filter = {
 					qualifier: qualifier,
 					estacion_id: estacion_id,
@@ -18202,11 +18226,19 @@ ORDER BY cal.cal_id`
 					series_id: series_id,
 					tipo: tipo,
 					tabla: tabla
-				} 
-				for(var corrida of corridas) {
-					promises.push(internal.CRUD.getCorridaSeriesDateRange(corrida,filter,{group_by_qualifier:group_by_qualifier}, client))
 				}
-				await Promise.all(promises)
+				if(!no_date_range) { 
+					for(var corrida of corridas) {
+						await internal.CRUD.getCorridaSeriesDateRange(
+							corrida,
+							filter,
+							{
+								group_by_qualifier:group_by_qualifier
+							}, 
+							client
+						)
+					}
+				}
 				return corridas
 			}
 			const promise_array = []

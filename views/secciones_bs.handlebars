@@ -2300,7 +2300,7 @@
 	}
 
 	function getForecastDates (cal_id,search_filters) {
-		$.get("sim/calibrados/" + cal_id + "/corridas")
+		$.get("sim/calibrados/" + cal_id + "/corridas?no_metadata=true")
 		.then(data=>{
 			var fd_options = data.map(corrida=>corrida.forecast_date).sort((a,b)=>b-a).map(fd=>{
 				var selected = ""
