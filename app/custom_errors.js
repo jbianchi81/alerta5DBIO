@@ -31,6 +31,9 @@ class ConflictError extends Error {
 exports.ConflictError = ConflictError;
 function handleCrudError(e, res) {
     console.error(e);
+    if (typeof e == 'string') {
+        return res.status(500).send({ message: "Server error", error: e });
+    }
     if (e instanceof AuthError) {
         return res.status(401).send({ message: "Unauthorized", error: e.toString() });
     }

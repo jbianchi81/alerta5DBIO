@@ -42,8 +42,11 @@ export class ConflictError extends Error {
   }
 }
 
-export function handleCrudError(e : Error | DatabaseError, res : Express.Response) {
+export function handleCrudError(e : Error | DatabaseError | string, res : Express.Response) {
   console.error(e)
+  if(typeof e == 'string') {
+    return res.status(500).send({message:"Server error", error: e})
+  }
   if(e instanceof AuthError) {
     return res.status(401).send({message:"Unauthorized", error: e.toString()})
   } else if(e instanceof NotFoundError) {
