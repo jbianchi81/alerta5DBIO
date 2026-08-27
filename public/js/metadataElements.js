@@ -1788,13 +1788,13 @@ var metadataElements = {
 		nameProperty: "id",
 		run_params: {
 			timestart: {
-				type: "date",
+				type: "datetime-local",
 				title: "fecha/hora inicial",
 				required: true,
 				description: "fecha/hora inicial"
 			},
 			timeend: {
-				type: "date",
+				type: "datetime-local",
 				title: "fecha/hora final",
 				required: true,
 				description: "fecha/hora final"

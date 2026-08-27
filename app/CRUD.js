@@ -15399,27 +15399,36 @@ internal.CRUD = class {
 		client
 	) {
 		return withTransaction(client, async (client) => {
-			const corridas = await internal.corrida.read({
-				id: corrida_filter.cor_id,
-				cal_id: corrida_filter.cal_id,
-				forecast_date: corrida_filter.forecast_date
-			}, undefined, client)
+			if(corrida_filter.cal_id && !corrida_filter.cor_id && !corrida_filter.forecast_date) {
+				var corridas = await internal.corrida.getLast(
+					corrida_filter.cal_id, 
+					client
+				)
+
+			} else {
+				var corridas = await internal.corrida.read({
+					id: corrida_filter.cor_id,
+					cal_id: corrida_filter.cal_id,
+					forecast_date: corrida_filter.forecast_date
+				}, undefined, client)
+			}
 			if(!corridas.length) {
 				throw(new Error("Corrida not found"))
 			}
-			await corridas[0].setSeries([
+			const corrida = corridas[0]
+			await corrida.setSeries([
 				new internal.SerieTemporalSim({
 					series_table: internal.serie.getSeriesTable(tipo),
 					series_id: series_id,
 					pronosticos: pronosticos
 				})
 			], undefined, undefined, client)
-			await corridas[0].create(client)
-			if(!corridas[0].series.length) {
+			await corrida.create(client)
+			if(!corrida.series.length) {
 				console.warn("No forecast series upserted")
 				return []
 			}
-			return corridas[0].series[0].pronosticos
+			return corrida.series[0].pronosticos
 		})
 	}
 	
