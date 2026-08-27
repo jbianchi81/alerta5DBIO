@@ -1015,6 +1015,105 @@ export type Corrida = {
 
 }
 
+interface AsociacionDict {
+    id: number;
+    source_tipo: string;
+    source_series_id: number;
+    dest_tipo: string;
+    dest_series_id: number;
+    agg_func: string;
+    dt: string | Interval;
+    t_offset?: string | Interval;
+    precision?: number;
+    source_time_support?: string | Interval;
+    source_is_inst?: boolean;
+    habilitar?: boolean;
+    expresion?: string;
+    cal_id?: number;
+}
+
+interface GetAsociacionesFilter {
+    id?: number | number[]
+    source_tipo?: SeriesType 
+    source_series_id?: number | number[]
+    source_estacion_id?: number | number[]
+    dest_estacion_id?: number | number[]
+    provider_id?: number | number[]
+    tabla_id?: number | number[]
+    tabla?: number | number[]
+    source_var_id?: number | number[]
+    source_proc_id?: number | number[]
+    dest_tipo?: SeriesType 
+    dest_series_id?: number | number[]
+    dest_var_id?: number | number[]
+    dest_proc_id?: number | number[]
+    agg_func?: string
+    dt?: string | Interval
+    t_offset?: string | Interval
+    habilitar?: boolean
+    cal_id?: number | number[]
+}
+
+interface GetAsociacionesOptions {
+    agg_func?: string
+    dt?: string | Interval
+    t_offset?: string | Interval
+}
+
+interface RunAsociacionesOptions {
+    inst?: boolean
+    no_insert?: boolean
+    no_send_data?: boolean
+    no_insert_as_obs?: boolean   
+}
+
+export class asociacion extends baseModel {
+    id: number;
+    source_tipo: SeriesType;
+    source_series_id: number;
+    dest_tipo: SeriesType;
+    dest_series_id: number;
+    agg_func: string;
+    dt: Interval;
+    t_offset: Interval;
+    precision: number;
+    source_time_support: Interval;
+    source_is_inst: boolean;
+    habilitar: boolean;
+    expresion: string | null;
+    cal_id: number | null;
+
+    constructor(data: AsociacionDict);
+
+    create(client?: Client): Promise<asociacion>;
+
+    static create(
+        data: AsociacionDict[],
+        options?: unknown,
+        client?: Client
+    ): Promise<asociacion[]>;
+
+    static read(
+        filter?: GetAsociacionesFilter,
+        options?: GetAsociacionesOptions,
+        client?: Client
+    ): Promise<asociacion[]>;
+
+    delete(client?: Client): Promise<asociacion>;
+
+    static delete(
+        filter: GetAsociacionesFilter,
+        options?: unknown,
+        client?: Client
+    ): Promise<asociacion[]>;
+
+    run(
+        filter?: GetAsociacionesFilter,
+        options?: RunAsociacionesOptions
+    ): Promise<unknown>;
+}
+
+
 interface GetRegularSeriesOptions {
     t_offset? : string | Interval
     aggFunction? : string
@@ -1043,4 +1142,26 @@ export class CRUD {
 		qualifier? : string, 
 		user_id?: string
     ) : Promise<void | observaciones>
+
+    static async getAsociaciones(
+        filter : GetAsociacionesFilter = {source_tipo:"puntual",dest_tipo:"puntual"},
+        options : GetAsociacionesOptions = {}, 
+        client?: Client, 
+        user_id?: string
+    ) : Promise<asociacion[]>
+
+    static async runAsociacion(
+        id : number,
+        filter : {
+            timestart: Date,
+            timeend: Date,
+            cor_id?: number,
+            forecast_date?: number,
+            qualifier?: string
+        },
+        options? : RunAsociacionesOptions,
+        user_id?: string, 
+        client?: Client
+    ) : Promise<observaciones|void>
 }
+
