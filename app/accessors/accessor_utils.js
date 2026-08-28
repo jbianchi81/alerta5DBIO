@@ -12,9 +12,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.filterSeriesByIds = exports.filterSeries = exports.filterByParam = exports.parseUtcDateTime = exports.fetchData = void 0;
+exports.filterSeriesByIds = exports.filterSites = exports.filterSeries = exports.filterByParam = exports.parseUtcDateTime = exports.fetchData = void 0;
 const axios_1 = __importDefault(require("axios"));
 const https_1 = __importDefault(require("https"));
+const boolean_point_in_polygon_1 = require("@turf/boolean-point-in-polygon");
 function fetchData(url, options) {
     var _a, _b;
     return __awaiter(this, void 0, void 0, function* () {
@@ -99,6 +100,22 @@ function filterSeries(series = [], params = {}) {
     });
 }
 exports.filterSeries = filterSeries;
+function pointInPolygon(filter_geom, item_geom) {
+    return (0, boolean_point_in_polygon_1.booleanPointInPolygon)(item_geom, filter_geom);
+}
+function filterSites(sites = [], params = {}) {
+    return sites.filter(s => {
+        return ([
+            filterByParam(params.name, s.name),
+            filterByParam(params.nombre, s.nombre),
+            filterByParam(params.id_externo, s.id_externo),
+            filterByParam(params.estacion_id, s.id),
+            filterByParam(params.id, s.id),
+            filterByParam(params.geom, s.geom, pointInPolygon)
+        ].indexOf(false) < 0);
+    });
+}
+exports.filterSites = filterSites;
 function filterSeriesByIds(series = [], params = {}) {
     return series.filter(serie => {
         return ([

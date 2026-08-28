@@ -74,6 +74,7 @@ export interface EstacionDict extends Location {
     ubicacion ? : string
     drainage_basin ? : Geometry
     tabla: string
+    observaciones?: string
 }
 
 interface EstacionFilter {
@@ -141,6 +142,8 @@ export class estacion extends baseModel{
     id ? : number
     nombre : string
     geom : Geometry
+    observaciones? : string
+    [key: string]: string | number;
     async getId(pool? : Pool, client? : Client) : Promise<void>
     async getEstacionId(pool? : Pool, client? : Client) : Promise<void>
     toString() : string

@@ -1,5 +1,7 @@
 import axios, { AxiosRequestConfig, AxiosError } from "axios";
 import https from "https";
+import { Geometry, Position } from "../geometry_types";
+import { booleanPointInPolygon } from '@turf/boolean-point-in-polygon'
 
 export type SeriesFilter = {
     id? : number|number[]
@@ -118,6 +120,36 @@ export function filterSeries(series : any[]=[],params : SeriesFilter={}) : any[]
         )		
 	})
 }
+
+interface SitesFilter {
+    name?: string
+    nombre?: string
+    id_externo?: string | string[]
+    estacion_id?: number | number[]
+    id?: number | number[]
+    geom?: string | Geometry
+}
+
+function pointInPolygon(filter_geom : any, item_geom : Position) {
+	return booleanPointInPolygon(item_geom, filter_geom)
+}
+
+
+export function filterSites(sites: any[]=[],params : SitesFilter={}) {
+	return sites.filter(s=>{
+        return (
+            [
+                filterByParam(params.name, s.name),
+                filterByParam(params.nombre, s.nombre),
+                filterByParam(params.id_externo, s.id_externo),
+                filterByParam(params.estacion_id, s.id),
+                filterByParam(params.id, s.id),
+                filterByParam(params.geom, s.geom, pointInPolygon)
+            ].indexOf(false) < 0
+        )
+	})
+}
+
 
 export function filterSeriesByIds(series : any[]=[],params : SeriesFilter={}) : any[] {
 	return series.filter(serie => {

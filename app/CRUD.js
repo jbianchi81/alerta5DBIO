@@ -322,7 +322,9 @@ internal.estacion = class extends baseModel {
 		drainage_basin: {type: "object"},
 		tabla: {foreign_key: true, type: "string", table: "redes", column: "tabla_id"},
 		red: {type: internal.red},
-		series: {type: "array", items: internal.serie}
+		series: {type: "array", items: internal.serie},
+		observaciones: {type: "string"}
+
 	}
 	constructor() {
 		switch(arguments.length) {
@@ -8323,15 +8325,16 @@ internal.CRUD = class {
 				cero_ign=excluded.cero_ign,\
 				altitud=excluded.altitud,\
 				unid=excluded.unid,\
-				ubicacion=excluded.ubicacion"
+				ubicacion=excluded.ubicacion,\
+				observaciones=excluded.observaciones"
 		var ins_query = (estacion.id) ? "\
-		INSERT INTO estaciones (nombre, id_externo, geom, tabla,  distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev, URL, localidad, real, altitud, cero_ign, ubicacion, unid) \
-		VALUES ($1, $2, st_setsrid(st_point($3, $4),4326), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)" : "\
-		INSERT INTO estaciones (nombre, id_externo, geom, tabla,  distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev, URL, localidad, real, altitud, cero_ign, ubicacion) \
-		VALUES ($1, $2, st_setsrid(st_point($3, $4),4326), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)" 
+		INSERT INTO estaciones (nombre, id_externo, geom, tabla,  distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev, URL, localidad, real, altitud, cero_ign, ubicacion, observaciones, unid) \
+		VALUES ($1, $2, st_setsrid(st_point($3, $4),4326), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)" : "\
+		INSERT INTO estaciones (nombre, id_externo, geom, tabla,  distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev, URL, localidad, real, altitud, cero_ign, ubicacion, observaciones) \
+		VALUES ($1, $2, st_setsrid(st_point($3, $4),4326), $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)" 
 		var query = `${ins_query} ON CONFLICT (tabla,id_externo) ${onconflictaction}
-			RETURNING unid id, nombre, id_externo, st_asGeoJSON(geom)::json geom, tabla, distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev AS abreviatura, URL as "URL", localidad, real, altitud, cero_ign, ubicacion`
-		var params = [estacion.nombre, estacion.id_externo, estacion.geom.coordinates[0], estacion.geom.coordinates[1], estacion.tabla, estacion.provincia, estacion.pais, estacion.rio, estacion.has_obs, estacion.tipo, estacion.automatica, estacion.habilitar, estacion.propietario, estacion.abreviatura, estacion.URL, estacion.localidad, estacion.real, estacion.altitud, estacion.cero_ign, estacion.ubicacion]
+			RETURNING unid id, nombre, id_externo, st_asGeoJSON(geom)::json geom, tabla, distrito, pais, rio, has_obs, tipo, automatica, habilitar, propietario, abrev AS abreviatura, URL as "URL", localidad, real, altitud, cero_ign, ubicacion, observaciones`
+		var params = [estacion.nombre, estacion.id_externo, estacion.geom.coordinates[0], estacion.geom.coordinates[1], estacion.tabla, estacion.provincia, estacion.pais, estacion.rio, estacion.has_obs, estacion.tipo, estacion.automatica, estacion.habilitar, estacion.propietario, estacion.abreviatura, estacion.URL, estacion.localidad, estacion.real, estacion.altitud, estacion.cero_ign, estacion.ubicacion, estacion.observaciones]
 		if(estacion.id) {
 			params.push(estacion.id)
 		}
