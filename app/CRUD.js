@@ -3306,6 +3306,7 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 	var table
 	var tipo
 	var order_string
+	var site_id_col
 	// 					FILTERS
 	if(!filter.tipo) {
 		tipo = "puntual"
@@ -3501,6 +3502,7 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 	var final_joins = []
 	// 						TYPE SPECIFIC PARAMETERS
 	if(tipo.toUpperCase() == "AREAL" ) {
+		site_id_col = "area_id"
 		valid_series_filters = {...valid_series_filters,...{
 			estacion_id: {
 				type: "integer",
@@ -3636,6 +3638,7 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 			}
 		}
 	} else if (tipo.toUpperCase() == "RASTER" || tipo.toUpperCase() == "RAST") {
+		site_id_col="escena_id"
 		valid_series_filters = {...valid_series_filters,...{
 			estacion_id:{
 				type: "integer",
@@ -3741,6 +3744,7 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 		}		
 		table = "series_rast"
 	} else if (tipo.toUpperCase() == "PUNTUAL") {
+		site_id_col="estacion_id"
 		filter.red_id = (filter.red_id) ? filter.red_id : (filter.fuentes_id) ? filter.fuentes_id : undefined
 		valid_series_filters = {...valid_series_filters,...{
 			estacion_id:{
@@ -3877,23 +3881,117 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 	var series_filter_string=internal.utils.control_filter2(valid_series_filters,filter,undefined,true)
 	var availability_filter_string = internal.utils.control_filter2(valid_availability_filters, filter, "a", true)
 	// console.debug({filter:filter,filter_string:filter_string})
-	if(filter.has_prono || filter.cal_id || filter.cal_grupo_id) { 
-		var has_prono_filter_string = `AND p.forecast_date IS NOT NULL`
-	} else {
-		var has_prono_filter_string = ""
-	}
-
 	var order_string = internal.utils.build_order_by_clause(sort_fields,options.sort,"series",["estacion_id","var_id","proc_id"],options.order)
 	// console.log({order_string:order_string,sort:options.sort,order:options.order})
 	// select_fields.push(`count(*) OVER() AS total`)
-	return `WITH filtered_series AS (
-		SELECT 
-			${filtered_series_select_fields.join(", \n")}
-		FROM "${table}" AS series
-		${join_clauses.join("\n")}
-		WHERE 1=1
-		${series_filter_string}
-	), availability AS (
+	
+	// CASE cal_id, query prono first
+	if(filter.has_prono || filter.cal_id || filter.cal_grupo_id) { 
+		var has_prono_filter_string = `AND p.forecast_date IS NOT NULL`
+		var filtered_series_query = `WITH pronos AS (
+			SELECT
+				series.id,
+				p.series_table,
+				p.estacion_id,
+				p.var_id,
+				max(p.forecast_date)::timestamptz AS forecast_date,
+				json_agg(
+					json_build_object(
+						'series_id', p.series_id,
+						'series_table', p.series_table,
+						'begin_date',p.begin_date,
+						'end_date',p.end_date,
+						'count',p.count,
+						'cal_id',p.cal_id,
+						'forecast_date',p.forecast_date,
+						'public',p.public,
+						'cal_grupo_id',p.cal_grupo_id
+					)
+				) AS pronosticos
+			FROM series_prono_date_range_last AS p
+			JOIN ${table} AS series 
+				ON (
+					series.${site_id_col} = p.estacion_id 
+					AND series.var_id = p.var_id
+				)
+			${join_clauses.join("\n")}
+			WHERE 1=1		
+			${pronos_filter_string} 
+			AND p.series_table='${internal.serie.getSeriesTable(tipo)}'
+			${series_filter_string}
+			GROUP BY
+				p.series_table,
+				p.estacion_id,
+				p.var_id,
+				series.id
+		),
+		filtered_series AS (
+			SELECT 
+				${filtered_series_select_fields.join(", \n")}
+			FROM "${table}" AS series
+			${join_clauses.join("\n")}
+			WHERE 
+				EXISTS (
+					SELECT 1
+					FROM pronos
+					WHERE
+						pronos.estacion_id = series.${site_id_col}
+						AND pronos.var_id = series.var_id
+				)
+			${series_filter_string}
+		), `
+
+	} else {
+		var has_prono_filter_string = ""
+		
+		var filtered_series_query = `WITH filtered_series AS (
+			SELECT 
+				${filtered_series_select_fields.join(", \n")}
+			FROM "${table}" AS series
+			${join_clauses.join("\n")}
+			WHERE 1=1
+			${series_filter_string}
+		), pronos AS (
+			SELECT
+				s.id,
+				p.series_table,
+				p.estacion_id,
+				p.var_id,
+				max(p.forecast_date)::timestamptz AS forecast_date,
+				json_agg(
+					json_build_object(
+						'series_id', p.series_id,
+						'series_table', p.series_table,
+						'begin_date',p.begin_date,
+						'end_date',p.end_date,
+						'count',p.count,
+						'cal_id',p.cal_id,
+						'forecast_date',p.forecast_date,
+						'public',p.public,
+						'cal_grupo_id',p.cal_grupo_id
+					)
+				) AS pronosticos
+			FROM series_prono_date_range_last AS p
+			JOIN filtered_series AS s 
+				ON (
+					s.estacion_id = p.estacion_id 
+					AND s.var_id = p.var_id
+				)
+			WHERE 1=1		
+			${pronos_filter_string} 
+			AND p.series_table='${internal.serie.getSeriesTable(tipo)}'
+			GROUP BY
+				p.series_table,
+				p.estacion_id,
+				p.var_id,
+				s.id
+		),`
+	}
+
+
+	return `
+	${filtered_series_query}
+	availability AS (
 		SELECT
 			date_range.series_id,
 			date_range.timestart,
@@ -3914,40 +4012,6 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 		FROM filtered_series
 		JOIN "${date_range_table}" AS date_range 
 			ON filtered_series.id=date_range.series_id
-	), pronos AS (
-		SELECT
-			s.id,
-			p.series_table,
-			p.estacion_id,
-			p.var_id,
-			max(p.forecast_date)::timestamptz AS forecast_date,
-			json_agg(
-				json_build_object(
-					'series_id', p.series_id,
-					'series_table', p.series_table,
-					'begin_date',p.begin_date,
-					'end_date',p.end_date,
-					'count',p.count,
-					'cal_id',p.cal_id,
-					'forecast_date',p.forecast_date,
-					'public',p.public,
-					'cal_grupo_id',p.cal_grupo_id
-				)
-			) AS pronosticos
-		FROM series_prono_date_range_last AS p
-		JOIN filtered_series AS s 
-			ON (
-				s.estacion_id = p.estacion_id 
-				AND s.var_id = p.var_id
-			)
-		WHERE 1=1		
-		${pronos_filter_string} 
-		AND p.series_table='${internal.serie.getSeriesTable(tipo)}'
-		GROUP BY
-			p.series_table,
-			p.estacion_id,
-			p.var_id,
-			s.id
 	), limited_series AS (
 		SELECT 
 			s.id,
