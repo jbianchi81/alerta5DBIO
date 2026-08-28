@@ -1069,8 +1069,9 @@ function upsertFuentes(req,res) {
 		if(Array.isArray(req.body)) {
 			fuentes = req.body
 		} else {
-			res.status(400).send({message:"query error",error:"Falta atributo 'fuentes' y el cuerpo del mensaje no es un array"})
-			return
+			fuentes = [req.body]
+			// res.status(400).send({message:"query error",error:"Falta atributo 'fuentes' y el cuerpo del mensaje no es un array"})
+			// return
 		}
 	} else if (typeof req.body.fuentes == "string") {
 		fuentes = JSON.parse(req.body.fuentes.trim())
@@ -1284,8 +1285,9 @@ function upsertVariables(req,res) {
 	} else if(Array.isArray(req.body)) {
 			variables = req.body
 	} else {
-		res.status(400).send({message:"query error",error:"Falta atributo 'variables'"})
-		return
+		variables  = [req.body]
+		// res.status(400).send({message:"query error",error:"Falta atributo 'variables'"})
+		// return
 	}
 	if(typeof variables == "string") {
 		variables = JSON.parse(variables.trim())
@@ -2494,10 +2496,16 @@ function upsertSeries(req,res) {
 	var series
 	if(!req.body.series) {
 		if(!Array.isArray(req.body)) {
-			res.status(400).send({message:"query error",error:"Falta atributo 'series' y el cuerpo del mensaje no es un array"})
-			return
+			if(!req.body.rows) {
+				series = [req.body]
+				// res.status(400).send({message:"query error",error:"Falta atributo 'series' y el cuerpo del mensaje no es un array"})
+				// return
+			} else {
+				series = req.body.rows
+			}
+		} else {
+			series = req.body
 		}
-		series = req.body
 	} else {
 		if(typeof req.body.series == "string") {
 			series = JSON.parse(req.body.series.trim())
@@ -2909,7 +2917,7 @@ function getObservacionesDia(req,res) {
 }
 
 
-function deleteObservaciones(req,res) { 
+async function deleteObservaciones(req,res) { 
 
 	try {
 		var user_id = getUserId(req)
@@ -2920,45 +2928,56 @@ function deleteObservaciones(req,res) {
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	}
-	var required = ["timestart","timeend","tipo","series_id"]
-	if (!checkRequiredArgs(required,filter)) {
-		res.status(400).send({message:"Error: Missing arguments",required_arguments:required,recieved_arguments:filter})
-		return
-	}
-	if(global.config.rest.max_delete_batch_size) {
-		if(options.batch_size) {
+	if(filter.id) {
+		if(!filter.tipo) {
+			res.status(400).send({message: "Error: missing arguments: 'tipo'"})
+			return
+		}
+		try {
+			var result = await crud.deleteObservacionesById(filter.tipo, filter.id, options.no_send_data, undefined, user_id)
+		} catch (e) {
+			handleCrudError(e, res)
+		}
+	} else {
+		var required = ["timestart","timeend","tipo","series_id"]
+		if (!checkRequiredArgs(required,filter)) {
+			res.status(400).send({message:"Error: Missing arguments",required_arguments:required,recieved_arguments:filter})
+			return
+		}
+		if(global.config.rest.max_delete_batch_size) {
+			if(options.batch_size) {
+				if(parseInt(options.batch_size).toString() == "NaN") {
+					res.status(400).send({message:"Error: Bad argument: batch_size must be an integer"})
+					return 
+				}
+				var batch_size = Math.min(global.config.rest.max_delete_batch_size, parseInt(options.batch_size))
+			} else {
+				var batch_size = global.config.rest.max_delete_batch_size
+			}
+		} else if (options.batch_size) {
 			if(parseInt(options.batch_size).toString() == "NaN") {
 				res.status(400).send({message:"Error: Bad argument: batch_size must be an integer"})
 				return 
 			}
-			var batch_size = Math.min(global.config.rest.max_delete_batch_size, parseInt(options.batch_size))
-		} else {
-			var batch_size = global.config.rest.max_delete_batch_size
+			var batch_size = parseInt(options.batch_size)
 		}
-	} else if (options.batch_size) {
-		if(parseInt(options.batch_size).toString() == "NaN") {
-			res.status(400).send({message:"Error: Bad argument: batch_size must be an integer"})
-			return 
+		try {
+			var result = await crud.deleteObservaciones(
+				filter.tipo,
+				filter,
+				{
+					no_send_data: options.no_send_data,
+					batch_size: batch_size
+				},
+				undefined,
+				user_id
+			)
+		} catch (e) {
+			handleCrudError(e, res)
 		}
-		var batch_size = parseInt(options.batch_size)
 	}
-	crud.deleteObservaciones(
-		filter.tipo,
-		filter,
-		{
-			no_send_data: options.no_send_data,
-			batch_size: batch_size
-		},
-		undefined,
-		user_id
-	)
-	.then(result=>{
-		console.log("Deleted: " + (options.no_send_data) ? result : result.length)
-		send_output(options,result,res)
-	})
-	.catch(e=>{
-		handleCrudError(e, res)
-	})
+	console.log("Deleted: " + (options.no_send_data) ? result : result.length)
+	send_output(options,result,res)
 }
 
 function deleteObservacion(req,res) {   // by id+tipo
@@ -3454,7 +3473,26 @@ function getRegularSeries (req,res) {
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	} 
-	crud.getRegularSeries(filter.tipo,filter.series_id,options.dt,filter.timestart,filter.timeend,{t_offset:filter.t_offset, aggFunction:filter.agg_func,inst:filter.inst,timeSupport:filter.time_support,precision:filter.precision},undefined,undefined,undefined,undefined,undefined,user_id) // options: t_offset,aggFunction,inst,timeSupport,precision
+	crud.getRegularSeries(
+		filter.tipo,
+		filter.series_id,
+		options.dt,
+		filter.timestart,
+		filter.timeend,
+		{
+			t_offset: filter.t_offset, 
+			aggFunction: filter.agg_func,
+			inst: filter.inst,
+			timeSupport: filter.time_support,
+			precision: filter.precision
+		},
+		undefined,
+		filter.cal_id,
+		filter.cor_id,
+		filter.forecast_date,
+		filter.qualifier,
+		user_id
+	) // options: t_offset,aggFunction,inst,timeSupport,precision
 	.then(result=>{
 		send_output(options,result,res)
 	})
@@ -4904,6 +4942,7 @@ function getPronosticos(req,res) {
 		res.status(400).send({message:"missing cor_id or cal_id or cal_grupo_id",error:"missing cor_id or cal_id or cal_grupo_id"})
 		return
 	}
+	filter.limit = (config.rest && config.rest.max_corridas) ? (filter.limit) ? Math.min(filter.limit, config.rest.max_corridas) : config.rest.max_corridas : filter.limit
 	//~ console.log({filter:filter,options:options})
 	CRUD.corrida.read(filter, options)
 	// crud.getPronosticos(filter.cor_id,filter.cal_id,filter.forecast_timestart,filter.forecast_timeend,filter.forecast_date,filter.timestart,filter.timeend,filter.qualifier,filter.estacion_id,filter.var_id,options.includeProno,filter.public,filter.series_id,options.series_metadata,filter.cal_grupo_id,options.group_by_qualifier,filter.model_id,filter.tipo)

@@ -7,7 +7,7 @@
 				<button type="button" class="btn btn-info select-all"><i class="fa fa-check"></i>Seleccionar todo</button>
 				<button type="button" class="btn btn-info invert-select"><i class="fa fa-check-circle-o"></i>Invertir selección</button>
 				<button type="button" class="btn btn-info remove-selected" disabled><i class="fa fa-minus"></i>Eliminar selección</button>
-				<button type="button" class="btn btn-info import-csv" data-toggle="tooltip" title="Los campos deben ser: fechainicial,fechafinal,valor. El formato de fecha es AAAA-MM-DDTHH:MM:SS.000Z en huso horario central (+00) (Formato ISO)"><i class="fa fa-upload" aria-hidden="true"></i>Importar CSV</button>
+				<button type="button" class="btn btn-info import-csv" data-toggle="tooltip" title="Los campos deben ser: timestart, timeend, valor. El formato de fecha es ISO 8601: AAAA-MM-DDThh:mm:ss.sss. Los segundos y milisegundos son optativos y se puede agregar un indicador de zona horaria, si no se indica se asume zona Argentina (ART). Ejemplos: 2026-05-28T15:00:00.000Z, 2026-05-28T12:00, 2026-05-28T12:00:00-03:00"><i class="fa fa-upload" aria-hidden="true"></i>Importar JSON/CSV</button>
 				<button type="button" class="btn btn-info get-from-source" data-toggle="tooltip" title="Obtiene datos de la fuente" disabled><i class="fa fa-upload" aria-hidden="true"></i>Obtener de fuente</button>
 				<div class="btn-group" role=group>
 					<button id="btnGroupDrop1" type="button" class="btn btn-secondary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Exportar</button>

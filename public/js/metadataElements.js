@@ -1788,13 +1788,13 @@ var metadataElements = {
 		nameProperty: "id",
 		run_params: {
 			timestart: {
-				type: "date",
+				type: "datetime-local",
 				title: "fecha/hora inicial",
 				required: true,
 				description: "fecha/hora inicial"
 			},
 			timeend: {
-				type: "date",
+				type: "datetime-local",
 				title: "fecha/hora final",
 				required: true,
 				description: "fecha/hora final"
@@ -1823,6 +1823,7 @@ var metadataElements = {
 				where: "path",
 				filterRequired: true,
 				disabled: true,
+				fixed: true
 			},
 			series_id: {
 				type: "number",
@@ -1848,7 +1849,8 @@ var metadataElements = {
 					name: "serie"
 				},
 				filterRequired: true,
-				disabled: true
+				disabled: true,
+				fixed: true
 			},
 			timestart: {
 				type: "datetime-local",
@@ -1882,7 +1884,7 @@ var metadataElements = {
 			unit_id: {
 				type: "number",
 				title: "id de unidades",
-				required: true,
+				required: false,
 				filter: true,
 				edit: true,
 				description: "Identificador numérico único de unidades",

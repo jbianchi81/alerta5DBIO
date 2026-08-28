@@ -1710,6 +1710,8 @@ internal.TestAccessorProcedure = class extends internal.CrudProcedure {
         super(...arguments)
         this.procedureClass = "TestAccessorProcedure"
         this.accessor_id = arguments[0].accessor_id
+        this.classname = arguments[0].classname
+        this.config = arguments[0].config
         if(!this.accesor_id) {
             throw("Missing accessor_id")
         }
@@ -1745,6 +1747,8 @@ internal.UpdateFromAccessorProcedure = class extends internal.CrudProcedure {
             throw("Missing accessor_id")
         }
         this.accessor_id = arguments[0].accessor_id
+        this.classname = arguments[0].classname
+        this.config = arguments[0].config
         this.filter = arguments[0].filter
         if(this.filter && this.filter.timestart) {
             this.filter.timestart = timeSteps.DateFromDateOrInterval(this.filter.timestart)
@@ -1787,6 +1791,8 @@ internal.DeleteFromAccessorProcedure = class extends internal.CrudProcedure {
             throw("Missing accessor_id")
         }
         this.accessor_id = arguments[0].accessor_id
+        this.classname = arguments[0].classname
+        this.config = arguments[0].config
         this.filter = arguments[0].filter
         if(this.filter && this.filter.timestart) {
             this.filter.timestart = timeSteps.DateFromDateOrInterval(this.filter.timestart)
@@ -1819,6 +1825,8 @@ internal.DeleteMetadataFromAccessorProcedure = class extends internal.CrudProced
             throw("Missing accessor_id")
         }
         this.accessor_id = arguments[0].accessor_id
+        this.classname = arguments[0].classname
+        this.config = arguments[0].config
         this.filter = arguments[0].filter
     }
     async run() {
@@ -1842,6 +1850,8 @@ internal.DeleteSitesFromAccessorProcedure = class extends internal.CrudProcedure
             throw("Missing accessor_id")
         }
         this.accessor_id = arguments[0].accessor_id
+        this.classname = arguments[0].classname
+        this.config = arguments[0].config
         this.filter = arguments[0].filter
     }
     async run() {
@@ -1866,6 +1876,8 @@ internal.UpdateMetadataFromAccessorProcedure = class extends internal.CrudProced
             throw("Missing accessor_id")
         }
         this.accessor_id = arguments[0].accessor_id
+        this.classname = arguments[0].classname
+        this.config = arguments[0].config
         this.filter = arguments[0].filter
     }
     async run() {
@@ -1886,6 +1898,8 @@ internal.GetMetadataFromAccessorProcedure = class extends internal.CrudProcedure
             throw("Missing accessor_id")
         }
         this.accessor_id = arguments[0].accessor_id
+        this.classname = arguments[0].classname
+        this.config = arguments[0].config
         this.filter = arguments[0].filter
         if(this.filter && this.filter.timestart) {
             this.filter.timestart = timeSteps.DateFromDateOrInterval(this.filter.timestart)
@@ -1917,6 +1931,8 @@ internal.GetSitesFromAccessorProcedure = class extends internal.CrudProcedure {
             throw("Missing accessor_id")
         }
         this.accessor_id = arguments[0].accessor_id
+        this.classname = arguments[0].classname
+        this.config = arguments[0].config
         this.filter = arguments[0].filter
         this.class = CRUD.estacion
         this.class_name = "estacion"
@@ -1943,6 +1959,8 @@ internal.MapSitesFromAccessorProcedure = class extends internal.CrudProcedure {
             throw("Missing accessor_id")
         }
         this.accessor_id = arguments[0].accessor_id
+        this.classname = arguments[0].classname
+        this.config = arguments[0].config
         this.filter = arguments[0].filter ?? {} 
     }
     async run() {
@@ -1969,6 +1987,8 @@ internal.ReadVariablesFromAccessorProcedure = class extends internal.CrudProcedu
             throw("Missing accessor_id")
         }
         this.accessor_id = arguments[0].accessor_id
+        this.classname = arguments[0].classname
+        this.config = arguments[0].config
         this.filter = arguments[0].filter ?? {} 
         if(arguments[0].options && arguments[0].options.map) {
             this.options.map = true
@@ -1993,11 +2013,12 @@ internal.CreateAccessorProcedure  = class extends internal.CrudProcedure {
         if(!arguments[0].class) {
             throw("Missing class")
         }
-        this.class = arguments[0].class
+        this.class = arguments[0].class ?? arguments[0].classname
         this.name = arguments[0].name ?? this.class
+        this.config = arguments[0].config
     }
     async run() {
-        const client = new Accessors.Accessor({class:this.class, name: this.name})
+        const client = new Accessors.Accessor({class:this.class, name: this.name, config: this.config})
         const accessor = await client.create()
         this.result = accessor
         console.log("Created accesor " + this.class)
@@ -2016,6 +2037,8 @@ internal.TestAccessorProcedure  = class  extends internal.CrudProcedure {
             throw("Missing accessor_id")
         }
         this.accessor_id = arguments[0].accessor_id
+        this.classname = arguments[0].classname
+        this.config = arguments[0].config
     }
     async run() {
         const accessor = await Accessors.new(this.accessor_id)
@@ -2041,6 +2064,8 @@ internal.DownloadFromAccessorProcedure = class extends internal.CrudProcedure {
             }
         }
         this.accessor_id = arguments[0].accessor_id
+        this.classname = arguments[0].classname
+        this.config = arguments[0].config
         this.filter = arguments[0].filter
         // this.options = arguments[0].options
         // this.output = arguments[0].output
@@ -2093,6 +2118,8 @@ internal.GetPronosticoFromAccessorProcedure =  class extends internal.CrudProced
             throw("Missing accessor_id")
         }
         this.accessor_id = arguments[0].accessor_id
+        this.classname = arguments[0].classname
+        this.config = arguments[0].config
         this.filter = arguments[0].filter
         // this.options = arguments[0].options
     }
@@ -2114,11 +2141,13 @@ internal.UpdatePronosticoFromAccessorProcedure = class extends internal.CrudProc
             throw("Missing accessor_id")
         }
         this.accessor_id = arguments[0].accessor_id
+        this.classname = arguments[0].classname
+        this.config = arguments[0].config
         this.filter = arguments[0].filter
         // this.options = arguments[0].options
     }
     async run() {
-        var accessor = await Accessors.new(this.accessor_id)
+        var accessor = await Accessors.new(this.accessor_id, this.classname, this.config)
         this.result = await accessor.updatePronostico(this.filter,this.options)
         return this.result
     }
@@ -2135,6 +2164,8 @@ internal.DeleteRemoteFromAccessorProcedure = class extends internal.CrudProcedur
             throw("Missing accessor_id")
         }
         this.accessor_id = arguments[0].accessor_id
+        this.classname = arguments[0].classname
+        this.config = arguments[0].config
         this.filter = arguments[0].filter
         if(this.filter.timestart) {
             this.filter.timestart = timeSteps.DateFromDateOrInterval(this.filter.timestart)

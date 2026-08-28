@@ -912,6 +912,9 @@ function buildMetadataForm(metadataElement) {
 					.attr('name',key)
 					.attr('title',e.title)
 					.val(value);
+			if(e.fixed) {
+				$(input).addClass("fixed")
+			}
 			if(e.required) {
 				$(input).attr('required','required')
 			}
@@ -947,7 +950,7 @@ function buildMetadataForm(metadataElement) {
 }
 
 
-function buildMetadataForm2(mdElement,mdKey,formContainer,values={}) {
+function buildMetadataForm2(mdElement,mdKey,formContainer,values={},filter_values={}) {
 	if(!mdElement) {
 		console.log("metadataElement not found")
 		return
@@ -1040,6 +1043,9 @@ function buildMetadataForm2(mdElement,mdKey,formContainer,values={}) {
 				if(parseInt(e.min).toString() != 'NaN') {
 					$(input).attr('min',e.min)
 				}
+				if(e.fixed) {
+					$(input).addClass("fixed")
+				}
 				return $("<div></div>")
 					.addClass("row")
 					.append(
@@ -1113,12 +1119,31 @@ function buildMetadataForm2(mdElement,mdKey,formContainer,values={}) {
 	return
 }
 
-function isoDateToDateTimeLocal(iso) {
+function isoDateToDateTimeLocal(iso, return_seconds=false) {
     const date = new Date(iso);
 
     const pad = (n) => String(n).padStart(2, "0");
 
+	if(return_seconds) {
+		return [
+			`${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`,
+			date.toISOString().slice(16)
+		];
+	} 
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function dateTimeLocalToIsoDate(datetime, s_ms) {
+    const date = new Date(datetime);
+	const iso = date.toISOString()
+	if(s_ms) {
+		const full_iso = iso.slice(0, 16) + s_ms + iso.slice(16 + s_ms.length);
+		if(new Date(full_iso).toString() == "Invalid Date") {
+			throw new Error(`Invalid datetime-local + seconds: ${full_iso}`)
+		}
+		return full_iso
+	}
+	return iso
 }
 
 function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create') {
@@ -1130,6 +1155,8 @@ function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create'
 	$(formContainer).find(".run-params").attr("disabled", "disabled")
 	$(formContainer).find(".run-params.run-required").removeAttr('required')
 	$(formContainer).find(".confirm.create-required").attr('required','required')
+	$(formContainer).find(".confirm.edit.fixed").attr("disabled", "disabled")
+	$(formContainer).find(".confirm.edit[name=id]").attr("type","number")
 
 	switch(action) {
 		case "create":
@@ -1140,7 +1167,24 @@ function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create'
 			$(formContainer).find("button[type=submit]").removeAttr('formnovalidate')
 			$(formContainer).find("input.confirm.edit[name=id]").removeAttr('required')
 			//~ $(formContainer).find("button[type=submit]").unbind('submit').submit(onSubmitMetadata)
+			// set fixed from first query result
+			$(formContainer).find(".confirm.edit.fixed").each((i,e)=>{
+				var key = $(e).attr('name')
+				if(values[key] != null) {
+					$(e).val(values[key])
+				} else if(global.features && global.features.length && global.features[0][key]  && global.features[0][key] != null) {
+					console.debug("Se encontró valor para el campo " + key + ": " + global.features[0][key])
+					$(e).val(global.features[0][key])
+				} else {
+					const filter_value = $(`.form-control[name=${key}]`).val()
+					if(filter_value != null && filter_value != "") {
+						$(e).val(filter_value)
+					}
+				}
+				$(e).removeAttr('disabled')
+			})			
 			break;
+
 		case "upload":
 			$("div#myModalMetadata div.modal-content div.modal-header h4.modal-title").text("Importar " + mdElement.objectName + " (JSON)")
 			$(formContainer).find(".confirm.edit").hide()
@@ -1169,6 +1213,16 @@ function setMetadataForm(mdElement,mdKey,formContainer,values={},action='create'
 			$(formContainer).find("label").hide()
 			$(formContainer).find(".confirm.edit[name=id]").val(values.id).attr('required','required')
 			$(formContainer).attr('action','#delete').attr('method','DELETE')
+			$(formContainer).find("button[type=submit]").attr('formnovalidate',"formnovalidate")
+			//~ $(formContainer).find("button[type=submit]").unbind('submit').submit(onSubmitMetadataRemove)
+			break;		
+		case "delete_many":
+			const feature_id = (Array.isArray(values)) ? values.map(f=> f.id).join(",") : values.id
+			$("div#myModalMetadata div.modal-content div.modal-header h4.modal-title").text("Eliminar " + mdElement.objectName + " id:" + feature_id)
+			$(formContainer).find(".confirm.edit").hide()
+			$(formContainer).find("label").hide()
+			$(formContainer).find(".confirm.edit[name=id]").attr("type","text").val(feature_id).attr('required','required')
+			$(formContainer).attr('action','#delete_many').attr('method','DELETE')
 			$(formContainer).find("button[type=submit]").attr('formnovalidate',"formnovalidate")
 			//~ $(formContainer).find("button[type=submit]").unbind('submit').submit(onSubmitMetadataRemove)
 			break;		
@@ -1211,7 +1265,7 @@ function onSubmitMetadata(event) {
 	var objectNamePlural = global.mdElement.objectNamePlural
 	requestBody[objectName] = {}
 	var md_keys = Object.keys(global.mdElement.properties).filter(p=>(!global.mdElement.properties[p].no_md && global.mdElement.properties[p].edit))
-	if(action != "delete" && action != "upload" && action != "run") {
+	if(action != "delete" && action != "upload" && action != "run" && action != "delete_many") {
 		for(var i in md_keys) {
 			var key = md_keys[i]
 			var value = $(this).find(".edit[name=" + key + "]").val()  
@@ -1286,7 +1340,7 @@ function onSubmitMetadata(event) {
 	switch(action) {
 		case "edit": 
 			ajaxParams = {
-				url: global.mdElement.endpoint + "/" + id,
+				url: `${replacePlaceholders(global.mdElement.endpoint, requestBody[objectName])}/${id}`,
 				type: "PUT",
 				data: JSON.stringify(requestBody),
 				contentType:"application/json; charset=utf-8",
@@ -1320,7 +1374,7 @@ function onSubmitMetadata(event) {
 			var requestBodyP = {}
 			requestBodyP[objectNamePlural] = [requestBody[objectName]]
 			ajaxParams = {
-				url: global.mdElement.endpoint,
+				url: replacePlaceholders(global.mdElement.endpoint, requestBody[objectName]),
 				type: "POST",
 				data: JSON.stringify(requestBodyP),
 				contentType:"application/json; charset=utf-8",
@@ -1375,7 +1429,7 @@ function onSubmitMetadata(event) {
 			break;
 		case "delete": 
 			ajaxParams = {
-				url: global.mdElement.endpoint + "/" + id,
+				url: `${replacePlaceholders(global.mdElement.endpoint, global.features[0])}/${id}`,
 				type: "DELETE",
 				dataType: "json",
 				success: function(response){
@@ -1388,6 +1442,28 @@ function onSubmitMetadata(event) {
 						return
 					}
 					alert("Se eliminó el elemento " + objectName + " id:" + id)
+					global.selectedFeature = undefined
+					$("div#myModalMetadata").modal('hide')
+					loadMDElement()//~ location.reload()
+					$("form#selectorform").submit()
+				}
+			}
+			break;
+		case "delete_many": 
+			ajaxParams = {
+				url: `${replacePlaceholders(global.mdElement.endpoint, global.features[0])}?id=${id}`,
+				type: "DELETE",
+				dataType: "json",
+				success: function(response){
+					$("body").css("cursor","default")
+					console.log({response:response})
+					if(!response.length) {
+						alert("Nothing done")
+						$("div#myModalMetadata").modal("hide")
+						$("div#myModalMetadata form#confirm").find("button[type=submit]").prop('disabled',false)
+						return
+					}
+					alert("Se eliminaron los elementos " + objectName + " id:" + response.map(item => item.id).join(","))
 					global.selectedFeature = undefined
 					$("div#myModalMetadata").modal('hide')
 					loadMDElement()//~ location.reload()
@@ -1706,13 +1782,14 @@ function showLastFilterParams() {
 function buildMetadataSearchRequestUrl(metadataElement,searchParams,useEndpoint2) {
 	var formData = new URLSearchParams(searchParams)
 	var baseurl = (useEndpoint2) ? metadataElement.endpoint2 : metadataElement.endpoint
+	baseurl = replacePlaceholders(baseurl, Object.fromEntries(formData.entries()))
 	var keys = Object.keys(metadataElement.properties)
 	for(var key of keys) {
 		var property = metadataElement.properties[key]
 		//~ console.log(key + ":" + formData.get(key))
 		if(property.where && property.where=="path") {
-			var regexp = "{" + key + "}"
-			baseurl = baseurl.replace(regexp,formData.get(key))
+			// var regexp = "{" + key + "}"
+			// baseurl = baseurl.replace(regexp,formData.get(key))
 			formData.delete(key)
 		}
 	}
@@ -1813,7 +1890,8 @@ function makeMDTable(metadataElement,container,isWriter) {
 	$(container).on("click", ".delete", function(){		
 		$(this).tooltip('hide')
 		var id = $(this).parents("tr").attr("data-uniqueid") // find("td:first-child").eq(1).html()
-		setMetadataForm(global.mdElement,global.mdKey,$("div#myModalMetadata form#confirm"),{id:id},"delete")
+		var feature = $(container).find("table.md_edit_table").bootstrapTable('getRowByUniqueId',id)
+		setMetadataForm(global.mdElement,global.mdKey,$("div#myModalMetadata form#confirm"),feature,"delete")
 	})
 	$(container).on("click", ".view", function(){		
 		$(this).tooltip('hide')
@@ -2093,13 +2171,14 @@ function loadMDElement(content) {
 		)
 		return
 	}
+	var read_endpoint = replacePlaceholders(global.mdElement.endpoint, global.selectedFeature) 
 	var actions = [$('<a class="export-feature-csv" title="descargar csv" data-toggle="tooltip" target=_blank style="color: black;"><i class="fa fa-download" aria-hidden="true"></i>csv</a>')
 		.attr('href',gurl)
 		.attr("download",global.mdKey + ".csv"),
 		$('<a class="export-feature-json" title="descargar json" data-toggle="tooltip" target=_blank style="color: black;"><i class="fa fa-download" aria-hidden="true"></i>json</a>')
-		.attr('href',global.mdElement.endpoint + "/" + global.selectedFeature.id),
+		.attr('href',read_endpoint + "/" + global.selectedFeature.id),
 		$('<a class="export-feature-geojson" title="descargar geojson" data-toggle="tooltip" target=_blank style="color: black;"><i class="fa fa-download" aria-hidden="true"></i>geojson</a>')
-		.attr('href',global.mdElement.endpoint + "/" + global.selectedFeature.id + "?format=geojson")];
+		.attr('href',read_endpoint + "/" + global.selectedFeature.id + "?format=geojson")];
 	if (global.isWriter) {
 		actions.push($('<a class="edit" title="Editar" data-toggle="tooltip"><i class="material-icons">&#xE254;</i></a>')
 			.click(event=>{
@@ -2360,4 +2439,10 @@ function addSeriesEditTable(container,monitoringPoints,isWriter) {
 		return row
 	})
 	$(container).find("table.series_edit_table").bootstrapTable('append', features)
+}
+
+function replacePlaceholders(url, values) {
+	return url.replace(/\{(\w+)\}/g, (match, key) =>
+		key in values && values[key] != null && values[key] != "" ? values[key] : match
+	);
 }

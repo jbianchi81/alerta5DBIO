@@ -139,27 +139,27 @@ WITH access_join AS (
                 END AS priority
            FROM users u
              JOIN user_groups ug ON ug.user_id = u.id
-             JOIN groups g ON g.name = ug.group_name
-             JOIN user_groups_fuentes_access ugfa ON ugfa.group_name = g.name
+             JOIN groups g ON g.name::text = ug.group_name::text
+             JOIN user_groups_fuentes_access ugfa ON ugfa.group_name::text = g.name::text
              JOIN fuentes ON fuentes.id = ugfa.fuentes_id
-          UNION ALL 
-          SELECT 
-            u.id AS user_id,
+        UNION ALL
+         SELECT u.id AS user_id,
             u.name AS user_name,
             fuentes.id AS fuentes_id,
             fuentes.nombre AS fuentes_name,
             fuentes.owner_id AS fuentes_owner_id,
-            null AS group_name,
-            'write' AS access,
-            2  AS priority
-           FROM users AS u
-           JOIN fuentes ON u.id = fuentes.owner_id
+            NULL::character varying AS group_name,
+            'write'::access_level AS access,
+            2 AS priority
+           FROM users u
+             JOIN fuentes ON u.id = fuentes.owner_id
         )
  SELECT access_join.user_id,
     access_join.user_name,
     access_join.fuentes_id,
     access_join.fuentes_name,
     access_join.fuentes_owner_id,
+    max(access_join.priority) AS max_priority,
         CASE max(access_join.priority)
             WHEN 2 THEN 'write'::text
             ELSE 'read'::text

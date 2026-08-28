@@ -15,6 +15,14 @@
                     "type": "string",
                     "description": "Identifier of the Accessor class which timeseries observations are being mapped into a5.variables"
                 },
+                "classname": {
+                    "type": "string",
+                    "description": "Class of the accessor. Together with 'config', sets a new accessor instance without reading the configuration from the database"
+                },
+                "config": {
+                    "type": "string",
+                    "description": "Configuration of the accessor. Together with 'classname', sets a new accessor instance without reading the configuration from the database"
+                },
                 "filter": {
                     "description": "filter to select which timeseries observations to map into a5.variables",
                     "type": "object",

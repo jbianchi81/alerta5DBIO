@@ -5,6 +5,8 @@ import {Variable as variable} from 'a5base/variable'
 import {BaseArray, baseModel} from 'a5base/baseModel'
 import { SeriesFilter } from './accessors/accessor_utils'
 
+type SeriesType = "puntual" | "areal" | "raster"
+
 export type ObservacionDict = {
     timestart : Date,
     timeend ? : Date,
@@ -248,7 +250,7 @@ export type VariableDict = {
 }
 
 export type MonthlyStats = {
-    tipo : "puntual" | "areal" | "raster",
+    tipo : SeriesType,
     series_id : number,
     mon : number,
     count : number,
@@ -619,7 +621,7 @@ export type Pronostico = {
 }
 
 export type SerieAbstracta = {
-    tipo : "puntual" | "areal" | "raster",
+    tipo : SeriesType,
     id ? : number, 
     var : VariableDict,
     procedimiento : ProcedimientoDict,
@@ -652,7 +654,7 @@ interface MnemosRecord {
 }
 
 export interface PercentilDict {
-    tipo : "puntual"|"areal"|"raster"
+    tipo : SeriesType
     series_id : number
     percentile : number
     valor : number
@@ -663,7 +665,7 @@ export interface PercentilDict {
 
 export class percentil extends baseModel {
     constructor(args : PercentilDict)
-    tipo : "puntual"|"areal"|"raster"
+    tipo : SeriesType
     series_id : number
     percentile : number
     valor : number
@@ -671,19 +673,19 @@ export class percentil extends baseModel {
     timeend : Date
     count : number
     toString() : string
-    toCSV(tipo? : "puntual"|"areal"|"raster",series_id?: number) : string
-    toCSVless(tipo? : "puntual"|"areal"|"raster",series_id?: number) : string
+    toCSV(tipo? : SeriesType,series_id?: number) : string
+    toCSVless(tipo? : SeriesType,series_id?: number) : string
 } 
 
 export interface PercentilesDict {
-    tipo : "puntual"|"areal"|"raster"
+    tipo : SeriesType
     series_id : number
     percentiles : PercentilDict[]
 }
 
 export class percentiles extends baseModel {
     constructor(args : PercentilesDict)
-    tipo : "puntual"|"areal"|"raster"
+    tipo : SeriesType
     series_id : number
     percentiles : percentil[]
     toString() : string
@@ -711,7 +713,7 @@ interface DailyDifferenceStatsDict {
 export class serie extends baseModel {
     constructor(args: SerieDict)
     id: number
-    tipo: "puntual"|"areal"|"raster"
+    tipo: SeriesType
     estacion: estacion
     estacion_id: number
     var: variable
@@ -735,7 +737,7 @@ export class serie extends baseModel {
     observaciones?: observaciones
     toJSON() : SerieDict
     toJSONless() : {
-        tipo: "puntual"|"areal"|"raster", 
+        tipo: SeriesType, 
         id: number, 
         estacion_id: number, 
         var_id: number, 
@@ -789,11 +791,11 @@ export class serie extends baseModel {
     set(changes : Record<string, any>={}) : void
     getDateRangeTable(options={guardadas?: boolean}) : string
     static getDateRangeTable(
-        tipo : "puntual"|"areal"|"raster"="puntual",
+        tipo : SeriesType="puntual",
         options: { guardadas?: boolean}={}
     ) : string
     static async refreshDateRange(
-        tipo : "puntual"|"areal"|"raster"="puntual",
+        tipo : SeriesType="puntual",
         options: { guardadas?: boolean}={}, 
         client?: Client
     ) : Promise<QueryResult<any>>
@@ -802,8 +804,8 @@ export class serie extends baseModel {
         client?: Client
     ) : Promise<QueryResult<any>>
     getSeriesTable() : string
-    static getSeriesTable(tipo : "puntual"|"areal"|"raster") : string
-    static getFeatureIdColumn(tipo : "puntual"|"areal"|"raster") : string
+    static getSeriesTable(tipo : SeriesType) : string
+    static getFeatureIdColumn(tipo : SeriesType) : string
     async create(options : {
         refresh_date_range?: boolean
         series_metadata?: boolean
@@ -838,7 +840,7 @@ export class serie extends baseModel {
         client?: Client
     ) : Promise<this|this[]>
     // static async getPercentiles(
-    //     tipo : "puntual"|"areal"|"raster"="puntual",
+    //     tipo : SeriesTypeOptions="puntual",
     //     series_id? : number|number[],
     //     percentiles? : number|number[],
     //     isPublic?: boolean, 
@@ -899,7 +901,7 @@ export class serie extends baseModel {
     ) : Promise<void|observaciones>
     filterSerie(filter : SeriesFilter={}) : boolean
     static async getDerivedSerie(
-		tipo : "puntual"|"areal"|"raster"="puntual",
+		tipo : SeriesType="puntual",
 		series_id : number,
 		timestart : Date,
 		timeend : Date,
@@ -977,7 +979,7 @@ export interface SerieRaster extends SerieAbstracta {
 }
 
 export interface SerieOnlyIds {
-    tipo: "puntual" | "areal" | "raster"
+    tipo: SeriesType
     id ? : number
     estacion_id : number
     var_id : number
@@ -1012,3 +1014,154 @@ export type Corrida = {
     cal_id: number
 
 }
+
+interface AsociacionDict {
+    id: number;
+    source_tipo: string;
+    source_series_id: number;
+    dest_tipo: string;
+    dest_series_id: number;
+    agg_func: string;
+    dt: string | Interval;
+    t_offset?: string | Interval;
+    precision?: number;
+    source_time_support?: string | Interval;
+    source_is_inst?: boolean;
+    habilitar?: boolean;
+    expresion?: string;
+    cal_id?: number;
+}
+
+interface GetAsociacionesFilter {
+    id?: number | number[]
+    source_tipo?: SeriesType 
+    source_series_id?: number | number[]
+    source_estacion_id?: number | number[]
+    dest_estacion_id?: number | number[]
+    provider_id?: number | number[]
+    tabla_id?: number | number[]
+    tabla?: number | number[]
+    source_var_id?: number | number[]
+    source_proc_id?: number | number[]
+    dest_tipo?: SeriesType 
+    dest_series_id?: number | number[]
+    dest_var_id?: number | number[]
+    dest_proc_id?: number | number[]
+    agg_func?: string
+    dt?: string | Interval
+    t_offset?: string | Interval
+    habilitar?: boolean
+    cal_id?: number | number[]
+}
+
+interface GetAsociacionesOptions {
+    agg_func?: string
+    dt?: string | Interval
+    t_offset?: string | Interval
+}
+
+interface RunAsociacionesOptions {
+    inst?: boolean
+    no_insert?: boolean
+    no_send_data?: boolean
+    no_insert_as_obs?: boolean   
+}
+
+export class asociacion extends baseModel {
+    id: number;
+    source_tipo: SeriesType;
+    source_series_id: number;
+    dest_tipo: SeriesType;
+    dest_series_id: number;
+    agg_func: string;
+    dt: Interval;
+    t_offset: Interval;
+    precision: number;
+    source_time_support: Interval;
+    source_is_inst: boolean;
+    habilitar: boolean;
+    expresion: string | null;
+    cal_id: number | null;
+
+    constructor(data: AsociacionDict);
+
+    create(client?: Client): Promise<asociacion>;
+
+    static create(
+        data: AsociacionDict[],
+        options?: unknown,
+        client?: Client
+    ): Promise<asociacion[]>;
+
+    static read(
+        filter?: GetAsociacionesFilter,
+        options?: GetAsociacionesOptions,
+        client?: Client
+    ): Promise<asociacion[]>;
+
+    delete(client?: Client): Promise<asociacion>;
+
+    static delete(
+        filter: GetAsociacionesFilter,
+        options?: unknown,
+        client?: Client
+    ): Promise<asociacion[]>;
+
+    run(
+        filter?: GetAsociacionesFilter,
+        options?: RunAsociacionesOptions
+    ): Promise<unknown>;
+}
+
+
+interface GetRegularSeriesOptions {
+    t_offset? : string | Interval
+    aggFunction? : string
+    inst? : boolean
+    timeSupport? : string | Interval
+    precision? : number
+    min_time_fraction? : string | Interval
+    insertSeriesId? : boolean
+    timeupdate?: Date
+    no_insert_as_obs? : boolean
+    source_time_support? :string | Interval
+}
+
+export class CRUD {
+    static async getRegularSeries(
+		tipo? : SeriesType = "puntual",
+		series_id : number,
+		dt? : string | Interval = "1 days",
+		timestart : Date,
+		timeend : Date,
+		options? : GetRegularSeriesOptions={},
+		client? : Client, 
+		cal_id? : number, 
+		cor_id? : number, 
+		forecast_date? : Date, 
+		qualifier? : string, 
+		user_id?: string
+    ) : Promise<void | observaciones>
+
+    static async getAsociaciones(
+        filter : GetAsociacionesFilter = {source_tipo:"puntual",dest_tipo:"puntual"},
+        options : GetAsociacionesOptions = {}, 
+        client?: Client, 
+        user_id?: string
+    ) : Promise<asociacion[]>
+
+    static async runAsociacion(
+        id : number,
+        filter : {
+            timestart: Date,
+            timeend: Date,
+            cor_id?: number,
+            forecast_date?: number,
+            qualifier?: string
+        },
+        options? : RunAsociacionesOptions,
+        user_id?: string, 
+        client?: Client
+    ) : Promise<observaciones|void>
+}
+
