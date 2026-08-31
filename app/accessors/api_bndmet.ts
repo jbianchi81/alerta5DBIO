@@ -101,6 +101,12 @@ type EstacionMap = {
     series: Record<string, number> // maps 'codFenomeno' to series_id
 }
 
+interface GetEstacoesParams {
+    tipo: TipoEstacao
+    estado?: string
+    regiao?: string
+}
+
 export class Client extends AbstractAccessorEngine implements AccessorEngine {
 
     static _get_is_multiseries = false
@@ -183,14 +189,19 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         estado? : string,
         regiao?: string
     ) : Promise<GetEstacoesResponse> {
+        const params : GetEstacoesParams = {
+            tipo: tipo
+        }
+        if(estado) { 
+            params.estado = estado
+        }
+        if(regiao) {
+            params.regiao = regiao
+        }
         return fetchData(
-            `${this.url}/estaciones`, 
+            `${this.url}/estacoes`, 
             {
-                params: {
-                    tipo: tipo, 
-                    estado: estado, 
-                    regiao: regiao
-                }, 
+                params: params, 
                 headers: this.headers()
             }
         )

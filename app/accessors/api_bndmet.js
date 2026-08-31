@@ -75,12 +75,17 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     // api calls
     get_estacoes(tipo, estado, regiao) {
         return __awaiter(this, void 0, void 0, function* () {
-            return (0, accessor_utils_1.fetchData)(`${this.url}/estaciones`, {
-                params: {
-                    tipo: tipo,
-                    estado: estado,
-                    regiao: regiao
-                },
+            const params = {
+                tipo: tipo
+            };
+            if (estado) {
+                params.estado = estado;
+            }
+            if (regiao) {
+                params.regiao = regiao;
+            }
+            return (0, accessor_utils_1.fetchData)(`${this.url}/estacoes`, {
+                params: params,
                 headers: this.headers()
             });
         });
