@@ -16174,6 +16174,34 @@ internal.CRUD = class {
 				throw new AuthError("Usuario sin acceso de escritura a la serie de destino de la asociación")
 			}
 			asociacion = new internal.asociacion(asociacion)
+			if(asociacion.id != null) {
+				const id_exists = (await client.query("SELECT EXISTS (SELECT 1 FROM asociaciones WHERE id=$1)", [asociacion.id])).rows[0].exists
+				if(id_exists) {
+					// UPDATE
+					const result = await client.query(`UPDATE asociaciones SET
+						source_tipo=$1,
+						source_series_id=$2,
+						dest_tipo=$3,
+						dest_series_id=$4,
+						agg_func=$5,
+						dt=$6,
+						t_offset=$7,
+						precision=$8,
+						source_time_support=$9,
+						source_is_inst=$10,
+						habilitar=$11,
+						expresion=$12,
+						cal_id=$13
+						WHERE asociaciones.id = $14
+						RETURNING *`,[asociacion.source_tipo, asociacion.source_series_id, asociacion.dest_tipo, asociacion.dest_series_id, asociacion.agg_func, asociacion.dt, asociacion.t_offset, asociacion.precision, asociacion.source_time_support, asociacion.source_is_inst, asociacion.habilitar, asociacion.expresion,asociacion.cal_id, asociacion.id])
+				
+					if(result.rowCount === 0) {
+						throw new ConflictError("Conflicting asociacion: dest_tipo/dest_series_id/cal_id already exists with a different id")
+					}
+					return new internal.asociacion(result.rows[0])
+				}
+			} 
+			// INSERT
 			const result = await client.query(`INSERT INTO asociaciones (source_tipo, source_series_id, dest_tipo, dest_series_id, agg_func, dt, t_offset, precision, source_time_support, source_is_inst, habilitar, expresion, cal_id, id) 
 			VALUES (COALESCE($1,'puntual'),$2,COALESCE($3,'puntual'),$4,$5,$6,$7,$8,$9,$10,COALESCE($11,true),$12,$13, COALESCE($14, nextval('asociaciones_id_seq'::regclass)))
 			ON CONFLICT (dest_tipo, dest_series_id, cal_id) 
@@ -16193,7 +16221,7 @@ internal.CRUD = class {
 				RETURNING *`,[asociacion.source_tipo, asociacion.source_series_id, asociacion.dest_tipo, asociacion.dest_series_id, asociacion.agg_func, asociacion.dt, asociacion.t_offset, asociacion.precision, asociacion.source_time_support, asociacion.source_is_inst, asociacion.habilitar, asociacion.expresion,asociacion.cal_id, asociacion.id])
 			//~ console.log({result:result})
 			if(result.rowCount === 0) {
-				throw new ConflictError("Conflicting asociacion: dest_tipo/dest_series_id already exists with a different id")
+				throw new ConflictError("Conflicting asociacion: dest_tipo/dest_series_id/cal_id already exists with a different id")
 			}
 			return new internal.asociacion(result.rows[0])
 		})
