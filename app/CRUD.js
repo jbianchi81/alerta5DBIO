@@ -16176,7 +16176,7 @@ internal.CRUD = class {
 			asociacion = new internal.asociacion(asociacion)
 			const result = await client.query(`INSERT INTO asociaciones (source_tipo, source_series_id, dest_tipo, dest_series_id, agg_func, dt, t_offset, precision, source_time_support, source_is_inst, habilitar, expresion, cal_id, id) 
 			VALUES (COALESCE($1,'puntual'),$2,COALESCE($3,'puntual'),$4,$5,$6,$7,$8,$9,$10,COALESCE($11,true),$12,$13, COALESCE($14, nextval('asociaciones_id_seq'::regclass)))
-			ON CONFLICT (dest_tipo, dest_series_id) 
+			ON CONFLICT (dest_tipo, dest_series_id, cal_id) 
 			DO UPDATE SET
 				source_tipo=EXCLUDED.source_tipo,
 				source_series_id=EXCLUDED.source_series_id,
