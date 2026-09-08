@@ -4015,19 +4015,38 @@ internal.sissa = class {
 		this.config = config
 	}
 	
-	getSites(filter,options) {
-		return axios.get(this.config.url + "/estaciones",{auth: {username: this.config.username, password: this.config.password}, params: filter})
-		.then(result=>{
-			//~ console.log(result.data)
-			var estaciones = result.data.map(e=>{
-				return new CRUD.estacion({tabla: "sissa", id_externo:  e.omm_id.toString(), nombre: e.nombre, geom: new CRUD.geometry({type: "Point", coordinates: [e.longitud, e.latitud]}), cero_ign: e.elevacion, provincia: e.nivel_adm1, localidad: e.nivel_adm2})
-			})
-			if(options.update) {
-				return crud.upsertEstaciones(estaciones)
-			} else {
-				return estaciones
+	async getSites(filter={},options={}) {
+		const result = await axios.get(
+			this.config.url + "/estaciones",
+			{
+				auth: {
+					username: this.config.username, 
+					password: this.config.password
+				}, 
+				params: filter,
+				httpsAgent: new https.Agent({
+					rejectUnauthorized: false
+				})
 			}
+		)
+		const estaciones = result.data.map(e=>{
+			return new CRUD.estacion(
+				{
+					tabla: "sissa", 
+					id_externo:  e.omm_id.toString(), 
+					nombre: e.nombre, 
+					geom: new CRUD.geometry({type: "Point", coordinates: [e.longitud, e.latitud]}), 
+					cero_ign: e.elevacion, 
+					provincia: e.nivel_adm1, 
+					localidad: e.nivel_adm2
+				}
+			)
 		})
+		if(options.update) {
+			return crud.upsertEstaciones(estaciones)
+		} else {
+			return estaciones
+		}
 	}
 	
 	get(filter,options={}) {
@@ -4177,44 +4196,56 @@ internal.sissa = class {
 			//~ return crud.upsertObservaciones(results,"puntual")
 		//~ })
 	}
-	
-	getRegistrosDiarios(omm_id, variable_id, timestart, timeend, writeStream) {
+
+	async get_registros_diarios(omm_id, variable_id, timestart, timeend) {
 		var url = (variable_id) ? this.config.url + "/registros_diarios/" + omm_id + "/" + variable_id + "/" + timestart + "/" + timeend : this.config.url + "/registros_diarios/" + omm_id + "/" + timestart + "/" + timeend
-		return crud.getSeries("puntual",{tabla:"sissa",id_externo:omm_id})
-		.then(series=>{
-			var series_map = {} 
-			if(!series) {
-				throw("No series found for id_externo="  + omm_id)
-			}
-			series.forEach(s=>{
-				Object.keys(this.config.variable_map).forEach(key=>{
-					if(this.config.variable_map[key] == s.var.id) {
-						series_map[key] = s
-					}
+		const result = await axios.get(
+			url,
+			{
+				auth: {
+					username: this.config.username, 
+					password: this.config.password
+				},
+				httpsAgent: new https.Agent({
+					rejectUnauthorized: false
 				})
-			})
-			return axios.get(url,{auth: {username: this.config.username, password: this.config.password}})
-			.then(result=>{
-				console.log("got response from url: " + url)
-				//~ console.log({registros_diarios:result.data})
-				return result.data.map(e=>{
-					if(typeof e.valor == "undefined") {
-						return
-					}
-					var timestart = new Date(e.fecha + "T00:00:00")
-					//~ console.log({timestart:timestart.toISOString()})
-					if(e.variable_id == "prcp") {
-						timestart.setTime(timestart.getTime() + 9*3600*1000)
-					}
-					var timeend = new Date(timestart.getTime() + 24*3600*1000)
-					var obs = new CRUD.observacion({tipo:"puntual", series_id: series_map[e.variable_id].id, timestart: timestart, timeend: timeend, valor: e.valor})
-					if(writeStream) {
-						writeStream.write(obs.toCSVless() + '\n')
-					}
-					return obs
-				}).filter(o=>o)
+			}
+		)
+		console.info("got response from url: " + url)
+		return result.data
+	}
+	
+	async getRegistrosDiarios(omm_id, variable_id, timestart, timeend, writeStream) {
+		const registros_diarios = await this.get_registros_diarios(omm_id, variable_id, timestart, timeend)
+		const series = await crud.getSeries("puntual",{tabla:"sissa",id_externo:omm_id})
+		var series_map = {} 
+		if(!series) {
+			throw("No series found for id_externo="  + omm_id)
+		}
+		series.forEach(s=>{
+			Object.keys(this.config.variable_map).forEach(key=>{
+				if(this.config.variable_map[key] == s.var.id) {
+					series_map[key] = s
+				}
 			})
 		})
+		//~ console.log({registros_diarios:result.data})
+		return registros_diarios.map(e=>{
+			if(typeof e.valor == "undefined") {
+				return
+			}
+			var timestart = new Date(e.fecha + "T00:00:00")
+			//~ console.log({timestart:timestart.toISOString()})
+			if(e.variable_id == "prcp") {
+				timestart.setTime(timestart.getTime() + 9*3600*1000)
+			}
+			var timeend = new Date(timestart.getTime() + 24*3600*1000)
+			var obs = new CRUD.observacion({tipo:"puntual", series_id: series_map[e.variable_id].id, timestart: timestart, timeend: timeend, valor: e.valor})
+			if(writeStream) {
+				writeStream.write(obs.toCSVless() + '\n')
+			}
+			return obs
+		}).filter(o=>o)
 	}
 }
 
