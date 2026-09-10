@@ -2347,10 +2347,10 @@ internal.GetAggregatePronosticosProcedure = class extends internal.CrudProcedure
     }
 }
 
-internal.DeleteCorridas = class extends internal.CrudProcedure {
+internal.DeleteCorridasProcedure = class extends internal.CrudProcedure {
     constructor() {
         super(...arguments)
-        this.procedureClass = "DeleteCorridas"
+        this.procedureClass = "DeleteCorridasProcedure"
         if(!arguments[0]) {
             throw("Missing arguments")
         }
@@ -2369,6 +2369,23 @@ internal.DeleteCorridas = class extends internal.CrudProcedure {
         return this.result
     }
 }
+
+internal.BatchDeleteCorridasProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "BatchDeleteCorridasProcedure"
+        if(!arguments[0]) {
+            throw("Missing arguments")
+        }
+        this.n = arguments[0].n || 10
+        this.skip_cal_id = arguments[0].skip_cal_id || [288,308,391,400,439,440,441,442,432,433,439,440,441,442,444,445,446,454,457,455,456,458,459,460,461]
+    }
+    async run() {
+        this.result = await crud.batchDeleteCorridas({n: this.n, skip_cal_id: this.skip_cal_id})
+        return this.result
+    }
+}
+
 
 internal.DeleteObservacionesProcedure = class extends internal.CrudProcedure {
     constructor() {
@@ -3803,7 +3820,9 @@ const availableCrudProcedures = {
     "DownloadFromAccessorProcedure": internal.DownloadFromAccessorProcedure,
     "DeleteObservacionesProcedure": internal.DeleteObservacionesProcedure,
     "DeleteObservacionesCuboProcedure": internal.DeleteObservacionesCuboProcedure,
-    "DeleteCorridas": internal.DeleteCorridas,
+    "DeleteCorridas": internal.DeleteCorridasProcedure,
+    "DeleteCorridasProcedure": internal.DeleteCorridasProcedure,
+    "BatchDeleteCorridasProcedure": internal.BatchDeleteCorridasProcedure,
     "RunAsociacionesProcedure": internal.RunAsociacionesProcedure,
     "RunAsociacionProcedure": internal.RunAsociacionProcedure,
     "GetPpCdpDiario": internal.GetPpCdpDiario,

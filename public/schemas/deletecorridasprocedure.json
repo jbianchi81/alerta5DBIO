@@ -1,0 +1,141 @@
+{
+    "$id": "deletecorridasprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "DeleteCorridasProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "DeleteCorridasProcedure"
+        },
+        "arguments": {
+            "allOf": [
+                {
+                    "$ref": "procedurearguments.json"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "filter": {
+                            "type": "object",
+                            "properties": {
+                                "timestart": {
+                                    "$ref": "dateorinterval.json"
+                                },
+                                "timeend": {
+                                    "$ref": "dateorinterval.json"
+                                },
+                                "skip_cal_id": {
+                                    "oneOf": [
+                                        {
+                                            "type": "number"
+                                        },
+                                        {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "number"
+                                            }
+                                        }
+                                    ]
+                                },
+                                "id": {
+                                    "oneOf": [
+                                        {
+                                            "type": "number"
+                                        },
+                                        {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "number"
+                                            }
+                                        }
+                                    ]
+                                },
+                                "cor_id": {
+                                    "oneOf": [
+                                        {
+                                            "type": "number"
+                                        },
+                                        {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "number"
+                                            }
+                                        }
+                                    ]
+                                },
+                                "forecast_date": {
+                                    "type": "string"
+                                },
+                                "date": {
+                                    "type": "string"
+                                },
+                                "forecast_timestart": {
+                                    "type": "string"
+                                },
+                                "forecast_timeend": {
+                                    "type": "string"
+                                },
+                                "cal_id": {
+                                    "oneOf": [
+                                        {
+                                            "type": "number"
+                                        },
+                                        {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "number"
+                                            }
+                                        }
+                                    ]
+                                },
+                                "estacion_id": {
+                                    "oneOf": [
+                                        {
+                                            "type": "number"
+                                        },
+                                        {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "number"
+                                            }
+                                        }
+                                    ]
+                                },
+                                "model_id": {
+                                    "oneOf": [
+                                        {
+                                            "type": "number"
+                                        },
+                                        {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "number"
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "additionalProperties": true
+                        },
+                        "save": {
+                            "type": "boolean"
+                        },
+                        "save_prono": {
+                            "type": "boolean"
+                        },
+                        "skip_delete": {
+                            "type": "boolean"
+                        },
+                        "only_sim": {
+                            "type": "boolean"
+                        }
+                    },
+                    "required": [
+                        "filter"
+                    ]
+                }
+            ]
+        }
+    }
+}

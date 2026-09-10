@@ -1,0 +1,42 @@
+{
+    "$id": "batchdeletecorridasprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "BatchDeleteCorridasProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "BatchDeleteCorridasProcedure"
+        },
+        "arguments": {
+            "allOf": [
+                {
+                    "$ref": "procedurearguments.json"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "n": {
+                            "type": "number",
+                            "default": 10
+                        },
+                        "skip_cal_id": {
+                            "oneOf": [
+                                {
+                                    "type": "number"
+                                },
+                                {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "number"
+                                    }
+                                }
+                            ],
+                            "default": [288,308,391,400,439,440,441,442,432,433,439,440,441,442,444,445,446,454,457,455,456,458,459,460,461]
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}
