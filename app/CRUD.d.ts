@@ -1,4 +1,5 @@
 import {Feature, Geometry, Polygon} from './geometry_types' 
+import {Observacion, Serie} from './a5_types'
 import {Pool, Client} from 'pg'
 import { Position, FeatureCollection, Feature } from 'geojson'
 import {Variable as variable} from 'a5base/variable'
@@ -10,18 +11,24 @@ type SeriesType = "puntual" | "areal" | "raster"
 export type ObservacionDict = {
     timestart : Date,
     timeend ? : Date,
-    valor : number,
+    valor : number | Buffer | string,
     series_id ? : number,
     id? : number
+    tipo?: "puntual" | "areal" | "raster",
+    timeupdate?: string | Date
 }
 
-export class observacion extends baseModel {
+export class observacion extends baseModel implements Observacion {
     constructor(args: ObservacionDict)
     timestart : Date
     timeend : Date
-    valor : number
+    valor : number | Buffer
     series_id ? : number
     id? : number
+    tipo : "puntual" | "areal" | "raster"
+    timeupdate? : Date
+
+    static create(observaciones : ObservacionDict[], tipo? : string, series_id?: number, options?: {skip_nulls?: boolean, no_update?: boolean}, client? : Client) : Promise<observacion[]>
 }
 
 export class observaciones extends BaseArray {
@@ -113,6 +120,28 @@ interface ReadOptions {
 interface CreateOptions {
     no_update?: boolean
     no_update_id?: boolean
+}
+
+export class escena extends baseModel{
+    constructor(args : Escena);
+    id ? : number
+    nombre : string
+    geom : Geometry
+    async getId(pool? : Pool, client?: Client) : Promise<void>
+    toString() : string
+    toCSV() : string
+    toCSVLess() : string
+    toJSON() : Escena
+    static async read(
+        filter : number|{id: number}|{nombre?: string, geom?: geometry}, 
+        options? : {no_geom?: boolean}, 
+        user_id? : string, 
+        client? : Client
+    ) : Promise<this|this[]>
+    async create() : Promise<this|void>
+    static async create(escenas : escena[]) : escena[]
+    async delete(client?: Client) : this
+    static async delete(filter : {id?: number|number[]}, options?:{no_geom?: boolean}, client?: Client)
 }
 
 export class estacion extends baseModel{
@@ -713,7 +742,7 @@ interface DailyDifferenceStatsDict {
     stddev_diff : number
 }
 
-export class serie extends baseModel {
+export class serie extends baseModel implements Serie {
     constructor(args: SerieDict)
     id: number
     tipo: SeriesType
@@ -809,7 +838,7 @@ export class serie extends baseModel {
     getSeriesTable() : string
     static getSeriesTable(tipo : SeriesType) : string
     static getFeatureIdColumn(tipo : SeriesType) : string
-    async create(options : {
+    async create(options? : {
         refresh_date_range?: boolean
         series_metadata?: boolean
     }) : Promise<this>

@@ -12,10 +12,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.filterSeriesByIds = exports.filterSites = exports.filterSeries = exports.filterByParam = exports.parseUtcDateTime = exports.fetchData = void 0;
+exports.flatten = exports.grib2obs = exports.rast2obs = exports.downloadAndWriteStream = exports.filterSeriesByIds = exports.filterSites = exports.filterSeries = exports.filterByParam = exports.parseUtcDateTime = exports.fetchData = void 0;
 const axios_1 = __importDefault(require("axios"));
 const https_1 = __importDefault(require("https"));
 const boolean_point_in_polygon_1 = require("@turf/boolean-point-in-polygon");
+const node_fs_1 = require("node:fs");
+const promises_1 = require("node:stream/promises");
+const child_process_promise_1 = require("child-process-promise");
+const CRUD_1 = require("../CRUD");
 function fetchData(url, options) {
     var _a, _b;
     return __awaiter(this, void 0, void 0, function* () {
@@ -129,3 +133,101 @@ function filterSeriesByIds(series = [], params = {}) {
     });
 }
 exports.filterSeriesByIds = filterSeriesByIds;
+function downloadAndWriteStream(url, params, localfilepath, connection) {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (!connection) {
+            connection = axios_1.default.create();
+        }
+        const writer = (0, node_fs_1.createWriteStream)(localfilepath);
+        let response;
+        try {
+            response = yield connection.get(url, {
+                params,
+                responseType: "stream",
+            });
+        }
+        catch (e) {
+            const error = e instanceof Error ? e : new Error(String(e));
+            console.error(`Download error: ${error}`);
+            throw error;
+        }
+        try {
+            yield (0, promises_1.pipeline)(response.data, writer);
+        }
+        catch (e) {
+            const error = e instanceof Error ? e : new Error(String(e));
+            throw new Error(`file:${localfilepath} write failed, error:${error.message}`);
+        }
+    });
+}
+exports.downloadAndWriteStream = downloadAndWriteStream;
+function rast2obs(filename, series_id) {
+    return __awaiter(this, void 0, void 0, function* () {
+        // LEE GTIFF , GENERA observación  
+        const gdalinfo_result = yield (0, child_process_promise_1.exec)(`gdalinfo -json ${filename}`);
+        var stdout = gdalinfo_result.stdout;
+        var stderr = gdalinfo_result.stderr;
+        if (stderr) {
+            console.error(stderr);
+        }
+        var gdalinfo = JSON.parse(stdout);
+        var band = gdalinfo.bands[0];
+        var ref_time = new Date(parseInt(band.metadata[""].GRIB_REF_TIME.split(/\s/)[0]) * 1000);
+        var valid_time = new Date(parseInt(band.metadata[""].GRIB_VALID_TIME.split(/\s/)[0]) * 1000);
+        const data = (0, node_fs_1.readFileSync)(filename, 'hex');
+        return new CRUD_1.observacion({
+            tipo: "raster",
+            timeupdate: ref_time,
+            timestart: new Date(valid_time),
+            timeend: new Date(valid_time),
+            series_id: series_id,
+            valor: `\\x${data}`
+        });
+    });
+}
+exports.rast2obs = rast2obs;
+function grib2obs(filepath, variable_map, bbox, // [leftlon, toplat, rightlon, bottomlat]
+units) {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (!filepath) {
+            return Promise.reject("Falta filepath");
+        }
+        if (!variable_map) {
+            return Promise.reject("Falta variable_map");
+        }
+        units = units !== null && units !== void 0 ? units : "meters_per_second";
+        const gdalinfo_result = yield (0, child_process_promise_1.exec)(`gdalinfo -json ${filepath}`);
+        var stdout = gdalinfo_result.stdout;
+        var stderr = gdalinfo_result.stderr;
+        var gdalinfo = JSON.parse(stdout);
+        //~ var time_update = new Date(parseInt(gdalinfo.bands[0].metadata[""].GRIB_REF_TIME.split(/\s/)[0])*1000)
+        const observaciones = [];
+        for (var band of gdalinfo.bands) {
+            // var ref_time = new Date(parseInt(band.metadata[""].GRIB_REF_TIME.split(/\s/)[0])*1000)
+            // var valid_time = new Date(parseInt(band.metadata[""].GRIB_VALID_TIME.split(/\s/)[0])*1000)
+            var var_index = Object.keys(variable_map).indexOf(band.metadata[""].GRIB_ELEMENT);
+            if (var_index < 0) {
+                console.warn("band not mapped:" + band.metadata[""].GRIB_ELEMENT);
+                continue;
+            }
+            var variable = variable_map[band.metadata[""].GRIB_ELEMENT];
+            var gtiff_filename = filepath.replace(/\.grib2$/, "." + variable.name.replace(new RegExp(/\s/g), "") + ".tif");
+            var bbox_options = "";
+            if (bbox) {
+                bbox_options = `-a_ullr ${bbox[0]} ${bbox[1]} ${bbox[2]} ${bbox[3]}`;
+            }
+            yield (0, child_process_promise_1.exec)(`gdal_translate -b ${band.band} -a_srs EPSG:4326 ${bbox_options} -of GTiff ${filepath} "${gtiff_filename}"`);
+            yield (0, child_process_promise_1.exec)(`gdal_edit.py -mo "UNITS=${units}" ${gtiff_filename}`);
+            observaciones.push(yield rast2obs(gtiff_filename, variable.series_id));
+        }
+        console.log("got " + observaciones.length + " observaciones");
+        return observaciones;
+    });
+}
+exports.grib2obs = grib2obs;
+function flatten(arr) {
+    return arr.reduce(function (flat, toFlatten) {
+        return flat.concat(Array.isArray(toFlatten) ? flatten(toFlatten) : toFlatten);
+    }, []);
+}
+exports.flatten = flatten;

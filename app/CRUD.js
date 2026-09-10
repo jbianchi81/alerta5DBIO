@@ -4778,6 +4778,10 @@ internal.observacion = class extends baseModel {
 		return internal.CRUD.upsertObservacion(this,options.no_update)
 	}
 
+	static async create(observaciones, tipo, series_id, options, client) {
+		return internal.CRUD.upsertObservaciones(observaciones, tipo, series_id, options, client)
+	}
+
 	static async read() {
 		const observaciones = await internal.observaciones.read(...arguments)
 		delete observaciones.metadata

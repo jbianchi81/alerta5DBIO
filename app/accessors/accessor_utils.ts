@@ -1,7 +1,13 @@
-import axios, { AxiosRequestConfig, AxiosError } from "axios";
+import axios, { AxiosRequestConfig, AxiosError, AxiosInstance } from "axios";
 import https from "https";
 import { Geometry, Position } from "../geometry_types";
 import { booleanPointInPolygon } from '@turf/boolean-point-in-polygon'
+import { createWriteStream, readFileSync } from "node:fs";
+import { pipeline } from "node:stream/promises";
+import {exec as pexec} from 'child-process-promise'
+import { observacion as CrudObservacion } from "../CRUD";
+
+
 
 export type SeriesFilter = {
     id? : number|number[]
@@ -164,5 +170,124 @@ export function filterSeriesByIds(series : any[]=[],params : SeriesFilter={}) : 
             ].indexOf(false) < 0
         )
 	})
+}
+
+export async function downloadAndWriteStream(
+    url: string,
+    params: any,
+    localfilepath: string,
+    connection?: AxiosInstance
+) : Promise<void> {
+    if(!connection) {
+        connection = axios.create()
+    }
+
+    const writer = createWriteStream(localfilepath);
+
+    let response;
+    try {
+        response = await connection.get(url, {
+            params,
+            responseType: "stream",
+        });
+    } catch (e: unknown) {
+        const error = e instanceof Error ? e : new Error(String(e));
+        console.error(`Download error: ${error}`);
+        throw error;
+    }
+
+    try {
+        await pipeline(response.data, writer);
+    } catch (e: unknown) {
+        const error = e instanceof Error ? e : new Error(String(e));
+        throw new Error(
+            `file:${localfilepath} write failed, error:${error.message}`
+        );
+    }
+}
+
+export type VariableMap = Record<string, {
+    name: string,
+    var_id: number,
+    proc_id: number,
+    unit_id: number,
+    series_id: number
+}>
+
+export async function rast2obs(
+    filename : string,
+    series_id : number
+) : Promise<CrudObservacion> { 
+    // LEE GTIFF , GENERA observación  
+    const gdalinfo_result = await pexec(`gdalinfo -json ${filename}`)
+    var stdout = gdalinfo_result.stdout
+    var stderr = gdalinfo_result.stderr
+    if(stderr) {
+        console.error(stderr)
+    }
+    var gdalinfo = JSON.parse(stdout)
+    var band = gdalinfo.bands[0]
+    var ref_time = new Date(parseInt(band.metadata[""].GRIB_REF_TIME.split(/\s/)[0])*1000)
+    var valid_time = new Date(parseInt(band.metadata[""].GRIB_VALID_TIME.split(/\s/)[0])*1000)
+
+    const data = readFileSync(filename, 'hex')
+
+    return new CrudObservacion({
+        tipo: "raster",
+        timeupdate: ref_time,
+        timestart: new Date(valid_time), 
+        timeend: new Date(valid_time),
+        series_id: series_id,
+        valor: `\\x${data}`
+    })
+}
+
+
+export async function grib2obs(
+    filepath : string,
+    variable_map : VariableMap,
+    bbox? : number[], // [leftlon, toplat, rightlon, bottomlat]
+    units? : string
+
+) : Promise<CrudObservacion[]> { // LEE 1 GRIB, GENERA GTIFFs  // config={filepath:string, variable_map:{"key":{var_id:int,proc_id:int,unit_id:int,series_id:int},...},bbox:{leftlon:number,toplat:number, rightlon:number,bottomlat:number}, units: string}
+    if(!filepath) {
+        return Promise.reject("Falta filepath")
+    }
+    if(!variable_map) {
+        return Promise.reject("Falta variable_map")
+    }
+    units = units ?? "meters_per_second"
+    const gdalinfo_result = await pexec(`gdalinfo -json ${filepath}`)
+    var stdout = gdalinfo_result.stdout
+    var stderr = gdalinfo_result.stderr
+    var gdalinfo = JSON.parse(stdout)
+    //~ var time_update = new Date(parseInt(gdalinfo.bands[0].metadata[""].GRIB_REF_TIME.split(/\s/)[0])*1000)
+    const observaciones = []
+    for(var band of gdalinfo.bands) {
+        // var ref_time = new Date(parseInt(band.metadata[""].GRIB_REF_TIME.split(/\s/)[0])*1000)
+        // var valid_time = new Date(parseInt(band.metadata[""].GRIB_VALID_TIME.split(/\s/)[0])*1000)
+        var var_index  =  Object.keys(variable_map).indexOf(band.metadata[""].GRIB_ELEMENT)
+        if(var_index < 0) {
+            console.warn("band not mapped:"+band.metadata[""].GRIB_ELEMENT)
+            continue
+        } 
+        var variable = variable_map[band.metadata[""].GRIB_ELEMENT]
+        var gtiff_filename = filepath.replace(/\.grib2$/,"." + variable.name.replace(new RegExp(/\s/g),"") + ".tif")
+        var bbox_options = ""
+        if(bbox) {
+            bbox_options = `-a_ullr ${bbox[0]} ${bbox[1]} ${bbox[2]} ${bbox[3]}`
+        }
+        await pexec(`gdal_translate -b ${band.band} -a_srs EPSG:4326 ${bbox_options} -of GTiff ${filepath} "${gtiff_filename}"`)
+        await pexec(`gdal_edit.py -mo "UNITS=${units}" ${gtiff_filename}`)
+        observaciones.push(await rast2obs(gtiff_filename,variable.series_id))
+    }
+    console.log("got " + observaciones.length + " observaciones")
+    return observaciones
+}
+
+export function flatten(arr : any[]) : any[] {
+  return arr.reduce(function (flat, toFlatten) {
+    return flat.concat(Array.isArray(toFlatten) ? flatten(toFlatten) : toFlatten);
+  }, []);
 }
 

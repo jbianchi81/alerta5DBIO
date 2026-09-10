@@ -4,7 +4,7 @@ import {Geometry, Polygon} from './geometry_types'
 export type Observacion = {
     timestart : Date,
     timeend ? : Date,
-    valor : number,
+    valor : number | Buffer,
     series_id ? : number,
     id? : number
 }
