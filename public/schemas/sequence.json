@@ -87,6 +87,9 @@
                         "$ref": "getpronosticofromaccessorprocedure.json"
                     },
                     {
+                        "$ref": "updatepronosticofromaccessorprocedure.json"
+                    },
+                    {
                         "$ref": "computequantilesprocedure.json"
                     },
                     {
@@ -129,7 +132,13 @@
                         "$ref": "simrasttoarealwithzonesprocedure.json"
                     },
                     {
+                        "$ref": "rasttoarealprocedure.json"
+                    },
+                    {
                         "$ref": "updatemetadatacatalogprocedure.json"
+                    },
+                    {
+                        "$ref": "runasociacionprocedure.json"
                     }
                 ]
             }

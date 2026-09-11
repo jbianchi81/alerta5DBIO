@@ -1,0 +1,46 @@
+{
+    "$id": "runasociacionprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "RunAsociacionProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "RunAsociacionProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "description": "id of the asociacion"
+                },
+                "filter": {
+                    "description": "filter",
+                    "type": "object",
+                    "properties": {
+                        "timestart": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "timeend": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "forecast_date": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "cor_id": {
+                            "type": "integer"
+                        },
+                        "qualifier": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "required": [
+                "id"
+            ]
+        }
+    }
+}

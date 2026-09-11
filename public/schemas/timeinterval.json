@@ -26,6 +26,27 @@
                 },
                 "days": {
                     "type": "number"
+                },
+                "roundTo": {
+                    "type": "object",
+                    "properties": {
+                        "hour": { "type": "number"}, 
+                        "month": { "type": "number"}, 
+                        "day": { "type": "number"}, 
+                        "minute": { "type": "number"}
+                    }
+                },
+                "set": {
+                    "type": "object",
+                    "properties": {
+                        "hour": { "type": "number"}, 
+                        "month": { "type": "number"}, 
+                        "day": { "type": "number"}, 
+                        "minute": { "type": "number"},
+                        "second": { "type": "number"},
+                        "millisecond": { "type": "number"},
+                        "time": { "type": "number"}
+                    }
                 }
             },
             "additionalProperties": false
