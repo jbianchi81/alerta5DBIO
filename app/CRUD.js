@@ -7467,7 +7467,8 @@ internal.SerieTemporalSim = class extends baseModel {
 		write_index_file=true,
 		client,
 		max_rows,
-		isPublic
+		isPublic,
+		qualifier
 	) {
 		return withClient(client, async (client) => {
 			if(cor_id == "last") {
@@ -7488,11 +7489,15 @@ internal.SerieTemporalSim = class extends baseModel {
 					timeend: {
 						type: "timeend",
 						column: "timestart"
+					},
+					qualifier: {
+						type: "string"
 					}
 				},
 				{
 					timestart: timestart,
-					timeend: timeend
+					timeend: timeend,
+					qualifier: qualifier
 				},
 				"pronosticos_rast"
 			)
@@ -20966,7 +20971,10 @@ ORDER BY cal.cal_id`
 					obs_filter.timestart,
 					obs_filter.timeend,
 					output_file,
-					write_index_file
+					write_index_file,
+					undefined,
+					undefined,
+					(serie.qualifier) ? serie.qualifier : (serie.qualifiers && serie.qualifiers.length) ? serie.qualifiers[0] : obs_filter.qualifier
 				)
 			} else {
 				return internal.serie.toRaster(
@@ -21112,7 +21120,8 @@ ORDER BY cal.cal_id`
 		timestart,
 		timeend,
 		areas_filter,
-		options={}
+		options={},
+		qualifier
 		) {
 		if(!series_id) {
 			throw new Error("Missing series_id")
@@ -21129,7 +21138,8 @@ ORDER BY cal.cal_id`
 				tipo: "raster",
 				series_id: series_id,
 				cal_id: cal_id,
-				cor_id: cor_id
+				cor_id: cor_id,
+				qualifier: qualifier
 			},
 			{
 				includeProno: false

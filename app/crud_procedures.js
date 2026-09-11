@@ -3526,6 +3526,7 @@ internal.SimRastToArealWithZonesProcedure = class extends internal.CrudProcedure
 		this.timestart = DateFromDateOrInterval(arguments[0].timestart)
 		this.timeend = DateFromDateOrInterval(arguments[0].timeend)
 		this.areas_filter = arguments[0].areas_filter
+        this.qualifier = arguments[0].qualifier
         if(arguments[0].options) {
             this.run_options = {
                 upload: arguments[0].options.upload,
@@ -3542,7 +3543,8 @@ internal.SimRastToArealWithZonesProcedure = class extends internal.CrudProcedure
             this.timestart,
             this.timeend,
             this.areas_filter,
-            this.run_options
+            this.run_options,
+            this.qualifier
 		)
         return this.result
     }

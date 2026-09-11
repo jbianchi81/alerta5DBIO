@@ -76,6 +76,9 @@
                             "type": "boolean"
                         }
                     }
+                },
+                "qualifier": {
+                    "type": "string"
                 }
             },
             "required": [
