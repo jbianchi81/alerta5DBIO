@@ -168,7 +168,7 @@ internal.surf = async function (input,output,parameters) {
 	var s = (parameters) ? (parameters.extent) ? parseFloat(parameters.extent[1]) : -40 : -40   // south
 	var w = (parameters) ? (parameters.extent) ? parseFloat(parameters.extent[2]) : -70 : -70   // east
 	var e = (parameters) ? (parameters.extent) ? parseFloat(parameters.extent[3]) : -40 : -40   // west
-	var segmax = (parameters) ? (parameters.segmax) ? parseInt(parameters.segmax) : 600 : 600 
+	var segmax = (parameters) ? (parameters.segmax) ? parseInt(parameters.segmax) : 200 : 200 
 	var tension = (parameters) ? (parameters.tension) ? parseInt(parameters.tension) : 150 : 150
 	if(!input) {
 		return Promise.reject("input faltante")
