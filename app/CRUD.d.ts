@@ -636,16 +636,19 @@ export class fuente extends baseModel {
     ) : string    
 }
 
-export type Pronostico = {
+export type PronosticoDict = {
+    tipo? : "puntual" | "areal" | "raster"
+
+    series_id? : number
     
     /** fecha-hora inicial del pronóstico */
-    timestart : Date,
+    timestart : Date
     
     /** fecha-hora final del pronóstico */
-    timeend ? : Date,
+    timeend ? : Date
 
     /** valor del pronóstico */
-    valor : number
+    valor : number | Buffer | string
 
     /** calificador opcional para diferenciar subseries */
     qualifier ? : string
@@ -666,7 +669,7 @@ export type SerieAbstracta = {
     minValor ? : number,
     maxValor ? : number,
     observaciones ? : Array<ObservacionDict>|Array<ObservacionRaster>,
-    pronosticos ? : Array<Pronostico>
+    pronosticos ? : Array<PronosticoDict>
 }
 
 export interface SerieDict extends SerieAbstracta {
@@ -1037,10 +1040,10 @@ export type SerieProno = {
     series_table: "series" | "series_areal" | "series_rast"
     series_id : number
     cor_id?: number
-    pronosticos: Pronostico[]
+    pronosticos: PronosticoDict[]
 }
 
-export type Corrida = {
+export type CorridaDict = {
     forecast_date : Date
     series: SerieProno[]
     cal_id: number
@@ -1157,6 +1160,129 @@ interface GetRegularSeriesOptions {
     timeupdate?: Date
     no_insert_as_obs? : boolean
     source_time_support? :string | Interval
+}
+
+export class pronostico extends baseModel implements PronosticoDict {
+
+    constructor(args: PronosticoDict)
+    timestart : Date
+    timeend : Date
+    valor : number | Buffer
+    series_id ? : number
+    id? : number
+    tipo : "puntual" | "areal" | "raster"
+    timeupdate? : Date
+    qualifier? : string
+    getTipo() : string
+    static 	getTipo(series_table : string="series") : string
+    toObservacion(series_id? : number, tipo? : string) : observacion
+    toString() : string
+    toCSV() : string
+    toCSVLess() : string
+    toRaster(output_file : string) : void
+    static async create(pronosticos : PronosticoDict[], options? : {tipo? : string, cor_id?: number, no_send_data?: boolean}, client? : Client) : Promise<pronostico[]>
+    fromRaster(input_file : string) : pronostico
+    static async delete(filter : {
+            cor_id? : number|number[],
+            cal_id? : number|number[],
+            forecast_date? : Date,
+            timestart? : Date,
+            timeend? : Date,        
+            series_id? : number|number[],
+            estacion_id? : number|number[],
+            var_id? : number|number[],
+            tipo? : string,
+            fuentes_id? : number|number[],
+            tabla? : string|string[],
+            qualifier? : string|string[]
+        }={},
+        options : {
+            only_sim? : boolean,
+            no_send_data? : boolean
+        }={}
+    ) : Promise<pronostico[]|void>
+    static async read(
+        filter: {
+            cor_id?: number | number[],
+            cal_id?: number | number[],
+            forecast_timestart?: Date,
+            forecast_timeend?: Date,
+            forecast_date?: Date,
+            timestart?: Date,
+            timeend?: Date,
+            qualifier?: string | string[],
+            estacion_id?: number | number[],
+            var_id?: number | number[],
+            isPublic?: boolean,
+            series_id?: number | number[],
+            grupo_id?: number | number[],
+            model_id?: number | number[],
+            tipo?: string,
+            tabla?: string | string[],
+        } = {},
+        options: {
+            includeProno?: boolean,
+            series_metadata?: boolean,
+            group_by_qualifier?: boolean
+        } = {},
+        client?: Client) : Promise<pronostico[]>
+}
+
+export interface SerieTemporalSimDict {
+    series_table? : "series" | "series_areal" | "series_rast"
+    series_id? : number
+    cor_id? : number
+    cal_id? : number
+    forecast_date? : Date
+    qualifier?: string
+    pronosticos : pronostico[] | PronosticoDict[]
+    var_id?: number
+    proc_id?: number
+    unit_id?: number
+    fuentes_id?: number
+    begin_date?: Date
+    end_date?: Date
+    qualifiers?: string[]
+    count?: number
+    estacion_id?: number
+    tabla?: string
+    red_id?: number
+    timeSupport?: Interval | string
+}
+
+export class SerieTemporalSim extends baseModel implements SerieTemporalSimDict{
+	constructor(data : SerieTemporalSimDict)
+    series_table: "series" | "series_areal" | "series_rast"
+    series_id: number
+    cor_id?: number
+    cal_id: number 
+    forecast_date: Date
+    qualifier?: string
+    pronosticos: pronostico[]
+    var_id?: number
+    proc_id?: number
+    unit_id?: number
+    fuentes_id?: number
+    begin_date?: Date
+    end_date?: Date
+    qualifiers?: string[]
+    count?: number
+    estacion_id?: number
+    tabla?: string
+    red_id?: number
+    tipo?: string
+    timeSupport?: Interval | string
+    metadata?: any
+    tipo: "puntual" | "areal" | "raster"
+}
+
+export class corrida extends baseModel implements CorridaDict {
+	constructor(data : CorridaDict)
+    id? : number
+    forecast_date : Date
+    series : SerieTemporalSim[]
+    cal_id: number
+    async create(options?:any, client?: Client) : Promise<this|void>
 }
 
 export class CRUD {

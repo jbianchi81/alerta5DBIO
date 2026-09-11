@@ -7163,7 +7163,7 @@ internal.SerieTemporalSim = class extends baseModel {
 		filter.series_id = this.series_id
 		filter.tipo = (this.series_table) ? (this.series_table == "series_areal") ? "areal" : (this.series_table == "series") ? "puntual" : (this.series_table == "series_rast") ? "raster" : undefined : undefined 
 		filter.cor_id = this.cor_id
-		filter.qualifier = filter.qualifier ?? this.qualifier
+		filter.qualifier = filter.qualifier ?? this.qualifier ?? this.qualifiers
 		return internal.CRUD.getPronosticosArray(filter,options,client)
 
 	}

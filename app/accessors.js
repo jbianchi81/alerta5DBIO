@@ -63,6 +63,7 @@ internal.fdxcloud = require('./accessors/fdxcloud').Client
 internal.dph_er_api = require('./accessors/dph_er_api').Client
 internal.wqdatalive = require('./accessors/wqdatalive').Client
 internal.ctm_ws = require('./accessors/ctm_ws').Client
+internal.gefs_atmos = require('./accessors/gefs_atmos').Client
 
 
 // Promise.allSettled polyfill

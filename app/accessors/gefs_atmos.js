@@ -25,7 +25,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     constructor(config) {
         super(config);
         this.default_variable_map = {
-            "APCP": {
+            "APCP06": {
                 name: "apcp",
                 var_id: 91,
                 proc_id: 4,
@@ -36,7 +36,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         this.default_config = {
             url: "https://nomads.ncep.noaa.gov/cgi-bin/filter_gefs_atmos_0p25s.pl",
             // files_url: "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gens/prod/",
-            data_dir: "/../data/gefs_atmos/",
+            data_dir: "/../../data/gefs_atmos/",
             bbox: { leftlon: -70, rightlon: -40, toplat: -10, bottomlat: -40 },
             start_hour: 6,
             end_hour: 241,
@@ -44,7 +44,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             levels: ["surface"],
             variables: ["APCP"],
             variable_map: this.default_variable_map,
-            ens: 31
+            ens: 30,
+            cal_id: 721
         };
         this.max_hour = 240;
         this.connection = axios_1.default.create();
@@ -53,8 +54,18 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         this.start_hour = this.config.start_hour || 6;
         this.end_hour = this.config.end_hour || 241;
         this.dt = this.config.dt || 6;
-        this.ens = this.config.ens || 31;
+        this.ens = this.config.ens || 30;
         this.variable_map = this.config.variable_map || this.default_variable_map;
+        this.default_forecast_date = new Date();
+        this.default_forecast_date.setHours(this.default_forecast_date.getHours() - 6);
+        this.default_forecast_date.setMinutes(0, 0, 0);
+        this.forecast_date = this.default_forecast_date;
+        this.default_qualifiers = ["gec00", "geavg", "gespr"];
+        var member = 1;
+        while (member <= this.ens) {
+            this.default_qualifiers.push((0, sprintf_js_1.sprintf)("gep%02d", member));
+            member = member + 1;
+        }
     }
     createSerie() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -83,6 +94,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     get(filter = {}, options = {}) {
         return __awaiter(this, void 0, void 0, function* () {
             var dates = this.getDates(filter);
+            this.forecast_date = dates.forecast_date;
             var forecast_date = dates.forecast_date;
             var timestart = dates.timestart;
             var timeend = dates.timeend;
@@ -114,15 +126,16 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 hours.push(i);
             }
             const results = [];
-            var member = 1;
-            while (member <= this.ens) {
+            const qualifiers = (filter.qualifier) ? [filter.qualifier] : (filter.qualifiers) ? filter.qualifiers : this.default_qualifiers;
+            for (const qualifier of qualifiers) {
+                // while(member <= this.ens) {
                 for (const i of hours) {
-                    var file = (0, sprintf_js_1.sprintf)("gep%02d.t%02dz.pgrb2s.0p25.f%03d.grib2", member, forecast_date.getUTCHours(), i);
+                    var file = (0, sprintf_js_1.sprintf)("%s.t%02dz.pgrb2s.0p25.f%03d", qualifier, forecast_date.getUTCHours(), i);
                     console.debug(`file: ${file}`);
                     var params = {
                         file: file,
                         subregion: "",
-                        dir: "/" + dates_dir + times_dir + "wave/gridded"
+                        dir: "/" + dates_dir + times_dir + "atmos/pgrb2sp25"
                     };
                     if (this.config.bbox) {
                         params = Object.assign(Object.assign({}, params), this.config.bbox);
@@ -137,55 +150,46 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                             params["var_" + variable] = "on";
                         });
                     }
-                    var localfilepath = __dirname + this.config.data_dir + dates_dir + times_dir + file;
+                    var localfilepath = `${__dirname}${this.config.data_dir}${dates_dir}${times_dir}${file}.grib2`;
                     //~ console.log({localfilepath:localfilepath})
                     yield (0, accessor_utils_1.downloadAndWriteStream)(this.url, params, localfilepath, this.connection);
-                    results.push(yield (0, accessor_utils_1.grib2obs)(localfilepath, this.variable_map, (this.config.bbox) ? [this.config.bbox.leftlon, this.config.bbox.toplat, this.config.bbox.rightlon, this.config.bbox.bottomlat] : undefined, "milímetros"));
+                    results.push(yield (0, accessor_utils_1.grib2obs)(localfilepath, this.variable_map, (this.config.bbox) ? [this.config.bbox.leftlon, this.config.bbox.toplat, this.config.bbox.rightlon, this.config.bbox.bottomlat] : undefined, "milímetros", true, qualifier));
                 }
-                member = member + 1;
             }
-            var observaciones = (0, accessor_utils_1.flatten)(results);
-            return observaciones;
+            var pronosticos = (0, accessor_utils_1.flatten)(results);
+            return pronosticos;
         });
     }
-    update(filter, options) {
+    getPronostico(filter = {}, options = {}) {
         return __awaiter(this, void 0, void 0, function* () {
-            const observaciones = yield this.get(filter, options);
-            console.info(`length: ${observaciones.length}`);
-            const result = yield CRUD_1.observacion.create(observaciones);
-            if (options === null || options === void 0 ? void 0 : options.no_send_data) {
-                if (result && result.length > 0) {
-                    var timestart = new Date(result.map(o => o.timestart).reduce((a, b) => new Date(Math.min(a.getTime(), b.getTime()))));
-                    var timeend = new Date(result.map(o => o.timeend).reduce((a, b) => new Date(Math.max(a.getTime(), b.getTime()))));
-                    var count = result.length;
-                    return {
-                        path: this.path,
-                        count: count,
-                        timestart: timestart,
-                        timeend: timeend
-                    };
-                }
-                else {
-                    return {
-                        path: this.path
-                    };
-                }
+            const pronosticos = yield this.get(filter, options);
+            if (!pronosticos.length) {
+                throw new Error("No se encontraron pronosticos");
             }
-            else if (options === null || options === void 0 ? void 0 : options.return_series) {
-                const serie = Client.serie;
-                serie.observaciones = result;
-                return [serie];
+            return new CRUD_1.corrida({
+                cal_id: this.config.cal_id,
+                forecast_date: this.forecast_date,
+                series: (0, accessor_utils_1.groupBySeriesIdAndQualifier)(pronosticos, undefined, "series_rast")
+            });
+        });
+    }
+    updatePronostico(filter = {}, options = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const corrida = yield this.getPronostico(filter, options);
+            const created = yield corrida.create();
+            if (!created) {
+                console.error("Corrida no insertada en base de datos");
+                return corrida;
             }
-            else {
-                return result;
-            }
+            return created;
         });
     }
     getDates(filter) {
-        var forecast_date = (filter.forecast_date) ? new Date(filter.forecast_date) : new Date();
+        var forecast_date = (filter.forecast_date) ? new Date(filter.forecast_date) : this.default_forecast_date;
         if (forecast_date.toString() == "Invalid Date") {
             throw new Error("Invalid forecast date");
         }
+        forecast_date.setMinutes(0, 0, 0);
         var timestart, timeend;
         if (filter.timestart) {
             timestart = new Date(filter.timestart);

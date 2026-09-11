@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.flatten = exports.grib2obs = exports.rast2obs = exports.downloadAndWriteStream = exports.filterSeriesByIds = exports.filterSites = exports.filterSeries = exports.filterByParam = exports.parseUtcDateTime = exports.fetchData = void 0;
+exports.groupBySeriesIdAndQualifier = exports.flatten = exports.grib2obs = exports.rast2obs = exports.downloadAndWriteStream = exports.filterSeriesByIds = exports.filterSites = exports.filterSeries = exports.filterByParam = exports.parseUtcDateTime = exports.fetchData = void 0;
 const axios_1 = __importDefault(require("axios"));
 const https_1 = __importDefault(require("https"));
 const boolean_point_in_polygon_1 = require("@turf/boolean-point-in-polygon");
@@ -161,7 +161,7 @@ function downloadAndWriteStream(url, params, localfilepath, connection) {
     });
 }
 exports.downloadAndWriteStream = downloadAndWriteStream;
-function rast2obs(filename, series_id) {
+function rast2obs(filename, series_id, to_prono, qualifier) {
     return __awaiter(this, void 0, void 0, function* () {
         // LEE GTIFF , GENERA observación  
         const gdalinfo_result = yield (0, child_process_promise_1.exec)(`gdalinfo -json ${filename}`);
@@ -175,6 +175,17 @@ function rast2obs(filename, series_id) {
         var ref_time = new Date(parseInt(band.metadata[""].GRIB_REF_TIME.split(/\s/)[0]) * 1000);
         var valid_time = new Date(parseInt(band.metadata[""].GRIB_VALID_TIME.split(/\s/)[0]) * 1000);
         const data = (0, node_fs_1.readFileSync)(filename, 'hex');
+        if (to_prono) {
+            return new CRUD_1.pronostico({
+                tipo: "raster",
+                // timeupdate: ref_time,
+                timestart: new Date(valid_time),
+                timeend: new Date(valid_time),
+                series_id: series_id,
+                valor: `\\x${data}`,
+                qualifier: qualifier
+            });
+        }
         return new CRUD_1.observacion({
             tipo: "raster",
             timeupdate: ref_time,
@@ -187,7 +198,7 @@ function rast2obs(filename, series_id) {
 }
 exports.rast2obs = rast2obs;
 function grib2obs(filepath, variable_map, bbox, // [leftlon, toplat, rightlon, bottomlat]
-units) {
+units, to_prono, qualifier) {
     return __awaiter(this, void 0, void 0, function* () {
         if (!filepath) {
             return Promise.reject("Falta filepath");
@@ -218,7 +229,7 @@ units) {
             }
             yield (0, child_process_promise_1.exec)(`gdal_translate -b ${band.band} -a_srs EPSG:4326 ${bbox_options} -of GTiff ${filepath} "${gtiff_filename}"`);
             yield (0, child_process_promise_1.exec)(`gdal_edit.py -mo "UNITS=${units}" ${gtiff_filename}`);
-            observaciones.push(yield rast2obs(gtiff_filename, variable.series_id));
+            observaciones.push(yield rast2obs(gtiff_filename, variable.series_id, to_prono, qualifier));
         }
         console.log("got " + observaciones.length + " observaciones");
         return observaciones;
@@ -226,8 +237,38 @@ units) {
 }
 exports.grib2obs = grib2obs;
 function flatten(arr) {
-    return arr.reduce(function (flat, toFlatten) {
-        return flat.concat(Array.isArray(toFlatten) ? flatten(toFlatten) : toFlatten);
-    }, []);
+    const result = [];
+    for (const item of arr) {
+        if (Array.isArray(item)) {
+            result.push(...flatten(item));
+        }
+        else {
+            result.push(item);
+        }
+    }
+    return result;
 }
 exports.flatten = flatten;
+//   return arr.reduce(function (flat, toFlatten) {
+//     return flat.concat(Array.isArray(toFlatten) ? flatten(toFlatten) : toFlatten);
+//   }, []);
+// }
+function groupBySeriesIdAndQualifier(pronosticos, series_id, series_table = "series") {
+    const series = [];
+    for (const pronostico of pronosticos) {
+        const existing_serie = series.find(s => s.series_id == pronostico.series_id && s.qualifier == pronostico.qualifier);
+        if (existing_serie) {
+            existing_serie.pronosticos.push(pronostico);
+        }
+        else {
+            series.push(new CRUD_1.SerieTemporalSim({
+                series_id: pronostico.series_id,
+                series_table: series_table,
+                qualifier: pronostico.qualifier,
+                pronosticos: [pronostico]
+            }));
+        }
+    }
+    return series;
+}
+exports.groupBySeriesIdAndQualifier = groupBySeriesIdAndQualifier;

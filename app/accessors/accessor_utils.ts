@@ -5,7 +5,7 @@ import { booleanPointInPolygon } from '@turf/boolean-point-in-polygon'
 import { createWriteStream, readFileSync } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import {exec as pexec} from 'child-process-promise'
-import { observacion as CrudObservacion } from "../CRUD";
+import { observacion as CrudObservacion, pronostico as CrudPronostico, SerieTemporalSim } from "../CRUD";
 
 
 
@@ -216,8 +216,10 @@ export type VariableMap = Record<string, {
 
 export async function rast2obs(
     filename : string,
-    series_id : number
-) : Promise<CrudObservacion> { 
+    series_id : number,
+    to_prono? : boolean,
+    qualifier? : string
+) : Promise<CrudObservacion|CrudPronostico> { 
     // LEE GTIFF , GENERA observación  
     const gdalinfo_result = await pexec(`gdalinfo -json ${filename}`)
     var stdout = gdalinfo_result.stdout
@@ -231,6 +233,19 @@ export async function rast2obs(
     var valid_time = new Date(parseInt(band.metadata[""].GRIB_VALID_TIME.split(/\s/)[0])*1000)
 
     const data = readFileSync(filename, 'hex')
+
+    if(to_prono) {
+        return new CrudPronostico({
+            tipo: "raster",
+            // timeupdate: ref_time,
+            timestart: new Date(valid_time), 
+            timeend: new Date(valid_time),
+            series_id: series_id,
+            valor: `\\x${data}`,
+            qualifier: qualifier
+        })
+
+    }
 
     return new CrudObservacion({
         tipo: "raster",
@@ -247,9 +262,26 @@ export async function grib2obs(
     filepath : string,
     variable_map : VariableMap,
     bbox? : number[], // [leftlon, toplat, rightlon, bottomlat]
-    units? : string
-
-) : Promise<CrudObservacion[]> { // LEE 1 GRIB, GENERA GTIFFs  // config={filepath:string, variable_map:{"key":{var_id:int,proc_id:int,unit_id:int,series_id:int},...},bbox:{leftlon:number,toplat:number, rightlon:number,bottomlat:number}, units: string}
+    units? : string,
+    to_prono?: true,
+    qualifier?: string
+) : Promise<CrudPronostico[]>
+export async function grib2obs(
+    filepath : string,
+    variable_map : VariableMap,
+    bbox? : number[], // [leftlon, toplat, rightlon, bottomlat]
+    units? : string,
+    to_prono?: false,
+    qualifier?: string
+) : Promise<CrudObservacion[]>
+export async function grib2obs(
+    filepath : string,
+    variable_map : VariableMap,
+    bbox? : number[], // [leftlon, toplat, rightlon, bottomlat]
+    units? : string,
+    to_prono?: boolean,
+    qualifier?: string
+) : Promise<CrudObservacion[]|CrudPronostico[]> { // LEE 1 GRIB, GENERA GTIFFs  // config={filepath:string, variable_map:{"key":{var_id:int,proc_id:int,unit_id:int,series_id:int},...},bbox:{leftlon:number,toplat:number, rightlon:number,bottomlat:number}, units: string}
     if(!filepath) {
         return Promise.reject("Falta filepath")
     }
@@ -279,15 +311,49 @@ export async function grib2obs(
         }
         await pexec(`gdal_translate -b ${band.band} -a_srs EPSG:4326 ${bbox_options} -of GTiff ${filepath} "${gtiff_filename}"`)
         await pexec(`gdal_edit.py -mo "UNITS=${units}" ${gtiff_filename}`)
-        observaciones.push(await rast2obs(gtiff_filename,variable.series_id))
+        observaciones.push(await rast2obs(gtiff_filename,variable.series_id, to_prono, qualifier))
     }
     console.log("got " + observaciones.length + " observaciones")
     return observaciones
 }
 
-export function flatten(arr : any[]) : any[] {
-  return arr.reduce(function (flat, toFlatten) {
-    return flat.concat(Array.isArray(toFlatten) ? flatten(toFlatten) : toFlatten);
-  }, []);
-}
+type NestedArray<T> = T | NestedArray<T>[];
 
+export function flatten<T>(arr : NestedArray<T>[]) : T[] {
+    const result: T[] = [];
+
+    for (const item of arr) {
+        if (Array.isArray(item)) {
+            result.push(...flatten(item));
+        } else {
+            result.push(item);
+        }
+    }
+
+    return result;
+}
+//   return arr.reduce(function (flat, toFlatten) {
+//     return flat.concat(Array.isArray(toFlatten) ? flatten(toFlatten) : toFlatten);
+//   }, []);
+// }
+
+export function groupBySeriesIdAndQualifier(
+    pronosticos : CrudPronostico[],
+    series_id? : number,
+    series_table : "series" | "series_areal" | "series_rast" = "series" ) : SerieTemporalSim[] {
+    const series : SerieTemporalSim[] = []
+    for(const pronostico of pronosticos) {
+        const existing_serie = series.find(s => s.series_id == pronostico.series_id && s.qualifier == pronostico.qualifier)
+        if(existing_serie) {
+            existing_serie.pronosticos.push(pronostico)
+        } else {
+            series.push(new SerieTemporalSim({
+                series_id: pronostico.series_id,
+                series_table: series_table,
+                qualifier: pronostico.qualifier,
+                pronosticos: [pronostico]
+            }))
+        }
+    }
+    return series
+}

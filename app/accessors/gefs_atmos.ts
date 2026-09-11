@@ -1,10 +1,10 @@
 import { AbstractAccessorEngine} from "./abstract_accessor_engine"
 import {exec as pexec} from 'child-process-promise'
-import {serie as CrudSerie, observacion as CrudObservacion, fuente as CrudFuente, escena as CrudEscena} from "../CRUD"
+import {serie as CrudSerie, observacion as CrudObservacion, fuente as CrudFuente, escena as CrudEscena, corrida as CrudCorrida, pronostico as CrudPronostico} from "../CRUD"
 import axios, { AxiosInstance } from "axios"
 import {sprintf} from 'sprintf-js'
 import { existsSync, mkdirSync, createWriteStream } from "fs"
-import { downloadAndWriteStream, grib2obs, flatten, VariableMap } from './accessor_utils'
+import { downloadAndWriteStream, grib2obs, flatten, VariableMap, groupBySeriesIdAndQualifier } from './accessor_utils'
 
 interface Config {
 	url: string
@@ -24,6 +24,7 @@ interface Config {
 	variable_map?: VariableMap
 	ens?: number
 	[x : string] : unknown
+	cal_id: number
 }
 
 
@@ -34,7 +35,7 @@ export class Client extends AbstractAccessorEngine {
 	config : Config
 
 	default_variable_map : VariableMap = {
-		"APCP": {
+		"APCP06": {
 			name: "apcp",
 			var_id: 91,
 			proc_id:4,
@@ -46,7 +47,7 @@ export class Client extends AbstractAccessorEngine {
 	default_config : Config = {
 		url: "https://nomads.ncep.noaa.gov/cgi-bin/filter_gefs_atmos_0p25s.pl",
 		// files_url: "https://nomads.ncep.noaa.gov/pub/data/nccf/com/gens/prod/",
-		data_dir: "/../data/gefs_atmos/",
+		data_dir: "/../../data/gefs_atmos/",
 		bbox: { leftlon: -70, rightlon: -40, toplat: -10, bottomlat:-40},
 		start_hour: 6,
 		end_hour: 241,
@@ -54,7 +55,8 @@ export class Client extends AbstractAccessorEngine {
 		levels: [ "surface"],
 		variables: [ "APCP" ],
 		variable_map: this.default_variable_map,
-		ens: 31
+		ens: 30,
+		cal_id: 721
 	}
 
 	static fuente : CrudFuente = new CrudFuente({
@@ -113,6 +115,9 @@ export class Client extends AbstractAccessorEngine {
 	ens: number
 	url: string
 	variable_map : VariableMap
+	forecast_date: Date
+	default_forecast_date: Date
+	default_qualifiers: string[]
 
 	constructor(config : Config) {
 		super(config)
@@ -122,8 +127,18 @@ export class Client extends AbstractAccessorEngine {
 		this.start_hour = this.config.start_hour || 6
 		this.end_hour = this.config.end_hour || 241
 		this.dt = this.config.dt || 6
-		this.ens = this.config.ens || 31
+		this.ens = this.config.ens || 30
 		this.variable_map = this.config.variable_map || this.default_variable_map
+		this.default_forecast_date = new Date()
+		this.default_forecast_date.setHours(this.default_forecast_date.getHours() - 6)		
+		this.default_forecast_date.setMinutes(0, 0, 0)
+		this.forecast_date = this.default_forecast_date
+		this.default_qualifiers = ["gec00", "geavg", "gespr"]
+		var member = 1
+		while(member <= this.ens) {
+			this.default_qualifiers.push(sprintf("gep%02d", member))
+			member = member + 1
+		}
 	}
 
 	async createSerie() : Promise<CrudSerie> {
@@ -152,10 +167,13 @@ export class Client extends AbstractAccessorEngine {
 			forecast_date?: string | Date,
     		timestart?: string | Date,
     		timeend?: string | Date,
+			qualifiers?: string[],
+			qualifier?: string
 		}={},
 		options={}
-	) : Promise<CrudObservacion[]> {
+	) : Promise<CrudPronostico[]> {
 		var dates = this.getDates(filter) 
+		this.forecast_date = dates.forecast_date
 		var forecast_date = dates.forecast_date
 		var timestart = dates.timestart
 		var timeend = dates.timeend
@@ -186,16 +204,17 @@ export class Client extends AbstractAccessorEngine {
 			}
 			hours.push(i)
 		}
-		const results = []
-		var member = 1
-		while(member <= this.ens) {
+		const results : CrudPronostico[][] = []
+		const qualifiers = (filter.qualifier) ? [filter.qualifier] : (filter.qualifiers) ? filter.qualifiers : this.default_qualifiers
+		for(const qualifier of qualifiers) {
+		// while(member <= this.ens) {
 			for(const i of hours) {
-				var file = sprintf ("gep%02d.t%02dz.pgrb2s.0p25.f%03d.grib2", member, forecast_date.getUTCHours(), i)
+				var file = sprintf ("%s.t%02dz.pgrb2s.0p25.f%03d", qualifier, forecast_date.getUTCHours(), i)
 				console.debug(`file: ${file}`)
 				var params : Record<string, any> = {
 					file: file,
 					subregion: "",
-					dir: "/" + dates_dir + times_dir + "wave/gridded"
+					dir: "/" + dates_dir + times_dir + "atmos/pgrb2sp25"
 				}
 				if(this.config.bbox) {
 					params = {...params, ...this.config.bbox}
@@ -210,7 +229,7 @@ export class Client extends AbstractAccessorEngine {
 						params["var_"+variable] = "on"
 					})
 				}
-				var localfilepath = __dirname + this.config.data_dir + dates_dir + times_dir + file
+				var localfilepath = `${__dirname}${this.config.data_dir}${dates_dir}${times_dir}${file}.grib2`
 				//~ console.log({localfilepath:localfilepath})
 				await downloadAndWriteStream(
 					this.url,
@@ -224,54 +243,56 @@ export class Client extends AbstractAccessorEngine {
 						localfilepath,
 						this.variable_map,
 						(this.config.bbox) ? [this.config.bbox.leftlon, this.config.bbox.toplat, this.config.bbox.rightlon, this.config.bbox.bottomlat] : undefined,
-						"milímetros"
+						"milímetros",
+						true,
+						qualifier
 					)
 				)
-			}		
-			member = member + 1
+			}
 		}
 
-		var observaciones = flatten(results)
-		return observaciones
+		var pronosticos = flatten(results)
+		return pronosticos
 	}
 
-	async update(
+	async getPronostico(
 		filter : {
 			forecast_date?: string | Date,
     		timestart?: string | Date,
     		timeend?: string | Date,
-		},
-		options?: {
-			return_series?: boolean
-			no_send_data?: boolean
+			qualifiers?: string[],
+			qualifier?: string
+		}={},
+		options: {}={}
+	) : Promise<CrudCorrida> {
+		const pronosticos = await this.get(filter,options)
+		if(!pronosticos.length) {
+			throw new Error("No se encontraron pronosticos")
 		}
-	) : Promise<CrudObservacion[]|CrudSerie[]> {
-		const observaciones = await this.get(filter,options)
-		console.info(`length: ${observaciones.length}`)
-		const result = await CrudObservacion.create(observaciones)
-		if(options?.no_send_data) {
-			if(result && result.length > 0) {
-				var timestart = new Date(result.map(o=>o.timestart).reduce((a,b)=>new Date(Math.min(a.getTime(),b.getTime()))))
-				var timeend = new Date(result.map(o=>o.timeend).reduce((a,b)=>new Date(Math.max(a.getTime(),b.getTime()))))
-				var count = result.length
-				return {
-					path: this.path,
-					count: count,
-					timestart: timestart,
-					timeend: timeend
-				}
-			} else {
-				return {
-					path: this.path
-				}
-			}
-		} else if(options?.return_series) {
-			const serie = Client.serie
-			serie.observaciones = result
-			return [serie]
-		} else {
-			return result
+		return new CrudCorrida({
+			cal_id: this.config.cal_id,
+			forecast_date: this.forecast_date,
+			series: groupBySeriesIdAndQualifier(pronosticos, undefined, "series_rast")
+		})
+	}
+
+	async updatePronostico(
+		filter : {
+			forecast_date?: string | Date,
+    		timestart?: string | Date,
+    		timeend?: string | Date,
+			qualifiers?: string[],
+			qualifier?: string
+		}={},
+		options={}
+	) : Promise<CrudCorrida> {
+		const corrida = await this.getPronostico(filter,options)
+		const created = await corrida.create()
+		if(!created) {
+			console.error("Corrida no insertada en base de datos")
+			return corrida
 		}
+		return created
 	}
 	
 	getDates(filter : {
@@ -288,10 +309,11 @@ export class Client extends AbstractAccessorEngine {
 			forecast_time_path: string
 		}
 	{
-		var forecast_date = (filter.forecast_date) ? new Date(filter.forecast_date) : new Date()
+		var forecast_date = (filter.forecast_date) ? new Date(filter.forecast_date) : this.default_forecast_date
 		if(forecast_date.toString() == "Invalid Date") {
 			throw new Error("Invalid forecast date")
 		}
+		forecast_date.setMinutes(0,0,0)
 		var timestart, timeend
 		if(filter.timestart) {
 			timestart = new Date(filter.timestart)
