@@ -7331,7 +7331,7 @@ internal.SerieTemporalSim = class extends baseModel {
 					proc_id: {type: "integer", table: "series_rast"},
 					unit_id: {type: "integer", table: "series_rast"},
 					cor_id: {type: "integer", table: "corridas", column: "id"},
-					date: {type: "date", table: "corridas", alias: "forecast_date", trunc: "milliseconds"},
+					date: {type: "date", table: "corridas", column: "date", alias: "forecast_date", trunc: "milliseconds"},
 					cal_id: {type: "integer", table: "corridas"},
 					begin_date: {type: "timestart", table: "pronosticos_rast", alias: "timestart", column: "timestart"},
 					end_date: {type: "timeend", table: "pronosticos_rast", alias: "timeend", column: "timeend"},
@@ -14193,7 +14193,7 @@ internal.CRUD = class {
 							},
 							"qualifier": {
 								type: "string",
-								table: "pronosticos_rast"
+								table: "data_table"
 							}
 						},
 						{
@@ -15024,6 +15024,9 @@ internal.CRUD = class {
 							o.series_id = options.insertSeriesId
 							if (options.timeupdate) {
 								o.timeupdate = options.timeupdate
+							}
+							if(qualifier) {
+								o.qualifier = qualifier
 							}
 							if(dt_ / o.time_sum * 1000 < min_time_fraction) {
 								console.error("la observación no alcanza la mínima fracción de tiempo")
@@ -16452,18 +16455,53 @@ internal.CRUD = class {
 				const observaciones = serie.aggregateMonthly(timestart,timeend,a.agg_func,a.precision,a.timeSupport,a.expression)
 				return this.upsertObservaciones(observaciones,a.dest_tipo,a.dest_series_id)
 			} else {
-				return this.getRegularSeries(
-					a.source_tipo,
-					a.source_series_id,
-					a.dt,
-					timestart,
-					timeend,
-					opt,
-					client,
-					a.cal_id,
-					filter.cor_id,
-					filter.forecast_date,
-					filter.qualifier)
+				if(filter.cor_id || (a.cal_id && filter.forecast_date)) {
+					const result = []
+					// get qualifiers
+					const series_sim = await internal.SerieTemporalSim.read(
+						{
+							cor_id: filter.cor_id,
+							cal_id: a.cal_id,
+							forecast_date: filter.forecast_date,
+							qualifier: filter.qualifier,
+							tipo: a.source_tipo,
+							series_id: a.source_series_id
+						},
+						{
+							includeProno: false,
+							group_by_qualifier: true
+						})
+					// for each qualifier, getRegularSeries
+					for(const s of series_sim) {
+						result.push(await this.getRegularSeries(
+							a.source_tipo,
+							a.source_series_id,
+							a.dt,
+							timestart,
+							timeend,
+							opt,
+							client,
+							a.cal_id,
+							filter.cor_id,
+							filter.forecast_date,
+							s.qualifier))
+					}
+					return flatten(result)
+
+				} else {
+					return this.getRegularSeries(
+						a.source_tipo,
+						a.source_series_id,
+						a.dt,
+						timestart,
+						timeend,
+						opt,
+						client,
+						a.cal_id,
+						filter.cor_id,
+						filter.forecast_date,
+						filter.qualifier)
+				}
 			}
 		})
 	}
