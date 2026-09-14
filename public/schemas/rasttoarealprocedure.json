@@ -49,7 +49,20 @@
                         },
                         "forecast_date": {
                             "$ref": "dateorinterval.json"
-                        }   
+                        },
+                        "qualifier": {
+                            "oneOf":[
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            ]
+                        }
 
                     },
                     "additionalProperties": true

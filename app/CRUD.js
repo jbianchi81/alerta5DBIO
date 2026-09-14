@@ -14369,7 +14369,7 @@ internal.CRUD = class {
 		})
 	}
 
-	static async rastExtractByArea(series_id,timestart,timeend,area,options={},client,cor_id, cal_id, forecast_date) {
+	static async rastExtractByArea(series_id,timestart,timeend,area,options={},client,cor_id, cal_id, forecast_date, qualifier) {
 		return withClient(client, async (client) => {
 			if(!timestart || !timeend) {
 				return Promise.reject("falta timestart y/o timeend")
@@ -14403,42 +14403,46 @@ internal.CRUD = class {
 			serie.id= undefined
 			// console.log({geom:area.geom.toString(),srid:serie.fuente.def_srid})
 			if(cor_id) {
-				var stmt = "WITH s as (\
-						SELECT timestart timestart,\
-							timeend timeend,\
-							cor_id cor_id,\
-							qualifier qualifier,\
-							(st_summarystats(st_clip(st_resample(st_clip(valor,1,st_buffer(st_envelope(st_geomfromtext($1,st_srid(valor))),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,st_srid(valor)),-9999,true)))." + options.funcion.toLowerCase() + " valor\
-						FROM pronosticos_rast \
-						WHERE series_id=$2\
-						AND timestart::timestamptz>=$3::timestamptz\
-						AND timeend::timestamptz<=$4::timestamptz\
-						AND cor_id=$5\
-					)\
-					SELECT timestart, timeend, qualifier, cor_id, to_char(valor,'S99990.99')::numeric valor\
-						FROM s\
-						WHERE valor IS NOT NULL\
-					ORDER BY timestart;"
+				const qualifier_filter = control_filter2({qualifier: {type: "string"}}, {qualifier: qualifier})
+				var stmt = `WITH s as (
+						SELECT timestart AS timestart,
+							timeend AS timeend,
+							cor_id AS cor_id,
+							qualifier AS qualifier,
+							(st_summarystats(st_clip(st_resample(st_clip(valor,1,st_buffer(st_envelope(st_geomfromtext($1,st_srid(valor))),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,st_srid(valor)),-9999,true))).${options.funcion.toLowerCase()} AS valor
+						FROM pronosticos_rast 
+						WHERE series_id=$2
+						AND timestart::timestamptz>=$3::timestamptz
+						AND timeend::timestamptz<=$4::timestamptz
+						AND cor_id=$5
+						${qualifier_filter}
+					)
+					SELECT timestart, timeend, qualifier, cor_id, to_char(valor,'S99990.99')::numeric valor
+						FROM s
+						WHERE valor IS NOT NULL
+					ORDER BY timestart;`
 				var args = [area.geom.toString(),series_id,timestart,timeend,cor_id]
 			} else if(cal_id && forecast_date) {
-				var stmt = "WITH s as (\
-						SELECT pronosticos_rast.timestart timestart,\
-							pronosticos_rast.timeend timeend,\
-							pronosticos_rast.cor_id cor_id,\
-							qualifier qualifier,\
-							(st_summarystats(st_clip(st_resample(st_clip(pronosticos_rast.valor,1,st_buffer(st_envelope(st_geomfromtext($1,st_srid(valor))),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,st_srid(valor)),-9999,true)))." + options.funcion.toLowerCase() + " valor\
-						FROM pronosticos_rast \
-						JOIN corridas ON corridas.id=pronosticos_rast.cor_id \
-						WHERE pronosticos_rast.series_id=$2\
-						AND pronosticos_rast.timestart::timestamptz>=$3::timestamptz\
-						AND pronosticos_rast.timeend::timestamptz<=$4::timestamptz\
-						AND corridas.cal_id=$5\
-						AND corridas.date::timestamptz=$6::timestamptz\
-					)\
-					SELECT timestart, timeend, qualifier, cor_id, to_char(valor,'S99990.99')::numeric valor\
-						FROM s\
-						WHERE valor IS NOT NULL\
-					ORDER BY timestart;"
+				const qualifier_filter = control_filter2({qualifier: {type: "string"}}, {qualifier: qualifier})
+				var stmt = `WITH s as (
+						SELECT pronosticos_rast.timestart AS timestart,
+							pronosticos_rast.timeend AS timeend,
+							pronosticos_rast.cor_id AS cor_id,
+							qualifier AS qualifier,
+							(st_summarystats(st_clip(st_resample(st_clip(pronosticos_rast.valor,1,st_buffer(st_envelope(st_geomfromtext($1,st_srid(valor))),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,st_srid(valor)),-9999,true))).${options.funcion.toLowerCase()} AS valor
+						FROM pronosticos_rast 
+						JOIN corridas ON corridas.id=pronosticos_rast.cor_id 
+						WHERE pronosticos_rast.series_id=$2
+						AND pronosticos_rast.timestart::timestamptz>=$3::timestamptz
+						AND pronosticos_rast.timeend::timestamptz<=$4::timestamptz
+						AND corridas.cal_id=$5
+						AND corridas.date::timestamptz=$6::timestamptz
+						${qualifier_filter}
+					)
+					SELECT timestart, timeend, qualifier, cor_id, to_char(valor,'S99990.99')::numeric valor
+						FROM s
+						WHERE valor IS NOT NULL
+					ORDER BY timestart;`
 				var args = [area.geom.toString(),series_id,timestart,timeend, cal_id, forecast_date]
 			} else {
 				var stmt = `WITH geom AS (
@@ -14580,7 +14584,8 @@ internal.CRUD = class {
 		client,
 		cor_id, 
 		cal_id, 
-		forecast_date
+		forecast_date,
+		qualifier
 		) {
 		return withClient(client, async (client) => {
 			if(area == "all") {
@@ -14595,12 +14600,23 @@ internal.CRUD = class {
 				for(var i=0;i<result.rows.length;i++) {
 					const serie_areal = result.rows[i]
 					//~ console.log([series_id,timestart,timeend,serie_areal.area_id])
-					try {
-						var serie = await this.rastExtractByArea(series_id,timestart,timeend,serie_areal.area_id,options,client,cor_id,cal_id,forecast_date)
-					} catch(e) {
-						console.error(e)
-						continue
-					}
+					// if(Array.isArray(qualifier)) {
+					// 	for(const q of qualifier) {
+					// 		try {
+					// 			var serie = await this.rastExtractByArea(series_id,timestart,timeend,serie_areal.area_id,options,client,cor_id,cal_id,forecast_date,q)
+					// 		} catch(e) {
+					// 			console.error(e)
+					// 			continue
+					// 		}
+					// 	}
+					// } else {
+						try {
+							var serie = await this.rastExtractByArea(series_id,timestart,timeend,serie_areal.area_id,options,client,cor_id,cal_id,forecast_date,qualifier)
+						} catch(e) {
+							console.error(e)
+							continue
+						}
+					// }
 					if(!serie) {
 						console.log("serie rast no encontrada")
 						continue

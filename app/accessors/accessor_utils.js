@@ -20,6 +20,7 @@ const node_fs_1 = require("node:fs");
 const promises_1 = require("node:stream/promises");
 const child_process_promise_1 = require("child-process-promise");
 const CRUD_1 = require("../CRUD");
+const timeSteps_1 = require("../timeSteps");
 function fetchData(url, options) {
     var _a, _b;
     return __awaiter(this, void 0, void 0, function* () {
@@ -161,7 +162,7 @@ function downloadAndWriteStream(url, params, localfilepath, connection) {
     });
 }
 exports.downloadAndWriteStream = downloadAndWriteStream;
-function rast2obs(filename, series_id, to_prono, qualifier) {
+function rast2obs(filename, series_id, to_prono, qualifier, time_support) {
     return __awaiter(this, void 0, void 0, function* () {
         // LEE GTIFF , GENERA observación  
         const gdalinfo_result = yield (0, child_process_promise_1.exec)(`gdalinfo -json ${filename}`);
@@ -174,13 +175,17 @@ function rast2obs(filename, series_id, to_prono, qualifier) {
         var band = gdalinfo.bands[0];
         var ref_time = new Date(parseInt(band.metadata[""].GRIB_REF_TIME.split(/\s/)[0]) * 1000);
         var valid_time = new Date(parseInt(band.metadata[""].GRIB_VALID_TIME.split(/\s/)[0]) * 1000);
+        var t1 = new Date(valid_time);
+        var t2 = (time_support) ? (0, timeSteps_1.advanceTimeStep)(valid_time, time_support) : new Date(valid_time);
+        var timestart = (t1 < t2) ? t1 : t2;
+        var timeend = (t1 < t2) ? t2 : t1;
         const data = (0, node_fs_1.readFileSync)(filename, 'hex');
         if (to_prono) {
             return new CRUD_1.pronostico({
                 tipo: "raster",
                 // timeupdate: ref_time,
-                timestart: new Date(valid_time),
-                timeend: new Date(valid_time),
+                timestart: timestart,
+                timeend: timeend,
                 series_id: series_id,
                 valor: `\\x${data}`,
                 qualifier: qualifier
@@ -198,7 +203,7 @@ function rast2obs(filename, series_id, to_prono, qualifier) {
 }
 exports.rast2obs = rast2obs;
 function grib2obs(filepath, variable_map, bbox, // [leftlon, toplat, rightlon, bottomlat]
-units, to_prono, qualifier) {
+units, to_prono, qualifier, time_support) {
     return __awaiter(this, void 0, void 0, function* () {
         if (!filepath) {
             return Promise.reject("Falta filepath");
@@ -229,7 +234,7 @@ units, to_prono, qualifier) {
             }
             yield (0, child_process_promise_1.exec)(`gdal_translate -b ${band.band} -a_srs EPSG:4326 ${bbox_options} -of GTiff ${filepath} "${gtiff_filename}"`);
             yield (0, child_process_promise_1.exec)(`gdal_edit.py -mo "UNITS=${units}" ${gtiff_filename}`);
-            observaciones.push(yield rast2obs(gtiff_filename, variable.series_id, to_prono, qualifier));
+            observaciones.push(yield rast2obs(gtiff_filename, variable.series_id, to_prono, qualifier, time_support));
         }
         console.log("got " + observaciones.length + " observaciones");
         return observaciones;

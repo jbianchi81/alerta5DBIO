@@ -3574,6 +3574,7 @@ internal.RastToArealProcedure = class extends internal.CrudProcedure {
         this.cor_id = arguments[0].filter.cor_id
         this.cal_id = arguments[0].filter.cal_id
         this.forecast_date = (arguments[0].filter.forecast_date) ? DateFromDateOrInterval(arguments[0].filter.forecast_date) : undefined
+        this.qualifier = arguments[0].filter.qualifier
         // options:
         // - no_insert
         // - funcion
@@ -3598,10 +3599,10 @@ internal.RastToArealProcedure = class extends internal.CrudProcedure {
                         let te = new Date(ts)
                         te.setFullYear(te.getFullYear() + 1)
                         te = (te.getTime() > this.timeend.getTime()) ? this.timeend : te 
-                        this.result.push(await crud.rast2areal(this.series_id,ts,te,a,this.options, undefined, this.cor_id, this.cal_id, this.forecast_date))
+                        this.result.push(await crud.rast2areal(this.series_id,ts,te,a,this.options, undefined, this.cor_id, this.cal_id, this.forecast_date, this.qualifier))
                     }                    
                 } else {
-                    this.result.push(await crud.rast2areal(this.series_id,this.timestart,this.timeend,a,this.options, undefined, this.cor_id, this.cal_id, this.forecast_date))
+                    this.result.push(await crud.rast2areal(this.series_id,this.timestart,this.timeend,a,this.options, undefined, this.cor_id, this.cal_id, this.forecast_date, this.qualifier))
                 }
             }
         } else {

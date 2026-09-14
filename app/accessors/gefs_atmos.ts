@@ -5,6 +5,7 @@ import axios, { AxiosInstance } from "axios"
 import {sprintf} from 'sprintf-js'
 import { existsSync, mkdirSync, createWriteStream } from "fs"
 import { downloadAndWriteStream, grib2obs, flatten, VariableMap, groupBySeriesIdAndQualifier } from './accessor_utils'
+import { IntervalDict } from "a5base/timeSteps"
 
 interface Config {
 	url: string
@@ -118,6 +119,7 @@ export class Client extends AbstractAccessorEngine {
 	forecast_date: Date
 	default_forecast_date: Date
 	default_qualifiers: string[]
+	time_support: IntervalDict | undefined
 
 	constructor(config : Config) {
 		super(config)
@@ -127,6 +129,7 @@ export class Client extends AbstractAccessorEngine {
 		this.start_hour = this.config.start_hour || 6
 		this.end_hour = this.config.end_hour || 241
 		this.dt = this.config.dt || 6
+		this.time_support = {hours: this.dt * -1}
 		this.ens = this.config.ens || 30
 		this.variable_map = this.config.variable_map || this.default_variable_map
 		this.default_forecast_date = new Date()
@@ -245,7 +248,8 @@ export class Client extends AbstractAccessorEngine {
 						(this.config.bbox) ? [this.config.bbox.leftlon, this.config.bbox.toplat, this.config.bbox.rightlon, this.config.bbox.bottomlat] : undefined,
 						"milímetros",
 						true,
-						qualifier
+						qualifier,
+						this.time_support
 					)
 				)
 			}

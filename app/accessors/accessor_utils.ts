@@ -6,7 +6,8 @@ import { createWriteStream, readFileSync } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import {exec as pexec} from 'child-process-promise'
 import { observacion as CrudObservacion, pronostico as CrudPronostico, SerieTemporalSim } from "../CRUD";
-
+import {advanceTimeStep} from "../timeSteps"
+import { Interval, IntervalDict } from "a5base/timeSteps";
 
 
 export type SeriesFilter = {
@@ -218,7 +219,8 @@ export async function rast2obs(
     filename : string,
     series_id : number,
     to_prono? : boolean,
-    qualifier? : string
+    qualifier? : string,
+    time_support? : IntervalDict
 ) : Promise<CrudObservacion|CrudPronostico> { 
     // LEE GTIFF , GENERA observación  
     const gdalinfo_result = await pexec(`gdalinfo -json ${filename}`)
@@ -231,6 +233,10 @@ export async function rast2obs(
     var band = gdalinfo.bands[0]
     var ref_time = new Date(parseInt(band.metadata[""].GRIB_REF_TIME.split(/\s/)[0])*1000)
     var valid_time = new Date(parseInt(band.metadata[""].GRIB_VALID_TIME.split(/\s/)[0])*1000)
+    var t1 = new Date(valid_time)
+    var t2 = (time_support) ? advanceTimeStep(valid_time, time_support) : new Date(valid_time)
+    var timestart = (t1 < t2) ? t1 : t2
+    var timeend = (t1 < t2) ? t2 : t1
 
     const data = readFileSync(filename, 'hex')
 
@@ -238,8 +244,8 @@ export async function rast2obs(
         return new CrudPronostico({
             tipo: "raster",
             // timeupdate: ref_time,
-            timestart: new Date(valid_time), 
-            timeend: new Date(valid_time),
+            timestart: timestart, 
+            timeend: timeend,
             series_id: series_id,
             valor: `\\x${data}`,
             qualifier: qualifier
@@ -264,7 +270,8 @@ export async function grib2obs(
     bbox? : number[], // [leftlon, toplat, rightlon, bottomlat]
     units? : string,
     to_prono?: true,
-    qualifier?: string
+    qualifier?: string,
+    time_support?: IntervalDict
 ) : Promise<CrudPronostico[]>
 export async function grib2obs(
     filepath : string,
@@ -272,7 +279,8 @@ export async function grib2obs(
     bbox? : number[], // [leftlon, toplat, rightlon, bottomlat]
     units? : string,
     to_prono?: false,
-    qualifier?: string
+    qualifier?: string,
+    time_support?: IntervalDict
 ) : Promise<CrudObservacion[]>
 export async function grib2obs(
     filepath : string,
@@ -280,7 +288,8 @@ export async function grib2obs(
     bbox? : number[], // [leftlon, toplat, rightlon, bottomlat]
     units? : string,
     to_prono?: boolean,
-    qualifier?: string
+    qualifier?: string,
+    time_support?: IntervalDict
 ) : Promise<CrudObservacion[]|CrudPronostico[]> { // LEE 1 GRIB, GENERA GTIFFs  // config={filepath:string, variable_map:{"key":{var_id:int,proc_id:int,unit_id:int,series_id:int},...},bbox:{leftlon:number,toplat:number, rightlon:number,bottomlat:number}, units: string}
     if(!filepath) {
         return Promise.reject("Falta filepath")
@@ -311,7 +320,7 @@ export async function grib2obs(
         }
         await pexec(`gdal_translate -b ${band.band} -a_srs EPSG:4326 ${bbox_options} -of GTiff ${filepath} "${gtiff_filename}"`)
         await pexec(`gdal_edit.py -mo "UNITS=${units}" ${gtiff_filename}`)
-        observaciones.push(await rast2obs(gtiff_filename,variable.series_id, to_prono, qualifier))
+        observaciones.push(await rast2obs(gtiff_filename,variable.series_id, to_prono, qualifier, time_support))
     }
     console.log("got " + observaciones.length + " observaciones")
     return observaciones

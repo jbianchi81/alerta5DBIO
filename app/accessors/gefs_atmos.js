@@ -54,6 +54,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         this.start_hour = this.config.start_hour || 6;
         this.end_hour = this.config.end_hour || 241;
         this.dt = this.config.dt || 6;
+        this.time_support = { hours: this.dt * -1 };
         this.ens = this.config.ens || 30;
         this.variable_map = this.config.variable_map || this.default_variable_map;
         this.default_forecast_date = new Date();
@@ -153,7 +154,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                     var localfilepath = `${__dirname}${this.config.data_dir}${dates_dir}${times_dir}${file}.grib2`;
                     //~ console.log({localfilepath:localfilepath})
                     yield (0, accessor_utils_1.downloadAndWriteStream)(this.url, params, localfilepath, this.connection);
-                    results.push(yield (0, accessor_utils_1.grib2obs)(localfilepath, this.variable_map, (this.config.bbox) ? [this.config.bbox.leftlon, this.config.bbox.toplat, this.config.bbox.rightlon, this.config.bbox.bottomlat] : undefined, "milímetros", true, qualifier));
+                    results.push(yield (0, accessor_utils_1.grib2obs)(localfilepath, this.variable_map, (this.config.bbox) ? [this.config.bbox.leftlon, this.config.bbox.toplat, this.config.bbox.rightlon, this.config.bbox.bottomlat] : undefined, "milímetros", true, qualifier, this.time_support));
                 }
             }
             var pronosticos = (0, accessor_utils_1.flatten)(results);
