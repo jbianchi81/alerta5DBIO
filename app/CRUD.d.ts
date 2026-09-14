@@ -1274,6 +1274,35 @@ export class SerieTemporalSim extends baseModel implements SerieTemporalSimDict{
     timeSupport?: Interval | string
     metadata?: any
     tipo: "puntual" | "areal" | "raster"
+    static async read(
+        filter : {
+            series_id?: number|number[],
+            area_id?: number|number[],
+            tabla?: string|string[],
+            fuentes_id?: number|number[],
+            var_id?: number|number[],
+            proc_id?: number|number[],
+            unit_id?: number|number[],
+            cor_id?: number|number[],
+            date?: Date,
+            cal_id?: number|number[],
+            begin_date?: Date,
+            end_date?: Date,
+            count?: number,
+            qualifier?: string|string[],
+            model_id?: number|number[],
+            isPublic?: boolean,
+            cal_grupo_id?: number|number[],
+            forecast_timestart?: Date,
+            forecast_timeend?: Date,
+            geom?: Geometry
+        } = {},
+        options : {
+            group_by_qualifier?: boolean,
+            includeProno?: boolean
+        } = {}, 
+        client?: Client
+    ) : Promise<SerieTemporalSim[]>
 }
 
 export class corrida extends baseModel implements CorridaDict {

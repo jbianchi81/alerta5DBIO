@@ -7344,6 +7344,8 @@ internal.SerieTemporalSim = class extends baseModel {
 					geom: { type: "geometry", table: "escenas", column: "geom"}
 				}
 				var filter_string = internal.utils.control_filter2(valid_filters, filter, "series_rast")
+				const group_by_qualifier = (options.group_by_qualifier) ? ", pronosticos_rast.qualifier" : ""
+				const select_qualifier = (options.group_by_qualifier) ? "pronosticos_rast.qualifier AS qualifier" : "json_agg(DISTINCT pronosticos_rast.qualifier) AS qualifiers"
 				var result = await client.query(`
 					SELECT 
 					series_rast.id AS series_id,
@@ -7359,7 +7361,7 @@ internal.SerieTemporalSim = class extends baseModel {
 					min(pronosticos_rast.timestart) AS begin_date,
 					max(pronosticos_rast.timestart) AS end_date,
 					count(pronosticos_rast.timestart) AS count,
-					json_agg(DISTINCT pronosticos_rast.qualifier) AS qualifiers
+					${select_qualifier}
 				FROM corridas 
 				JOIN pronosticos_rast ON pronosticos_rast.cor_id = corridas.id
 				JOIN series_rast ON series_rast.id=pronosticos_rast.series_id
@@ -7376,7 +7378,8 @@ internal.SerieTemporalSim = class extends baseModel {
 				series_rast.unit_id,
 				corridas.id,
 				corridas.date,
-				corridas.cal_id`)
+				corridas.cal_id
+				${group_by_qualifier}`)
 			} else {
 				// puntual
 				var valid_filters = {
@@ -7561,7 +7564,9 @@ internal.SerieTemporalSim = class extends baseModel {
 		// 	m.series_table = "series_areal"
 		// }
 		if(options.upload) {
-			return internal.pronostico.create(means, {tipo: "areal", cor_id: this.cor_id})
+			const result = await internal.pronostico.create(means, {tipo: "areal", cor_id: this.cor_id})
+			await internal.CRUD.updateSeriesPronoDateRange({tipo: "areal", cor_id: this.cor_id, ...areas_filter})
+			return result
 		}
 		return means
 	}
@@ -18473,7 +18478,7 @@ ORDER BY cal.cal_id`
 				const filter_string = internal.utils.control_filter2({
 					cor_id: {type:"integer"},
 					series_id: {type: "integer"},
-					estacion_id: {type: "integer", table: "series_areal", column:"area_id"},
+					estacion_id: {type: "integer", table: "series_areal", column:"area_id", alias: "area_id"},
 					tabla: {type: "string", table: "estaciones"},
 					var_id: {type: "integer", table: "series_areal"},
 					cal_id: {type: "integer", table: "corridas"},
@@ -20950,6 +20955,11 @@ ORDER BY cal.cal_id`
 		} else {
 			var means = await internal.observacion.readFile(tmpFile_output)
 		}
+		if(serie.qualifier) {
+			for(const p of means) {
+				p.qualifier = serie.qualifier
+			}
+		}
 		return means
 	}
 
@@ -20972,6 +20982,7 @@ ORDER BY cal.cal_id`
 					obs_filter.timeend,
 					output_file,
 					write_index_file,
+					undefined,
 					undefined,
 					undefined,
 					(serie.qualifier) ? serie.qualifier : (serie.qualifiers && serie.qualifiers.length) ? serie.qualifiers[0] : obs_filter.qualifier
@@ -21142,33 +21153,37 @@ ORDER BY cal.cal_id`
 				qualifier: qualifier
 			},
 			{
-				includeProno: false
+				includeProno: false,
+				group_by_qualifier: true
 			}
 		)
 		if(!series_rast.length) {
 			throw new Error("Series prono not found with series_id=" + series_id)
 		}
-		const serie_rast = series_rast[0]
-		const result = await serie_rast.toAreal(
-			{ // areas filter
-				mostrar: areas_filter.mostrar,
-				activar: areas_filter.activar,
-				id: areas_filter.id || areas_filter.unid,
-				nombre: areas_filter.nombre,
-				geom: areas_filter.geom,
-				exutorio: areas_filter.exutorio,
-				exutorio_id: areas_filter.exutorio_id
-			},
-			{ // options
-				upload: options.upload,
-				coef: options.coef,
-				no_update: options.no_update
-			},
-			{ // obs filter
-				timestart: timestart,
-				timeend: timeend
-			}
-		)
+		const result = []
+		for(const serie_rast of series_rast) {
+			const pronos_areales = await serie_rast.toAreal(
+				{ // areas filter
+					mostrar: areas_filter.mostrar,
+					activar: areas_filter.activar,
+					id: areas_filter.id || areas_filter.unid,
+					nombre: areas_filter.nombre,
+					geom: areas_filter.geom,
+					exutorio: areas_filter.exutorio,
+					exutorio_id: areas_filter.exutorio_id
+				},
+				{ // options
+					upload: options.upload,
+					coef: options.coef,
+					no_update: options.no_update
+				},
+				{ // obs filter
+					timestart: timestart,
+					timeend: timeend
+				}
+			)
+			result.push(...pronos_areales)
+		}
 		return result    
 	}
 }
