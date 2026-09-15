@@ -196,11 +196,12 @@ internal.red = class extends baseModel  {
 	} 
 	static async read(filter, options, client) {
 		return withClient(client, async (client) => {
+			const {user_id, ...filter_} = filter
 			if(filter.id) {
-				const red = await internal.CRUD.getRed(filter.id, client)
+				const red = await internal.CRUD.getRed(filter_.id, user_id, client)
 				return new internal.red(red)
 			}
-		const {user_id, ...filter_} = filter
+			
 			return internal.CRUD.getRedes(filter_, user_id, client)
 		})
 	}
