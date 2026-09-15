@@ -46,3 +46,4 @@ jsconfig.json
 .venv
 .myenv
 reportes
+.env

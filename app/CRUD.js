@@ -3393,8 +3393,8 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 			column: "id",
 			table: "s"},
 		estacion_id: {
-			table: "series",
-			column: internal.serie.getFeatureIdColumn(tipo),
+			table: "s",
+			column: "estacion_id", //internal.serie.getFeatureIdColumn(tipo),
 		},
 		var_id:{
 			table: "s"},
@@ -3416,10 +3416,10 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 		data_availability:{
 			table: "s"}
 	}
-	sort_fields[internal.serie.getFeatureIdColumn(tipo)] = {
-		table: "s",
-		column: internal.serie.getFeatureIdColumn(tipo)
-	}
+	// sort_fields[internal.serie.getFeatureIdColumn(tipo)] = {
+	// 	table: "s",
+	// 	column: internal.serie.getFeatureIdColumn(tipo)
+	// }
 	//						PAGINATION
 	var [limit,pagination,page_offset,limit_string] = internal.utils.getLimitString(filter.limit,filter.offset)
 	var properties
@@ -3883,7 +3883,7 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 	var series_filter_string=internal.utils.control_filter2(valid_series_filters,filter,undefined,true)
 	var availability_filter_string = internal.utils.control_filter2(valid_availability_filters, filter, "a", true)
 	// console.debug({filter:filter,filter_string:filter_string})
-	var order_string = internal.utils.build_order_by_clause(sort_fields,options.sort,"series",["estacion_id","var_id","proc_id"],options.order)
+	var order_string = internal.utils.build_order_by_clause(sort_fields,options.sort,"s",["estacion_id","var_id","proc_id","id"],options.order)
 	// console.log({order_string:order_string,sort:options.sort,order:options.order})
 	// select_fields.push(`count(*) OVER() AS total`)
 	
@@ -4046,6 +4046,7 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 		WHERE 1=1
 		${availability_filter_string}
 		${has_prono_filter_string}
+		${order_string}
 		${limit_string}
 	)
 	SELECT  ${select_fields.join(", \n")}
