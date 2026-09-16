@@ -4657,7 +4657,7 @@ function getCalibrados (req,res) {  // devuelve un array de objetos Calibrado
 	if(filter.id) {
 		filter.cal_id=filter.id
 	}
-	crud.getCalibrados(filter.estacion_id,filter.var_id,options.includeCorr,filter.timestart,filter.timeend,filter.cal_id,filter.model_id,undefined,filter.public,filter.cal_grupo_id,filter.no_metadata,options.group_by_cal)
+	crud.getCalibrados(filter.estacion_id,filter.var_id,options.includeCorr,filter.timestart,filter.timeend,filter.cal_id,filter.model_id,undefined,filter.public,filter.cal_grupo_id,filter.no_metadata,options.group_by_cal,undefined,undefined,undefined,undefined,filter.tipo)
 	.then(result=>{
 		const calibrados = result.map(c=>new CRUD.calibrado(c))
 		res.send(calibrados)

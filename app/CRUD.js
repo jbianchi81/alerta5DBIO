@@ -17395,41 +17395,52 @@ internal.CRUD = class {
 		forecast_date,
 		includeInactive,
 		series_id,
-		client) {
+		client,
+		tipo,
+		fuentes_id) {
 		console.debug({includeCorr:includeCorr, isPublic: isPublic})
+		const prono_last_table = (tipo == "areal") ? "series_areal_prono_last" : "series_prono_last"
+		const series_table =  (tipo == "areal") ? "series_areal" : "series"
+		const site_id_column =  (tipo == "areal") ? "area_id" : "estacion_id"
 		var public_filter = (isPublic) ? "AND calibrados.public=true" : ""
 		var activar_filter = (includeInactive) ? "" : "AND calibrados.activar = TRUE"
-		var grupo_filter = (grupo_id) ? "AND series_prono_last.cal_grupo_id=" + parseInt(grupo_id) : ""
+		var grupo_filter = (grupo_id) ? `AND last_table.cal_grupo_id=${parseInt(grupo_id)}` : ""
 		var cal_join = (estacion_id || var_id || includeCorr || timestart || timeend || grupo_id || series_id) ? "JOIN" : "LEFT OUTER JOIN"
 		var base_query
 		const series_filter = internal.utils.control_filter2(
 			{
 				"estacion_id": {
 					type: "integer",
-					table: "series"
+					table: "series_table",
+					column: site_id_column
 				},
 				"var_id": {
 					type: "integer",
-					table: "series",
+					table: "series_table",
 				},
 				"cal_id": {
 					type: "integer",
-					table: "series_prono_last"
+					table: "last_table"
 				},
 				"model_id": {
 					type: "integer",
-					table: "series_prono_last"
+					table: "last_table"
 				},
 				"series_id": {
 					type: "integer",
-					table: "series_prono_last"
+					table: "last_table"
+				},
+				"fuentes_id": {
+					type: "integer",
+					table: "series_table"
 				}
 			},{
 				estacion_id: estacion_id,
 				var_id: var_id,
 				cal_id: cal_id,
 				model_id: model_id,
-				series_id: series_id
+				series_id: series_id,
+				fuentes_id: fuentes_id
 			}
 		)
 		const calibrados_filter = internal.utils.control_filter2(
@@ -17448,133 +17459,145 @@ internal.CRUD = class {
 			}
 		)
 		if(group_by_cal) {
-			base_query = "WITH pronos as (\
-				select series_prono_last.cal_id,\
-				series_prono_last.cor_id,\
-				series_prono_last.fecha_emision,\
-				json_agg(json_build_object('estacion_id',series.estacion_id,'var_id',series.var_id,'proc_id',series.proc_id,'unit_id',series.unit_id)) series,\
-				json_agg(series.estacion_id) out_id\
-				from series_prono_last,series\
-				WHERE series_prono_last.series_id=series.id\
-				" + series_filter + "\
-				" + grupo_filter + "\
-				GROUP BY series_prono_last.cal_id,series_prono_last.cor_id,series_prono_last.fecha_emision\
-			  ),\
-			  cal as (\
-		        SELECT calibrados.id cal_id, \
-				 pronos.series, \
-				 pronos.out_id, \
-				 calibrados.area_id, \
-				 calibrados.in_id, \
-				 calibrados.nombre, \
-				 calibrados.model_id, \
-				 calibrados.modelo, \
-				 calibrados.activar, \
-				 calibrados.selected, \
-				 calibrados.dt, \
-				 calibrados.t_offset \
-		        FROM calibrados \
-				" + cal_join + " pronos\
-				ON (calibrados.id=pronos.cal_id) \
-				WHERE 1=1 \
-				" + calibrados_filter + "\
-		        " + activar_filter + "\
-				" + public_filter + "\
-		    )"
+			base_query = `WITH pronos as (
+				select last_table.cal_id,
+				last_table.cor_id,
+				last_table.fecha_emision,
+				json_agg(json_build_object(
+					'estacion_id',series_table.${site_id_column},
+					'var_id', series_table.var_id,
+					'proc_id',series_table.proc_id,
+					'unit_id',series_table.unit_id
+					)) series,
+				json_agg(series_table.${site_id_column}) out_id
+				FROM 
+					${prono_last_table} AS last_table,
+					${series_table} AS series_table
+				WHERE last_table.series_id=series_table.id
+				${series_filter}
+				${grupo_filter}
+				GROUP BY 
+					last_table.cal_id,
+					last_table.cor_id,
+					last_table.fecha_emision
+			  ),
+			  cal as (
+		        SELECT calibrados.id cal_id, 
+				 pronos.series, 
+				 pronos.out_id, 
+				 calibrados.area_id, 
+				 calibrados.in_id, 
+				 calibrados.nombre, 
+				 calibrados.model_id, 
+				 calibrados.modelo, 
+				 calibrados.activar, 
+				 calibrados.selected, 
+				 calibrados.dt, 
+				 calibrados.t_offset 
+		        FROM calibrados 
+				${cal_join} pronos
+				ON (calibrados.id=pronos.cal_id)
+				WHERE 1=1
+				${calibrados_filter}
+		        ${activar_filter}
+				${public_filter}
+		    )`
 		} else {
-			base_query = "WITH pronos as (\
-				select series_prono_last.cal_id,\
-				series_prono_last.cor_id,\
-				series_prono_last.fecha_emision,\
-				series.estacion_id,\
-				series.var_id,\
-				series.proc_id,\
-				series.unit_id\
-				from series_prono_last,series\
-				WHERE series_prono_last.series_id=series.id\
-				" + series_filter + "\
-				" + grupo_filter + "\
-			  ),\
-			  cal as (\
-				SELECT calibrados.id cal_id, \
-				pronos.estacion_id out_id, \
-				pronos.var_id, \
-				pronos.unit_id, \
-				calibrados.area_id, \
-				calibrados.in_id, \
-				calibrados.nombre, \
-				calibrados.modelo, \
-				calibrados.model_id, \
-				calibrados.activar, \
-				calibrados.selected, \
-				calibrados.dt, \
-				calibrados.t_offset \
-				FROM calibrados \
-				" + cal_join + " pronos\
-				ON (calibrados.id=pronos.cal_id) \
-				WHERE 1=1 \
-				" + calibrados_filter + "\
-		        " + activar_filter + "\
-				" + public_filter + "\
-			)"
+			base_query = `WITH pronos as (
+				select last_table.cal_id,
+				last_table.cor_id,
+				last_table.fecha_emision,
+				series_table.${site_id_column} AS estacion_id,
+				series_table.var_id,
+				series_table.proc_id,
+				series_table.unit_id
+				FROM ${prono_last_table} AS last_table
+				JOIN ${series_table} AS series_table 
+					ON last_table.series_id=series_table.id
+				WHERE 1=1
+				${series_filter}
+				${grupo_filter}
+			  ),
+			  cal as (
+				SELECT calibrados.id cal_id, 
+				pronos.estacion_id out_id, 
+				pronos.var_id, 
+				pronos.unit_id, 
+				calibrados.area_id, 
+				calibrados.in_id, 
+				calibrados.nombre, 
+				calibrados.modelo, 
+				calibrados.model_id, 
+				calibrados.activar, 
+				calibrados.selected, 
+				calibrados.dt, 
+				calibrados.t_offset 
+				FROM calibrados 
+				${cal_join} pronos
+				ON (calibrados.id=pronos.cal_id)
+				WHERE 1=1
+				${calibrados_filter}
+		        ${activar_filter}
+				${public_filter}
+			)`
 		}
 		var query
 		if(no_metadata) {
-			query = `${base_query} SELECT cal.cal_id id, \
-			cal.out_id, \
-			cal.area_id, \
-			cal.in_id, \
-			cal.nombre, \
-			cal.modelo, \
-			cal.model_id, \
-			cal.activar, \
-			cal.selected, \
-			cal.dt, \
-			cal.t_offset \
-	 FROM cal ORDER BY cal.cal_id`
+			query = `${base_query} SELECT cal.cal_id id, 
+			cal.out_id, 
+			cal.area_id,
+			cal.in_id, 
+			cal.nombre, 
+			cal.modelo, 
+			cal.model_id, 
+			cal.activar, 
+			cal.selected, 
+			cal.dt, 
+			cal.t_offset 
+	 		FROM cal ORDER BY cal.cal_id`
 		} else {
-			query = `${base_query},  pars as ( \
-	select cal_pars.cal_id, \
-		   json_agg(cal_pars) arr \
-	from cal_pars, cal \
-	where cal_pars.cal_id=cal.cal_id \
-	group by cal_pars.cal_id\
-),\
-states as ( \
-	select cal_estados.cal_id,\
-		   json_agg(cal_estados) arr \
-	from cal_estados, cal \
-	where cal_estados.cal_id=cal.cal_id \
-	group by cal_estados.cal_id \
-),\
-forcings as (\
-	select forzantes.cal_id, \
-		   json_agg(forzantes) arr \
-	from forzantes, cal \
-	where forzantes.cal_id=cal.cal_id \
-	group by forzantes.cal_id \
-)\
-SELECT cal.cal_id id, \
-       cal.out_id, \
-       cal.area_id, \
-       cal.in_id, \
-       cal.nombre, \
-       cal.modelo, \
-	   cal.model_id, \
-       cal.activar, \
-       cal.selected, \
-       cal.dt, \
-       cal.t_offset, \
-       pars.arr parametros, \
-       states.arr estados_iniciales, \
-       forcings.arr forzantes, \
-	   row_to_json(extra_pars.*) as extra_pars \
-FROM cal \
-LEFT OUTER JOIN extra_pars ON (extra_pars.cal_id=cal.cal_id) \
-LEFT OUTER JOIN pars  ON (cal.cal_id=pars.cal_id ) \
-LEFT OUTER JOIN states ON (states.cal_id=cal.cal_id) \
-LEFT OUTER JOIN forcings ON (forcings.cal_id=cal.cal_id) \
-ORDER BY cal.cal_id`
+			query = `${base_query},  pars as ( 
+					select cal_pars.cal_id, 
+						json_agg(cal_pars) arr 
+					from cal_pars, cal 
+					where cal_pars.cal_id=cal.cal_id 
+					group by cal_pars.cal_id
+				),
+				states as ( 
+					select cal_estados.cal_id,
+						json_agg(cal_estados) arr 
+					from cal_estados, cal 
+					where cal_estados.cal_id=cal.cal_id 
+					group by cal_estados.cal_id 
+				),
+				forcings as (
+					select forzantes.cal_id, 
+						json_agg(forzantes) arr 
+					from forzantes, cal 
+					where forzantes.cal_id=cal.cal_id 
+					group by forzantes.cal_id 
+				)
+				SELECT cal.cal_id id, 
+					cal.out_id, 
+					cal.area_id, 
+					cal.in_id, 
+					cal.nombre, 
+					cal.modelo, 
+					cal.model_id, 
+					cal.activar, 
+					cal.selected, 
+					cal.dt, 
+					cal.t_offset, 
+					pars.arr parametros, 
+					states.arr estados_iniciales, 
+					forcings.arr forzantes, 
+					row_to_json(extra_pars.*) as extra_pars 
+				FROM cal 
+				LEFT OUTER JOIN extra_pars ON (extra_pars.cal_id=cal.cal_id) 
+				LEFT OUTER JOIN pars  ON (cal.cal_id=pars.cal_id ) 
+				LEFT OUTER JOIN states ON (states.cal_id=cal.cal_id) 
+				LEFT OUTER JOIN forcings ON (forcings.cal_id=cal.cal_id) 
+				ORDER BY cal.cal_id`
 		}
 		return withClient(client, async (client) => {
 			const result = await client.query(query) //,[estacion_id,var_id,cal_id,model_id])
@@ -17627,7 +17650,7 @@ ORDER BY cal.cal_id`
 							undefined,
 							true,
 							undefined,
-							undefined,
+							tipo,
 							undefined,
 							undefined,
 							undefined,
@@ -17641,7 +17664,7 @@ ORDER BY cal.cal_id`
 					} else {
 						const estacion_id = (Array.isArray(c.out_id)) ? c.out_id.map(s=>(typeof s == "number") ? s : s.estacion_id) : c.out_id
 						// console.log("estacion_id: " + estacion_id)
-						const corrida = await this.getLastCorrida(estacion_id,var_id,c.id,timestart,timeend,qualifier,isPublic, undefined, undefined, undefined, undefined, undefined, undefined, client)
+						const corrida = await this.getLastCorrida(estacion_id,var_id,c.id,timestart,timeend,qualifier,isPublic, undefined, undefined, undefined, undefined, tipo, undefined, client)
 						calibrados[i].corrida = corrida
 					}
 				}
@@ -17678,7 +17701,7 @@ ORDER BY cal.cal_id`
 		})
 	}
 
-	static async getSeriesArealPronoLast(series_id,forecast_date,client) {
+	static async getSeriesArealPronoLast_(series_id,forecast_date,client) {
 		var filter_string = internal.utils.control_filter2(
 			{
 				series_id: {type: "integer"},
@@ -17773,6 +17796,54 @@ ORDER BY cal.cal_id`
 		})
 	}
 
+
+	static async getSeriesArealPronoLast(filter={},client) {
+		// console.log({filter:filter})
+		var filter_string = internal.utils.control_filter2(
+			{
+				area_id: {type: "integer", table: "series_areal", column: "area_id", alias: "estacion_id"},
+				var_id: {type: "integer", table: "series_areal"},
+				fuentes_id: {type: "integer", table: "series_areal"},
+				cal_id: {type: "integer", table: "series_areal_prono_last"},
+				model_id: {type: "integer", table: "series_areal_prono_last"},
+				series_id: {type: "integer", column: "id", table: "series_areal"},
+				grupo_id: {type: "integer", column: "cal_grupo_id", table: "series_areal_prono_last"}
+			},
+			{
+				area_id: filter.area_id || filter.estacion_id,
+				var_id: filter.var_id,
+				fuentes_id: filter.fuentes_id,
+				cal_id: filter.cal_id,
+				model_id: filter.model_id,
+				series_id: filter.series_id,
+				grupo_id: filter.grupo_id
+			},
+			"series_areal"
+		)
+		var query = `
+		SELECT series_areal_prono_last.cal_id,
+			series_areal_prono_last.cor_id,
+			series_areal_prono_last.fecha_emision,
+			json_agg(
+				json_build_object(
+					'id',series_areal.id,
+					'estacion_id',series_areal.area_id,
+					'var_id',series_areal.var_id,
+					'proc_id',series_areal.proc_id,
+					'unit_id',series_areal.unit_id, 
+					'fuentes_id', series_areal.fuentes_id
+				)) AS series
+			FROM series_areal_prono_last
+			JOIN series_areal ON series_areal_prono_last.series_id=series_areal.id
+		WHERE 1=1
+		${filter_string}
+		GROUP BY series_areal_prono_last.cal_id, series_areal_prono_last.cor_id, series_areal_prono_last.fecha_emision`
+		return withClient(client, async (client) => {
+			const result = await client.query(query) // ,[filter.estacion_id,filter.var_id,filter.cal_id,filter.model_id,filter.series_id])
+			return result.rows
+		})
+	}
+
 	static async getCalibrado(id, client) {
 		if(!id) {
 			throw new Error("missing id")
@@ -17813,10 +17884,9 @@ ORDER BY cal.cal_id`
 			filter.activar = true
 		}
 		var calibrados
-		var series_prono_last
 		return withClient(client, async (client) => {
 			if(series_id && tipo == "areal") {
-				series_prono_last = await this.getSeriesArealPronoLast(series_id,forecast_date,client)
+				var series_prono_last = await this.getSeriesArealPronoLast_(series_id,forecast_date,client)
 				console.debug({series_prono_last:series_prono_last})
 				const cal_ids = new Set(series_prono_last.map(result=>result.cal_id))
 				filter.id = Array.from(cal_ids)
@@ -17824,9 +17894,31 @@ ORDER BY cal.cal_id`
 					console.error("No series_prono found")
 					return []
 				}
-				calibrados = await this.getCalibrados_(filter.estacion_id,filter.var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive,undefined, client) // await engine.read("Calibrado",filter)
+				calibrados = await this.getCalibrados_(
+					filter.estacion_id,
+					filter.var_id,
+					false,
+					filter.timestart,
+					filter.timeend,
+					filter.id,
+					filter.model_id,
+					filter.qualifier,
+					filter.public,
+					filter.grupo_id,
+					no_metadata,
+					group_by_cal,
+					filter.forecast_date,
+					includeInactive,
+					undefined, 
+					client,
+					tipo,
+					filter.fuentes_id) // await engine.read("Calibrado",filter)
 			} else if(estacion_id || var_id || includeCorr || qualifier || forecast_date || series_id) {
-				series_prono_last = await this.getSeriesPronoLast({cal_id:cal_id,model_id:model_id,grupo_id:filter.grupo_id,estacion_id:estacion_id,var_id:var_id,forecast_date:forecast_date,series_id:series_id},client)
+				if(tipo == "areal") {
+					var series_prono_last = await this.getSeriesArealPronoLast({cal_id:cal_id,model_id:model_id,grupo_id:filter.grupo_id,estacion_id:estacion_id,var_id:var_id,forecast_date:forecast_date,series_id:series_id},client)
+				} else {
+					var series_prono_last = await this.getSeriesPronoLast({cal_id:cal_id,model_id:model_id,grupo_id:filter.grupo_id,estacion_id:estacion_id,var_id:var_id,forecast_date:forecast_date,series_id:series_id},client)
+				}
 				// console.log(JSON.stringify({series_prono_last:series_prono_last},null,2))
 				const cal_ids = new Set(series_prono_last.map(result=>result.cal_id))
 				filter.id = Array.from(cal_ids)
@@ -17835,13 +17927,50 @@ ORDER BY cal.cal_id`
 					return []
 				}
 				// console.log({cal_id:filter.id})
-				calibrados = await this.getCalibrados_(estacion_id,var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive,series_id,client) // engine.read("Calibrado",filter)
+				calibrados = await this.getCalibrados_(
+					estacion_id,
+					var_id,
+					false,
+					filter.timestart,
+					filter.timeend,
+					filter.id,
+					filter.model_id,
+					filter.qualifier,
+					filter.public,
+					filter.grupo_id,
+					no_metadata,
+					group_by_cal,
+					filter.forecast_date,
+					includeInactive,
+					series_id,
+					client,
+					tipo, 
+					filter.fuentes_id) // engine.read("Calibrado",filter)
 			} else {
-				calibrados = await this.getCalibrados_(estacion_id,var_id,false,filter.timestart,filter.timeend,filter.id,filter.model_id,filter.qualifier,filter.public,filter.grupo_id,no_metadata,group_by_cal,filter.forecast_date,includeInactive,undefined, client) // engine.read("Calibrado",filter)
+				var series_prono_last = []
+				calibrados = await this.getCalibrados_(
+					estacion_id,
+					var_id,
+					false,
+					filter.timestart,
+					filter.timeend,
+					filter.id,
+					filter.model_id,
+					filter.qualifier,
+					filter.public,
+					filter.grupo_id,
+					no_metadata,
+					group_by_cal,
+					filter.forecast_date,
+					includeInactive,
+					undefined, 
+					client,
+					tipo,
+					filter.fuentes_id) // engine.read("Calibrado",filter)
 			}
 			if(includeCorr) {
 				var s_id
-				if(series_prono_last && series_prono_last.length) {
+				if(series_prono_last.length) {
 					const series_ids = Array.from(new Set(flatten(series_prono_last.map(p=> {
 						// console.log(p)
 						if(p.series) {

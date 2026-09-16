@@ -409,7 +409,7 @@ function getPronosJsonUrl() {
 		return
 	}
 	$("#myModal span#exportcsv a").click(downldTablePronoCSV).removeAttr("href").text("descargar CSV").css("color","#007bff")
-	$("#myModal span#exportjson input#exportjsonurl").val(window.location.origin + window.location.pathname.replace(/[^/]*$/,"") + "sim/calibrados?estacion_id=" + global.series.estacion.id + "&var_id=" + global.series.var.id + "&includeCorr=true&timestart=" + global.series.timestart + "&timeend=" + global.series.timeend).removeAttr("disabled")
+	$("#myModal span#exportjson input#exportjsonurl").val(window.location.origin + window.location.pathname.replace(/[^/]*$/,"") + "sim/calibrados?tipo=" + global.series.tipo + "&estacion_id=" + global.series.estacion.id + "&var_id=" + global.series.var.id + "&includeCorr=true&timestart=" + global.series.timestart + "&timeend=" + global.series.timeend).removeAttr("disabled")
 	$("div#myModal span#exportcsv").show()
 	$("div#myModal span#exportjson").show()
 	$("div#myModal div#authentication").hide()
