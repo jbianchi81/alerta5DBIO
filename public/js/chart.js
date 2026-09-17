@@ -410,7 +410,7 @@ var loadChart = function(getseriesbysiteandvarobj,table_container_id,chart_conta
 					var aoa = dates.map((d, i)=> {
 						// for(var j=0;j<prono_series.length;j++) {
 						var row = prono_series.map(p=>{
-							return (hoh[d][p.key]) ? hoh[d][p.key] : null
+							return (hoh[d][p.key] != null ) ? hoh[d][p.key] : null
 						})
 						return [d, ...row]
 					})
