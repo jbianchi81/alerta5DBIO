@@ -445,6 +445,18 @@ paths:
         required: false
         in: query
         example: false
+      - name: group_by_qualifier
+        description: separar series por qualifier
+        schema: { "type": "boolean"} 
+        required: false
+        in: query
+        example: false
+      - name: tipo
+        description: tipo de serie
+        schema: { "type": "string", "enum": ["puntual", "areal", "raster"]} 
+        required: false
+        in: query
+        example: "puntual"
       responses:
         '200':
           description: OK
@@ -569,6 +581,18 @@ paths:
         required: false
         in: query
         example: false
+      - name: group_by_qualifier
+        description: separar series por qualifier
+        schema: { "type": "boolean"} 
+        required: false
+        in: query
+        example: false
+      - name: tipo
+        description: tipo de serie
+        schema: { "type": "string", "enum": ["puntual", "areal", "raster"]} 
+        required: false
+        in: query
+        example: "puntual"
       responses:
         '200':
           description: OK
