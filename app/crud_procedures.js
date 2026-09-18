@@ -2363,9 +2363,15 @@ internal.DeleteCorridasProcedure = class extends internal.CrudProcedure {
                 this.filter[v] = timeSteps.DateFromDateOrInterval(this.filter[v])
             }
         }
+        this.run_options = {
+            save: arguments[0].save,
+            save_prono: arguments[0].save_prono,
+            skip_delete: arguments[0].skip_delete,
+            only_sim: arguments[0].only_sim
+        }
     }
     async run() {
-        this.result = await crud.deleteCorridas(this.filter)
+        this.result = await crud.deleteCorridas(this.filter, this.run_options)
         return this.result
     }
 }

@@ -19400,7 +19400,7 @@ internal.CRUD = class {
 					return Promise.reject("crud.deleteCorridas: missing skip_cal_id")
 				} 
 				console.log("filter.forecast_date + filter.skip_cal_id")
-			getPronoPromise = this.getPronosticos(undefined,undefined,undefined,undefined,filter.forecast_date, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, client)
+				getPronoPromise = this.getPronosticos(undefined,undefined,undefined,undefined,filter.forecast_date, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, client)
 			} else if (filter.forecast_timeend) {
 				if(!filter.skip_cal_id) { 
 					return Promise.reject("crud.deleteCorridas: missing skip_cal_id")
@@ -19563,7 +19563,7 @@ internal.CRUD = class {
 		})
 	}	
 
-	static async guardarCorridas(cor_id,filter={},options={}, client) {
+	static async guardarCorridas(cor_id,filter={},options={}, client, tipo) {
 		return withTransaction(client, async (client) => {
 			if(!cor_id ) {
 				return Promise.reject("crud.guardarCorridas: Missing parameter cor_id")
@@ -19588,21 +19588,51 @@ internal.CRUD = class {
 				ON CONFLICT (cal_id,date) DO NOTHING"
 				// console.log(query)
 				await client.query(query)
-				query = "INSERT INTO pronosticos_guardados \
-				SELECT pronosticos.* from pronosticos,corridas \
-				WHERE pronosticos.cor_id=corridas.id \
-				AND cor_id IN (" + cor_id.join(",") + ") \
-				" + date_filter + " \
-				ON CONFLICT (cor_id,series_id,timestart,timeend,qualifier) DO NOTHING"
-				// console.log(query)
-				await client.query(query)
-				query = "insert into valores_prono_num_guardados select valores_prono_num.* from valores_prono_num,pronosticos,corridas where pronosticos.cor_id=corridas.id AND  valores_prono_num.prono_id=pronosticos.id and pronosticos.cor_id IN (" + cor_id.join(",") + ") " + date_filter + " ON CONFLICT (prono_id) DO NOTHING"
-				// console.log(query)
-				await client.query(query)
-				return this.getCorridasGuardadas(cor_id, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, client)
+
+				// puntuales
+				if(!tipo || tipo == "puntual") {
+					query = "INSERT INTO pronosticos_guardados \
+					SELECT pronosticos.* from pronosticos,corridas \
+					WHERE pronosticos.cor_id=corridas.id \
+					AND cor_id IN (" + cor_id.join(",") + ") \
+					" + date_filter + " \
+					ON CONFLICT (cor_id,series_id,timestart,timeend,qualifier) DO NOTHING"
+					// console.log(query)
+					await client.query(query)
+					query = "insert into valores_prono_num_guardados select valores_prono_num.* from valores_prono_num,pronosticos,corridas where pronosticos.cor_id=corridas.id AND  valores_prono_num.prono_id=pronosticos.id and pronosticos.cor_id IN (" + cor_id.join(",") + ") " + date_filter + " ON CONFLICT (prono_id) DO NOTHING"
+					// console.log(query)
+					await client.query(query)
+				}
+
+				// areales
+				if(!tipo || tipo == "areal") {
+					query = `INSERT INTO pronosticos_areal_guardados 
+					SELECT pronosticos_areal.* from pronosticos_areal,corridas 
+					WHERE pronosticos_areal.cor_id=corridas.id 
+					AND cor_id IN (${cor_id.join(",")}) 
+					${date_filter}
+					ON CONFLICT (cor_id,series_id,timestart,timeend,qualifier) DO NOTHING`
+					// console.log(query)
+					await client.query(query)
+				}
+
+				// raster
+				if(!tipo || tipo == "raster") {
+					query = `INSERT INTO pronosticos_rast_guardados 
+					SELECT pronosticos_rast.* from pronosticos_rast,corridas 
+					WHERE pronosticos_rast.cor_id=corridas.id 
+					AND cor_id IN (${cor_id.join(",")}) 
+					${date_filter}
+					ON CONFLICT (cor_id,series_id,timestart,timeend,qualifier) DO NOTHING`
+					// console.log(query)
+					await client.query(query)
+				}
+
+				return this.getCorridasGuardadas(cor_id, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, client, undefined, tipo)
 			} else if(parseInt(cor_id).toString() == "NaN") {
 				return Promise.reject("crud.guardarCorridas: Bad parameter cor_id")
 			}
+
 			var query = "WITH to_save AS (select * from corridas where id=$1) \
 			DELETE FROM corridas_guardadas USING to_save WHERE corridas_guardadas.date=to_save.date AND corridas_guardadas.cal_id=to_save.cal_id"
 			await client.query(query,[cor_id])
@@ -19610,16 +19640,45 @@ internal.CRUD = class {
 			INSERT INTO corridas_guardadas \
 			SELECT * FROM to_save ON CONFLICT (cal_id,date) DO NOTHING"
 			await client.query(query,[cor_id])
-			var query = "insert into pronosticos_guardados select * from pronosticos,corridas where pronosticos.cor_id=corridas.id AND  cor_id=$1 " + date_filter + " ON CONFLICT DO NOTHING"
-			// console.log(this.internal.utils.pasteIntoSQLQuery(query,[cor_id]))
-			await client.query(query,[cor_id])
-			await client.query("insert into valores_prono_num_guardados select valores_prono_num.* from valores_prono_num,pronosticos,corridas where pronosticos.cor_id=corridas.id AND valores_prono_num.prono_id=pronosticos.id and pronosticos.cor_id=$1 " + date_filter + " ON CONFLICT DO NOTHING",[cor_id])
-			return this.getCorridasGuardadas(cor_id, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, client)
+
+			// puntuales
+			if(!tipo || tipo == "puntual") {
+				var query = "insert into pronosticos_guardados select * from pronosticos,corridas where pronosticos.cor_id=corridas.id AND  cor_id=$1 " + date_filter + " ON CONFLICT DO NOTHING"
+				// console.log(this.internal.utils.pasteIntoSQLQuery(query,[cor_id]))
+				await client.query(query,[cor_id])
+				await client.query("insert into valores_prono_num_guardados select valores_prono_num.* from valores_prono_num,pronosticos,corridas where pronosticos.cor_id=corridas.id AND valores_prono_num.prono_id=pronosticos.id and pronosticos.cor_id=$1 " + date_filter + " ON CONFLICT DO NOTHING",[cor_id])
+			}
+
+			// areales
+			if(!tipo || tipo == "areal") {
+				query = `INSERT INTO pronosticos_areal_guardados 
+				SELECT pronosticos_areal.* from pronosticos_areal,corridas 
+				WHERE pronosticos_areal.cor_id=corridas.id 
+				AND cor_id=$1 
+				${date_filter}
+				ON CONFLICT (cor_id,series_id,timestart,timeend,qualifier) DO NOTHING`
+				// console.log(query)
+				await client.query(query, [cor_id])
+			}
+
+			// raster
+			if(!tipo || tipo == "raster") {
+				query = `INSERT INTO pronosticos_rast_guardados 
+				SELECT pronosticos_rast.* from pronosticos_rast,corridas 
+				WHERE pronosticos_rast.cor_id=corridas.id 
+				AND cor_id=$1
+				${date_filter}
+				ON CONFLICT (cor_id,series_id,timestart,timeend,qualifier) DO NOTHING`
+				// console.log(query)
+				await client.query(query,[cor_id])
+			}
+
+			return this.getCorridasGuardadas(cor_id, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, client, undefined, tipo)
 		}, {force: true})
 	}
 	
 
-	static async getCorridasGuardadas(cor_id,cal_id,forecast_timestart,forecast_timeend,forecast_date,timestart,timeend,qualifier,estacion_id,var_id,includeProno=false,isPublic,series_id,series_metadata,cal_grupo_id,group_by_qualifier, client) {
+	static async getCorridasGuardadas(cor_id,cal_id,forecast_timestart,forecast_timeend,forecast_date,timestart,timeend,qualifier,estacion_id,var_id,includeProno=false,isPublic,series_id,series_metadata,cal_grupo_id,group_by_qualifier, client, fuentes_id, tipo) {
 		return withClient(client, async(client) => {
 			// console.log({includeProno:includeProno, isPublic: isPublic})
 			var public_filter = (isPublic) ? "AND calibrados.public=true" : ""
@@ -19627,7 +19686,6 @@ internal.CRUD = class {
 			var cor_id_filter = (cor_id) ? sanitizeIdFilter(cor_id, "corridas_guardadas.id") : ""
 			// (cor_id) ? (Array.isArray(cor_id)) ? " AND corridas_guardadas.id IN (" + cor_id.join(",") + ")" : " AND corridas_guardadas.id=" + cor_id : ""
 			// var cor_id_filter2 = (cor_id) ? (Array.isArray(cor_id)) ? " AND pronosticos_guardados.cor_id IN (" + cor_id.join(",") + ")" : " AND pronosticos_guardados.cor_id=" + cor_id : ""
-			var pronosticos = []
 			const result = await client.query("SELECT corridas_guardadas.id,\
 			corridas_guardadas.date,\
 			corridas_guardadas.cal_id\
@@ -19651,56 +19709,101 @@ internal.CRUD = class {
 			}
 			const corridas = []
 			for(const r of result.rows) {
-				const result = await client.query("SELECT series.id series_id,\
-							series.estacion_id,\
-							series.var_id,\
-							to_char(pronosticos_guardados.timestart::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timestart,\
-							to_char(pronosticos_guardados.timeend::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timeend,\
-							valores_prono_num_guardados.valor,\
-							pronosticos_guardados.qualifier\
-					from pronosticos_guardados,valores_prono_num_guardados,series  \
-					where valores_prono_num_guardados.prono_id=pronosticos_guardados.id\
-					and pronosticos_guardados.timestart>=coalesce($2::timestamptz,'1970-01-01'::date)\
-					and pronosticos_guardados.timeend<=coalesce($3::timestamptz,'2100-01-01'::date)\
-					AND pronosticos_guardados.qualifier=coalesce($4,pronosticos_guardados.qualifier)\
-					and series.id=pronosticos_guardados.series_id\
-					AND series.estacion_id=coalesce($5,series.estacion_id)\
-					AND series.var_id=coalesce($6,series.var_id)\
-					AND series.id=coalesce($7,series.id)\
-					AND pronosticos_guardados.cor_id=$1\
-					ORDER BY pronosticos_guardados.series_id,pronosticos_guardados.timestart",[r.id,timestart,timeend,qualifier,estacion_id,var_id,series_id])
-				if(result.rows) {
-					var series = {}
-					if(group_by_qualifier) {   // one series element for each series_id+qualifier combination
-						result.rows.forEach(p=>{
-							var key = p.series_id + "_" + p.qualifier
-							if(!series[key]) {
-								series[key] = {series_id:p.series_id,estacion_id:p.estacion_id,var_id:p.var_id,qualifier:p.qualifier,pronosticos:[]}
-							}
-							series[key].pronosticos.push({timestart:p.timestart,timeend:p.timeend,valor:p.valor}) // cor_id:r.cor_id,series_id:p.series_id,
-						})
-					} else {    // one series element for each series_id, regardless of qualifier (results in mixed qualifier series)
-						result.rows.forEach(p=>{
-							if(!series[p.series_id]) {
-								series[p.series_id] = {series_id:p.series_id,estacion_id:p.estacion_id,var_id:p.var_id,pronosticos:[]}
-							}
-							series[p.series_id].pronosticos.push({timestart:p.timestart,timeend:p.timeend,valor:p.valor,qualifier:p.qualifier}) // cor_id:r.cor_id,series_id:p.series_id,
-						})
+				var corrida = {
+					cor_id: r.id,
+					id: r.id,
+					cal_id: r.cal_id,
+					forecast_date: r.date,
+					series: []
+				}
+				
+				if(!tipo || tipo == "puntual") {
+					// pronosticos puntuales
+					const result = await client.query("SELECT series.id series_id,\
+								series.estacion_id,\
+								series.var_id,\
+								to_char(pronosticos_guardados.timestart::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timestart,\
+								to_char(pronosticos_guardados.timeend::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timeend,\
+								valores_prono_num_guardados.valor,\
+								pronosticos_guardados.qualifier\
+						from pronosticos_guardados,valores_prono_num_guardados,series  \
+						where valores_prono_num_guardados.prono_id=pronosticos_guardados.id\
+						and pronosticos_guardados.timestart>=coalesce($2::timestamptz,'1970-01-01'::date)\
+						and pronosticos_guardados.timeend<=coalesce($3::timestamptz,'2100-01-01'::date)\
+						AND pronosticos_guardados.qualifier=coalesce($4,pronosticos_guardados.qualifier)\
+						and series.id=pronosticos_guardados.series_id\
+						AND series.estacion_id=coalesce($5,series.estacion_id)\
+						AND series.var_id=coalesce($6,series.var_id)\
+						AND series.id=coalesce($7,series.id)\
+						AND pronosticos_guardados.cor_id=$1\
+						ORDER BY pronosticos_guardados.series_id,pronosticos_guardados.timestart",[r.id,timestart,timeend,qualifier,estacion_id,var_id,series_id])
+					
+					var series = groupSeries(result.rows, group_by_qualifier)
+					corrida.series.push(...Object.keys(series).sort().map(k=>series[k]))
+				}
+
+				if(!tipo || tipo == "areal") {
+					// pronosticos areales
+					const result_areal = await client.query(`SELECT series_areal.id series_id,
+								series_areal.area_id AS estacion_id,
+								series_areal.var_id,
+								to_char(pronosticos_areal_guardados.timestart::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timestart,
+								to_char(pronosticos_areal_guardados.timeend::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timeend,
+								pronosticos_areal_guardados.valor,
+								pronosticos_areal_guardados.qualifier
+						from pronosticos_areal_guardados 
+						join series_areal ON series_areal.id=pronosticos_areal_guardados.series_id
+						where pronosticos_areal_guardados.timestart>=coalesce($2::timestamptz,'1970-01-01'::date)
+						and pronosticos_areal_guardados.timeend<=coalesce($3::timestamptz,'2100-01-01'::date)
+						AND pronosticos_areal_guardados.qualifier=coalesce($4,pronosticos_guardados.qualifier)
+						AND series_areal.estacion_id=coalesce($5,series_areal.estacion_id)
+						AND series_areal.var_id=coalesce($6,series_areal.var_id)
+						AND series_areal.fuentes_id=coalesce($8)
+						AND series_areal.id=coalesce($7,series_areal.id)
+						AND pronosticos_areal_guardados.cor_id=$1
+						ORDER BY pronosticos_areal_guardados.series_id,pronosticos_areal_guardados.timestart`,
+						[r.id,timestart,timeend,qualifier,estacion_id,var_id,series_id,fuentes_id])
+					
+					var series_areal = groupSeries(result_areal.rows, group_by_qualifier, "areal")
+					corrida.series.push(...Object.keys(series_areal).sort().map(k=>series_areal[k]) )
+				}
+
+				if(!tipo || tipo == "raster") {
+					// pronosticos raster
+					const result_rast = await client.query(`SELECT series_rast.id series_id,
+								series_rast.escena_id AS estacion_id,
+								series_rast.var_id,
+								to_char(pronosticos_rast_guardados.timestart::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timestart,
+								to_char(pronosticos_rast_guardados.timeend::timestamptz at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') timeend,
+								pronosticos_rast_guardados.valor,
+								pronosticos_rast_guardados.qualifier
+						from pronosticos_rast_guardados 
+						join series_rast ON series_rast.id=pronosticos_rast_guardados.series_id
+						where pronosticos_rast_guardados.timestart>=coalesce($2::timestamptz,'1970-01-01'::date)
+						and pronosticos_rast_guardados.timeend<=coalesce($3::timestamptz,'2100-01-01'::date)
+						AND pronosticos_rast_guardados.qualifier=coalesce($4,pronosticos_guardados.qualifier)
+						AND series_rast.estacion_id=coalesce($5,series_rast.estacion_id)
+						AND series_rast.var_id=coalesce($6,series_rast.var_id)
+						AND series_rast.fuentes_id=coalesce($8)
+						AND series_rast.id=coalesce($7,series_rast.id)
+						AND pronosticos_rast_guardados.cor_id=$1
+						ORDER BY pronosticos_rast_guardados.series_id,pronosticos_rast_guardados.timestart`,
+						[r.id,timestart,timeend,qualifier,estacion_id,var_id,series_id,fuentes_id])
+					
+					var series_rast = groupSeries(result_rast.rows, group_by_qualifier, "raster")
+					corrida.series.push(...Object.keys(series_rast).sort().map(k=>series_rast[k]) )
+				}
+
+				if(series_metadata) {
+					for(const serie of corrida.series) {
+						const s = await this.getSerie(serie.tipo,serie.series_id)
+						serie.metadata = s
 					}
-					var series_data = Object.keys(series).sort().map(k=>series[k]) 
-					var corrida = {cor_id:r.id,cal_id:r.cal_id,forecast_date:r.date,series:series_data}
-					if(series_metadata) {
-						var series = []
-						for(const serie of corrida.series) {
-							const s = await this.getSerie("puntual",serie.series_id)
-							serie.metadata = s
-						}
-						corridas.push(corrida)
-					} else {
-						corridas.push(corrida)
-					}
+				}
+				if(corrida.series.length) {
+					corridas.push(corrida)
 				} else {
-					continue
+					console.warn("No pronosticos found for corrida id:"  + corrida.id)
 				}
 			}
 			return corridas
@@ -22450,6 +22553,54 @@ function isNumeric(str) {
 	if (typeof str != "string") return false // we only process strings!  
 	return !isNaN(str) && // use type coercion to parse the _entirety_ of the string (`parseFloat` alone does not do this)...
 		   !isNaN(parseFloat(str)) // ...and ensure strings of whitespace fail
+}
+
+function groupSeries(pronosticos, group_by_qualifier, tipo="puntual") {
+    var series = {}
+    if(group_by_qualifier) {   // one series element for each series_id+qualifier combination
+        pronosticos.forEach(p=>{
+            var key = p.series_id + "_" + p.qualifier
+            if(!series[key]) {
+                series[key] = {
+					series_table: internal.serie.getSeriesTable(tipo),
+					tipo: tipo,
+                    series_id: p.series_id,
+                    estacion_id: p.estacion_id,
+                    var_id: p.var_id,
+                    qualifier: p.qualifier,
+                    pronosticos: []
+                }
+            }
+            series[key].pronosticos.push(
+                {
+                    timestart: p.timestart,
+                    timeend: p.timeend,
+                    valor: p.valor
+                }
+            ) // cor_id:r.cor_id,series_id:p.series_id,
+        })
+    } else {    // one series element for each series_id, regardless of qualifier (results in mixed qualifier series)
+        pronosticos.forEach(p=>{
+            if(!series[p.series_id]) {
+                series[p.series_id] = {
+					series_table: series_table,
+                    series_id: p.series_id,
+                    estacion_id: p.estacion_id,
+                    var_id: p.var_id,
+                    pronosticos: []
+                }
+            }
+            series[p.series_id].pronosticos.push(
+                {
+                    timestart: p.timestart,
+                    timeend: p.timeend,
+                    valor: p.valor,
+                    qualifier: p.qualifier
+                }
+            ) // cor_id:r.cor_id,series_id:p.series_id,
+        })
+    }
+	return series
 }
 
 module.exports = internal
