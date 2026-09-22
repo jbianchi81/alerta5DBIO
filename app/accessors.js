@@ -6445,6 +6445,7 @@ internal.a5 = class {
 			}
 		} else if (filter.tipo == "raster") {
 			params.escena_id = filter.escena_id
+			params.include_geom = true
 		}
 		if(filter.timestart) {
 			params.date_range_before = filter.timestart

@@ -957,7 +957,11 @@ internal.area = class extends baseModel  {
 	}
 	toGeoJSON(includeProperties=true, includeOutlet=true) {
 		var geojson
-		geojson = turfHelpers.polygon(this.geom.coordinates)
+		if(this.geom.type == "MultiPolygon") {
+			geojson = turfHelpers.multiPolygon(this.geom.coordinates)
+		} else {
+			geojson = turfHelpers.polygon(this.geom.coordinates)
+		}
 		if(includeProperties) {
 			geojson.properties = {}
 			Object.keys(this).forEach(key=>{
@@ -8908,12 +8912,12 @@ internal.CRUD = class {
 			if(!area.id) {
 				await area.getId(undefined, client)
 			}
-			if(area.geom && area.geom.type && area.geom.type == "MultiPolygon") {
-				area.geom = new internal.geometry({
-					type: "Polygon",
-					coordinates: area.geom.coordinates[0]
-				})
-			}
+			// if(area.geom && area.geom.type && area.geom.type == "MultiPolygon") {
+			// 	area.geom = new internal.geometry({
+			// 		type: "Polygon",
+			// 		coordinates: area.geom.coordinates[0]
+			// 	})
+			// }
 			if(area.group_id && user_id) {
 				const has_access = await AreaGroup.hasAccess(user_id, area.group_id, true)
 				if(!has_access) {
@@ -19896,7 +19900,7 @@ internal.CRUD = class {
 						timeend.toISOString(), 
 						p.qualifier || "main", 
 						// new Buffer.from(p.valor).toString('hex')
-						(p.valor instanceof Buffer) ?  "\\x" + p.valor.toString('hex') : p.valor
+						(p.valor instanceof Buffer) ?  "\\x" + p.valor.toString('hex') : (p.valor.type == "Buffer" && "data" in p.valor) ? `\\x${Buffer.from(p.valor).toString('hex')}` : p.valor
 					]
 					try {
 						control_query_args(
