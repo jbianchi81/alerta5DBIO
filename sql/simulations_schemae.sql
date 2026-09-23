@@ -1425,7 +1425,7 @@ ALTER TABLE ONLY public.pronosticos_areal ALTER COLUMN id SET DEFAULT nextval('p
 --
 
 ALTER TABLE ONLY public.pronosticos_areal
-    ADD CONSTRAINT pronosticos_areal_cor_id_series_id_timestart_timeend_qualifier_key UNIQUE (cor_id, series_id, timestart, timeend, qualifier);
+    ADD CONSTRAINT pronosticos_areal_cor_id_series_id_timestart_timeend_qualifier_ UNIQUE (cor_id, series_id, timestart, timeend, qualifier);
 
 
 --
@@ -1754,7 +1754,16 @@ last_corridas AS (
     )
 )
 SELECT 
-    series_prono_date_range.*,
+    series_prono_date_range.series_id,
+    series_prono_date_range.series_table,
+    series_prono_date_range.estacion_id,
+    series_prono_date_range.tabla,
+    series_prono_date_range.var_id,
+    series_prono_date_range.cor_id,
+    series_prono_date_range.begin_date,
+    series_prono_date_range.end_date,
+    series_prono_date_range.count,
+    series_prono_date_range.qualifiers,
     last_corridas.cal_id,
     last_corridas.forecast_date,
     last_corridas.public,
