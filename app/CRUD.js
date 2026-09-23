@@ -3555,6 +3555,11 @@ internal.serie.build_read_query = function(filter={},options={},user_id) {
 			exutorio_id: {
 				type: "integer",
 				table: "areas_pluvio"
+			},
+			area_group: {
+				type: "integer",
+				table: "areas_pluvio",
+				column: "group_id"
 			}
 		}}
 		sort_fields = {...sort_fields,...{

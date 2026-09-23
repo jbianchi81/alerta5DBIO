@@ -19,8 +19,9 @@ const area_1 = require("../models/area");
 const router = (0, express_1.Router)();
 router.get('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        (0, custom_errors_1.assertIsAdmin)(req);
-        const items = yield area_group_1.default.list(req.query);
+        // assertIsAdmin(req)
+        const user_id = (0, custom_errors_1.getUserId)(req);
+        const items = yield area_group_1.default.list(req.query, user_id);
         res.json(items);
     }
     catch (err) {

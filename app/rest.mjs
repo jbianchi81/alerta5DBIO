@@ -7577,6 +7577,12 @@ function getFilter(req,locals) {
 		if(req.body.area_geom) {
 			filter.area_geom = req.body.area_geom
 		}
+		if(req.body.area_group) {
+			filter.area_group = parseIntList(req.body.area_group)
+		}
+		if(req.body.group_id) {
+			filter.group_id = parseIntList(req.body.group_id)
+		}
 		if(req.body.var_id) {
 			filter.var_id = parseIntList(req.body.var_id)
 		}
@@ -7757,6 +7763,12 @@ function getFilter(req,locals) {
 		}
 		if(req.query.area_geom) {
 			filter.area_geom = req.query.area_geom
+		}
+		if(req.query.area_group) {
+			filter.area_group = parseIntList(req.query.area_group)
+		}
+		if(req.query.group_id) {
+			filter.group_id = parseIntList(req.query.group_id)
 		}
 		if(req.query.var_id) {
 			filter.var_id = parseIntList(req.query.var_id)

@@ -61,7 +61,7 @@ CREATE SEQUENCE public.areas_pluvio_unid_seq
 
 CREATE TABLE public.areas_pluvio (
     id integer,
-    geom public.geometry(Polygon,4326),
+    geom public.geometry(Geometry, 4326),
     exutorio public.geometry(Point,4326),
     nombre character varying(64),
     area double precision DEFAULT 0,
@@ -77,6 +77,10 @@ CREATE TABLE public.areas_pluvio (
     exutorio_id integer
 --    group_id integer references area_groups(id)
 );
+
+ALTER TABLE areas_pluvio
+ADD CONSTRAINT geom_polygon_multipolygon_check
+CHECK (GeometryType(geom) IN ('POLYGON', 'MULTIPOLYGON'));
 
 --
 -- Name: redes; Type: TABLE; Schema: public; Owner: -
@@ -2011,6 +2015,7 @@ SELECT
     red_id,
     red_name,
     tabla_id,
+    MAX(priority) AS max_priority,
     -- effective access is the MAX priority converted back to ENUM
     CASE MAX(priority)
         WHEN 2 THEN 'write'
@@ -2060,6 +2065,7 @@ SELECT
     ag_id,
     ag_name,
     ag_owner_id,
+    max(access_join.priority) AS max_priority,
     -- effective access is the MAX priority converted back to ENUM
     CASE MAX(priority)
         WHEN 2 THEN 'write'

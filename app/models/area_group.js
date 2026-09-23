@@ -24,23 +24,25 @@ class AreaGroup {
         this.owner_id = params.owner_id;
         this.areas = params.areas;
     }
-    static list(filter = {}) {
+    static list(filter = {}, user_id) {
         return __awaiter(this, void 0, void 0, function* () {
             let result;
+            const access_join = (user_id) ? `JOIN user_area_access ON (ag_id=area_groups.id AND user_id=${user_id})` : "";
+            const access_level = (user_id) ? "user_area_access.effective_access" : "'write' AS effective_access";
             if (filter.id) {
-                const q = `SELECT id,name,owner_id FROM area_groups WHERE id=$1`;
+                const q = `SELECT id,name,owner_id,${access_level} FROM area_groups ${access_join} WHERE id=$1`;
                 result = yield g.pool.query(q, [filter.id]);
             }
             else if (filter.name) {
-                const q = `SELECT id,name,owner_id FROM area_groups WHERE name=$1`;
+                const q = `SELECT id,name,owner_id,${access_level} FROM area_groups ${access_join} WHERE name=$1`;
                 result = yield g.pool.query(q, [filter.name]);
             }
             else if (filter.owner_id) {
-                const q = `SELECT id,name,owner_id FROM area_groups WHERE owner_id=$1 ORDER BY id`;
+                const q = `SELECT id,name,owner_id,${access_level} FROM area_groups ${access_join} WHERE owner_id=$1 ORDER BY id`;
                 result = yield g.pool.query(q, [filter.name]);
             }
             else {
-                const q = `SELECT id,name,owner_id FROM area_groups ORDER BY id`;
+                const q = `SELECT id,name,owner_id,${access_level} FROM area_groups ${access_join} ORDER BY id`;
                 result = yield g.pool.query(q);
             }
             return result.rows;

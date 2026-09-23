@@ -895,7 +895,7 @@ function makeSeriesEditTable(container,monitoringPoints,isWriter,tipo="puntual",
 		//~ alert(e)
 	//~ })
 	const urlParams = new URLSearchParams(window.location.search)
-	var estacionesUrl = (urlParams.get("fuentesId")) ? `obs/areal/areas?no_geom=true&fuentes_id=${urlParams.get("fuentesId")}` : ("obs/puntual/estaciones" + ((urlParams.get("redId")) ? ( "?fuentes_id=" + urlParams.get("redId")) : ""))  
+	var estacionesUrl = (urlParams.get("fuentesId")) ? `obs/areal/areas?no_geom=true&fuentes_id=${urlParams.get("fuentesId")}&group_id=${urlParams.get("areaGroup")}` : ("obs/puntual/estaciones" + ((urlParams.get("redId")) ? ( "?fuentes_id=" + urlParams.get("redId")) : ""))  
 	$.get(estacionesUrl,estaciones=>{
 		seriesOptions.estacion_id = estaciones.map(estacion=>{
 			var selected = ""

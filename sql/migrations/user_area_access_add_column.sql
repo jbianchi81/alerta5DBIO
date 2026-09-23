@@ -1,31 +1,6 @@
-BEGIN;
+begin;
 
--- CREATE TYPE access_level AS ENUM ('read', 'write');
-
-DROP VIEW user_area_access;
-DROP TABLE user_area_groups_access;
-DROP TABLE area_groups;
-
-CREATE TABLE area_groups (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR NOT NULL,
-    owner_id INTEGER NOT NULL REFERENCES users(id)
-);
-
--- CREATE TABLE user_groups (
---     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
---     group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
---     PRIMARY KEY (user_id, group_id)
--- );
-
--- ALTER TABLE areas_pluvio ADD COLUMN group_id INTEGER REFERENCES area_groups(id);
-
-CREATE TABLE user_area_groups_access (
-    ag_id    INTEGER NOT NULL REFERENCES area_groups(id) ON DELETE CASCADE,
-    group_name VARCHAR NOT NULL REFERENCES groups(name) ON DELETE CASCADE,
-    access access_level NOT NULL DEFAULT 'read',
-    PRIMARY KEY (group_id, ag_id)
-);
+drop view user_area_access;
 
 CREATE OR REPLACE VIEW user_area_access AS
 WITH access_join AS (
@@ -58,5 +33,5 @@ WITH access_join AS (
         END::access_level AS effective_access
    FROM access_join
   GROUP BY access_join.user_id, access_join.user_name, access_join.ag_id, access_join.ag_name, access_join.ag_owner_id;
-  
-COMMIT;
+
+commit;

@@ -135,6 +135,12 @@
 						<option value="" selected>-- Ninguna --</option>
 					</select>
 				</div>
+				<div class=additionalFilters>
+					<label for=areaGroup title="Seleccione grupo de areas">Grupo de areas</label>
+					<select name=areaGroup id=areaGroup class="form-control" style="font-size: medium;" title="Seleccione grupo de áreas">
+						<option value="" selected>-- Todas --</option>
+					</select>
+				</div>
 			</form>
 		</section>
 		<a href="html/README.html" style="font-size: small">ayuda</a>
@@ -806,6 +812,7 @@
 		$("form#selectorform select#redId").select2();  // Add browse filter to select
 		$("form#choosepercentile select[name=percentil]").select2()
 		$("form#selectorform select#fuentesId").select2()
+		$("form#selectorform select#areaGroup").select2()
 
 		// read urlParams
 		const urlParams = new URLSearchParams(window.location.search);
@@ -928,9 +935,9 @@
 			],
 			overlays: [global.overlay],
 			view: new ol.View({
-			  center: [-55, -25],  // feature[0].getGeometry().getCoordinates(), // ol.proj.fromLonLat([geom.geometry.coordinates[0],geom.geometry.coordinates[1]]),
+			  center: default_config.view_center || [-55, -25],  // feature[0].getGeometry().getCoordinates(), // ol.proj.fromLonLat([geom.geometry.coordinates[0],geom.geometry.coordinates[1]]),
 			  projection: 'EPSG:4326',
-			  zoom: 5
+			  zoom: default_config.view_zoom || 5
 			})
 		});
 		if(default_config.wms_areas) {
@@ -1056,6 +1063,8 @@
 		getFuentesPuntual(search_filters)
 
 		getFuentesAreal(search_filters)
+
+		getAreaGroups(search_filters)
 
 		// else {
 			//loadEstacionesOptions(search_filters)
@@ -1243,6 +1252,9 @@
 			var get_monitored_url = "obs/areal/series"
 			var estaciones_feature_type = "polygon"
 			monitoredpointsparams.tipo = "areal"
+			if(search_filters.areaGroup) {
+				monitoredpointsparams.area_group = search_filters.areaGroup
+			}
 		} else if(monitoredpointsparams.tipo == "areal") {
 			alert("Falta fuentesId. Por favor seleccione uno para realizar la búsqueda de series areales")
 		} else {
@@ -1323,7 +1335,8 @@
 						format: undefined,
 						no_geom: true,
 						limit: global.default_config.series_page_size, // 250
-						offset: (params.page) ? (params.page - 1) * global.default_config.series_page_size : 0
+						offset: (params.page) ? (params.page - 1) * global.default_config.series_page_size : 0,
+						area_group: search_filters.areaGroup
 					}
 					if(/^\s*$/.test(params.term)) {
 						query.search = undefined
@@ -2183,6 +2196,31 @@
 		})
 	}
 
+	function getAreaGroups(search_filters) {
+		$.get("obs/areal/groups",undefined)
+		.then(data=>{
+			var area_groups_options_metadata = ""
+			var area_groups_options = data.map(group=>{
+				var selected = (search_filters.areaGroup) ? (group.id == search_filters.areaGroup) ? "selected" : "" : ""
+				area_groups_options_metadata += '<option value="' + group.name + '" ' + selected + '>' + group.name + '(' + group.id + ')</option>'
+				return "<option value=" + group.id + " " + selected + ">" + group.name + "(" + group.id + ")</option>"
+			}).join("")
+			//~ console.log({redes_options:redes_options})
+			$("form#selectorform select[name=areaGroup]").append($(area_groups_options))
+			// .change(event=>{
+				// $(event.target).parents("form").submit()
+				//loadAreasOptions()
+			// })
+			$("div#myModalMetadata div#serie select[name=area_group]").append($(area_groups_options_metadata))
+			// metadataElements.seriesAreales.properties.fuente.options = fuentes_options_metadata
+			// setSeriesTypeMode()
+		})
+		.fail( (xhr, status, e)=>{
+			// setSeriesTypeMode()
+			console.error(e)
+		})
+	}
+
 	function loadAreasOptions() {
 		console.debug("load areas options")
 		$("form#selectorform select[name=estacionId]")
@@ -2628,6 +2666,7 @@
 			// loadAreasOptions(search_filters)
 			$("form#selectorform select[name=redId]").parent().hide()
 			$("form#selectorform select[name=fuentesId]").parent().removeClass("additionalFilters").show()
+			$("form#selectorform select[name=areaGroup]").parent().removeClass("additionalFilters").show()
 			$("form#chooseaddseries input[name=tipo]").val("areal")
 		} else {
 			$("h3#leftHeading").text("Series puntuales")

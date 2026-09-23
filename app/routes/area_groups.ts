@@ -10,8 +10,9 @@ const router = Router();
 
 router.get('/', async (req : Request, res : Response) => {
   try {
-    assertIsAdmin(req)
-    const items = await AreaGroup.list(req.query);
+    // assertIsAdmin(req)
+    const user_id = getUserId(req)
+    const items = await AreaGroup.list(req.query, user_id);
     res.json(items);
   } catch (err: any) {
     handleCrudError(err, res)

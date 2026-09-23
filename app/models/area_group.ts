@@ -46,19 +46,21 @@ export default class AreaGroup {
     this.areas = params.areas
   }
 
-  static async list(filter: {name?: string, id?: number, owner_id?: number}={}): Promise<AreaGroupRecord[]> {
+  static async list(filter: {name?: string, id?: number, owner_id?: number}={}, user_id?: number): Promise<AreaGroupRecord[]> {
     let result : any
+    const access_join = (user_id) ? `JOIN user_area_access ON (ag_id=area_groups.id AND user_id=${user_id})` : ""
+    const access_level = (user_id) ? "user_area_access.effective_access" : "'write' AS effective_access"
     if(filter.id) {
-      const q = `SELECT id,name,owner_id FROM area_groups WHERE id=$1`;
+      const q = `SELECT id,name,owner_id,${access_level} FROM area_groups ${access_join} WHERE id=$1`;
       result = await (g.pool as any).query(q,[filter.id]);
     } else if(filter.name) {
-      const q = `SELECT id,name,owner_id FROM area_groups WHERE name=$1`;
+      const q = `SELECT id,name,owner_id,${access_level} FROM area_groups ${access_join} WHERE name=$1`;
       result = await (g.pool as any).query(q,[filter.name]);
     } else if(filter.owner_id) {
-      const q = `SELECT id,name,owner_id FROM area_groups WHERE owner_id=$1 ORDER BY id`;
+      const q = `SELECT id,name,owner_id,${access_level} FROM area_groups ${access_join} WHERE owner_id=$1 ORDER BY id`;
       result = await (g.pool as any).query(q,[filter.name]);
     } else {
-      const q = `SELECT id,name,owner_id FROM area_groups ORDER BY id`;
+      const q = `SELECT id,name,owner_id,${access_level} FROM area_groups ${access_join} ORDER BY id`;
       result = await (g.pool as any).query(q);
     }
     return result.rows as AreaGroupRecord[];
