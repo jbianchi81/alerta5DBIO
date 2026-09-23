@@ -2127,8 +2127,6 @@ WITH corridas_max_date AS (
   ORDER BY series_prono_last.cal_id, var.id, areas_pluvio.unid;
 
 
-// guardados
-
 --
 -- Name: corridas_guardadas; Type: TABLE; Schema: public; Owner: jbianchi
 --
