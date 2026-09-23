@@ -51,6 +51,9 @@ function reloadWithPars(evt) {
 	}
 	if($(".form-control[name=fuentesId]").val() != "") {
 		prono_args += "&fuentesId=" + $(".form-control[name=fuentesId]").val()
+		if($(".form-control[name=areaGroup]").val() != "") {
+			prono_args += "&areaGroup=" + $(".form-control[name=areaGroup]").val()
+		}
 	}
 	$('a#maptab').click()
 	window.location.search = '?generalCategory=' + generalCategory + '&varId=' + var_id + '&seriesId=' + series_id + ((ts) ? '&timestart=' + ts : '') + ((te) ? '&timeend=' + te : '') + ((red_id) ? '&redId=' + red_id : '') + ((estacion_id) ? '&estacionId=' + estacion_id : '') + '&proc_id=' + proc_id + prono_args
