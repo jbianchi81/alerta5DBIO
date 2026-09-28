@@ -12,11 +12,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.groupBySeriesIdAndQualifier = exports.flatten = exports.grib2obs = exports.rast2obs = exports.downloadAndWriteStream = exports.filterSeriesByIds = exports.filterSites = exports.filterSeries = exports.filterByParam = exports.parseUtcDateTime = exports.fetchData = void 0;
+exports.isValidGdalFile = exports.groupBySeriesIdAndQualifier = exports.flatten = exports.grib2obs = exports.rast2obs = exports.downloadAndWriteStream = exports.filterSeriesByIds = exports.filterSites = exports.filterSeries = exports.filterByParam = exports.parseUtcDateTime = exports.fetchData = void 0;
 const axios_1 = __importDefault(require("axios"));
 const https_1 = __importDefault(require("https"));
 const boolean_point_in_polygon_1 = require("@turf/boolean-point-in-polygon");
 const node_fs_1 = require("node:fs");
+const node_child_process_1 = require("node:child_process");
 const promises_1 = require("node:stream/promises");
 const child_process_promise_1 = require("child-process-promise");
 const CRUD_1 = require("../CRUD");
@@ -134,30 +135,53 @@ function filterSeriesByIds(series = [], params = {}) {
     });
 }
 exports.filterSeriesByIds = filterSeriesByIds;
-function downloadAndWriteStream(url, params, localfilepath, connection) {
+function downloadAndWriteStream(url, params, localfilepath, options = {}) {
     return __awaiter(this, void 0, void 0, function* () {
-        if (!connection) {
-            connection = axios_1.default.create();
-        }
-        const writer = (0, node_fs_1.createWriteStream)(localfilepath);
-        let response;
-        try {
-            response = yield connection.get(url, {
-                params,
-                responseType: "stream",
-            });
-        }
-        catch (e) {
-            const error = e instanceof Error ? e : new Error(String(e));
-            console.error(`Download error: ${error}`);
-            throw error;
-        }
-        try {
-            yield (0, promises_1.pipeline)(response.data, writer);
-        }
-        catch (e) {
-            const error = e instanceof Error ? e : new Error(String(e));
-            throw new Error(`file:${localfilepath} write failed, error:${error.message}`);
+        const { connection = axios_1.default.create(), timeoutMs = 30000, maxRetries = 3, retryDelayMs = 1000, } = options;
+        let attempt = 0;
+        while (attempt <= maxRetries) {
+            // Create an AbortController for modern timeout handling on streams
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            // Create a fresh write stream for each attempt
+            const writer = (0, node_fs_1.createWriteStream)(localfilepath);
+            try {
+                const response = yield connection.get(url, {
+                    params,
+                    responseType: "stream",
+                    signal: controller.signal,
+                    // Keep-alive headers help prevent ECONNRESET on long downloads
+                    headers: {
+                        Connection: "keep-alive",
+                    },
+                });
+                // Stream the response body directly into the local file destination
+                yield (0, promises_1.pipeline)(response.data, writer);
+                clearTimeout(timeoutId);
+                return; // Download succeeded
+            }
+            catch (e) {
+                clearTimeout(timeoutId);
+                writer.destroy(); // Close file handle on error
+                const error = e instanceof Error ? e : new Error(String(e));
+                const isAbortError = error.name === "AbortError" || axios_1.default.isCancel(e);
+                // Identify retryable errors (ECONNRESET, ETIMEDOUT, 5xx server errors, timeouts)
+                const isNetworkReset = isAxiosError(e) &&
+                    (e.code === "ECONNRESET" ||
+                        e.code === "ETIMEDOUT" ||
+                        e.code === "ECONNABORTED" ||
+                        (e.response && e.response.status >= 500));
+                const isRetryable = isAbortError || isNetworkReset;
+                if (isRetryable && attempt < maxRetries) {
+                    attempt++;
+                    const backoff = retryDelayMs * Math.pow(2, attempt - 1);
+                    console.warn(`[Download Warning] Attempt \({attempt}/\){maxRetries} failed (\({error.message}). Retrying in\){backoff}ms...`);
+                    yield new Promise((resolve) => setTimeout(resolve, backoff));
+                    continue;
+                }
+                console.error(`Download failed for file \({localfilepath}:\){error.message}`);
+                throw new Error(`file:\({localfilepath} download/write failed, error:\){error.message}`);
+            }
         }
     });
 }
@@ -203,7 +227,7 @@ function rast2obs(filename, series_id, to_prono, qualifier, time_support) {
 }
 exports.rast2obs = rast2obs;
 function grib2obs(filepath, variable_map, bbox, // [leftlon, toplat, rightlon, bottomlat]
-units, to_prono, qualifier, time_support) {
+units, to_prono, qualifier, time_support, gtiff_filename) {
     return __awaiter(this, void 0, void 0, function* () {
         if (!filepath) {
             return Promise.reject("Falta filepath");
@@ -227,7 +251,7 @@ units, to_prono, qualifier, time_support) {
                 continue;
             }
             var variable = variable_map[band.metadata[""].GRIB_ELEMENT];
-            var gtiff_filename = filepath.replace(/\.grib2$/, "." + variable.name.replace(new RegExp(/\s/g), "") + ".tif");
+            gtiff_filename = gtiff_filename || filepath.replace(/\.grib2$/, "." + variable.name.replace(new RegExp(/\s/g), "") + ".tif");
             var bbox_options = "";
             if (bbox) {
                 bbox_options = `-a_ullr ${bbox[0]} ${bbox[1]} ${bbox[2]} ${bbox[3]}`;
@@ -277,3 +301,23 @@ function groupBySeriesIdAndQualifier(pronosticos, series_id, series_table = "ser
     return series;
 }
 exports.groupBySeriesIdAndQualifier = groupBySeriesIdAndQualifier;
+function isValidGdalFile(filePath) {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (!(0, node_fs_1.existsSync)(filePath)) {
+            return false;
+        }
+        try {
+            // Suppress output stream (-json is fast and produces concise parsing)
+            (0, node_child_process_1.execFileSync)("gdalinfo", ["-nomd", "-noct", filePath], {
+                stdio: ["ignore", "ignore", "ignore"],
+                timeout: 10000, // 10s safety timeout for hung processes
+            });
+            return true;
+        }
+        catch (_a) {
+            // Returns false if gdalinfo exits with non-zero code or binary is missing/times out
+            return false;
+        }
+    });
+}
+exports.isValidGdalFile = isValidGdalFile;

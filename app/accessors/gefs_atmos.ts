@@ -4,7 +4,7 @@ import {serie as CrudSerie, observacion as CrudObservacion, fuente as CrudFuente
 import axios, { AxiosInstance } from "axios"
 import {sprintf} from 'sprintf-js'
 import { existsSync, mkdirSync, createWriteStream } from "fs"
-import { downloadAndWriteStream, grib2obs, flatten, VariableMap, groupBySeriesIdAndQualifier } from './accessor_utils'
+import { downloadAndWriteStream, grib2obs, flatten, VariableMap, groupBySeriesIdAndQualifier, isValidGdalFile, rast2obs } from './accessor_utils'
 import { IntervalDict } from "a5base/timeSteps"
 
 interface Config {
@@ -173,7 +173,7 @@ export class Client extends AbstractAccessorEngine {
 			qualifiers?: string[],
 			qualifier?: string
 		}={},
-		options={}
+		options : {return_series?: boolean, overwrite?: boolean}={}
 	) : Promise<CrudPronostico[]> {
 		var dates = this.getDates(filter) 
 		this.forecast_date = dates.forecast_date
@@ -234,24 +234,30 @@ export class Client extends AbstractAccessorEngine {
 				}
 				var localfilepath = `${__dirname}${this.config.data_dir}${dates_dir}${times_dir}${file}.grib2`
 				//~ console.log({localfilepath:localfilepath})
-				await downloadAndWriteStream(
-					this.url,
-					params,
-					localfilepath,
-					this.connection
-				)
-				
-				results.push(
-					await grib2obs(
+				const gtiff_filename = localfilepath.replace(/\.grib2$/,"." + this.variable_map["APCP06"].name + ".tif")
+				const is_valid_gdal_file = await isValidGdalFile(gtiff_filename)
+				if(options.overwrite || !is_valid_gdal_file) {
+					await downloadAndWriteStream(
+						this.url,
+						params,
 						localfilepath,
-						this.variable_map,
-						(this.config.bbox) ? [this.config.bbox.leftlon, this.config.bbox.toplat, this.config.bbox.rightlon, this.config.bbox.bottomlat] : undefined,
-						"milímetros",
-						true,
-						qualifier,
-						this.time_support
+						{ connection: this.connection }
 					)
-				)
+					results.push(
+						await grib2obs(
+							localfilepath,
+							this.variable_map,
+							(this.config.bbox) ? [this.config.bbox.leftlon, this.config.bbox.toplat, this.config.bbox.rightlon, this.config.bbox.bottomlat] : undefined,
+							"milímetros",
+							true,
+							qualifier,
+							this.time_support,
+							gtiff_filename
+						)
+					)
+				} else {
+					results.push([await rast2obs(gtiff_filename,this.variable_map["APCP06"].series_id, true, qualifier, this.time_support)])
+				}
 			}
 		}
 

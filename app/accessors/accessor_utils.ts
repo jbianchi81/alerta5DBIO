@@ -2,7 +2,8 @@ import axios, { AxiosRequestConfig, AxiosError, AxiosInstance } from "axios";
 import https from "https";
 import { Geometry, Position } from "../geometry_types";
 import { booleanPointInPolygon } from '@turf/boolean-point-in-polygon'
-import { createWriteStream, readFileSync } from "node:fs";
+import { createWriteStream, readFileSync, existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { pipeline } from "node:stream/promises";
 import {exec as pexec} from 'child-process-promise'
 import { observacion as CrudObservacion, pronostico as CrudPronostico, SerieTemporalSim } from "../CRUD";
@@ -173,37 +174,120 @@ export function filterSeriesByIds(series : any[]=[],params : SeriesFilter={}) : 
 	})
 }
 
+// export async function downloadAndWriteStream(
+//     url: string,
+//     params: any,
+//     localfilepath: string,
+//     connection?: AxiosInstance
+// ) : Promise<void> {
+//     if(!connection) {
+//         connection = axios.create()
+//     }
+
+//     const writer = createWriteStream(localfilepath);
+
+//     let response;
+//     try {
+//         response = await connection.get(url, {
+//             params,
+//             responseType: "stream",
+//         });
+//     } catch (e: unknown) {
+//         const error = e instanceof Error ? e : new Error(String(e));
+//         console.error(`Download error: ${error}`);
+//         throw error;
+//     }
+
+//     try {
+//         await pipeline(response.data, writer);
+//     } catch (e: unknown) {
+//         const error = e instanceof Error ? e : new Error(String(e));
+//         throw new Error(
+//             `file:${localfilepath} write failed, error:${error.message}`
+//         );
+//     }
+// }
+
+export interface DownloadOptions {
+  /** Axios instance to reuse (optional) */
+  connection?: AxiosInstance;
+  /** Request timeout in milliseconds (default: 30000ms / 30s) */
+  timeoutMs?: number;
+  /** Maximum retry attempts for transient errors (default: 3) */
+  maxRetries?: number;
+  /** Initial delay before retrying in milliseconds (default: 1000ms) */
+  retryDelayMs?: number;
+}
+
 export async function downloadAndWriteStream(
     url: string,
-    params: any,
+    params: Record<string, string>,
     localfilepath: string,
-    connection?: AxiosInstance
-) : Promise<void> {
-    if(!connection) {
-        connection = axios.create()
-    }
+    options: DownloadOptions = {}
+): Promise<void> {
+    const {
+        connection = axios.create(),
+        timeoutMs = 30000,
+        maxRetries = 3,
+        retryDelayMs = 1000,
+    } = options;
 
-    const writer = createWriteStream(localfilepath);
+    let attempt = 0;
 
-    let response;
-    try {
-        response = await connection.get(url, {
-            params,
-            responseType: "stream",
-        });
-    } catch (e: unknown) {
-        const error = e instanceof Error ? e : new Error(String(e));
-        console.error(`Download error: ${error}`);
-        throw error;
-    }
+    while (attempt <= maxRetries) {
+        // Create an AbortController for modern timeout handling on streams
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    try {
-        await pipeline(response.data, writer);
-    } catch (e: unknown) {
-        const error = e instanceof Error ? e : new Error(String(e));
-        throw new Error(
-            `file:${localfilepath} write failed, error:${error.message}`
-        );
+        // Create a fresh write stream for each attempt
+        const writer = createWriteStream(localfilepath);
+
+        try {
+            const response = await connection.get(url, {
+                params,
+                responseType: "stream",
+                signal: controller.signal,
+                // Keep-alive headers help prevent ECONNRESET on long downloads
+                headers: {
+                    Connection: "keep-alive",
+                },
+            });
+
+            // Stream the response body directly into the local file destination
+            await pipeline(response.data, writer);
+
+            clearTimeout(timeoutId);
+            return; // Download succeeded
+        } catch (e: unknown) {
+            clearTimeout(timeoutId);
+            writer.destroy(); // Close file handle on error
+
+            const error = e instanceof Error ? e : new Error(String(e));
+            const isAbortError = error.name === "AbortError" || axios.isCancel(e);
+
+            // Identify retryable errors (ECONNRESET, ETIMEDOUT, 5xx server errors, timeouts)
+            const isNetworkReset =
+                isAxiosError(e) &&
+                (e.code === "ECONNRESET" ||
+                    e.code === "ETIMEDOUT" ||
+                    e.code === "ECONNABORTED" ||
+                    (e.response && e.response.status >= 500));
+
+            const isRetryable = isAbortError || isNetworkReset;
+
+            if (isRetryable && attempt < maxRetries) {
+                attempt++;
+                const backoff = retryDelayMs * Math.pow(2, attempt - 1);
+                console.warn(
+                    `[Download Warning] Attempt \({attempt}/\){maxRetries} failed (\({error.message}). Retrying in\){backoff}ms...`
+                );
+                await new Promise((resolve) => setTimeout(resolve, backoff));
+                continue;
+            }
+
+            console.error(`Download failed for file \({localfilepath}:\){error.message}`);
+            throw new Error(`file:\({localfilepath} download/write failed, error:\){error.message}`);
+        }
     }
 }
 
@@ -215,6 +299,20 @@ export type VariableMap = Record<string, {
     series_id: number
 }>
 
+export async function rast2obs(
+    filename : string,
+    series_id : number,
+    to_prono : true,
+    qualifier? : string,
+    time_support? : IntervalDict
+) : Promise<CrudPronostico>
+export async function rast2obs(
+    filename : string,
+    series_id : number,
+    to_prono : false,
+    qualifier? : string,
+    time_support? : IntervalDict
+) : Promise<CrudObservacion>
 export async function rast2obs(
     filename : string,
     series_id : number,
@@ -271,7 +369,8 @@ export async function grib2obs(
     units? : string,
     to_prono?: true,
     qualifier?: string,
-    time_support?: IntervalDict
+    time_support?: IntervalDict,
+    gtiff_filename?: string
 ) : Promise<CrudPronostico[]>
 export async function grib2obs(
     filepath : string,
@@ -280,7 +379,8 @@ export async function grib2obs(
     units? : string,
     to_prono?: false,
     qualifier?: string,
-    time_support?: IntervalDict
+    time_support?: IntervalDict,
+    gtiff_filename?: string
 ) : Promise<CrudObservacion[]>
 export async function grib2obs(
     filepath : string,
@@ -289,7 +389,8 @@ export async function grib2obs(
     units? : string,
     to_prono?: boolean,
     qualifier?: string,
-    time_support?: IntervalDict
+    time_support?: IntervalDict,
+    gtiff_filename?: string
 ) : Promise<CrudObservacion[]|CrudPronostico[]> { // LEE 1 GRIB, GENERA GTIFFs  // config={filepath:string, variable_map:{"key":{var_id:int,proc_id:int,unit_id:int,series_id:int},...},bbox:{leftlon:number,toplat:number, rightlon:number,bottomlat:number}, units: string}
     if(!filepath) {
         return Promise.reject("Falta filepath")
@@ -313,7 +414,7 @@ export async function grib2obs(
             continue
         } 
         var variable = variable_map[band.metadata[""].GRIB_ELEMENT]
-        var gtiff_filename = filepath.replace(/\.grib2$/,"." + variable.name.replace(new RegExp(/\s/g),"") + ".tif")
+        gtiff_filename = gtiff_filename || filepath.replace(/\.grib2$/,"." + variable.name.replace(new RegExp(/\s/g),"") + ".tif")
         var bbox_options = ""
         if(bbox) {
             bbox_options = `-a_ullr ${bbox[0]} ${bbox[1]} ${bbox[2]} ${bbox[3]}`
@@ -365,4 +466,21 @@ export function groupBySeriesIdAndQualifier(
         }
     }
     return series
+}
+
+export async function isValidGdalFile(filePath: string): Promise<boolean> {
+    if (!existsSync(filePath)) {
+        return false;
+    }
+    try {
+        // Suppress output stream (-json is fast and produces concise parsing)
+        execFileSync("gdalinfo", ["-nomd", "-noct", filePath], {
+            stdio: ["ignore", "ignore", "ignore"], // Mute stdout/stderr
+            timeout: 10000, // 10s safety timeout for hung processes
+        });
+        return true;
+    } catch {
+        // Returns false if gdalinfo exits with non-zero code or binary is missing/times out
+        return false;
+    }
 }

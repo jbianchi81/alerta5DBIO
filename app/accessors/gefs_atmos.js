@@ -153,8 +153,15 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                     }
                     var localfilepath = `${__dirname}${this.config.data_dir}${dates_dir}${times_dir}${file}.grib2`;
                     //~ console.log({localfilepath:localfilepath})
-                    yield (0, accessor_utils_1.downloadAndWriteStream)(this.url, params, localfilepath, this.connection);
-                    results.push(yield (0, accessor_utils_1.grib2obs)(localfilepath, this.variable_map, (this.config.bbox) ? [this.config.bbox.leftlon, this.config.bbox.toplat, this.config.bbox.rightlon, this.config.bbox.bottomlat] : undefined, "milímetros", true, qualifier, this.time_support));
+                    const gtiff_filename = localfilepath.replace(/\.grib2$/, "." + this.variable_map["APCP06"].name + ".tif");
+                    const is_valid_gdal_file = yield (0, accessor_utils_1.isValidGdalFile)(gtiff_filename);
+                    if (options.overwrite || !is_valid_gdal_file) {
+                        yield (0, accessor_utils_1.downloadAndWriteStream)(this.url, params, localfilepath, { connection: this.connection });
+                        results.push(yield (0, accessor_utils_1.grib2obs)(localfilepath, this.variable_map, (this.config.bbox) ? [this.config.bbox.leftlon, this.config.bbox.toplat, this.config.bbox.rightlon, this.config.bbox.bottomlat] : undefined, "milímetros", true, qualifier, this.time_support, gtiff_filename));
+                    }
+                    else {
+                        results.push([yield (0, accessor_utils_1.rast2obs)(gtiff_filename, this.variable_map["APCP06"].series_id, true, qualifier, this.time_support)]);
+                    }
                 }
             }
             var pronosticos = (0, accessor_utils_1.flatten)(results);
