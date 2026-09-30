@@ -1148,7 +1148,7 @@ program
 				console.log(result.rows)
 				var observaciones = await crud.getObservaciones("rast", { series_id: options.series_id, timestart: result.rows[0].min.toISOString(), timeend: result.rows[0].max.toISOString() })
 			} else {
-				var observaciones = await gfs.gfs2db(crud, options.series_id, options.time)
+				var observaciones = await gfs.gfs2db(crud, options.series_id, options.time, {localcopy: sprintf("/tmp/gfs.local-copy-%02d.grb", parseInt(options.time))})
 			}
 			if (!observaciones) {
 				console.error("upsert/get error")

@@ -789,26 +789,17 @@ internal.gfs_smn = class {
 		})
 	}
 
-	getAndReadGFS(time,localcopy=this.localcopy,options) {
-		return this.getGFS(time,localcopy,options)
-		.then(()=>{
-			return this.readBands(localcopy,this.outputdir,this.series_id)
-			//~ const gdalinfo = spawn('gdalinfo', ['-json', localcopy])
-		})
-		.then(observaciones=>{
-			console.log("Got " + observaciones.length + " observaciones")
-			//~ observaciones.map(obs=>{
-				//~ console.log(obs.timestart)
-			//~ })
-			this.observaciones = observaciones
-			return observaciones
-		})
-		.catch(e=>{
-			console.error(e)
-		})
+	async getAndReadGFS(time,localcopy=this.localcopy,options) {
+		await this.getGFS(time,localcopy,options)
+		await accessor_utils.delay(2000)
+		const observaciones = await this.readBands(localcopy,this.outputdir,this.series_id)
+		console.log("Got " + observaciones.length + " observaciones")
+		this.observaciones = observaciones
+		return observaciones
 	}
-	gfs2db(crud,series_id,time=6,options) {
-		return this.getAndReadGFS(time,undefined,options)
+	
+	gfs2db(crud,series_id,time=6,options={}) {
+		return this.getAndReadGFS(time,options.localcopy,options)
 		.then(obs=>{
 			//~ console.log(arguments)
 			if(series_id) {
