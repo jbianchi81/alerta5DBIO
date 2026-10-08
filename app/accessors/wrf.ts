@@ -16,6 +16,7 @@ interface Config {
     filepath: string
     series_id: number
     cal_id: number
+    available_files? : {path: string, utc_time: number}[]
     [x: string]: unknown
 }
 
@@ -81,9 +82,19 @@ export class Client extends AbstractAccessorEngine {
             });
         }
 
-    async getPronostico(filter:any={}, options:any={}): Promise<CrudCorrida> {
+    async getPronostico(filter:{forecast_date?: Date}={}, options:any={}): Promise<CrudCorrida> {
         const workDir = await mkdtemp(join(tmpdir(), "wrf-"))
         const gribPath = join(workDir, "input.grib")
+
+        var filepath = this.config.filepath
+        if(filter.forecast_date && this.config.available_files) {
+            const utc_time = filter.forecast_date.getUTCHours()
+            for(const f of this.config.available_files) {
+                if(f.utc_time == utc_time) {
+                    filepath = f.path
+                }
+            }
+        }
 
         try {
             await this.connect()
@@ -91,8 +102,8 @@ export class Client extends AbstractAccessorEngine {
             //     responseType: "arraybuffer"
             // })
             console.debug("conectado a ftp")
-            const stream = this.ftp.get(this.config.filepath)
-            console.debug("Descargando " + this.config.filepath)
+            const stream = this.ftp.get(filepath)
+            console.debug("Descargando " + filepath)
             await this.writeStreamToFile(await stream,gribPath)
             console.debug("se escribió " + gribPath)
 
@@ -144,7 +155,8 @@ export class Client extends AbstractAccessorEngine {
                     timestart: validTime,
                     valor: await readFile(bandPath),
                     series_id: this.config.series_id,
-                    series_table: "series_rast"
+                    series_table: "series_rast",
+                    srid: 990001
                 }
                 if(options.update) {
                     await CrudPronostico.create([pronostico], {tipo : "raster", cor_id: corrida.id, no_send_data: true})
@@ -167,6 +179,6 @@ export class Client extends AbstractAccessorEngine {
 		filter : any={},
 		options : any={}
 	) : Promise<CrudCorrida> {
-		return this.getPronostico({}, {update: true})
+		return this.getPronostico(filter, {update: true})
     }
 }

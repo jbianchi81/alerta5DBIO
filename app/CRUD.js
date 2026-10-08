@@ -7143,6 +7143,7 @@ internal.SerieTemporalSim = class extends baseModel {
 		this.tipo = (this.series_table == "series_areal") ? "areal" : (this.series_table == "series_rast") ? "raster" : "puntual"
 		this.timeSupport = m.timeSupport
 		this.metadata = null
+		this.srid = m.srid
 	}
 	toString() {
 		return JSON.stringify(this)
@@ -7611,6 +7612,7 @@ internal.pronostico = class extends baseModel {
 		this.cor_id = m.cor_id
 		this.series_id = m.series_id
 		this.series_table = m.series_table
+		this.srid = m.srid
 	}
 	getTipo() {
 		return (this.series_table) ? (this.series_table.toUpperCase() == "SERIES_AREAL") ? "areal" : (this.series_table.toUpperCase() == "SERIES_RAST") ? "raster" : "puntual" : "puntual"
@@ -9230,22 +9232,24 @@ internal.CRUD = class {
 					return r
 				})
 			} else {
-				const stmt = "SELECT \
-					areas_pluvio.unid id, \
-					areas_pluvio.nombre, \
-					st_astext(areas_pluvio.geom) geom, \
-					st_astext(areas_pluvio.exutorio) exutorio, \
-					areas_pluvio.exutorio_id, \
-					areas_pluvio.area, \
-					areas_pluvio.ae, \
-					areas_pluvio.rho, \
-					areas_pluvio.wp, \
-					areas_pluvio.activar, \
-					areas_pluvio.mostrar \
-				FROM areas_pluvio \
-				" + join_type + " JOIN estaciones ON (estaciones.unid=areas_pluvio.exutorio_id" + tabla_id_filter + ") \
-				WHERE areas_pluvio.geom IS NOT NULL " + filter_string + " ORDER BY id\
-				" + pagination_clause
+				const geom_query = (options && options.srid) ? `st_transform(areas_pluvio.geom, ${parseInt(options.srid)})` : `areas_pluvio.geom`
+				const geom_query_ex = (options && options.srid) ? `st_transform(areas_pluvio.exutorio, ${parseInt(options.srid)})` : `areas_pluvio.exutorio`
+				const stmt = `SELECT 
+					areas_pluvio.unid id, 
+					areas_pluvio.nombre, 
+					st_astext(${geom_query}) AS geom, 
+					st_astext(${geom_query_ex}) AS exutorio, 
+					areas_pluvio.exutorio_id, 
+					areas_pluvio.area, 
+					areas_pluvio.ae, 
+					areas_pluvio.rho, 
+					areas_pluvio.wp, 
+					areas_pluvio.activar, 
+					areas_pluvio.mostrar 
+				FROM areas_pluvio 
+				${join_type} JOIN estaciones ON (estaciones.unid=areas_pluvio.exutorio_id${tabla_id_filter}) 
+				WHERE areas_pluvio.geom IS NOT NULL ${filter_string} ORDER BY id
+				${pagination_clause}`
 				const res = await client.query(stmt)
 				var areas = res.rows.map(row=>{
 					return new internal.area(row) 
@@ -14257,7 +14261,72 @@ internal.CRUD = class {
 				args = [options.pixel_height, options.bbox.toString(), options.srid, options.funcion, serie.id, timestart, timeend, options.height, options.width, options.format]
 				
 			} else {
-				const min_count_filter = (options.min_count) ? sprintf(" WHERE agg.count>=%d", options.min_count) : ""
+				var min_count_filter = (options.min_count) ? sprintf(" AND agg.count>=%d", options.min_count) : ""
+				if(options.min_time) {
+					min_count_filter = sprintf(`${min_count_filter} AND time_sum>='%d milliseconds'::interval`, options.min_time)
+				}
+				if(options.insertSeriesId) {
+					if(cor_id) {
+						var select_block = `INSERT INTO pronosticos_rast (series_id, cor_id, timestart, timeend, qualifier, valor)
+							SELECT 
+								$7, -- insertSeriesid
+								$8,  -- cor_id
+								timestart,
+								timeend,
+								$9, -- qualifier
+								ST_Band(rast, 1) AS valor
+							FROM agg
+							WHERE 1=1
+							${min_count_filter}
+							ON CONFLICT (cor_id, series_id, timestart, qualifier) DO UPDATE SET valor=excluded.valor, timeend=excluded.timeend
+							RETURNING series_id, cor_id, timestart, timeend, qualifier`
+						args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion, options.insertSeriesId, cor_id, qualifier || "main"]
+					} else if(cal_id && forecast_date) {
+						var select_block = `INSERT INTO pronosticos_rast (series_id, cor_id, timestart, timeend, qualifier, valor)
+							SELECT 
+								$7, -- insertSeriesId
+								corridas.id,
+								timestart,
+								timeend,
+								$8, -- qualifier
+								ST_Band(rast, 1) AS valor
+							FROM agg, corridas
+							WHERE corridas.cal_id=$9 -- cal_id
+							AND corridas.date=$10  -- forecast_date
+							${min_count_filter}
+							ON CONFLICT (cor_id, series_id, timestart, qualifier) DO UPDATE SET valor=excluded.valor, timeend=excluded.timeend
+							RETURNING series_id, timestart, timeend`
+						args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion, options.insertSeriesId, qualifier || "main", cal_id, forecast_date]
+					} else {
+						var select_block = `INSERT INTO observaciones_rast (series_id, timestart, timeend, valor)
+							SELECT 
+								$7, -- insertSeriesId
+								timestart,
+								timeend,
+								ST_Band(rast, 1) AS valor
+							FROM agg
+							${min_count_filter}
+							ON CONFLICT (series_id, timestart, timeend) DO UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate
+							RETURNING series_id, timestart, timeend`
+						args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion, options.insertSeriesId]
+					}
+				} else {
+					var select_block = `SELECT series_id,
+									timestart,
+									timeend,
+									timeupdate,
+									count AS obs_count,
+									time_sum,
+											(stats).*,
+									ST_AsGDALRaster(
+									rast,
+									$7
+								) AS valor
+					FROM agg, raststats
+					WHERE 1=1
+					${min_count_filter}`
+					args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion,options.format]
+				}
 				stmt = `WITH dest_interval as (
 					SELECT
 						$4::timestamptz::timestamp AS timestart,
@@ -14275,8 +14344,8 @@ internal.CRUD = class {
 							${timeupdate_column} AS timeupdate, 
 							ST_Clip(
 									data_table.valor,
-									'{1}',
-									ST_GeomFromText($1, $2)
+									ST_GeomFromText($1, $2),
+									'{1}'::integer[]
 							) AS rast
 					FROM 
 						${data_table} AS data_table ${join_data_table},
@@ -14321,21 +14390,7 @@ internal.CRUD = class {
 									st_summarystats(rast) stats
 							FROM agg
 					)
-					SELECT series_id,
-									timestart,
-									timeend,
-									timeupdate,
-									count AS obs_count,
-									time_sum,
-											(stats).*,
-									ST_AsGDALRaster(
-									rast,
-									$7
-								) AS valor
-					FROM agg, raststats
-					${min_count_filter}`
-				
-				args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion,options.format]
+					${select_block}`
 			}
 			// console.debug(pasteIntoSQLQuery(stmt, args))
 			var result = await client.query(stmt,args)
@@ -14347,7 +14402,20 @@ internal.CRUD = class {
 				console.log("No raster values found")
 				return serie
 			}
+			if(options.insertSeriesId) {
+				serie.observaciones = [{
+					tipo: "raster",
+					series_id: result.rows[0].series_id,
+					timestart: result.rows[0].timestart,
+					timeend: result.rows[0].timeend,
+					cor_id: result.rows[0].cor_id,
+					qualifier: result.rows[0].qualifier
+				}]
+				return serie
+			}
+
 			console.log("Unioned " + result.rows[0].obs_count + " values")
+			
 			if(!result.rows[0].valor) {
 				console.log("No raster values unioned")
 				return serie
@@ -15002,7 +15070,11 @@ internal.CRUD = class {
 							qualifier: qualifier
 						})
 					}
-					obs.push(await this.rastExtract(series_id,stepstart,stepend,options,undefined,client, cal_id, cor_id, forecast_date, qualifier))
+					const rast_extract_options = {...options}
+					if(min_time_fraction && dt_epoch) {
+						rast_extract_options.min_time = min_time_fraction * dt_epoch
+					}
+					obs.push(await this.rastExtract(series_id,stepstart,stepend,rast_extract_options,undefined,client, cal_id, cor_id, forecast_date, qualifier))
 				}
 				if(obs) {
 					var observaciones = obs.map((o,i)=> {
@@ -15020,6 +15092,9 @@ internal.CRUD = class {
 					}).filter(o=> o !== null)
 					if(dt_epoch) {
 						observaciones = observaciones.filter(o=>{
+							if(o.time_sum == null) {
+								return true
+							}
 							var time_sum_epoch = timeSteps.interval2epochSync(o.time_sum) * 1000
 							// console.debug("crud.getRegularSeries: dt:" + dt_epoch, "o.time_sum:"  + JSON.stringify(o.time_sum) + ", time_sum_epoch: " + time_sum_epoch + ", min_time_fraction: " + min_time_fraction)
 							if(time_sum_epoch / dt_epoch < min_time_fraction) {
@@ -15031,44 +15106,45 @@ internal.CRUD = class {
 						})
 					}
 					if(options.insertSeriesId) {
-						observaciones = observaciones.map(o=> {
-							o.series_id = options.insertSeriesId
-							if (options.timeupdate) {
-								o.timeupdate = options.timeupdate
-							}
-							if(qualifier) {
-								o.qualifier = qualifier
-							}
-							if(dt_ / o.time_sum * 1000 < min_time_fraction) {
-								console.error("la observación no alcanza la mínima fracción de tiempo")
-								return null
-							} else {
-								return o
-							}
-						})
-						if(cal_id && forecast_date || cor_id) {
-							if(!options.no_insert_as_obs) {
-								// first, upsert forecast as observations
-								await this.upsertObservaciones(observaciones,undefined,undefined,options, client) 
-							}
-							// then, upsert forecast as forecast
-							return this.upsertSerieSim(
-								observaciones,
-								{
-									cor_id: cor_id,
-									cal_id: cal_id,
-									forecast_date: forecast_date
-								},
-								options.insertSeriesId,
-								tipo
-							)
-						} else {
-							return this.upsertObservaciones(
-								observaciones,
-								tipo,
-								options.insertSeriesId,
-								options) 
-						}
+						// observaciones = observaciones.map(o=> {
+						// 	o.series_id = options.insertSeriesId
+						// 	if (options.timeupdate) {
+						// 		o.timeupdate = options.timeupdate
+						// 	}
+						// 	if(qualifier) {
+						// 		o.qualifier = qualifier
+						// 	}
+						// 	if(dt_ / o.time_sum * 1000 < min_time_fraction) {
+						// 		console.error("la observación no alcanza la mínima fracción de tiempo")
+						// 		return null
+						// 	} else {
+						// 		return o
+						// 	}
+						// })
+						// if(cal_id && forecast_date || cor_id) {
+						// 	if(!options.no_insert_as_obs) {
+						// 		// first, upsert forecast as observations
+						// 		await this.upsertObservaciones(observaciones,undefined,undefined,options, client) 
+						// 	}
+						// 	// then, upsert forecast as forecast
+						// 	return this.upsertSerieSim(
+						// 		observaciones,
+						// 		{
+						// 			cor_id: cor_id,
+						// 			cal_id: cal_id,
+						// 			forecast_date: forecast_date
+						// 		},
+						// 		options.insertSeriesId,
+						// 		tipo
+						// 	)
+						// } else {
+						// 	return this.upsertObservaciones(
+						// 		observaciones,
+						// 		tipo,
+						// 		options.insertSeriesId,
+						// 		options) 
+						// }
+						return observaciones
 					} else if (options.asArray) {
 						observaciones = observaciones.map(o=>{
 							return [o.timestart, o.timeend, o.valor]
@@ -19922,7 +19998,11 @@ internal.CRUD = class {
 					} catch(e) {
 						throw(new Error("Invalid values at index [" + i + "]: " + e.toString()))
 					}
-					values_rast.push(vsprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',ST_FromGDALRaster('%s'))", args))
+					if(p.srid) {
+						values_rast.push(vsprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',ST_setSRID(ST_FromGDALRaster('%s'), %d))", [...args, p.srid]))
+					} else {
+						values_rast.push(vsprintf("(%d,%d,'%s'::timestamptz,'%s'::timestamptz,'%s',ST_FromGDALRaster('%s'))", args))
+					}
 				} else {
 					const args = [
 						p.series_id, 
@@ -21212,9 +21292,9 @@ internal.CRUD = class {
 			fs.copyFileSync(dates_file, tmpFile_dates)
 		}
 		// get areas
-		const areas = await internal.area.read(areas_filter)
+		const areas = await internal.area.read(areas_filter, {srid: serie.srid || serie.fuente.def_srid})
 		// write areas to raster file
-		await internal.area.toRaster(areas, tmpFile_zones)
+		await internal.area.toRaster(areas, tmpFile_zones, undefined)
 		// get series areales
 		const series_areales = await internal.serie.read({
 			tipo: "areal",

@@ -72,14 +72,23 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
         return __awaiter(this, void 0, void 0, function* () {
             const workDir = yield (0, promises_1.mkdtemp)((0, path_1.join)((0, os_1.tmpdir)(), "wrf-"));
             const gribPath = (0, path_1.join)(workDir, "input.grib");
+            var filepath = this.config.filepath;
+            if (filter.forecast_date && this.config.available_files) {
+                const utc_time = filter.forecast_date.getUTCHours();
+                for (const f of this.config.available_files) {
+                    if (f.utc_time == utc_time) {
+                        filepath = f.path;
+                    }
+                }
+            }
             try {
                 yield this.connect();
                 // const response = await axios.get<ArrayBuffer>(this.config.url, {
                 //     responseType: "arraybuffer"
                 // })
                 console.debug("conectado a ftp");
-                const stream = this.ftp.get(this.config.filepath);
-                console.debug("Descargando " + this.config.filepath);
+                const stream = this.ftp.get(filepath);
+                console.debug("Descargando " + filepath);
                 yield this.writeStreamToFile(yield stream, gribPath);
                 console.debug("se escribió " + gribPath);
                 yield this.ftp.end();
@@ -115,7 +124,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                         timestart: validTime,
                         valor: yield (0, promises_1.readFile)(bandPath),
                         series_id: this.config.series_id,
-                        series_table: "series_rast"
+                        series_table: "series_rast",
+                        srid: 990001
                     };
                     if (options.update) {
                         yield CRUD_1.pronostico.create([pronostico], { tipo: "raster", cor_id: corrida.id, no_send_data: true });
@@ -137,7 +147,7 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
     }
     updatePronostico(filter = {}, options = {}) {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.getPronostico({}, { update: true });
+            return this.getPronostico(filter, { update: true });
         });
     }
 }
