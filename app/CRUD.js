@@ -997,8 +997,10 @@ internal.area = class extends baseModel  {
 		e=-40, 
 		x_res=0.05, 
 		y_res=0.05, 
-		output_type="Int16") {
+		output_type="Int16",
+		target_srs) {
 		const tmpFile_geom = tmp.fileSync({mode: "0644", prefix: 'areas',postfix:'.geojson'})
+		const tmpFile_rasterized = tmp.fileSync({mode: "0644", prefix: 'areas',postfix:'.tif'})
 		const areas_geojson = this.toGeoJSON(areas)
 		fs.writeFileSync(tmpFile_geom.name, JSON.stringify(areas_geojson), {encoding: "utf-8"})
 		try {
@@ -1022,7 +1024,7 @@ internal.area = class extends baseModel  {
 					"-ot",
 					output_type,
 					tmpFile_geom.name, 
-					output
+					tmpFile_rasterized
 				])
 			p.childProcess.stdout.on("data", data => {
 					process.stdout.write(data);
@@ -1031,6 +1033,33 @@ internal.area = class extends baseModel  {
 		} catch(e) {
 			console.error(e)
 			throw e
+		}
+		if(target_srs) {
+			try {
+				const p = pspawn(
+					"gdalwarp",
+					[
+						"-s_srs",
+						srs,
+						"-t_srs",
+						target_srs,
+						"-r",
+						"bilinear",
+  						tmpFile_rasterized,
+						output
+					]
+				)
+				p.childProcess.stdout.on("data", data => {
+					process.stdout.write(data);
+				});
+				await p
+				console.debug("reprojected " + tmpFile_rasterized + " using srs=" + target_srs)
+			} catch(e) {
+				console.error(e)
+				throw e
+			}
+		} else {
+			fs.cpSync(tmpFile_rasterized, output)
 		}
 		console.debug("Wrote areas to raster file: " + output)
 	}
@@ -2949,7 +2978,7 @@ internal.serie = class extends baseModel {
 	 */
 	async toAreal(
         areas_filter={},
-        options={},
+        options={}, // {coef?: number, location?: string, upload?: bool, no_update?: bool}
 		obs_filter) {
 
 		if(obs_filter) {
@@ -2972,7 +3001,7 @@ internal.serie = class extends baseModel {
 		const means = await internal.CRUD.serieRasttoAreal(
 			this,
 			areas_filter,
-			{coef: options.coef},
+			{coef: options.coef, location: options.location},
 			cover_file,
 			dates_file
 		)
@@ -7545,7 +7574,7 @@ internal.SerieTemporalSim = class extends baseModel {
 	 */
 	async toAreal(
         areas_filter={},
-        options={},
+        options={}, // {coef?: number, location?: string, upload?: bool}
 		obs_filter) {
 		
 		if(!this.metadata) {
@@ -7567,7 +7596,7 @@ internal.SerieTemporalSim = class extends baseModel {
 		const means = await internal.CRUD.serieRasttoAreal(
 			this,
 			areas_filter,
-			{coef: options.coef},
+			{coef: options.coef, location: options.location},
 			cover_file,
 			dates_file
 		)
@@ -14483,13 +14512,74 @@ internal.CRUD = class {
 			// console.log({geom:area.geom.toString(),srid:serie.fuente.def_srid})
 			if(cor_id) {
 				const qualifier_filter = control_filter2({qualifier: {type: "string"}}, {qualifier: qualifier})
-				var stmt = `WITH s as (
+				var stmt = `WITH geom AS (
+					SELECT 
+						ST_Transform(
+							ST_GeomFromText(
+								$1, 
+								4326
+							),
+							spatial_ref_sys.srid
+						) AS g,
+						CASE 
+							WHEN proj4text LIKE '%+units=%' THEN 
+								CASE substring(proj4text from '\\+units=([^\\s]+)')
+									WHEN 'm' THEN 'meter'
+									WHEN 'ft' THEN 'foot'
+									WHEN 'us-ft' THEN 'US survey foot'
+									WHEN 'km' THEN 'kilometer'
+									ELSE substring(proj4text from '\\+units=([^\\s]+)')
+								END
+
+							WHEN proj4text LIKE '%+proj=longlat%' OR proj4text LIKE '%+proj=latlong%' THEN 'degree'
+
+							ELSE 'meter'
+						END AS unit_name
+					FROM pronosticos_rast
+					JOIN spatial_ref_sys 
+						ON st_srid(pronosticos_rast.valor) = spatial_ref_sys.srid
+					WHERE series_id=$2
+					AND timestart::timestamptz>=$3::timestamptz
+					LIMIT 1	
+				),
+				unit_thresholds (unit_name, min, max, resample, buffer) AS (
+					VALUES 
+						( 'meter', 999, 4999, 5000, 50000), 
+						( 'degree', 0.00999, 0.04999, 0.05, 0.5)
+				), s as (
 						SELECT timestart AS timestart,
 							timeend AS timeend,
 							cor_id AS cor_id,
 							qualifier AS qualifier,
-							(st_summarystats(st_clip(st_resample(st_clip(valor,1,st_buffer(st_envelope(st_geomfromtext($1,st_srid(valor))),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,st_srid(valor)),-9999,true))).${options.funcion.toLowerCase()} AS valor
+							(
+								st_summarystats(
+									st_clip(
+										st_resample(
+											st_clip(
+												valor,
+												1,
+												st_buffer(
+													st_envelope(
+														geom.g
+													),
+													unit_thesholds.buffer
+												),
+												-9999,
+												true
+											),
+											unit_thresholds.resample,
+											unit_thresholds.resample
+										),
+										1,
+										geom.g,
+										-9999,
+										true
+									)
+								)
+							).${options.funcion.toLowerCase()} AS valor
 						FROM pronosticos_rast 
+						JOIN geom ON 1=1
+						JOIN unit_thresholds ON geom.unit_name = unit_thresholds.unit_name
 						WHERE series_id=$2
 						AND timestart::timestamptz>=$3::timestamptz
 						AND timeend::timestamptz<=$4::timestamptz
@@ -14503,14 +14593,75 @@ internal.CRUD = class {
 				var args = [area.geom.toString(),series_id,timestart,timeend,cor_id]
 			} else if(cal_id && forecast_date) {
 				const qualifier_filter = control_filter2({qualifier: {type: "string"}}, {qualifier: qualifier})
-				var stmt = `WITH s as (
+				var stmt = `WITH geom AS (
+					SELECT 
+						ST_Transform(
+							ST_GeomFromText(
+								$1, 
+								4326
+							),
+							spatial_ref_sys.srid
+						) AS g,
+						CASE 
+							WHEN proj4text LIKE '%+units=%' THEN 
+								CASE substring(proj4text from '\\+units=([^\\s]+)')
+									WHEN 'm' THEN 'meter'
+									WHEN 'ft' THEN 'foot'
+									WHEN 'us-ft' THEN 'US survey foot'
+									WHEN 'km' THEN 'kilometer'
+									ELSE substring(proj4text from '\\+units=([^\\s]+)')
+								END
+
+							WHEN proj4text LIKE '%+proj=longlat%' OR proj4text LIKE '%+proj=latlong%' THEN 'degree'
+
+							ELSE 'meter'
+						END AS unit_name
+					FROM pronosticos_rast
+					JOIN spatial_ref_sys 
+						ON st_srid(pronosticos_rast.valor) = spatial_ref_sys.srid
+					WHERE series_id=$2
+					AND timestart::timestamptz>=$3::timestamptz
+					LIMIT 1	
+				),
+				unit_thresholds (unit_name, min, max, resample, buffer) AS (
+					VALUES 
+						( 'meter', 999, 4999, 5000, 50000), 
+						( 'degree', 0.00999, 0.04999, 0.05, 0.5)
+				), s as (
 						SELECT pronosticos_rast.timestart AS timestart,
 							pronosticos_rast.timeend AS timeend,
 							pronosticos_rast.cor_id AS cor_id,
 							qualifier AS qualifier,
-							(st_summarystats(st_clip(st_resample(st_clip(pronosticos_rast.valor,1,st_buffer(st_envelope(st_geomfromtext($1,st_srid(valor))),0.5),-9999,true),0.05,0.05),1,st_geomfromtext($1,st_srid(valor)),-9999,true))).${options.funcion.toLowerCase()} AS valor
+							(
+								st_summarystats(
+									st_clip(
+										st_resample(
+											st_clip(
+												pronosticos_rast.valor,
+												1,
+												st_buffer(
+													st_envelope(
+														geom.g
+													),
+													unit_thresholds.buffer
+												),
+												-9999,
+												true
+											),
+											unit_thresholds.resample,
+											unit_thresholds.resample
+										),
+										1,
+										geom.g,
+										-9999,
+										true
+									)
+								)
+							).${options.funcion.toLowerCase()} AS valor
 						FROM pronosticos_rast 
 						JOIN corridas ON corridas.id=pronosticos_rast.cor_id 
+						JOIN geom ON 1=1
+						JOIN unit_thresholds ON geom.unit_name = unit_thresholds.unit_name
 						WHERE pronosticos_rast.series_id=$2
 						AND pronosticos_rast.timestart::timestamptz>=$3::timestamptz
 						AND pronosticos_rast.timeend::timestamptz<=$4::timestamptz
@@ -14525,11 +14676,39 @@ internal.CRUD = class {
 				var args = [area.geom.toString(),series_id,timestart,timeend, cal_id, forecast_date]
 			} else {
 				var stmt = `WITH geom AS (
-					SELECT ST_GeomFromText($1, ST_SRID(valor)) AS g
-					FROM observaciones_rast 
+					SELECT 
+						ST_Transform(
+							ST_GeomFromText(
+								$1, 
+								4326
+							),
+							spatial_ref_sys.srid
+						) AS g,
+					CASE 
+						WHEN proj4text LIKE '%+units=%' THEN 
+							CASE substring(proj4text from '\\+units=([^\\s]+)')
+								WHEN 'm' THEN 'meter'
+								WHEN 'ft' THEN 'foot'
+								WHEN 'us-ft' THEN 'US survey foot'
+								WHEN 'km' THEN 'kilometer'
+								ELSE substring(proj4text from '\\+units=([^\\s]+)')
+							END
+
+						WHEN proj4text LIKE '%+proj=longlat%' OR proj4text LIKE '%+proj=latlong%' THEN 'degree'
+
+						ELSE 'meter'
+					END AS unit_name
+					FROM observaciones_rast
+					JOIN spatial_ref_sys 
+						ON st_srid(observaciones_rast.valor) = spatial_ref_sys.srid
 					WHERE series_id=$2
 					AND timestart::timestamptz>=$3::timestamptz
-					LIMIT 1				
+					LIMIT 1	
+				),
+				unit_thresholds (unit_name, min, max, resample, buffer) AS (
+					VALUES 
+						( 'meter', 999, 4999, 5000, 50000), 
+						( 'degree', 0.00999, 0.04999, 0.05, 0.5)
 				),
 				s as (
 					SELECT 
@@ -14539,28 +14718,31 @@ internal.CRUD = class {
 							ST_SummaryStats(
 								ST_Clip(
 									CASE 
-										WHEN abs(ST_PixelWidth(valor)) >= 0.04999
-										THEN ${(options.force_resample) ? "st_resample(valor, 0.05, 0.05)": "valor"}
+										WHEN abs(ST_PixelWidth(valor)) >= unit_thresholds.max
+										THEN ${(options.force_resample) ? "st_resample(valor, unit_thresholds.resample, unit_thresholds.resample)": "valor"}
 										ELSE 
 											CASE 
-												WHEN abs(ST_PixelWidth(valor)) >= 0.00999
-												THEN ST_Resample(valor, 0.05, 0.05)
-												ELSE st_resample(
-													st_clip(
-														valor,
-														1,
-														st_buffer(
-															st_envelope(
-																geom.g
+												WHEN 
+													abs(ST_PixelWidth(valor)) >= unit_thresholds.min
+												THEN
+													 ST_Resample(valor, unit_thresholds.resample, unit_thresholds.resample)
+												ELSE 
+													st_resample(
+														st_clip(
+															valor,
+															1,
+															st_buffer(
+																st_envelope(
+																	geom.g
+																),
+																unit_thresholds.buffer
 															),
-															0.5
+															-9999,
+															true
 														),
-														-9999,
-														true
-													),
-													0.05,
-													0.05
-												)
+														unit_thresholds.resample,
+														unit_thresholds.resample
+													)
 											END
 									END,
 									1,
@@ -14570,11 +14752,15 @@ internal.CRUD = class {
 								)
 							)
 						).${options.funcion.toLowerCase()} AS valor
-					FROM observaciones_rast, geom
+					FROM observaciones_rast, geom, unit_thresholds
 					WHERE series_id=$2
 					AND timestart::timestamptz>=$3::timestamptz
 					AND timeend::timestamptz<=$4::timestamptz
-					AND ST_Intersects(valor, geom.g)
+					AND ST_Intersects(
+						valor, 
+						geom.g
+					)
+					AND unit_thresholds.unit_name = geom.unit_name
 				)
 				SELECT 
 					timestart, 
@@ -21259,10 +21445,21 @@ internal.CRUD = class {
 		})
 	}
 
+	static async getProj4text(target_srid, client) {
+		return withClient(client, async (client) => {
+			const result = await client.query("SELECT proj4text FROM spatial_ref_sys WHERE srid=$1",[target_srid])
+			if(result.rows.length == 0) {
+				return null
+			} else {
+				return result.rows[0].proj4text
+			}
+		})
+	}
+
 	static async serieRasttoAreal(
 		serie, // internal.serie | internal.SerieTemporalSim
         areas_filter={},
-        options={},
+        options={}, // {coef?: number, location?: string}
 		cover_file,
 		dates_file
 	) {
@@ -21292,9 +21489,19 @@ internal.CRUD = class {
 			fs.copyFileSync(dates_file, tmpFile_dates)
 		}
 		// get areas
-		const areas = await internal.area.read(areas_filter, {srid: serie.srid || serie.fuente.def_srid})
-		// write areas to raster file
-		await internal.area.toRaster(areas, tmpFile_zones, undefined)
+		const areas = await internal.area.read(areas_filter) //, {srid: serie.srid || serie.metadata.fuente.def_srid})
+		const target_srid = serie.srid || serie.metadata.fuente.def_srid
+		if(target_srid && target_srid != 4326) {
+			// write areas to raster file and reproject
+			const target_srs = await this.getProj4text(target_srid)
+			if(!target_srs) {
+				throw new Error("target srs not found")
+			}
+			await internal.area.toRaster(areas, tmpFile_zones, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, target_srs)	
+		} else {
+			// write areas to raster file
+			await internal.area.toRaster(areas, tmpFile_zones, undefined)
+		}
 		// get series areales
 		const series_areales = await internal.serie.read({
 			tipo: "areal",
@@ -21312,6 +21519,9 @@ internal.CRUD = class {
 		const args = ["-c",tmpFile_cover,"-o",tmpFile_output,"-f",serie.fuentes_id,"-v",serie.var_id,"-k",coef,"-z",tmpFile_zones,"-d",timeSteps.interval2iso8601String(timeSupport),"-t",tmpFile_dates,"-s",tmpFile_series]
 		if(serie.cor_id) {
 			args.push(...["-i",serie.cor_id])
+		}
+		if(options.location) {
+			args.push(...["-l", options.location])
 		}
 		try {
 			const p = pspawn(global.config.zonal_means_exec,args)
@@ -21472,7 +21682,8 @@ internal.CRUD = class {
 			{ // options
 				upload: options.upload,
 				coef: options.coef,
-				no_update: options.no_update
+				no_update: options.no_update,
+				location: options.location
 			},
 			{ // obs filter
 				timestart: timestart,
@@ -21508,7 +21719,7 @@ internal.CRUD = class {
 		timestart,
 		timeend,
 		areas_filter,
-		options={},
+		options={}, // {upload?: bool, coef?: number, no_update?: bool,	location?: string}
 		qualifier
 		) {
 		if(!series_id) {
@@ -21552,7 +21763,8 @@ internal.CRUD = class {
 				{ // options
 					upload: options.upload,
 					coef: options.coef,
-					no_update: options.no_update
+					no_update: options.no_update,
+					location: options.location
 				},
 				{ // obs filter
 					timestart: timestart,

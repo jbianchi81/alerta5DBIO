@@ -74,6 +74,16 @@
                     "properties": {
                         "upload": {
                             "type": "boolean"
+                        },
+                        "no_update": {
+                            "type": "boolean"
+                        },
+                        "coef": {
+                            "type": "number"
+                        },
+                        "location": {
+                            "type": "string",
+                            "description": "grass location where to run raster calculation, Defaults to data/WGS84"
                         }
                     }
                 },

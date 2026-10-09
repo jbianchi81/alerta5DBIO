@@ -961,7 +961,8 @@ export class serie extends baseModel implements Serie {
         options: {
             coef?: number,
             upload?: boolean,
-            no_update?: boolean
+            no_update?: boolean,
+            location?: string
         }={},
 		obs_filter?: {
             timestart: Date,

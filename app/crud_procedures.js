@@ -3537,7 +3537,8 @@ internal.SimRastToArealWithZonesProcedure = class extends internal.CrudProcedure
             this.run_options = {
                 upload: arguments[0].options.upload,
                 no_update: arguments[0].options.no_update,
-                coef: arguments[0].options.coef
+                coef: arguments[0].options.coef,
+                location: arguments[0].options.location
             }
         }
     }
