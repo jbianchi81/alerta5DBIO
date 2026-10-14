@@ -199,8 +199,8 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
             if (!this.tokenAuth) {
                 yield this.login();
             }
-            const variable_altura = yield CRUD_1.var.read({ id: 2 });
-            const variable_precipitacion = yield CRUD_1.var.read({ id: 27 });
+            const variable_altura = (yield CRUD_1.var.read({ id: 2 }))[0];
+            const variable_precipitacion = (yield CRUD_1.var.read({ id: 27 }))[0];
             const proc = yield CRUD_1.procedimiento.read({ id: 1 });
             const unidades_metro = yield CRUD_1.unidades.read({ id: 11 });
             const unidades_milimetro = yield CRUD_1.unidades.read({ id: 9 });

@@ -269,8 +269,8 @@ export class Client extends AbstractAccessorEngine implements AccessorEngine {
         if(!this.tokenAuth) {
             await this.login()
         }
-        const variable_altura = await crud_var.read({id:2})
-        const variable_precipitacion = await crud_var.read({id:27})
+        const variable_altura = (await crud_var.read({id:2}))[0]
+        const variable_precipitacion = (await crud_var.read({id:27}))[0]
         const proc = await crud_proc.read({id:1})
         const unidades_metro = await crud_unidades.read({id:11})
         const unidades_milimetro = await crud_unidades.read({id:9})
