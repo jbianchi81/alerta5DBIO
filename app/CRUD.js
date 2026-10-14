@@ -1024,7 +1024,7 @@ internal.area = class extends baseModel  {
 					"-ot",
 					output_type,
 					tmpFile_geom.name, 
-					tmpFile_rasterized
+					tmpFile_rasterized.name
 				])
 			p.childProcess.stdout.on("data", data => {
 					process.stdout.write(data);
@@ -1045,7 +1045,7 @@ internal.area = class extends baseModel  {
 						target_srs,
 						"-r",
 						"bilinear",
-  						tmpFile_rasterized,
+  						tmpFile_rasterized.name,
 						output
 					]
 				)
@@ -1053,13 +1053,13 @@ internal.area = class extends baseModel  {
 					process.stdout.write(data);
 				});
 				await p
-				console.debug("reprojected " + tmpFile_rasterized + " using srs=" + target_srs)
+				console.debug("reprojected " + tmpFile_rasterized.name + " using srs=" + target_srs)
 			} catch(e) {
 				console.error(e)
 				throw e
 			}
 		} else {
-			fs.cpSync(tmpFile_rasterized, output)
+			fs.cpSync(tmpFile_rasterized.name, output)
 		}
 		console.debug("Wrote areas to raster file: " + output)
 	}
