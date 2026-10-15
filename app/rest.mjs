@@ -3276,9 +3276,10 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 		return
 	}
 	try {
-		var serie = await crud.rastExtract(filter.series_id,filter.timestart,filter.timeend,options,filter.public)
+		var serie = await crud.rastExtract(filter.series_id,filter.timestart,filter.timeend,options,filter.public, undefined, filter.cal_id, filter.cor_id, filter.forecast_date, filter.qualifier)
 	} catch (e) {
 		handleCrudError(e, res)
+		return
 	}
 	if(!serie) {
 		console.error("No se encontró la serie")

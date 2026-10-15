@@ -14334,6 +14334,7 @@ internal.CRUD = class {
 								timeend,
 								ST_Band(rast, 1) AS valor
 							FROM agg
+							WHERE 1=1
 							${min_count_filter}
 							ON CONFLICT (series_id, timestart, timeend) DO UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate
 							RETURNING series_id, timestart, timeend`

@@ -883,6 +883,16 @@ program
 			})
 	});
 
+function parseExtent(value) {
+  const parts = value.split(',').map(item => Number(item.trim()));
+
+  if (parts.length !== 4 || parts.some(isNaN)) {
+    throw new Error('Extent must be four comma-separated numbers: minX,minY,maxX,maxY');
+  }
+
+  return parts;
+}
+
 program
 	.command('rastExtract <series_id> <timestart> <timeend>')
 	.description('Get Raster Agregado de Observaciones como GDAL file by series_id, timestart and timeend')
@@ -897,12 +907,20 @@ program
 	.option('-h, --height <value>', 'output image height (default 300)')
 	.option('-s, --series_metadata', 'add series metadata to files')
 	.option('-c, --print_color_map', 'Imprime mapa rgb')
+	.option('-C, --cor_id <value>', 'cor_id')
+	.option('-a, --cal_id <value>', 'cal_id')
+	.option('-O, --forecast_date <value>', 'forecast_date')
+	.option('-q, --qualifier <value>', 'qualifier')
+	.option('-l, --location <value>', 'grass location')
+	.option('-r, --res <value>', 'spatial resolution')
+	.option('-e, --extent <numbers>', 'spatial extent (n, s, w, e)', parseExtent)
 	//~ .option('-m, --multi', 'output as a multi-band raster file')
 	.action((series_id, timestart, timeend, options) => {
 		if (options.bbox) {
 			options.bbox = new CRUD.geometry("box", options.bbox)
 		}
-		crud.rastExtract(series_id, timestart, timeend, options)
+		options.forecast_date = (options.forecast_date) ? new Date(options.forecast_date) : undefined
+		crud.rastExtract(series_id, timestart, timeend, options, undefined, undefined, options.cal_id, options.cor_id, options.forecast_date, options.qualifier)
 			.then(serie => {
 				if (!serie) {
 					console.error("No se encontró la serie")
@@ -1133,6 +1151,7 @@ program
 	.option('-m, --print_masked_color_map', 'Imprime mapas rgb 3horarios y diarios con máscara cdp')
 	.option('-t, --time <value>', 'analysis time (hour), default=6', 6)
 	.option('-D, --dont_download', 'No descargar')
+	.option('-k, --skip_3h', "no generar mapas 3-horarios")
 	.action(async options => {
 		try {
 			if (options.dont_download) {
@@ -1159,7 +1178,7 @@ program
 				throw new Error("gfs2db: no forecasts found")
 			}
 			console.log("result:" + observaciones.length + " rows found/upserted")
-			if (options.print_color_map) {
+			if (options.print_color_map && !options.skip_3h) {
 				var timeupdate = observaciones[0].timeupdate
 				const serie = await crud.getSerie("rast", options.series_id, undefined, undefined, { format: "gtiff" }, undefined, timeupdate)
 				for (var i = 0; i < serie.observaciones.length; i++) {

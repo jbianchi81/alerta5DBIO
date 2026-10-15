@@ -1351,5 +1351,75 @@ export class CRUD {
         user_id?: string, 
         client?: Client
     ) : Promise<observaciones|void>
+
+    static async rastExtract(
+        series_id:number,
+        timestart:Date,
+        timeend:Date,
+        options: {
+            bbox?: Geometry,
+            pixel_height?: number,
+            pixel_width?: number,
+            srid?: number,
+            funcion?: 'LAST' | 'FIRST' | 'MIN' | 'MAX' | 'COUNT' | 'SUM' | 'MEAN' | 'RANGE',
+            format?: 'GTiff' | 'gtiff' | 'png',
+            height?: number,
+            width?: number,
+            source_time_support?: string,
+            min_count?: number,
+            min_time?: number,
+            insertSeriesId?: number
+        },
+        isPublic:boolean,
+        client:Client,
+        cal_id:number,
+        cor_id:number,
+        forecast_date:Date,
+        qualifier:string
+    ) : Promise<serie|void>
+
+    static async get_pp_cdp_batch(
+        timestart:Date,
+        timeend:Date,
+        filter: {
+            estacion_id?: number,
+            proc_id?: number,
+            geom?: Geometry,
+            red_id?: number,
+            unit_id?: number,
+            public?: boolean
+        },
+        options: {
+            no_send_data?: boolean,
+            agg_func?: "mean" | "avg" | "average" | "min" | "max" | "count" | "diff" | "increment" | "sum" | "nearest" | "array",
+            dt?: string,
+            t_offset?: string,
+            inst?: boolean,
+            precision?: number,
+            timeSupport?: string,
+            min_count?: number,
+            min_time_fraction?: number,
+            skip_count_control?: boolean,
+            output?: string,
+            outputdir?: string,
+            no_update_areales?: boolean,
+            nmin?: number,
+            radius1?: number,
+            radius2?: number,
+            out_x?: number,
+            out_y?: number,
+            nullvalue?: number,
+            method?: "nearest" | "invdist" | "linear",
+            target_extent?: number[][],
+            roifile?: string,
+            srs?: number,
+            makepng?: boolean,
+            geojsonfile?: string,
+            zfield?: string
+
+        },
+        upsert:boolean,
+        surf_series_id:number
+    ) : Promise<observaciones|void>
 }
 
