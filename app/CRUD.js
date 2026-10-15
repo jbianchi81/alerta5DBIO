@@ -1059,7 +1059,8 @@ internal.area = class extends baseModel  {
 				throw e
 			}
 		} else {
-			fs.cpSync(tmpFile_rasterized.name, output)
+			// fs.cpSync(tmpFile_rasterized.name, output)
+			fs.copyFileSync(tmpFile_rasterized.name, output);
 		}
 		console.debug("Wrote areas to raster file: " + output)
 	}
