@@ -1214,7 +1214,7 @@ program
 				}
 			}
 			console.log({ timestart: timestart, timeend: timeend })
-			const serie_regular = await crud.getRegularSeries("rast", options.series_id, "1 day", timestart, timeend, { insertSeriesId: options.series_id_diario, timeupdate: timeupdate, t_offset: { hours: 9 } })   // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction    ,t_offset:{"hours":9}
+			const serie_regular = await crud.getRegularSeries("rast", options.series_id, "1 day", timestart, timeend, { insertSeriesId: options.series_id_diario, timeupdate: timeupdate, t_offset: { hours: 9 } }, undefined, undefined, undefined, timeupdate)   // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction    ,t_offset:{"hours":9}
 			var timestart = serie_regular[0].timestart
 			var timeend = serie_regular[0].timeend
 			for (var i = 0; i < serie_regular.length; i++) {
@@ -1237,7 +1237,7 @@ program
 				await print_rast(parameters, serie_diaria, serie_diaria.observaciones[i])
 			}
 			console.log({ series_id_diario: options.series_id_diario, timestart: timestart, timeend: timeend }) // timestart:timestart.toISOString(),timeend:timeend.toISOString()})
-			const serie = await crud.rastExtract(options.series_id_diario, timestart, timeend, { format: "GTiff", "function": "SUM" }) // timestart.toISOString(),timeend.toISOString(),{format:"GTiff", "function":"SUM"})
+			const serie = await crud.rastExtract(options.series_id_diario, timestart, timeend, { format: "GTiff", "function": "SUM" }, undefined, undefined, undefined, undefined, timeupdate) // timestart.toISOString(),timeend.toISOString(),{format:"GTiff", "function":"SUM"})
 			if (!serie) {
 				console.error("No se encontró la serie diaria")
 				return

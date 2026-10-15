@@ -14326,6 +14326,20 @@ internal.CRUD = class {
 							ON CONFLICT (cor_id, series_id, timestart, qualifier) DO UPDATE SET valor=excluded.valor, timeend=excluded.timeend
 							RETURNING series_id, timestart, timeend`
 						args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion, options.insertSeriesId, qualifier || "main", cal_id, forecast_date]
+					} else if(forecast_date) {
+						var select_block = `INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate)
+							SELECT 
+								$7, -- insertSeriesId
+								timestart,
+								timeend,
+								ST_Band(rast, 1) AS valor,
+								$8
+							FROM agg
+							WHERE 1=1
+							${min_count_filter}
+							ON CONFLICT (series_id, timestart, timeend) DO UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate
+							RETURNING series_id, timestart, timeend`
+						args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion, options.insertSeriesId, forecast_date]
 					} else {
 						var select_block = `INSERT INTO observaciones_rast (series_id, timestart, timeend, valor)
 							SELECT 
