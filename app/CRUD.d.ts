@@ -1421,5 +1421,27 @@ export class CRUD {
         upsert:boolean,
         surf_series_id:number
     ) : Promise<observaciones|void>
+
+    static async rastToArealWithZones(
+		series_id : number,
+		timestart : Date,
+		timeend : Date,
+		areas_filter : {
+            mostrar? : boolean,
+            activar? : boolean,
+            id? : number|number[],
+            unid?: number|number[],
+            nombre?: string,
+            geom?: Geometry,
+            exutorio?: Geometry,
+            exutorio_id?: number
+        },
+		options : {
+            upload?: boolean,
+            coef?: number,
+            no_update?: boolean,
+            location?: string
+        }
+		) : Promise<observacion[]>
 }
 

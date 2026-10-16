@@ -21506,7 +21506,7 @@ internal.CRUD = class {
 		}
 		// get areas
 		const areas = await internal.area.read(areas_filter) //, {srid: serie.srid || serie.metadata.fuente.def_srid})
-		const target_srid = serie.srid || serie.metadata.fuente.def_srid
+		const target_srid = (serie.srid) ? serie.srid : (serie.fuente) ? serie.fuente.def_srid : (serie.metadata) ? serie.metadata.fuente.def_srid : undefined
 		if(target_srid && target_srid != 4326) {
 			// write areas to raster file and reproject
 			const target_srs = await this.getProj4text(target_srid)

@@ -1139,8 +1139,8 @@ program
 	.option('-s, --series_id <value>', 'id de series_rast 3 horario', 2)
 	.option('-o, --output <value>', 'archivo de salida')
 	.option('-d, --series_id_diario <value>', 'id de series_rast diario', 3)
-	.option('-A, --series_id_areal_3h <value>', 'id de series_areal 3horario', 'all')
-	.option('-a, --series_id_areal <value>', 'id de series_areal diario', 'all')
+	// .option('-A, --series_id_areal_3h <value>', 'id de series_areal 3horario', 'all')
+	// .option('-a, --series_id_areal <value>', 'id de series_areal diario', 'all')
 	.option('-C, --csv', 'input/output as CSV')
 	.option('-L, --csvless', 'print as CSVless')
 	.option('-S, --string', 'output as one-line strings')
@@ -1152,9 +1152,10 @@ program
 	.option('-t, --time <value>', 'analysis time (hour), default=6', 6)
 	.option('-D, --dont_download', 'No descargar')
 	.option('-k, --skip_3h', "no generar mapas 3-horarios")
+	.option('-a, --only_areal', "Sólo medias areales")
 	.action(async options => {
 		try {
-			if (options.dont_download) {
+			if (options.dont_download || options.only_areal) {
 				const result = await global.pool.query("WITH maxfd as (\
 				SELECT max(timeupdate) timeupdate \
 				FROM observaciones_rast \
@@ -1165,7 +1166,25 @@ program
 			AND observaciones_rast.timeupdate=maxfd.timeupdate\
 			GROUP BY maxfd.timeupdate", [options.series_id])
 				console.log(result.rows)
-				var observaciones = await crud.getObservaciones("rast", { series_id: options.series_id, timestart: result.rows[0].min.toISOString(), timeend: result.rows[0].max.toISOString() })
+				const timestart = result.rows[0].min
+				const timeend = result.rows[0].max
+				const timeupdate = result.rows[0].timeupdate
+				if(options.only_areal) {
+					const obs = await global.pool.query(`
+						SELECT
+							id,
+							series_id,
+							timestart,
+							timeend,
+							timeupdate
+						FROM observaciones_rast
+						WHERE series_id=$1
+						AND timeupdate=$2
+						ORDER BY timestart`, [options.series_id, timeupdate])
+					var observaciones = obs.rows
+				} else {
+					var observaciones = await crud.getObservaciones("rast", { series_id: options.series_id, timestart: timestart.toISOString(), timeend: timeend.toISOString() })
+				}
 			} else {
 				var observaciones = await gfs.gfs2db(crud, options.series_id, options.time, {localcopy: sprintf("/tmp/gfs.local-copy-%02d.grb", parseInt(options.time))})
 			}
@@ -1178,7 +1197,7 @@ program
 				throw new Error("gfs2db: no forecasts found")
 			}
 			console.log("result:" + observaciones.length + " rows found/upserted")
-			if (options.print_color_map && !options.skip_3h) {
+			if (options.print_color_map && !options.skip_3h && !options.only_areal) {
 				var timeupdate = observaciones[0].timeupdate
 				const serie = await crud.getSerie("rast", options.series_id, undefined, undefined, { format: "gtiff" }, undefined, timeupdate)
 				for (var i = 0; i < serie.observaciones.length; i++) {
@@ -1214,58 +1233,117 @@ program
 				}
 			}
 			console.log({ timestart: timestart, timeend: timeend })
-			const serie_regular = await crud.getRegularSeries("rast", options.series_id, "1 day", timestart, timeend, { insertSeriesId: options.series_id_diario, timeupdate: timeupdate, t_offset: { hours: 9 } }, undefined, undefined, undefined, timeupdate)   // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction    ,t_offset:{"hours":9}
-			var timestart = serie_regular[0].timestart
-			var timeend = serie_regular[0].timeend
-			for (var i = 0; i < serie_regular.length; i++) {
-				if (serie_regular[i].timestart < timestart) {
-					timestart = serie_regular[i].timestart
+			if(!options.only_areal) {
+				const serie_regular = await crud.getRegularSeries("rast", options.series_id, "1 day", timestart, timeend, { insertSeriesId: options.series_id_diario, timeupdate: timeupdate, t_offset: { hours: 9 } }, undefined, undefined, undefined, timeupdate)   // options: t_offset,aggFunction,inst,timeSupport,precision,min_time_fraction    ,t_offset:{"hours":9}
+				timestart = serie_regular[0].timestart
+				timeend = serie_regular[0].timeend
+				for (var i = 0; i < serie_regular.length; i++) {
+					if (serie_regular[i].timestart < timestart) {
+						timestart = serie_regular[i].timestart
+					}
+					if (serie_regular[i].timeend > timeend) {
+						timeend = serie_regular[i].timeend
+					}
 				}
-				if (serie_regular[i].timeend > timeend) {
-					timeend = serie_regular[i].timeend
-				}
-			}
-			const serie_diaria = await crud.getSerie("rast", options.series_id_diario, timestart.toISOString(), timeend.toISOString(), { format: "gtiff" })
-			for (var i = 0; i < serie_diaria.observaciones.length; i++) {
-				var location = (global.config.gfs) ? (global.config.gfs["diario"]) ? global.config.gfs["diario"].location : global.config.rast.location : global.config.rast.location
-				var filename = location + "/" + "gfs." + serie_diaria.observaciones[i].timeupdate.toISOString().replace(/[-T]/g, "").substring(0, 10) + "." + serie_diaria.observaciones[i].timestart.toISOString().replace(/[-T]/g, "").substring(0, 10) + ".diario.GTiff"
-				var parameters = { title: "Pronostico GFS-SMN [mm/d]", filename: filename } // {...options}
-				parameters.print_color_map = (options.print_color_map) ? options.print_color_map : false
-				parameters.print_masked_color_map = (options.print_masked_color_map) ? options.print_masked_color_map : false
+				const serie_diaria = await crud.getSerie("rast", options.series_id_diario, timestart.toISOString(), timeend.toISOString(), { format: "gtiff" })
+				for (var i = 0; i < serie_diaria.observaciones.length; i++) {
+					var location = (global.config.gfs) ? (global.config.gfs["diario"]) ? global.config.gfs["diario"].location : global.config.rast.location : global.config.rast.location
+					var filename = location + "/" + "gfs." + serie_diaria.observaciones[i].timeupdate.toISOString().replace(/[-T]/g, "").substring(0, 10) + "." + serie_diaria.observaciones[i].timestart.toISOString().replace(/[-T]/g, "").substring(0, 10) + ".diario.GTiff"
+					var parameters = { title: "Pronostico GFS-SMN [mm/d]", filename: filename } // {...options}
+					parameters.print_color_map = (options.print_color_map) ? options.print_color_map : false
+					parameters.print_masked_color_map = (options.print_masked_color_map) ? options.print_masked_color_map : false
 
-				//~ result[i].valor = '\\x' + result[i].valor
-				await print_rast(parameters, serie_diaria, serie_diaria.observaciones[i])
+					//~ result[i].valor = '\\x' + result[i].valor
+					await print_rast(parameters, serie_diaria, serie_diaria.observaciones[i])
+				}
+				console.log({ series_id_diario: options.series_id_diario, timestart: timestart, timeend: timeend }) // timestart:timestart.toISOString(),timeend:timeend.toISOString()})
+				const serie = await crud.rastExtract(options.series_id_diario, timestart, timeend, { format: "GTiff", "function": "SUM" }, undefined, undefined, undefined, undefined, timeupdate) // timestart.toISOString(),timeend.toISOString(),{format:"GTiff", "function":"SUM"})
+				if (!serie) {
+					console.error("No se encontró la serie diaria")
+					return
+				}
+				if (!serie.observaciones) {
+					console.error("No se encontraron observaciones")
+					return
+				}
+				console.log("Got observaciones: " + serie.observaciones.length + " records.")
+				var location = (global.config.gfs) ? (global.config.gfs["suma"]) ? global.config.gfs["suma"].location : global.config.rast.location : global.config.rast.location
+				var filename = location + "/" + "gfs." + serie.observaciones[0].timeupdate.toISOString().replace(/[-T]/g, "").substring(0, 10) + "." + serie.observaciones[0].timestart.toISOString().replace(/[-T]/g, "").substring(0, 10) + ".suma.GTiff"
+				await print_rast(
+					{ 
+						print_color_map: true, 
+						print_masked_color_map: true, 
+						filename: filename, 
+						title: "Pronostico a 7 dias GFS(SMN) [mm]" 
+					}, 
+					serie, 
+					serie.observaciones[0]
+				)			
 			}
-			console.log({ series_id_diario: options.series_id_diario, timestart: timestart, timeend: timeend }) // timestart:timestart.toISOString(),timeend:timeend.toISOString()})
-			const serie = await crud.rastExtract(options.series_id_diario, timestart, timeend, { format: "GTiff", "function": "SUM" }, undefined, undefined, undefined, undefined, timeupdate) // timestart.toISOString(),timeend.toISOString(),{format:"GTiff", "function":"SUM"})
-			if (!serie) {
-				console.error("No se encontró la serie diaria")
-				return
+			// areales
+			const tandas = [
+				[1,5,77,93,103,107,109,116,118,133,134,142,184,185,186,187,189,190,191,192,193,194,197,198,214,233,243,253,254,256,257,258,259,261,262,264,269,271,273,278,282,284,287,303,304,313,320,321,322,323,324,325,326,327,328,329,330,331,332,333,337,338,339,340,341,342,343,344,345,346,348,349,350,352,353,354,355,356,357,374,379,381,382,383,384,385,386,387,388,389,390,391,392,393,394,395,396,397,398,399,400,401,402,403,404,405,406,407,408,411,412,418,419,420,421,422,424,425,426,427,428,430,431,433,439,445,446,450,451,476,478,480,481,483,484,601,604,605,606,607,611,612,613,614,615,616,642,643,645,646,647,648,649,650,652,653,654,655,656,657,658,659,660,661,662,663,664,665,666,667,668,670,671,672,673,674,675,676,677,678,679,680,681,682,684,685,686,687,689,691,692,693,694,695,696,697,698,699,700,702,704,705,706,707,708,709,710,711,714,715,716,717,718,719,720,721,722,723,724,725,726,727,728,730,732,733,734,735,736,737,739,863,864,865,866,867,868,869,870,871,872,873,874,875,876,877,878,879,880,881,882,883,884],
+				[115,138,141,163,195,215,248,255,288,291,292,295,296,297,300,302,305,306,307,310,311,334,335,336,347,358,359,360,369,370,371,372,373,375,378,429,432,434,435,436,437,438,440,441,442,443,444,448,449,479,482,485,486,487,501,502,504,602,608,609,610,617,622,623,624,625,626,627,628,629,630,631,633,644,738,740,741,742,743,745,746,747,748,749,750,751,752,753,754,755,756,757,758,759,760,761,762,763,764,765,766,767,768,769,770,771,772,773,774,775,777,779,780,781,782,783,784,785,787,788,789,790,791,792,793,794,795,796,797,798,799,800,801,802,803,804,805,806,807,808,809,810,811,812,813,814,815,816,817,818,819,820,821,822,823,824,825,826,827,828,829,830,831,832,833,834,835,836,837,838,839,840,841,842,843,844,845,846,847,848,849,850,851,852,853,854,855,856,857,858,859,860,861,862,886,887,888,889,890,891,892,893,894,895,896,898,900,901,902,903,904],
+				[713, 188, 632, 417, 414, 380, 368, 416, 415, 683, 413, 410, 409, 364, 778, 65, 206, 208, 319, 618, 2, 885, 500, 729, 603, 897, 101],
+				[337, 669, 252, 621, 367, 366, 365, 361, 447, 363, 362, 786, 100, 113, 132, 240]
+			]
+			// 3h
+			const obs_areales_3h = []
+			for(const area_ids of tandas) {
+				const obs_areales_tanda = await crud.rastToArealWithZones(
+					options.series_id,
+					timestart,
+					timeend,
+					{
+						id: area_ids
+					},
+					{
+						upload: true
+					}
+				)
+				obs_areales_3h.push(...obs_areales_tanda)
 			}
-			if (!serie.observaciones) {
-				console.error("No se encontraron observaciones")
-				return
+			// restantes
+			for(const area_id of [199, 620, 899, 423, 505, 619, 908, 909]) {
+				const obs = await crud.rast2areal(options.series_id, timestart, timeend, area_id, {})
+				if(!obs) {
+					console.error("Falló rast2areal para el area " + area_id)
+					continue
+				}
+				obs_areales_3h.push(...obs)
 			}
-			console.log("Got observaciones: " + serie.observaciones.length + " records.")
-			var location = (global.config.gfs) ? (global.config.gfs["suma"]) ? global.config.gfs["suma"].location : global.config.rast.location : global.config.rast.location
-			var filename = location + "/" + "gfs." + serie.observaciones[0].timeupdate.toISOString().replace(/[-T]/g, "").substring(0, 10) + "." + serie.observaciones[0].timestart.toISOString().replace(/[-T]/g, "").substring(0, 10) + ".suma.GTiff"
-			await print_rast(
-				{ 
-					print_color_map: true, 
-					print_masked_color_map: true, 
-					filename: filename, 
-					title: "Pronostico a 7 dias GFS(SMN) [mm]" 
-				}, 
-				serie, 
-				serie.observaciones[0]
-			)			
-			const series_areales = await Promise.all([
-				crud.rast2areal(options.series_id, timestart, timeend, options.series_id_areal_3h, {}),
-				crud.rast2areal(options.series_id_diario, timestart, timeend, options.series_id_areal, {})
-			])
-			console.log("Inserted " + ((series_areales[1]) ? series_areales[1].length : 0) + " registros areales diarios")
-			console.log("Inserted " + ((series_areales[0]) ? series_areales[0].length : 0) + " registros areales 3horarios")
-			await print_output(options, series_areales)
+			// 1d
+			const obs_areales_1d = []
+			for(const area_ids of tandas) {
+				const obs_areales_tanda = await crud.rastToArealWithZones(
+					options.series_id_diario,
+					timestart,
+					timeend,
+					{
+						id: area_ids
+					},
+					{
+						upload: true
+					}
+				)
+				obs_areales_1d.push(...obs_areales_tanda)
+			}
+			// restantes
+			for(const area_id of [199, 620, 899, 423, 505, 619, 908, 909]) {
+				const obs = await crud.rast2areal(options.series_id_diario, timestart, timeend, area_id, {})
+				if(!obs) {
+					console.error("Falló rast2areal para el area " + area_id)
+					continue
+				}
+				obs_areales_1d.push(...obs)
+			}
+			// const series_areales = await Promise.all([
+			// 	crud.rast2areal(options.series_id, timestart, timeend, options.series_id_areal_3h, {}),
+			// 	crud.rast2areal(options.series_id_diario, timestart, timeend, options.series_id_areal, {})
+			// ])
+			console.log("Inserted " + ((obs_areales_1d) ? obs_areales_1d.length : 0) + " registros areales diarios")
+			console.log("Inserted " + ((obs_areales_3h) ? obs_areales_3h.length : 0) + " registros areales 3horarios")
+			await print_output(options, [obs_areales_3h, obs_areales_1d])
 		} catch(e) {
 			console.error(e)
 		}
