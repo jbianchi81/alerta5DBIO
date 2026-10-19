@@ -219,6 +219,15 @@ export interface DownloadOptions {
   retryDelayMs?: number;
 }
 
+function isAxiosError(error: unknown): error is AxiosError {
+    return (
+        typeof error === "object" &&
+        error !== null &&
+        "isAxiosError" in error &&
+        (error as { isAxiosError: unknown }).isAxiosError === true
+    );
+}
+
 export async function downloadAndWriteStream(
     url: string,
     params: Record<string, string>,

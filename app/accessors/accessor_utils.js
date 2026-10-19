@@ -135,6 +135,12 @@ function filterSeriesByIds(series = [], params = {}) {
     });
 }
 exports.filterSeriesByIds = filterSeriesByIds;
+function isAxiosError(error) {
+    return (typeof error === "object" &&
+        error !== null &&
+        "isAxiosError" in error &&
+        error.isAxiosError === true);
+}
 function downloadAndWriteStream(url, params, localfilepath, options = {}) {
     return __awaiter(this, void 0, void 0, function* () {
         const { connection = axios_1.default.create(), timeoutMs = 30000, maxRetries = 3, retryDelayMs = 1000, } = options;
