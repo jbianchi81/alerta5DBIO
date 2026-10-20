@@ -105,6 +105,58 @@
             },
             "additionalProperties": true
         },
+        "map_viewer": {
+            "type": "object",
+            "description": "/map-viewer page settings",
+            "properties": {
+                "wms": {
+                    "type": "object",
+                    "properties": {
+                        "endpoint": {
+                            "type": "string",
+                            "description": "GeoServer WMS endpoint"
+                        },
+                        "layers": {
+                            "type": "string",
+                            "description": "WMS layer name"
+                        }
+                    },
+                    "required": ["endpoint", "layers"],
+                    "additionalProperties": true
+                },
+                "view_center": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    },
+                    "minItems": 2,
+                    "maxItems": 2
+                },
+                "view_zoom": {
+                    "type": "number"
+                },
+                "initial_viewparams": {
+                    "type": "object",
+                    "properties": {
+                        "timestart": {
+                            "type": "string"
+                        },
+                        "timeend": {
+                            "type": "string"
+                        },
+                        "function": {
+                            "type": "string",
+                            "enum": ["sum", "avg", "min", "max", "count"]
+                        },
+                        "sourceId": {
+                            "type": ["integer", "string"]
+                        }
+                    },
+                    "additionalProperties": true
+                }
+            },
+            "additionalProperties": true
+        },
      	"database": {
             "type": "object",
             "description": "database connection parameters",

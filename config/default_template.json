@@ -2886,6 +2886,20 @@
 		"wms_areas_hide": true,
 		"get_cal_stats": false
 	},
+	"map_viewer": {
+		"wms": {
+			"endpoint": "http://localhost:8080/geoserver/public2/wms",
+			"layers": "public2:areas_pluvio"
+		},
+		"view_center": [-55, -25],
+		"view_zoom": 5,
+		"initial_viewparams": {
+			"timestart": "",
+			"timeend": "",
+			"function": "sum",
+			"sourceId": ""
+		}
+	},
 	"api": {
 		"base_url": "locahost:3005",
 		"organisationName": "My Organisation",

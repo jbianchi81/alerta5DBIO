@@ -1,0 +1,196 @@
+<link rel="stylesheet" href="css/ol.css" type="text/css">
+<script src="js/ol.js"></script>
+<script src="js/map_viewer.js" defer></script>
+<style>
+	.map-viewer-page {
+		max-width: 1440px;
+		width: 100%;
+		padding: 1rem;
+		margin: 0 auto;
+	}
+	.map-viewer-controls {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: end;
+		gap: 1rem;
+		padding: 1rem;
+		background: #f4f7fa;
+		border-radius: .35rem;
+		margin-bottom: 1rem;
+	}
+	.map-viewer-controls > .form-group {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		min-width: 180px;
+		margin: 0;
+	}
+	.map-viewer-controls label {
+		font-weight: 600;
+		margin-bottom: .35rem;
+	}
+	#source-results {
+		display: none;
+		position: absolute;
+		z-index: 10;
+		top: 100%;
+		left: 0;
+		right: 0;
+		max-height: 240px;
+		overflow-y: auto;
+		background: white;
+		border: 1px solid #ced4da;
+		border-radius: 0 0 .25rem .25rem;
+		box-shadow: 0 .25rem .5rem rgba(0, 0, 0, .15);
+	}
+	#source-results button {
+		display: block;
+		width: 100%;
+		padding: .5rem .75rem;
+		text-align: left;
+		border: 0;
+		background: white;
+	}
+	#source-results button:hover,
+	#source-results button:focus {
+		background: #e9f2fa;
+	}
+	#map-viewer-map {
+		width: 100%;
+		height: 70vh;
+		min-height: 380px;
+		background: white;
+	}
+	.map-viewer-map-panel {
+		position: relative;
+	}
+	#map-viewer-legend {
+		position: absolute;
+		z-index: 5;
+		right: 1rem;
+		bottom: 1rem;
+		max-width: 220px;
+		padding: .5rem;
+		background: rgba(255, 255, 255, .92);
+		border: 1px solid #aaa;
+		border-radius: .25rem;
+	}
+	#map-viewer-legend img {
+		display: block;
+		max-width: 200px;
+		max-height: 300px;
+	}
+	#map-viewer-status {
+		min-height: 1.5rem;
+		margin: .5rem 0;
+	}
+	#map-viewer-results {
+		margin-top: 1rem;
+		padding: 1rem;
+		background: white;
+		border-radius: .35rem;
+	}
+	.map-viewer-feature {
+		padding: 1rem 0;
+		border-bottom: 1px solid #dee2e6;
+	}
+	.map-viewer-feature:last-child {
+		border-bottom: 0;
+	}
+	.map-viewer-property-table {
+		width: 100%;
+		margin-bottom: 1rem;
+		border-collapse: collapse;
+	}
+	.map-viewer-property-table th,
+	.map-viewer-property-table td {
+		padding: .4rem .6rem;
+		border: 1px solid #dee2e6;
+		text-align: left;
+		vertical-align: top;
+		overflow-wrap: anywhere;
+	}
+	.map-viewer-property-table th {
+		width: 25%;
+		background: #f4f7fa;
+	}
+	.map-viewer-chart {
+		width: 100%;
+		min-height: 320px;
+	}
+	.map-viewer-series-controls {
+		margin-bottom: .5rem;
+	}
+	.map-viewer-series-table {
+		width: 100%;
+		border-collapse: collapse;
+	}
+	.map-viewer-series-table th,
+	.map-viewer-series-table td {
+		padding: .4rem .6rem;
+		border: 1px solid #dee2e6;
+		text-align: left;
+	}
+	.map-viewer-series-table th {
+		background: #f4f7fa;
+	}
+	.map-viewer-no-series {
+		color: #6c757d;
+	}
+	@media (max-width: 600px) {
+		.map-viewer-controls > .form-group {
+			width: 100%;
+		}
+		#map-viewer-map {
+			height: 65vh;
+			min-height: 320px;
+		}
+	}
+</style>
+<main class="map-viewer-page">
+	<h2>Visor de mapa WMS</h2>
+	<form id="map-viewer-form" class="map-viewer-controls">
+		<div class="form-group">
+			<label for="map-viewer-timestart">Inicio</label>
+			<input id="map-viewer-timestart" name="timestart" type="date" class="form-control">
+		</div>
+		<div class="form-group">
+			<label for="map-viewer-timeend">Fin</label>
+			<input id="map-viewer-timeend" name="timeend" type="date" class="form-control">
+		</div>
+		<div class="form-group">
+			<label for="map-viewer-function">Función</label>
+			<select id="map-viewer-function" name="function" class="form-control">
+				<option value="sum">sum</option>
+				<option value="avg">avg</option>
+				<option value="min">min</option>
+				<option value="max">max</option>
+				<option value="count">count</option>
+				<option value="stddev">stddev</option>
+			</select>
+		</div>
+		<div class="form-group" style="flex: 1; min-width: 240px;">
+			<label for="map-viewer-source-search">Fuente</label>
+			<input id="map-viewer-source-search" type="search" class="form-control" autocomplete="off" placeholder="Buscar fuente...">
+			<input id="map-viewer-source-id" name="sourceId" type="hidden">
+			<div id="source-results" role="listbox" aria-label="Fuentes"></div>
+		</div>
+		<button type="submit" class="btn btn-primary">Aplicar</button>
+	</form>
+	<div id="map-viewer-status" role="status" aria-live="polite"></div>
+	<div class="map-viewer-map-panel">
+		<div id="map-viewer-map" role="application" aria-label="Mapa"></div>
+		<div id="map-viewer-legend">
+			<strong>Leyenda</strong>
+			<img id="map-viewer-legend-image" alt="Leyenda de la capa WMS">
+			<span id="map-viewer-legend-unavailable" hidden>La leyenda no está disponible.</span>
+		</div>
+	</div>
+	<section id="map-viewer-results" hidden aria-live="polite">
+		<h3>Información del mapa</h3>
+		<div id="map-viewer-feature-results"></div>
+	</section>
+</main>
+<script>
+	window.mapViewerConfig = {{{mapViewerConfig}}};
+</script>

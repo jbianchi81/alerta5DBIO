@@ -212,6 +212,27 @@ app.get('/secciones',auth.isPublicView, (req,res)=>{
 	}
 	res.render("secciones_bs",params)
 })
+app.get('/map-viewer',auth.isPublicView,(req,res)=>{
+	const viewerConfig = config.map_viewer || {}
+	const wmsConfig = viewerConfig.wms || {}
+	const seccionesConfig = config.secciones || {}
+	const mapConfig = {
+		wms: {
+			endpoint: wmsConfig.endpoint || (seccionesConfig.wms_areas && seccionesConfig.wms_areas.endpoint) || (seccionesConfig.endpoints && seccionesConfig.endpoints.geoserver && seccionesConfig.endpoints.geoserver.wms) || "",
+			layers: wmsConfig.layers || (seccionesConfig.wms_areas && seccionesConfig.wms_areas.layers) || ""
+		},
+		view_center: viewerConfig.view_center || seccionesConfig.view_center || [-55, -25],
+		view_zoom: viewerConfig.view_zoom || seccionesConfig.view_zoom || 5,
+		initial_viewparams: viewerConfig.initial_viewparams || {}
+	}
+	const params = (req.query) ? {...req.query} : {}
+	if(req.user && req.user.username) {
+		params.loggedAs = req.user.username
+	}
+	params.mapViewerConfig = JSON.stringify(mapConfig).replace(/</g, '\\u003c')
+	params.tools = config.tools || []
+	res.render("map_viewer",params)
+})
 app.get('/visor',auth.isAuthenticatedView, (req,res)=>{
 	var params = (req.query) ? req.query : {}
 	if(req.user) {
@@ -8237,4 +8258,3 @@ const auth_levels = {
 	})
 
 })()
-
