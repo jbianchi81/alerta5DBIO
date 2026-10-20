@@ -120,6 +120,17 @@
                     "required": ["endpoint"],
                     "additionalProperties": true
                 },
+                "rastextract": {
+                    "type": "object",
+                    "properties": {
+                        "endpoint": {
+                            "type": "string",
+                            "description": "RastExtract endpoint"
+                        }
+                    },
+                    "required": ["endpoint"],
+                    "additionalProperties": true
+                },
                 "layers": {
                     "type": "array",
                     "items": {
@@ -145,6 +156,13 @@
                             },
                             "styles": {
                                 "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": [
+                                    "wms",
+                                    "rastextract"
+                                ]
                             },
                             "defaults": {
                                 "type": "object",

@@ -227,6 +227,9 @@ app.get('/map-viewer',auth.isPublicView,(req,res)=>{
 		wms: {
 			endpoint: wmsConfig.endpoint || (seccionesConfig.wms_areas && seccionesConfig.wms_areas.endpoint) || (seccionesConfig.endpoints && seccionesConfig.endpoints.geoserver && seccionesConfig.endpoints.geoserver.wms) || ""
 		},
+		rastextract: {
+			endpoint: (viewerConfig.rastextract && viewerConfig.rastextract.endpoint) || "res/rastextract/rast"
+		},
 		layers,
 		view_center: viewerConfig.view_center || seccionesConfig.view_center || [-55, -25],
 		view_zoom: viewerConfig.view_zoom || seccionesConfig.view_zoom || 5

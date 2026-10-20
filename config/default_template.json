@@ -2890,6 +2890,9 @@
 		"wms": {
 			"endpoint": "http://localhost:8080/geoserver/wms"
 		},
+		"rastextract": {
+			"endpoint": "res/rastextract/rast"
+		},
 		"layers": [
 			{
 				"name": "cpc",
@@ -2945,6 +2948,24 @@
 					},
 					"timeend": {
 						"days": 3
+					},
+					"function": "sum"
+				}
+			},
+			{
+				"name": "emas",
+				"title": "EMAS - precipitación",
+				"type": "rastextract",
+				"layer_name": "pp_emas_spl",
+				"view_params": {
+					"coverageId": 33
+				},
+				"defaults": {
+					"timestart": {
+						"days": -7
+					},
+					"timeend": {
+						"days": -1
 					},
 					"function": "sum"
 				}
