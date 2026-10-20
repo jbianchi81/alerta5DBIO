@@ -2,35 +2,49 @@
 	"use strict";
 
 	const config = window.mapViewerConfig || {};
-	const initialParams = config.initial_viewparams || {};
 	const form = document.getElementById("map-viewer-form");
 	const startInput = document.getElementById("map-viewer-timestart");
 	const endInput = document.getElementById("map-viewer-timeend");
 	const functionInput = document.getElementById("map-viewer-function");
-	const sourceSearch = document.getElementById("map-viewer-source-search");
-	const sourceIdInput = document.getElementById("map-viewer-source-id");
-	const sourceResults = document.getElementById("source-results");
+	const layerInput = document.getElementById("map-viewer-layer");
 	const status = document.getElementById("map-viewer-status");
 	const legendImage = document.getElementById("map-viewer-legend-image");
 	const legendUnavailable = document.getElementById("map-viewer-legend-unavailable");
 	const resultsPanel = document.getElementById("map-viewer-results");
 	const featureResults = document.getElementById("map-viewer-feature-results");
 	const wms = config.wms || {};
-	const def_ts = new Date();
-	def_ts.setDate(def_ts.getDate() - 7);
-	const def_te = new Date();
-	const params = {
-		timestart: initialParams.timestart || def_ts.toISOString().substring(0,10),
-		timeend: initialParams.timeend || def_te.toISOString().substring(0,10),
-		function: initialParams.function || "sum",
-		sourceId: initialParams.sourceId == null ? "" : String(initialParams.sourceId)
-	};
+	const layers = Array.isArray(config.layers) ? config.layers : [];
 	const validFunctions = ["sum", "avg", "min", "max", "count","stddev"];
+	const params = {};
+	let activeLayer = null;
 
-	startInput.value = params.timestart;
-	endInput.value = params.timeend;
-	functionInput.value = validFunctions.includes(params.function) ? params.function : "sum";
-	sourceIdInput.value = params.sourceId;
+	function dateDefault(value) {
+		if (typeof value === "string") {
+			return value;
+		}
+		if (value && typeof value.days === "number" && Number.isFinite(value.days)) {
+			const date = new Date();
+			date.setDate(date.getDate() + value.days);
+			const year = date.getFullYear();
+			const month = String(date.getMonth() + 1).padStart(2, "0");
+			const day = String(date.getDate()).padStart(2, "0");
+			return `${year}-${month}-${day}`;
+		}
+		return "";
+	}
+
+	for (const layer of layers) {
+		if (!layer || typeof layer.name !== "string" || typeof layer.layer_name !== "string" ||
+			!layer.view_params || typeof layer.view_params !== "object" || Array.isArray(layer.view_params) ||
+			!layer.defaults || typeof layer.defaults !== "object") {
+			setStatus("La configuración de map_viewer.layers no es válida.", true);
+			return;
+		}
+		const option = document.createElement("option");
+		option.value = layer.name;
+		option.textContent = layer.name;
+		layerInput.appendChild(option);
+	}
 
 	function setStatus(message, isError) {
 		status.textContent = message;
@@ -43,8 +57,25 @@
 			.join(";");
 	}
 
+	function setLayerDefaults(layer) {
+		activeLayer = layer;
+		layerInput.value = layer.name;
+		const defaults = layer.defaults;
+		startInput.value = dateDefault(defaults.timestart);
+		endInput.value = dateDefault(defaults.timeend);
+		functionInput.value = validFunctions.includes(defaults.function) ? defaults.function : "sum";
+		for (const key of Object.keys(params)) {
+			delete params[key];
+		}
+		Object.assign(params, layer.view_params, {
+			timestart: startInput.value,
+			timeend: endInput.value,
+			function: functionInput.value
+		});
+	}
+
 	function updateLegend() {
-		if (!wms.endpoint || !wms.layers) {
+		if (!wms.endpoint || !activeLayer) {
 			legendImage.hidden = true;
 			legendUnavailable.hidden = false;
 			return;
@@ -54,12 +85,14 @@
 			VERSION: "1.1.1",
 			REQUEST: "GetLegendGraphic",
 			FORMAT: "image/png",
-			LAYER: wms.layers,
+			LAYER: activeLayer.layer_name,
+			STYLES: activeLayer.styles,
 			VIEWPARAMS: toViewparams(params)
 		});
 		legendImage.hidden = false;
 		legendUnavailable.hidden = true;
 		legendImage.src = `${wms.endpoint}?${query.toString()}`;
+		document.getElementById("map-viewer-legend-title").textContent = String(activeLayer.title)
 	}
 	legendImage.addEventListener("error", function () {
 		legendImage.hidden = true;
@@ -67,15 +100,17 @@
 	});
 
 	let wmsLayer;
-	if (wms.endpoint && wms.layers) {
+	if (layers.length > 0 && wms.endpoint) {
+		setLayerDefaults(layers[0]);
 		wmsLayer = new ol.layer.Tile({
 			source: new ol.source.TileWMS({
 				url: wms.endpoint,
 				params: {
-					LAYERS: wms.layers,
+					LAYERS: activeLayer.layer_name,
 					FORMAT: "image/png",
 					TRANSPARENT: true,
 					TILED: true,
+					STYLES: activeLayer.styles,
 					VIEWPARAMS: toViewparams(params)
 				},
 				serverType: "geoserver"
@@ -85,7 +120,7 @@
 			setStatus("No se pudo cargar una tesela WMS. Verifique el endpoint, la capa y los viewparams.", true);
 		});
 	} else {
-		setStatus("Configure map_viewer.wms.endpoint y map_viewer.wms.layers para cargar la capa WMS.", true);
+		setStatus("Configure map_viewer.wms.endpoint y al menos una entrada en map_viewer.layers.", true);
 	}
 
 	const map = new ol.Map({
@@ -109,6 +144,7 @@
 
 	let featureInfoRequest = 0;
 	let chartIndex = 0;
+	let propertyTableIndex = 0;
 
 	function formatProperty(value) {
 		if (value == null) {
@@ -156,7 +192,8 @@
 		const card = document.createElement("article");
 		card.className = "map-viewer-feature";
 		const heading = document.createElement("h4");
-		heading.textContent = properties.nombre ? String(properties.nombre) : `Resultado ${index + 1}`;
+		heading.textContent = properties.estacion_nombre ? String(properties.estacion_nombre) : properties.nombre ? String(properties.nombre) : `Resultado ${index + 1}`;
+		heading.textContent = properties.var_nombre ? `${heading.textContent} - ${String(properties.var_nombre)}` : heading.textContent
 		card.appendChild(heading);
 
 		const table = document.createElement("table");
@@ -176,8 +213,19 @@
 			body.appendChild(row);
 		}
 		table.appendChild(body);
-		card.appendChild(table);
-
+		table.hidden = true;
+		table.id = `map-viewer-properties-${++propertyTableIndex}`;
+		const propertiesToggle = document.createElement("button");
+		propertiesToggle.type = "button";
+		propertiesToggle.className = "btn btn-outline-secondary btn-sm map-viewer-series-controls";
+		propertiesToggle.textContent = "Mostrar atributos";
+		propertiesToggle.setAttribute("aria-expanded", "false");
+		propertiesToggle.setAttribute("aria-controls", table.id);
+		propertiesToggle.addEventListener("click", function () {
+			table.hidden = !table.hidden;
+			propertiesToggle.textContent = table.hidden ? "Mostrar atributos" : "Ocultar atributos";
+			propertiesToggle.setAttribute("aria-expanded", String(!table.hidden));
+		});
 		if (Object.prototype.hasOwnProperty.call(properties, "valor")) {
 			try {
 				const points = parseSeries(properties.valor);
@@ -243,6 +291,8 @@
 				card.appendChild(message);
 			}
 		}
+		card.appendChild(propertiesToggle)
+		card.appendChild(table);
 		return card;
 	}
 
@@ -257,7 +307,7 @@
 			map.getView().getProjection(),
 			{
 				INFO_FORMAT: "application/json",
-				QUERY_LAYERS: wms.layers,
+				QUERY_LAYERS: activeLayer.layer_name,
 				FEATURE_COUNT: 10,
 				VIEWPARAMS: toViewparams(params)
 			}
@@ -340,93 +390,36 @@
 		params.timestart = startInput.value;
 		params.timeend = endInput.value;
 		params.function = functionInput.value;
-		params.sourceId = sourceIdInput.value;
 		if (params.timestart && params.timeend && params.timestart > params.timeend) {
 			setStatus("La fecha de inicio debe ser anterior o igual a la fecha de fin.", true);
 			return;
 		}
 		if (wmsLayer) {
-			wmsLayer.getSource().updateParams({ VIEWPARAMS: toViewparams(params) });
+			wmsLayer.getSource().updateParams({
+				LAYERS: activeLayer.layer_name,
+				STYLES: activeLayer.styles,
+				VIEWPARAMS: toViewparams(params)
+			});
 			updateLegend();
 			setStatus("", false);
 		}
 	});
 
-	let sources = [];
-	let selectedSource = null;
-
-	function hideSourceResults() {
-		sourceResults.replaceChildren();
-		sourceResults.style.display = "none";
-	}
-
-	function showSourceResults(query) {
-		sourceResults.replaceChildren();
-		const normalizedQuery = query.trim().toLocaleLowerCase();
-		const matches = sources.filter((source) =>
-			source.nombre.toLocaleLowerCase().includes(normalizedQuery) ||
-			String(source.id).includes(normalizedQuery)
-		).slice(0, 30);
-		for (const source of matches) {
-			const option = document.createElement("button");
-			option.type = "button";
-			option.setAttribute("role", "option");
-			option.textContent = `${source.nombre} (${source.id})`;
-			option.addEventListener("click", function () {
-				selectedSource = source;
-				sourceIdInput.value = String(source.id);
-				sourceSearch.value = source.nombre;
-				hideSourceResults();
+	layerInput.addEventListener("change", function () {
+		const selected = layers.find((layer) => layer.name === layerInput.value);
+		if (!selected) {
+			setStatus("La capa seleccionada no existe en la configuración.", true);
+			return;
+		}
+		setLayerDefaults(selected);
+		if (wmsLayer) {
+			wmsLayer.getSource().updateParams({
+				LAYERS: activeLayer.layer_name,
+				STYLES: activeLayer.styles,
+				VIEWPARAMS: toViewparams(params)
 			});
-			sourceResults.appendChild(option);
 		}
-		if (matches.length === 0) {
-			const emptyMessage = document.createElement("div");
-			emptyMessage.className = "p-2 text-muted";
-			emptyMessage.textContent = "No se encontraron fuentes.";
-			sourceResults.appendChild(emptyMessage);
-		}
-		sourceResults.style.display = "block";
-	}
-
-	sourceSearch.addEventListener("input", function () {
-		if (selectedSource && sourceSearch.value !== selectedSource.nombre) {
-			selectedSource = null;
-			sourceIdInput.value = "";
-		}
-		showSourceResults(sourceSearch.value);
+		updateLegend();
+		setStatus("", false);
 	});
-	sourceSearch.addEventListener("focus", function () {
-		showSourceResults(sourceSearch.value);
-	});
-	document.addEventListener("click", function (event) {
-		if (!sourceSearch.contains(event.target) && !sourceResults.contains(event.target)) {
-			hideSourceResults();
-		}
-	});
-
-	fetch("obs/fuentes")
-		.then((response) => {
-			if (!response.ok) {
-				throw new Error(`HTTP ${response.status}`);
-			}
-			return response.json();
-		})
-		.then((data) => {
-			if (!Array.isArray(data) || data.some((source) =>
-				!source || source.id == null || typeof source.nombre !== "string"
-			)) {
-				throw new Error("La respuesta de obs/fuentes no tiene el formato esperado.");
-			}
-			sources = data;
-			if (params.sourceId) {
-				selectedSource = sources.find((source) => String(source.id) === params.sourceId) || null;
-				if (selectedSource) {
-					sourceSearch.value = selectedSource.nombre;
-				}
-			}
-		})
-		.catch((error) => {
-			setStatus(`No se pudieron cargar las fuentes: ${error.message}`, true);
-		});
 }());

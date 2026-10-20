@@ -2888,17 +2888,70 @@
 	},
 	"map_viewer": {
 		"wms": {
-			"endpoint": "http://localhost:8080/geoserver/public2/wms",
-			"layers": "public2:areas_pluvio"
+			"endpoint": "http://localhost:8080/geoserver/wms"
 		},
+		"layers": [
+			{
+				"name": "cpc",
+				"title": "CPC - PMAD",
+				"description": "https://www.cpc.ncep.noaa.gov/",
+				"layer_name": "siyah:timeseries_areal",
+				"view_params": {
+					"sourceId": 2
+				},
+				"defaults": {
+					"timestart": {
+						"days": -8
+					},
+					"timeend": {
+						"days": -1
+					},
+					"function": "sum"
+				}
+			},
+			{
+				"name": "campo",
+				"title": "Campo - PMAD",
+				"description": "Campo SYNOP CDP",
+				"layer_name": "siyah:timeseries_areal",
+				"view_params": {
+					"sourceId": 7
+				},
+				"styles": "pmad_int_m",
+				"defaults": {
+					"timestart": {
+						"days": -7
+					},
+					"timeend": {
+						"days": 0
+					},
+					"function": "sum"
+				}
+			},
+			{
+				"name": "wrf",
+				"title": "WRF - PMAD",
+				"description": "https://www.smn.gob.ar",
+				"layer_name": "siyah:series_areal_prono",
+				"view_params": {
+					"sourceId": 56,
+					"calId": 723,
+					"qualifier": "main",
+					"varId": 1
+				},
+				"defaults": {
+					"timestart": {
+						"days": -1
+					},
+					"timeend": {
+						"days": 3
+					},
+					"function": "sum"
+				}
+			}
+		],
 		"view_center": [-55, -25],
-		"view_zoom": 5,
-		"initial_viewparams": {
-			"timestart": "",
-			"timeend": "",
-			"function": "sum",
-			"sourceId": ""
-		}
+		"view_zoom": 5
 	},
 	"api": {
 		"base_url": "locahost:3005",

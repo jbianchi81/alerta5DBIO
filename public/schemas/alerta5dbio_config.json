@@ -115,14 +115,77 @@
                         "endpoint": {
                             "type": "string",
                             "description": "GeoServer WMS endpoint"
-                        },
-                        "layers": {
-                            "type": "string",
-                            "description": "WMS layer name"
                         }
                     },
-                    "required": ["endpoint", "layers"],
+                    "required": ["endpoint"],
                     "additionalProperties": true
+                },
+                "layers": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "title": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            },
+                            "layer_name": {
+                                "type": "string"
+                            },
+                            "view_params": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": ["string", "number", "boolean"]
+                                }
+                            },
+                            "styles": {
+                                "type": "string"
+                            },
+                            "defaults": {
+                                "type": "object",
+                                "properties": {
+                                    "timestart": {
+                                        "oneOf": [
+                                            {"type": "string"},
+                                            {
+                                                "type": "object",
+                                                "properties": {
+                                                    "days": {"type": "number"}
+                                                },
+                                                "required": ["days"],
+                                                "additionalProperties": false
+                                            }
+                                        ]
+                                    },
+                                    "timeend": {
+                                        "oneOf": [
+                                            {"type": "string"},
+                                            {
+                                                "type": "object",
+                                                "properties": {
+                                                    "days": {"type": "number"}
+                                                },
+                                                "required": ["days"],
+                                                "additionalProperties": false
+                                            }
+                                        ]
+                                    },
+                                    "function": {
+                                        "type": "string",
+                                        "enum": ["sum", "avg", "min", "max", "count", "stddev"]
+                                    }
+                                },
+                                "additionalProperties": true
+                            }
+                        },
+                        "required": ["name", "layer_name", "view_params", "defaults"],
+                        "additionalProperties": true
+                    }
                 },
                 "view_center": {
                     "type": "array",
@@ -134,25 +197,6 @@
                 },
                 "view_zoom": {
                     "type": "number"
-                },
-                "initial_viewparams": {
-                    "type": "object",
-                    "properties": {
-                        "timestart": {
-                            "type": "string"
-                        },
-                        "timeend": {
-                            "type": "string"
-                        },
-                        "function": {
-                            "type": "string",
-                            "enum": ["sum", "avg", "min", "max", "count"]
-                        },
-                        "sourceId": {
-                            "type": ["integer", "string"]
-                        }
-                    },
-                    "additionalProperties": true
                 }
             },
             "additionalProperties": true

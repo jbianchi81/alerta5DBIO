@@ -29,32 +29,6 @@
 		font-weight: 600;
 		margin-bottom: .35rem;
 	}
-	#source-results {
-		display: none;
-		position: absolute;
-		z-index: 10;
-		top: 100%;
-		left: 0;
-		right: 0;
-		max-height: 240px;
-		overflow-y: auto;
-		background: white;
-		border: 1px solid #ced4da;
-		border-radius: 0 0 .25rem .25rem;
-		box-shadow: 0 .25rem .5rem rgba(0, 0, 0, .15);
-	}
-	#source-results button {
-		display: block;
-		width: 100%;
-		padding: .5rem .75rem;
-		text-align: left;
-		border: 0;
-		background: white;
-	}
-	#source-results button:hover,
-	#source-results button:focus {
-		background: #e9f2fa;
-	}
 	#map-viewer-map {
 		width: 100%;
 		height: 70vh;
@@ -148,7 +122,7 @@
 	}
 </style>
 <main class="map-viewer-page">
-	<h2>Visor de mapa WMS</h2>
+	<h2>Visor de campos</h2>
 	<form id="map-viewer-form" class="map-viewer-controls">
 		<div class="form-group">
 			<label for="map-viewer-timestart">Inicio</label>
@@ -170,10 +144,8 @@
 			</select>
 		</div>
 		<div class="form-group" style="flex: 1; min-width: 240px;">
-			<label for="map-viewer-source-search">Fuente</label>
-			<input id="map-viewer-source-search" type="search" class="form-control" autocomplete="off" placeholder="Buscar fuente...">
-			<input id="map-viewer-source-id" name="sourceId" type="hidden">
-			<div id="source-results" role="listbox" aria-label="Fuentes"></div>
+			<label for="map-viewer-layer">Capa</label>
+			<select id="map-viewer-layer" name="layer" class="form-control"></select>
 		</div>
 		<button type="submit" class="btn btn-primary">Aplicar</button>
 	</form>
@@ -181,13 +153,13 @@
 	<div class="map-viewer-map-panel">
 		<div id="map-viewer-map" role="application" aria-label="Mapa"></div>
 		<div id="map-viewer-legend">
-			<strong>Leyenda</strong>
+			<strong id="map-viewer-legend-title">Leyenda</strong>
 			<img id="map-viewer-legend-image" alt="Leyenda de la capa WMS">
 			<span id="map-viewer-legend-unavailable" hidden>La leyenda no está disponible.</span>
 		</div>
 	</div>
 	<section id="map-viewer-results" hidden aria-live="polite">
-		<h3>Información del mapa</h3>
+		<h3>Elementos consultados</h3>
 		<div id="map-viewer-feature-results"></div>
 	</section>
 </main>

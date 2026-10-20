@@ -202,14 +202,20 @@ app.get('/map-viewer',auth.isPublicView,(req,res)=>{
 	const viewerConfig = config.map_viewer || {}
 	const wmsConfig = viewerConfig.wms || {}
 	const seccionesConfig = config.secciones || {}
+	const legacyParams = viewerConfig.initial_viewparams || {}
+	const layers = Array.isArray(viewerConfig.layers) ? viewerConfig.layers : (wmsConfig.layers ? [{
+		name: wmsConfig.layers,
+		layer_name: wmsConfig.layers,
+		view_params: Object.fromEntries(Object.entries(legacyParams).filter(([key])=>!["timestart","timeend","function"].includes(key))),
+		defaults: Object.fromEntries(Object.entries(legacyParams).filter(([key])=>["timestart","timeend","function"].includes(key)))
+	}] : [])
 	const mapConfig = {
 		wms: {
-			endpoint: wmsConfig.endpoint || (seccionesConfig.wms_areas && seccionesConfig.wms_areas.endpoint) || (seccionesConfig.endpoints && seccionesConfig.endpoints.geoserver && seccionesConfig.endpoints.geoserver.wms) || "",
-			layers: wmsConfig.layers || (seccionesConfig.wms_areas && seccionesConfig.wms_areas.layers) || ""
+			endpoint: wmsConfig.endpoint || (seccionesConfig.wms_areas && seccionesConfig.wms_areas.endpoint) || (seccionesConfig.endpoints && seccionesConfig.endpoints.geoserver && seccionesConfig.endpoints.geoserver.wms) || ""
 		},
+		layers,
 		view_center: viewerConfig.view_center || seccionesConfig.view_center || [-55, -25],
-		view_zoom: viewerConfig.view_zoom || seccionesConfig.view_zoom || 5,
-		initial_viewparams: viewerConfig.initial_viewparams || {}
+		view_zoom: viewerConfig.view_zoom || seccionesConfig.view_zoom || 5
 	}
 	let params = (req.query) ? {...req.query} : {}
 	params = (res.locals) ? {...params, ...res.locals} : params
