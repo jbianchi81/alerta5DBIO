@@ -14201,6 +14201,21 @@ internal.CRUD = class {
 			}
 			options.height = (!options.height) ? 300 : options.height
 			options.width = (!options.width) ? 300 : options.width
+			options.colormap = (options.colormap) ? options.colormap : `100% 165 0 0 255
+90% 225:20:0 255
+80% 255:96:0 255
+70% 254:191:60 255
+60% 40:0:159 255
+50% 57:38:171 255
+40% 127:112:234 255
+30% 20:129:189 255
+40% 40:149:209 255
+30% 95:189:249 255
+20% 15:160:15 255
+10% 55:210:60 255
+5% 150:245:140 255
+1 255:255:255 255
+0 255:255:255 0`
 			var rescale_band = (serie.fuente.scale_factor && serie.fuente.data_offset) ? "ST_mapAlgebra(rast,1,'32BF','[rast]*" + series.fuente.scale_factor + "+" + serie.fuente.data_offset + "')" : (serie.fuente.data_offset) ? "ST_MapAlgebra(rast,1,'32BF','[rast]+"  + serie.fuente.data_offset + "')" : "rast";
 			if(cor_id || cal_id && forecast_date) {
 				var data_table = "pronosticos_rast"
@@ -14225,6 +14240,13 @@ internal.CRUD = class {
 						"pronosticos_rast"
 					)
 				} else {
+					if(forecast_date == "last") {
+						const last_cor = await internal.corrida.getLast(cal_id, undefined, isPublic)
+						if(!last_cor.length) {
+							throw new Error("No se encontraron corridas del cal_id " + cal_id)
+						}
+						forecast_date = last_cor[0].forecast_date
+					}
 					var prono_filter = control_filter2(
 						{
 							"cal_id": {
@@ -14283,12 +14305,28 @@ internal.CRUD = class {
 							timeupdate, 
 							c AS obs_count, 
 							(stats).*,
-							ST_asGDALRaster(st_colormap(st_resize(st_reclass(rast,'[' || (st_summarystats(rast)).min || '-' || (st_summarystats(rast)).max || ']:1-255, ' || st_bandnodatavalue(rast) || ':0','8BUI'),$8,$9),1,'grayscale','nearest'),$10) valor
+							ST_asGDALRaster(
+								st_colormap(
+									st_resize(
+										st_reclass(
+											rast,
+											'[' || (st_summarystats(rast)).min || '-' || (st_summarystats(rast)).max || ']:1-255, ' || st_bandnodatavalue(rast) || ':0',
+											'8BUI'
+										),
+										$8,
+										$9
+									),
+									1,
+									$11,
+									'nearest'
+								),
+								$10
+							) AS valor
 					FROM rasts, raststats`
 				if(options.min_count) {
 					stmt += sprintf(" WHERE rasts.c>=%d", options.min_count)
 				}
-				args = [options.pixel_height, options.bbox.toString(), options.srid, options.funcion, serie.id, timestart, timeend, options.height, options.width, options.format]
+				args = [options.pixel_height, options.bbox.toString(), options.srid, options.funcion, serie.id, timestart, timeend, options.height, options.width, options.format, options.colormap]
 				
 			} else {
 				var min_count_filter = (options.min_count) ? sprintf(" AND agg.count>=%d", options.min_count) : ""

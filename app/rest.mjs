@@ -100,7 +100,7 @@ app.use(express.static('public', {
 	setHeaders: function (res, path, stat) {
 		res.set('x-timestamp', Date.now())
 		//~ console.log({path:path})
-		var contenttype = (/\/js\//.test(path)) ? "text/javascript" : (/\/css\//.test(path)) ? "text/css" : (/\/html\//.test(path)) ? "text/html" : (/\/img\//.test(path)) ? (/\.gif$/.test(path)) ? "image/gif" : "image/png" : (/\/planillas\//.test(path)) ?  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"  : (/\/json\//.test(path)) ? "application/json" : (/favicon\.ico$/.test(path)) ? "image/png" : "text/html"
+		var contenttype = (/\.png$/i.test(path)) ? "image/png" : (/\.tif{1,2}$/i.test(path)) ? "image/tiff" : (/\/js\//.test(path)) ? "text/javascript" : (/\/css\//.test(path)) ? "text/css" : (/\/html\//.test(path)) ? "text/html" : (/\/img\//.test(path)) ? (/\.gif$/.test(path)) ? "image/gif" : "image/png" : (/\/planillas\//.test(path)) ?  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"  : (/\/json\//.test(path)) ? "application/json" : (/favicon\.ico$/.test(path)) ? "image/png" : "text/html"
 		//~ console.log({contenttype:contenttype})
 		res.set('Content-Type', contenttype)
 		if(/\/planillas\//.test(path)) {
@@ -3301,10 +3301,103 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 		res.status(400).send({message:"query error",error:e.toString()})
 		return
 	}
-	options.location = default_rast_location
 	if(!filter.series_id || !filter.timestart || !filter.timeend) {
 		res.status(400).send({message:"query error",error:"Faltan parámetros: series_id, timestart, timeend"})
 		return
+	}
+	const serie_md = await crud.getSerie("raster",filter.series_id,undefined,undefined,undefined,filter.public,undefined,undefined)
+	if(!serie_md) {
+		console.error("serie no encontrada")
+		return
+	}
+	if(!serie_md.id) {
+		console.log("serie no encontrada")
+		return
+	}
+	options.location = default_rast_location
+	options.bbox = (!options.bbox) ? serie_md.fuente.def_extent : options.bbox
+	options.pixel_height = (!options.pixel_height) ? serie_md.fuente.def_pixel_height : options.pixel_height
+	options.pixel_width = (!options.pixel_width) ? serie_md.fuente.def_pixel_width : options.pixel_width
+	options.srid = (!options.srid) ? serie_md.fuente.def_srid : options.srid
+	var valid_func = [ 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE']
+	options.funcion = (!options.funcion) ? "SUM" : options.funcion.toUpperCase()
+	if(valid_func.indexOf(options.funcion) < 0) {
+		return Promise.reject("'funcion' inválida. Opciones: 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE'")
+	}
+	options.format = (!options.format) ? "GTiff" : options.format
+	const valid_formats = ["gtiff", "png"]
+	if(valid_formats.map(f=> (f == options.format.toLowerCase()) ? 1 : 0).reduce( (a,b)=>a+b) == 0) {
+		console.error("Invalid format:" + options.format)
+		return
+	}
+	options.height = (!options.height) ? 300 : options.height
+	options.width = (!options.width) ? 300 : options.width
+	if(options.only_hlink) {
+		const filenamePart = value => {
+			if(value === undefined || value === null || value === "") {
+				return "na"
+			}
+			return String(value).replace(/[^a-zA-Z0-9.-]/g, "-").replace(/-+/g, "-").replace(/^\.+/, "") || "na"
+		}
+		const filename = [
+			`series-${filenamePart(filter.series_id)}`,
+			`start-${filenamePart(filter.timestart)}`,
+			`end-${filenamePart(filter.timeend)}`,
+			`cal-${filenamePart(filter.cal_id)}`,
+			`cor-${filenamePart(filter.cor_id)}`,
+			`qualifier-${filenamePart(filter.qualifier)}`,
+			`function-${filenamePart(options.funcion)}`,
+			`format-${filenamePart(options.format)}`
+		].join("_") + "." + (options.format.toLowerCase() == "gtiff" ? "tif" : options.format.toLowerCase())
+		const filepath = path.resolve(__dirname, default_rast_location, filename)
+		try {
+			if(!options.try_cache || !fs.existsSync(filepath)) {
+				try {
+					var serie = await crud.rastExtract(filter.series_id,filter.timestart,filter.timeend,options,filter.public, undefined, filter.cal_id, filter.cor_id, filter.forecast_date, filter.qualifier)
+				} catch (e) {
+					handleCrudError(e, res)
+					return
+				}
+				if(!serie) {
+					console.error("No se encontró la serie")
+					res.status(404).send({message:"not found",error:"No se encontró la serie"})
+					return
+				}
+				if(!serie.observaciones) {
+					console.error("No se encontraron observaciones")
+					res.status(404).send({message:"not found",error:"No se encontraron observaciones"})
+					return
+				}			
+				const observation = serie.observaciones[0]
+				if(!observation || !observation.valor) {
+					res.status(404).send({message:"not found",error:"No se encontraron observaciones"})
+					return
+				}
+				if(!Buffer.isBuffer(observation.valor)) {
+					throw new Error("El valor de la observación ráster no es un buffer binario")
+				}
+				await fs.mkdir(path.dirname(filepath), {recursive:true})
+				await fs.writeFile(filepath, observation.valor)
+			}
+			const publicRoot = path.resolve(process.cwd(), "public")
+			const relativePath = path.relative(publicRoot, filepath)
+			if(relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+				throw new Error("La ubicación de salida ráster no está servida desde public")
+			}
+			const [left, bottom, right, top] = options.bbox.bbox()
+			res.json({
+				hlink: "/" + relativePath.split(path.sep).map(encodeURIComponent).join("/"),
+				ll: [left, bottom],
+				ur: [right, top],
+				height: Number(options.height),
+				width: Number(options.width),
+				srs: Number(options.srid)
+			})
+			return
+		} catch (e) {
+			handleCrudError(e, res)
+			return
+		}
 	}
 	try {
 		var serie = await crud.rastExtract(filter.series_id,filter.timestart,filter.timeend,options,filter.public, undefined, filter.cal_id, filter.cor_id, filter.forecast_date, filter.qualifier)
@@ -3322,9 +3415,9 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 		res.status(404).send({message:"not found",error:"No se encontraron observaciones"})
 		return
 	}
-	console.log("Got observaciones: " + serie.observaciones.length + " records.")
+	console.debug("RastExtract: got observaciones: " + serie.observaciones.length + " records.")
 	options.prefix = (options.funcion) ? options.funcion : "sum"
-	console.log({options: options})
+	// console.log({options: options})
 	send_output(options,serie,res)
 	return
 }
@@ -7829,6 +7922,12 @@ function getFilter(req,locals) {
 				throw("timestart: Invalid Date")
 			}
 			filter.timestart = req.query.timestart
+		} else if(req.query.timeStart) {
+			var t_test = new Date(req.query.timeStart)
+			if(t_test.toString() == "Invalid Date") {
+				throw("timestart: Invalid Date")
+			}
+			filter.timestart = req.query.timeStart
 		}
 		if(req.query.timeend) {
 			var t_test = new Date(req.query.timeend)
@@ -7836,6 +7935,12 @@ function getFilter(req,locals) {
 				throw("timeend: Invalid Date")
 			}
 			filter.timeend = req.query.timeend
+		} else if(req.query.timeEnd) {
+			var t_test = new Date(req.query.timeEnd)
+			if(t_test.toString() == "Invalid Date") {
+				throw("timeend: Invalid Date")
+			}
+			filter.timeend = req.query.timeEnd
 		}
 		if(req.query.date) {
 			filter.date = req.query.date
@@ -8033,6 +8138,14 @@ function getOptions(req) {
 		}
 		if(req.body.funcion) {
 			options.funcion = req.body.funcion //~ .option('-f, --funcion <value>', 'funcion de agregacion temporal (defaults to SUM')
+		} else if(req.body.function) {
+			options.funcion = req.body.function
+		}
+		if(req.body.try_cache !== undefined) {
+			options.try_cache = req.body.try_cache.toString().toLowerCase() == "true"
+		}
+		if(req.body.only_hlink !== undefined) {
+			options.only_hlink = req.body.only_hlink.toString().toLowerCase() == "true"
 		}
 		if(req.body.bbox) {
 			try {
@@ -8164,6 +8277,14 @@ function getOptions(req) {
 		}
 		if(req.query.funcion) {
 			options.funcion = req.query.funcion //~ .option('-f, --funcion <value>', 'funcion de agregacion temporal (defaults to SUM')
+		} else if(req.query.function) {
+			options.funcion = req.query.function
+		}
+		if(req.query.try_cache !== undefined) {
+			options.try_cache = req.query.try_cache.toString().toLowerCase() == "true"
+		}
+		if(req.query.only_hlink !== undefined) {
+			options.only_hlink = req.query.only_hlink.toString().toLowerCase() == "true"
 		}
 		if(req.query.bbox) {
 			try {
@@ -8177,6 +8298,12 @@ function getOptions(req) {
 		}
 		if(req.query.pixel_width) {
 			options.pixel_width = req.query.pixel_width
+		}
+		if(req.query.height) {
+			options.height = Number(req.query.height)
+		}
+		if(req.query.width) {
+			options.width = Number(req.query.width)
 		}
 		if(req.query.srid) {
 			options.srid = req.query.srid

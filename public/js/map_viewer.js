@@ -253,7 +253,7 @@
 			if (requestId !== rasterRequestId) {
 				return;
 			}
-			const properties = result && result.propiedades;
+			const properties = result && (result.propiedades || result);
 			const lowerLeft = properties && properties.ll;
 			const upperRight = properties && properties.ur;
 			const width = Number(properties && properties.width);
