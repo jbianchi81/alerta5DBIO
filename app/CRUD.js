@@ -15109,7 +15109,7 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async rastExtractByPoint(series_id,timestart,timeend,point_,options={}, client) {
+	static async rastExtractByPoint(series_id,timestart,timeend,point_,options={}, client, cor_id, cal_id, forecast_date, qualifier) {
 		return withClient(client, async (client) => {
 			if(typeof(point_) == 'object' || typeof(point_) == 'string' && /\,/.test(point_)) {
 				var point = new internal.estacion({nombre:"Punto arbitrario", geom: point_})
@@ -15128,7 +15128,15 @@ internal.CRUD = class {
 				console.log("serie no encontrada")
 				return
 			}
+			if(!cor_id && cal_id && forecast_date == "last") {
+				const last_cor = await internal.corrida.getLast(cal_id, client)
+				if(!last_cor.length) {
+					throw new Error("No se encontraron corridas del cal_id " + cal_id)
+				}
+				forecast_date = last_cor[0].forecast_date
+			}
 			options.funcion = (!options.funcion) ? "nearest" : options.funcion.toLowerCase()
+			options.funcion = (options.funcion == "avg") ? "mean" : options.funcion
 			const valid_funciones = ['mean','sum','count','min','max','stddev','nearest']
 			if(valid_funciones.map(f=> (f == options.funcion.toLowerCase()) ? 1 : 0).reduce( (a,b)=>a+b) == 0) {
 				console.error("Invalid funcion:" + options.funcion)
@@ -15144,47 +15152,80 @@ internal.CRUD = class {
 			serie.extractionParameters = {funcion:options.funcion, max_distance: max_distance, buffer: buffer}
 			var stmt
 			var args
+			const useForecast = Boolean(cor_id || cal_id && forecast_date)
+			const dataTable = useForecast ? "pronosticos_rast" : "observaciones_rast"
+			const corridaJoin = useForecast ? "JOIN corridas ON corridas.id=data_table.cor_id" : ""
+			const timeupdateColumn = useForecast ? "corridas.date" : "data_table.timeupdate"
+			const corIdColumn = useForecast ? "data_table.cor_id" : "NULL::integer"
+			const qualifierColumn = useForecast ? "data_table.qualifier" : "NULL::text"
+			let forecastFilter = ""
+			const forecastArgs = []
+			if(cor_id) {
+				forecastArgs.push(cor_id)
+				forecastFilter += ` AND data_table.cor_id=$${8 + forecastArgs.length}`
+			} else if(cal_id && forecast_date) {
+				forecastArgs.push(cal_id, forecast_date)
+				forecastFilter += ` AND corridas.cal_id=$${8 + forecastArgs.length - 1} AND corridas.date=$${8 + forecastArgs.length}`
+			}
+			if(qualifier !== undefined && qualifier !== null) {
+				forecastArgs.push(qualifier)
+				const qualifierPlaceholder = `$${8 + forecastArgs.length}`
+				forecastFilter += Array.isArray(qualifier)
+					? ` AND data_table.qualifier=ANY(${qualifierPlaceholder}::text[])`
+					: ` AND data_table.qualifier=${qualifierPlaceholder}`
+			}
 			if(options.funcion.toLowerCase() == "nearest") {
 				//~ console.log([series_id,timestart,timeend,serie.estacion.geom.toString(),serie.fuente.def_srid,serie.fuente.hora_corte,serie.fuente.def_dt,max_distance])
-				stmt= "WITH centroids AS (\
-					SELECT timestart,val,x,y,geom,timeupdate\
-					FROM (\
-					SELECT timestart,timeupdate,dp.*\
-					FROM observaciones_rast, lateral st_pixelascentroids(observaciones_rast.valor) AS dp\
-					WHERE observaciones_rast.series_id=$1\
-					AND observaciones_rast.timestart >= $2\
-					AND observaciones_rast.timeend<= $3) foo),\
-				distancias as (\
-					SELECT timestart,\
-							timeupdate,\
-							val,\
-							x,\
-							y,\
-							centroids.geom,\
-							st_distance(ST_GeomFromText($4,$5),centroids.geom) distance,\
-							row_number() over (partition by timestart order by st_distance(st_GeomFromText($4,$5),centroids.geom)) as rk\
-					FROM centroids ORDER BY centroids.timestart,centroids.x,centroids.y\
-					)\
-				SELECT timestart + $6::interval timestart, \
-						timestart + $6::interval + $7::interval timeend,\
-						round(val::numeric,2) valor,\
-						timeupdate\
-				FROM distancias\
-				WHERE rk=1\
-				AND distance<=$8\
-				ORDER BY timestart"
-				args = [series_id,timestart,timeend,serie.estacion.geom.toString(),serie.fuente.def_srid,serie.fuente.hora_corte,serie.fuente.def_dt,max_distance]
+				stmt = `WITH centroids AS (
+					SELECT data_table.timestart, ${timeupdateColumn} AS timeupdate,
+							${corIdColumn} AS cor_id, ${qualifierColumn} AS qualifier, dp.*
+					FROM ${dataTable} AS data_table
+					${corridaJoin}
+					CROSS JOIN LATERAL st_pixelascentroids(data_table.valor) AS dp
+					WHERE data_table.series_id=$1
+					AND data_table.timestart >= $2
+					AND data_table.timeend <= $3
+					${forecastFilter}
+				),
+				distancias AS (
+					SELECT timestart,
+							timeupdate,
+							cor_id,
+							qualifier,
+							val,
+							x,
+							y,
+							centroids.geom,
+							st_distance(ST_GeomFromText($4,$5),centroids.geom) distance,
+							row_number() over (partition by timestart order by st_distance(st_geomfromtext($4,$5),centroids.geom)) as rk
+					FROM centroids ORDER BY centroids.timestart,centroids.x,centroids.y
+				)
+				SELECT timestart + $6::interval timestart,
+						timestart + $6::interval + $7::interval timeend,
+						round(val::numeric,2) valor,
+						timeupdate,
+						cor_id,
+						qualifier
+				FROM distancias
+				WHERE rk=1
+				AND distance<=$8
+				ORDER BY timestart`
+				args = [series_id,timestart,timeend,serie.estacion.geom.toString(),serie.fuente.def_srid,serie.fuente.hora_corte,serie.fuente.def_dt,max_distance, ...forecastArgs]
 			} else {
-					stmt = "SELECT observaciones_rast.timestart + $1::interval timestart, \
-								observaciones_rast.timestart + $1::interval + $2::interval timeend,\
-								round(((st_summarystats(st_clip(observaciones_rast.valor,st_buffer(st_envelope(st_geomfromtext($3,$4)),$5))))." + options.funcion + " " + transform + ")::numeric,2) valor,\
-								timeupdate\
-								FROM observaciones_rast\
-								WHERE series_id=$6\
-								AND timestart>=$7\
-								AND timeend<=$8\
-								ORDER BY observaciones_rast.timestart"
-					args = [serie.fuente.hora_corte, serie.fuente.def_dt, serie.estacion.geom.toString(), serie.fuente.def_srid, buffer, series_id, timestart, timeend]
+				stmt = `SELECT data_table.timestart + $1::interval timestart,
+								data_table.timestart + $1::interval + $2::interval timeend,
+								round(((st_summarystats(st_clip(data_table.valor,st_buffer(st_envelope(st_geomfromtext($3,$4)),$5)))).${options.funcion} ${transform})::numeric,2) valor,
+								${timeupdateColumn} AS timeupdate,
+								${corIdColumn} AS cor_id,
+								${qualifierColumn} AS qualifier
+								FROM ${dataTable} AS data_table
+								${corridaJoin}
+								WHERE data_table.series_id=$6
+								AND data_table.timestart >= $7
+								AND data_table.timeend <= $8
+								${forecastFilter}
+								ORDER BY data_table.timestart`
+				args = [serie.fuente.hora_corte, serie.fuente.def_dt, serie.estacion.geom.toString(), serie.fuente.def_srid, buffer, series_id, timestart, timeend, ...forecastArgs]
 			}
 			var result = await client.query(stmt,args)
 			if(!result.rows) {
@@ -15198,11 +15239,30 @@ internal.CRUD = class {
 			console.log("Found " + result.rows.length + " values")
 			const observaciones = result.rows.map(obs=> {
 				//~ console.log(obs)
-				return new internal.observacion({tipo:"puntual",timestart:obs.timestart,timeend:obs.timeend,valor:obs.valor, nombre:options.funcion, descripcion: "extracción puntual", unit_id: serie.unidades.id})
+				const observation = new internal.observacion({tipo:"puntual",timestart:obs.timestart,timeend:obs.timeend,valor:obs.valor, nombre:options.funcion, descripcion: "extracción puntual", unit_id: serie.unidades.id})
+				if(useForecast) {
+					observation.cor_id = obs.cor_id || cor_id || undefined
+					observation.qualifier = obs.qualifier ?? qualifier
+				}
+				return observation
 			})
 			serie.observaciones = new internal.observaciones(observaciones)
 			if(options.output_series_id) {
 				await serie.createObservaciones(client)
+			}
+			if(useForecast) {
+				const serie_temporal_sim = new internal.SerieTemporalSim({
+					series_id: series_id,
+					series_table: "series_rast",
+					pronosticos: observaciones,
+					cor_id: cor_id,
+					cal_id: cal_id,
+					forecast_date: forecast_date,
+					qualifier: qualifier
+				})
+				await serie_temporal_sim.getMetadata()
+				serie_temporal_sim.metadata.estacion = serie.estacion
+				return serie_temporal_sim
 			}
 			return serie
 		})

@@ -3324,8 +3324,10 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 	options.srid = (!options.srid) ? serie_md.fuente.def_srid : options.srid
 	var valid_func = [ 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE']
 	options.funcion = (!options.funcion) ? "SUM" : options.funcion.toUpperCase()
+	options.funcion = (options.funcion == "AVG") ? "MEAN" : options.funcion
 	if(valid_func.indexOf(options.funcion) < 0) {
-		return Promise.reject("'funcion' inválida. Opciones: 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE'")
+		res.status(404).send({message:"'funcion' inválida. Opciones: 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE'",error:"'funcion' inválida. Opciones: 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE'"})
+		return
 	}
 	options.format = (!options.format) ? "GTiff" : options.format
 	const valid_formats = ["gtiff", "png"]
@@ -3512,7 +3514,7 @@ function rastExtractByArea(req,res) {
 	//~ }
 	if(area && area.type && area.type == "Point") {
 		console.log("extract by point:" + area.toString())
-		return crud.rastExtractByPoint(filter.series_id,filter.timestart,filter.timeend,area,options)
+		return crud.rastExtractByPoint(filter.series_id,filter.timestart,filter.timeend,area,options,undefined,filter.cor_id,filter.cal_id,filter.forecast_date,filter.qualifier)
 		.then(result=>{
 			if(!result) {
 				console.error("No se encontró la serie")
@@ -3520,15 +3522,21 @@ function rastExtractByArea(req,res) {
 				return
 			}
 			if(!result.observaciones) {
-				console.error("No se encontraron observaciones")
-				res.status(404).send("No se encontraron observaciones")
-				return
-			} 
-			console.log("Got observaciones: " + result.observaciones.length + " records.")
+				if (!result.pronosticos) {
+					console.error("No se encontraron observaciones")
+					res.status(404).send("No se encontraron observaciones")
+					return
+				}
+				var obs = result.pronosticos
+			} else {
+				var obs = result.observaciones
+			}
+			console.log("Got observaciones: " + obs + " records.")
 			if(options.series_metadata) {
 				res.send(result)
 			} else {
-				send_output(options,result.observaciones,res)
+				send_output(options,obs,res)
+				
 			}
 		})
 		.catch(e=>{

@@ -345,7 +345,13 @@
 				if (Array.isArray(series[i])) {
 					series_obj[series[i][0]] = series[i][1];
 				} else if (series[i] && typeof series[i] === "object") {
-					series_obj[series[i].ts] = series[i].f;
+					if(Object.hasOwnProperty.call(series[i], "ts")) {
+						series_obj[series[i].ts] = series[i].f;
+					} else if(Object.hasOwnProperty.call(series[i], "timestart")) {
+						series_obj[series[i].timestart] = series[i].valor;
+					} else {
+						console.error("Missing timestart or ts at item " + i)
+					}
 				}
 			}
 		} else {
@@ -565,8 +571,16 @@
 	}
 
 	function rastextractTimeseriesUrl(coordinate) {
-		const url = rastextractUrl({ geom: `${coordinate[0]},${coordinate[1]}` });
-		url.pathname = url.pathname.replace(/\/rast\/?$/, "/timeseries");
+		const url = new URL(rastextractEndpoint, document.baseURI);
+		for (const [key, value] of Object.entries(activeLayer.view_params || {})) {
+			url.searchParams.set(key, String(value));
+		}
+		url.searchParams.set("timeStart", params.timestart);
+		url.searchParams.set("timeEnd", params.timeend);
+		url.searchParams.set("area_geom", `${coordinate[0]},${coordinate[1]}`)
+		url.searchParams.set("series_metadata", true)
+		// url.searchParams.set("function", String(params.function).toLowerCase());
+		url.pathname = url.pathname.replace(/\/rastExtract\/?$/, "/rastExtractByArea");
 		return url;
 	}
 
@@ -584,18 +598,29 @@
 			if (requestId !== featureInfoRequest) {
 				return;
 			}
-			if (!result || !result.header || !Array.isArray(result.data)) {
-				throw new Error("La respuesta de rastextract/timeseries no tiene header y data válidos.");
+			if (!result) {
+				throw new Error("La respuesta de rastextract timeseries no tiene contenido válido.");
 			}
-			const column = result.header.columns && Object.values(result.header.columns)[0] || {};
+			const md = (result.metadata) ? result.metadata : result
+			const observaciones = (result.pronosticos) ? result.pronosticos : result.observaciones
+			if(!observaciones || !observaciones.length) {
+				throw new Error("La respuesta de rastextract timeseries no tiene datos válidos.");
+			}
 			const properties = {
-				docType: result.docType,
-				version: result.version,
-				...Object.fromEntries(Object.entries(result.header).map(([key, value]) => [`header.${key}`, value])),
+				estacion_nombre: md.estacion.nombre,
+				longitud: md.estacion.geom.coordinates[0],
+				latitud: md.estacion.geom.coordinates[1],
+				fuentes_id: md.fuente.id,
+				fuentes_nombre: md.fuente.nombre,
+				fuentes_source: md.fuente.source,
+				fuentes_abstract: md.fuente.abstract,
+				var_id: md.var.id,
+				var_nombre: md.var.nombre,
+				unit_id: md.unidades.id,
+				unit_nombre: md.unidades.nombre,
+				count: observaciones.length,
 				coordinates: coordinate,
-				var_id: column.var_id,
-				var_nombre: column.property || column.nombre,
-				timeseries: result.data
+				timeseries: observaciones
 			};
 			showFeatureResults([{ properties }]);
 		} catch (error) {
