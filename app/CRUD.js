@@ -4329,6 +4329,10 @@ internal.observacionStats = class extends baseModel {
 				range: (arguments[0].percentile_category.range  != null) ? [toFixedFloat(arguments[0].percentile_category.range[0],2), toFixedFloat(arguments[0].percentile_category.range[1],2)] : undefined,
 				number: arguments[0].percentile_category.number,
 			} : null
+			this.min = arguments[0].min
+			this.max = arguments[0].max
+			this.mean = arguments[0].mean
+			this.stddev = arguments[0].stddev
 		}
 	}
 	toJSON() {
@@ -4343,7 +4347,11 @@ internal.observacionStats = class extends baseModel {
 				name: this.percentile_category.name, 
 				range: (this.percentile_category.range  != null) ? [toFixedFloat(this.percentile_category.range[0],2), toFixedFloat(this.percentile_category.range[1],2)] : undefined,
 				number: this.percentile_category.number
-			} : null
+			} : null,
+			min: this.min,
+			max: this.max,
+			mean: this.mean,
+			stddev: this.stddev
 		}
 	}
 }

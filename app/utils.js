@@ -15,7 +15,7 @@ for(var key in schemas) {
 }
 const CSV = require('csv-string');
 const PostgresInterval = require('postgres-interval');
-const {Geometry: a5_geometry} = require('./geometry')
+const {Geometry: a5_geometry} = require('./geometry');
 
 // var geom =  new Geometry("POINT(-53 -32)")
 // console.log("util: geom instanceof Geometry: " + geom instanceof Geometry)

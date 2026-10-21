@@ -16,6 +16,8 @@ import querystring from 'querystring'
 import { spawn } from 'child_process'
 import crypto from 'crypto'
 import { setTimeout } from 'node:timers/promises';
+import {exec as pexec} from 'child-process-promise'
+
 
 const config = global.config // require('config');
 
@@ -83,6 +85,7 @@ if(config.rest.auth_database) {
 	auth_pool = global.pool
 }
 import {Authentication} from 'a5base/auth'
+
 export const auth = new Authentication(app,config,auth_pool)
 const passport = auth.passport
 
@@ -3350,6 +3353,8 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 			`format-${filenamePart(options.format)}`
 		].join("_") + "." + (options.format.toLowerCase() == "gtiff" ? "tif" : options.format.toLowerCase())
 		const filepath = path.resolve(__dirname, default_rast_location, filename)
+		const filename_legend = `${filename}_legend.png`
+		const filepath_legend = path.resolve(__dirname, default_rast_location, filename_legend)
 		try {
 			if(!options.try_cache || !fs.existsSync(filepath)) {
 				try {
@@ -3378,12 +3383,16 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 				}
 				await fs.mkdir(path.dirname(filepath), {recursive:true})
 				await fs.writeFile(filepath, observation.valor)
+
+				// legend
+				await makeRastLegend(observation.stats, filepath_legend)
 			}
 			const publicRoot = path.resolve(process.cwd(), "public")
 			const relativePath = path.relative(publicRoot, filepath)
 			if(relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
 				throw new Error("La ubicación de salida ráster no está servida desde public")
 			}
+			const relativePath_legend = path.relative(publicRoot, filepath_legend)
 			const [left, bottom, right, top] = options.bbox.bbox()
 			res.json({
 				hlink: "/" + relativePath.split(path.sep).map(encodeURIComponent).join("/"),
@@ -3391,7 +3400,8 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 				ur: [right, top],
 				height: Number(options.height),
 				width: Number(options.width),
-				srs: Number(options.srid)
+				srs: Number(options.srid),
+				legend_hlink: "/" + relativePath_legend.split(path.sep).map(encodeURIComponent).join("/")
 			})
 			return
 		} catch (e) {
@@ -8492,6 +8502,71 @@ function guess_tipo (data) {
 		}
 	} else {
 		return data.tipo
+	}
+}
+
+
+async function makeRastLegend(
+	stats, // : {min: number, max: number},
+	output_path, // : string,
+	color_levels = [["100%","165,0,0","255"],
+		["90%","225,20,0","255"],
+		["80%","255,96,0","255"],
+		["70%","254,191,60","255"],
+		["60%","40,0,159","255"],
+		["50%","57,38,171","255"],
+		["40%","127,112,234","255"],
+		["30%","20,129,189","255"],
+		["40%","40,149,209","255"],
+		["30%","95,189,249","255"],
+		["20%","15,160,15","255"],
+		["10%","55,210,60","255"],
+		["5%","150,245,140","255"],
+		["1","255,255,255","255"]
+	] //  : string[][] 
+) {
+	const min = (stats.min > -1 && stats.min != 0 && stats.min < 1) ? sprintf("%.2f", stats.min) : sprintf("%5d", stats.min)	
+	const max = (stats.max > 0 && stats.max < 10) ? sprintf("%.2f", stats.max) : sprintf("%5d", stats.max)
+	const median = (stats.max + stats.min) / 2
+	const med = (median > -1 && median != 0 && median < 10) ? sprintf("%.2f", median) : sprintf("%5d", median)
+	var levels = ""
+	const step_height = 5
+	for(var i=1;i<color_levels.length;i++) {
+		const l = color_levels[i][1];
+		const l1 = color_levels[i-1][1];
+		levels = `${levels} \\( -size 20x${step_height} gradient:"rgb(${l1})"-"rgb(${l})" \\)`
+		if(i>1) {
+			levels = `${levels} -append`
+		}
+	}
+	const height = (color_levels.length - 2) * step_height
+	const convert_result = await pexec(`convert \\( ${levels} \\)  \\( -size 30x${height} xc:#ffffff \\) +append ${output_path}`)
+	if(convert_result.stdout) {
+		console.debug(convert_result.stdout)
+	}
+	if(convert_result.stderr) {
+		console.debug(convert_result.stderr)
+	}
+	const composite_result = await pexec(`composite label:"${min}" -gravity southeast ${output_path} ${output_path}`)
+	if(composite_result.stdout) {
+		console.debug(composite_result.stdout)
+	}
+	if(composite_result.stderr) {
+		console.debug(composite_result.stderr)
+	}
+	const composite2_result = await pexec(`composite label:"${max}" -gravity northeast ${output_path} ${output_path}`)
+	if(composite2_result.stdout) {
+		console.debug(composite2_result.stdout)
+	}
+	if(composite2_result.stderr) {
+		console.debug(composite2_result.stderr)
+	}
+	const composite3_result = await pexec(`composite label:"${med}" -gravity east ${output_path} ${output_path}`)
+	if(composite3_result.stdout) {
+		console.debug(composite3_result.stdout)
+	}
+	if(composite3_result.stderr) {
+		console.debug(composite3_result.stderr)
 	}
 }
 

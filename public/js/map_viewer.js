@@ -281,6 +281,12 @@
 			activeOverlayLayer = new ol.layer.Image({ source: imageSource });
 			map.addLayer(activeOverlayLayer);
 			setStatus("", false);
+			if(result.legend_hlink) {
+				legendImage.src = resolveRasterHref(result.legend_hlink);
+				legendImage.hidden = false;
+				legendUnavailable.hidden = true;
+				document.getElementById("map-viewer-legend-title").textContent = String(activeLayer.title || activeLayer.name);
+			}
 		} catch (error) {
 			if (requestId === rasterRequestId) {
 				setStatus(`No se pudo obtener la capa ráster: ${error.message}`, true);
@@ -304,8 +310,8 @@
 			} catch (error) {
 				setStatus(error.message, true);
 			}
+			updateLegend();
 		}
-		updateLegend();
 	}
 
 	if (layers.length > 0) {
