@@ -13,6 +13,7 @@
 	const resultsPanel = document.getElementById("map-viewer-results");
 	const featureResults = document.getElementById("map-viewer-feature-results");
 	const mapElement = document.getElementById("map-viewer-map");
+	const opControl = document.getElementById("opprod");
 	const wms = config.wms || {};
 	const layers = Array.isArray(config.layers) ? config.layers : [];
 	const rastextractEndpoint = (config.rastextract && config.rastextract.endpoint) || "res/rastextract/rast";
@@ -236,6 +237,8 @@
 		});
 		activeOverlayLayer = wmsLayer;
 		map.addLayer(wmsLayer);
+		opControl.value = 0.9;
+		opControl.dispatchEvent(new Event('change'));
 	}
 
 	async function loadRasterLayer() {
@@ -280,6 +283,8 @@
 			});
 			activeOverlayLayer = new ol.layer.Image({ source: imageSource });
 			map.addLayer(activeOverlayLayer);
+			opControl.value = 0.9;
+			opControl.dispatchEvent(new Event('change'));
 			setStatus("", false);
 			if(result.legend_hlink) {
 				legendImage.src = resolveRasterHref(result.legend_hlink);
@@ -411,6 +416,95 @@
 			row.append(name, propertyValue);
 			body.appendChild(row);
 		}
+		if(Object.hasOwnProperty.call(properties, "series_id")) {
+			
+			if(activeLayer.type == "rastextract") {
+				var series_type = "raster"
+				// add link to api
+
+				const row_j = document.createElement("tr");
+				const name_j = document.createElement("th");
+				name_j.scope = "row";
+				name_j.textContent = "Descargar JSON";
+				const cell_j = document.createElement("td");
+				const link_j = document.createElement("a");
+				link_j.href = `/rastExtractByArea?series_id=${properties["series_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&area_geom=${properties["coordinates"].join(",")}&series_metadata=true`
+				if(properties["cal_id"]) {
+					// sim
+					link_j.href = `${link_j.href}&cal_id=${properties["cal_id"]}&forecast_date=last` // ${properties["forecast_date"]}`;
+					if(properties["qualifier"]) {
+						link_j.href = `${link_j.href}&qualifier=${properties["qualifier"]}`
+					}
+				} 
+				link_j.textContent = link_j.href;
+				link_j.target = "_blank";
+				cell_j.appendChild(link_j);
+				row_j.append(name_j, cell_j);
+				body.appendChild(row_j);
+			} else {
+				// puntual | areal
+				var series_type = (properties["fuentes_id"]) ? "areal" : "puntual"
+
+				// add link to /secciones
+				const row_s = document.createElement("tr");
+				const name_s = document.createElement("th");
+				name_s.scope = "row";
+				name_s.textContent = "Ver más datos";
+				const cell_s = document.createElement("td");
+				const link_s = document.createElement("a");
+				link_s.href = `/secciones?varId=${properties["var_id"]}&seriesId=${properties["series_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&data_availability=a`;
+				if(series_type == "areal") {
+					link_s.href = `${link_s.href}&fuentesId=${properties["fuentes_id"]}`;
+				} 
+				link_s.textContent = link_s.href;
+				link_s.target = "_blank";
+				cell_s.appendChild(link_s);
+				row_s.append(name_s, cell_s);
+				body.appendChild(row_s);
+
+				// add link to api
+
+				const row_j = document.createElement("tr");
+				const name_j = document.createElement("th");
+				name_j.scope = "row";
+				name_j.textContent = "Descargar JSON";
+				const cell_j = document.createElement("td");
+				const link_j = document.createElement("a")
+				if(properties["cal_id"] && properties["cor_id"]) {
+					// sim
+					link_j.href = `/sim/calibrados/${properties["cal_id"]}/corridas/${properties["cor_id"]}?tipo=${series_type}&series_id=${properties["series_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&includeProno=true`;		
+					if(properties["qualifier"]) {
+						link_j.href = `${link_j.href}&qualifier=${properties["qualifier"]}`
+					}
+				} else {
+					// obs
+					link_j.href = `/obs/${series_type}/series/${properties["series_id"]}/observaciones?timestart=${params["timestart"]}&timeend=${params["timeend"]}`;
+				}
+				link_j.textContent = link_j.href;
+				link_j.target = "_blank";
+				cell_j.appendChild(link_j);
+				row_j.append(name_j, cell_j);
+				body.appendChild(row_j);
+			
+			}
+
+			// add metadatos de la serie
+
+			const row_m = document.createElement("tr");
+			const name_m = document.createElement("th");
+			name_m.scope = "row";
+			name_m.textContent = "Ver metadatos de la serie";
+			const cell_m = document.createElement("td");
+			const link_m = document.createElement("a");
+			const md_element = (series_type == "areal") ? "seriesAreales" : (series_type == "raster") ? "seriesRaster" : "seriesPuntuales"
+			link_m.href = `/metadatos?element=${md_element}&id=${properties["series_id"]}`;
+			link_m.textContent = link_m.href;
+			link_m.target = "_blank";
+			cell_m.appendChild(link_m);
+			row_m.append(name_m, cell_m);
+			body.appendChild(row_m);
+		}
+
 		table.appendChild(body);
 		table.hidden = true;
 		table.id = `map-viewer-properties-${++propertyTableIndex}`;
@@ -506,6 +600,16 @@
 						label: { text: label, style: { color } }
 					}];
 				});
+				chartContainer.mapViewerPlotVerticalLines = [
+					{
+						value: new Date(),
+						color: "#4e4e4e",
+						dashStyle: "DashDot",
+						width: 2,
+						zIndex: 6,
+						// label: { text: label, style: { color } }
+					}
+				]
 			} catch (error) {
 				const message = document.createElement("p");
 				message.className = "map-viewer-no-series";
@@ -539,7 +643,11 @@
 			chartContainer.mapViewerChart = Highcharts.chart(chartContainer.id, {
 				chart: { type: useBars ? "column" : "spline", zoomType: "x" },
 				title: { text: `Serie temporal: ${chartContainer.mapViewerTitle}` },
-				xAxis: { type: "datetime", title: { text: "Fecha" } },
+				xAxis: { 
+					type: "datetime", 
+					title: { text: "Fecha" },
+					plotLines: chartContainer.mapViewerPlotVerticalLines
+				},
 				yAxis: {
 					title: { text: "Valor" },
 					plotLines: chartContainer.mapViewerPlotLines,
@@ -601,7 +709,7 @@
 			if (!result) {
 				throw new Error("La respuesta de rastextract timeseries no tiene contenido válido.");
 			}
-			const md = (result.metadata) ? result.metadata : result
+			const md = (result.metadata) ? {...result, ...result.metadata} : result
 			const observaciones = (result.pronosticos) ? result.pronosticos : result.observaciones
 			if(!observaciones || !observaciones.length) {
 				throw new Error("La respuesta de rastextract timeseries no tiene datos válidos.");
@@ -620,8 +728,17 @@
 				unit_nombre: md.unidades.nombre,
 				count: observaciones.length,
 				coordinates: coordinate,
-				timeseries: observaciones
+				timeseries: observaciones,
+				series_id: md.id
 			};
+			if(Object.hasOwnProperty.call(md, "cal_id")) {
+				properties.cal_id = md.cal_id
+			}
+			if(Object.hasOwnProperty.call(md, "forecast_date")) {
+				properties.forecast_date = md.forecast_date
+			}if(Object.hasOwnProperty.call(md, "qualifier")) {
+				properties.qualifier = md.qualifier
+			}
 			showFeatureResults([{ properties }]);
 		} catch (error) {
 			if (requestId !== featureInfoRequest) {
@@ -722,4 +839,11 @@
 		setLayerDefaults(selected);
 		applyActiveLayer();
 	});
+
+	opControl.addEventListener("change", function () {
+		var val = document.getElementById("opprod").value;
+		if (activeOverlayLayer != null) {
+			activeOverlayLayer.setOpacity(parseFloat(val));
+		}
+	})
 }());

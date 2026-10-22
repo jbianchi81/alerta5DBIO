@@ -14181,9 +14181,20 @@ internal.CRUD = class {
 		})
 	}
 
-	static async rastExtract(series_id,timestart,timeend,options,isPublic,client,cal_id,cor_id,forecast_date,qualifier) {
+	static async rastExtract(
+		series_id,
+		timestart,
+		timeend,
+		options,
+		isPublic,
+		client,
+		cal_id,
+		cor_id,
+		forecast_date,
+		qualifier,
+		user_id) {
 		return withClient(client, async (client) => {
-			const serie = await this.getSerie("raster",series_id,undefined,undefined,undefined,isPublic,undefined,client)
+			const serie = await this.getSerie("raster",series_id,undefined,undefined,undefined,isPublic,undefined,client, user_id)
 			if(!serie) {
 				console.error("serie no encontrada")
 				return
@@ -14192,10 +14203,30 @@ internal.CRUD = class {
 				console.log("serie no encontrada")
 				return
 			}
-			options.bbox = (!options.bbox) ? serie.fuente.def_extent : options.bbox
 			options.pixel_height = (!options.pixel_height) ? serie.fuente.def_pixel_height : options.pixel_height
 			options.pixel_width = (!options.pixel_width) ? serie.fuente.def_pixel_width : options.pixel_width
-			options.srid = (!options.srid) ? serie.fuente.def_srid : options.srid
+			const srid_fuente = parseInt(serie.fuente.def_srid)
+			if(options.srid) {
+				var srid_rast = parseInt(options.srid)
+				if(srid_rast != srid_fuente) {
+					var reproject_rast = true
+				} else {
+					var reproject_rast = false
+				}
+			} else {
+				var srid_rast = srid_fuente
+				var reproject_rast = false
+			}
+			if(options.bbox) {
+				var bbox = options.bbox
+				var reproject_bbox = false
+				var srid_bbox = srid_rast
+			} else {
+				var reproject_bbox = reproject_rast
+				var bbox = serie.fuente.def_extent
+				var srid_bbox = srid_fuente
+			}
+						
 			var valid_func = [ 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE']
 			options.funcion = (!options.funcion) ? "SUM" : options.funcion.toUpperCase()
 			if(valid_func.indexOf(options.funcion) < 0) {
@@ -14209,7 +14240,7 @@ internal.CRUD = class {
 			}
 			options.height = (!options.height) ? 300 : options.height
 			options.width = (!options.width) ? 300 : options.width
-			options.colormap = (options.colormap) ? options.colormap : `100% 165 0 0 255
+			options.colormap = (options.colormap) ? options.colormap : `100% 165:0:0 255
 90% 225:20:0 255
 80% 255:96:0 255
 70% 254:191:60 255
@@ -14293,20 +14324,61 @@ internal.CRUD = class {
 			var stmt
 			var args
 			if(options.format.toLowerCase() == "png") {
+				args = [options.pixel_height, bbox.toString(), srid_bbox, options.funcion, serie.id, timestart, timeend, options.height, options.width, options.format, options.colormap]
+				if (reproject_bbox) {
+					var union_stmt = `ST_Transform(
+						ST_Union(
+							ST_Clip(
+								st_rescale(valor,$1::float),
+								'{1}',
+								st_geomfromtext($2::text,$3::int)
+							),
+							$4::text
+						),
+						$${args.length + 1}::int
+					)`
+					args.push(srid_rast)
+				} else if(reproject_rast) {
+					var union_stmt = `ST_Union(
+						ST_Clip(
+							ST_Transform(
+								st_rescale(valor,$1::float),
+								$${args.length + 1}::int
+							),	
+							'{1}',
+							st_geomfromtext($2::text,$3::int)
+						),
+						$4::text				
+					)`
+					args.push(srid_rast)
+				} else {
+					var union_stmt = `ST_Union(
+						ST_Clip(
+							st_rescale(valor,$1::float),
+							'{1}',
+							st_geomfromtext($2::text,$3::int)
+						),
+						$4::text
+					)`
+				}
 				stmt = `WITH rasts AS (
-					SELECT series_id,
-							count(timestart) as c,
-							min(timestart) timestart,
-							max(${timeend_column}) timeend, 
-							max(${timeupdate_column}) timeupdate, 
-							st_union(ST_Clip(st_rescale(valor,$1),'{1}',st_geomfromtext($2,$3)),$4) as rast
-					FROM ${data_table} AS data_table ${join_data_table}
-					WHERE series_id=$5 AND timestart>=$6 AND timeend<=$7
-					${prono_filter}
-					GROUP by series_id),
+						SELECT series_id,
+								count(timestart) AS c,
+								min(timestart) AS timestart,
+								max(${timeend_column}) AS timeend, 
+								max(${timeupdate_column}) AS timeupdate, 
+								${union_stmt} AS rast
+						FROM ${data_table} AS data_table ${join_data_table}
+						WHERE series_id=$5 
+							AND timestart>=$6 
+							AND timeend<=$7
+						${prono_filter}
+						GROUP by series_id
+					),
 					raststats AS (
-					SELECT st_summarystats(rast) stats
-					FROM rasts)
+						SELECT st_summarystats(rast) AS stats
+						FROM rasts
+					)
 					SELECT series_id, 
 							timestart, 
 							timeend, 
@@ -14321,20 +14393,19 @@ internal.CRUD = class {
 											'[' || (st_summarystats(rast)).min || '-' || (st_summarystats(rast)).max || ']:1-255, ' || st_bandnodatavalue(rast) || ':0',
 											'8BUI'
 										),
-										$8,
-										$9
+										$8::int,
+										$9::int
 									),
 									1,
 									$11,
 									'nearest'
 								),
-								$10
+								$10::text
 							) AS valor
 					FROM rasts, raststats`
 				if(options.min_count) {
 					stmt += sprintf(" WHERE rasts.c>=%d", options.min_count)
 				}
-				args = [options.pixel_height, options.bbox.toString(), options.srid, options.funcion, serie.id, timestart, timeend, options.height, options.width, options.format, options.colormap]
 				
 			} else {
 				var min_count_filter = (options.min_count) ? sprintf(" AND agg.count>=%d", options.min_count) : ""
@@ -14356,7 +14427,7 @@ internal.CRUD = class {
 							${min_count_filter}
 							ON CONFLICT (cor_id, series_id, timestart, qualifier) DO UPDATE SET valor=excluded.valor, timeend=excluded.timeend
 							RETURNING series_id, cor_id, timestart, timeend, qualifier`
-						args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion, options.insertSeriesId, cor_id, qualifier || "main"]
+						args = [bbox.toString(),srid_bbox,series_id,timestart,timeend,options.funcion, options.insertSeriesId, cor_id, qualifier || "main"]
 					} else if(cal_id && forecast_date) {
 						var select_block = `INSERT INTO pronosticos_rast (series_id, cor_id, timestart, timeend, qualifier, valor)
 							SELECT 
@@ -14372,7 +14443,7 @@ internal.CRUD = class {
 							${min_count_filter}
 							ON CONFLICT (cor_id, series_id, timestart, qualifier) DO UPDATE SET valor=excluded.valor, timeend=excluded.timeend
 							RETURNING series_id, timestart, timeend`
-						args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion, options.insertSeriesId, qualifier || "main", cal_id, forecast_date]
+						args = [bbox.toString(),srid_bbox,series_id,timestart,timeend,options.funcion, options.insertSeriesId, qualifier || "main", cal_id, forecast_date]
 					} else if(forecast_date) {
 						var select_block = `INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate)
 							SELECT 
@@ -14386,7 +14457,7 @@ internal.CRUD = class {
 							${min_count_filter}
 							ON CONFLICT (series_id, timestart, timeend) DO UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate
 							RETURNING series_id, timestart, timeend`
-						args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion, options.insertSeriesId, forecast_date]
+						args = [bbox.toString(),srid_bbox,series_id,timestart,timeend,options.funcion, options.insertSeriesId, forecast_date]
 					} else {
 						var select_block = `INSERT INTO observaciones_rast (series_id, timestart, timeend, valor)
 							SELECT 
@@ -14399,7 +14470,7 @@ internal.CRUD = class {
 							${min_count_filter}
 							ON CONFLICT (series_id, timestart, timeend) DO UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate
 							RETURNING series_id, timestart, timeend`
-						args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion, options.insertSeriesId]
+						args = [bbox.toString(),srid_bbox,series_id,timestart,timeend,options.funcion, options.insertSeriesId]
 					}
 				} else {
 					var select_block = `SELECT series_id,
@@ -14416,7 +14487,82 @@ internal.CRUD = class {
 					FROM agg, raststats
 					WHERE 1=1
 					${min_count_filter}`
-					args = [options.bbox.toString(),options.srid,series_id,timestart,timeend,options.funcion,options.format]
+					args = [bbox.toString(),srid_bbox,series_id,timestart,timeend,options.funcion,options.format]
+				}
+				if (reproject_bbox) {
+					var clip_stmt = `ST_Clip(
+						data_table.valor,
+						ST_GeomFromText($1::text, $2::int),
+						'{1}'::integer[]
+					)`
+					var addband_stmt = `ST_Transform(
+						ST_AddBand(
+							ST_Union(
+									ST_MapAlgebra(
+										${rescale_band}, 
+										NULL, 
+										'[rast] * ' || least(
+											( inter_timeend - inter_timestart) / extract( epoch from (source_timeend - source_timestart)),
+											1
+										)::text),
+									$6::text
+							),
+							ST_Union(
+									rast,
+									'COUNT'
+							)
+						),
+						$${args.length + 1}::int
+					)`
+					args.push(srid_rast)
+				} else if(reproject_rast) {
+					var clip_stmt = `ST_Clip(
+						ST_Transform(
+							data_table.valor,
+							$${args.length + 1}::int
+						),
+						ST_GeomFromText($1::text, $2::int),
+						'{1}'::integer[]
+					)`
+					var addband_stmt = `ST_AddBand(
+						ST_Union(
+								ST_MapAlgebra(
+									${rescale_band}, 
+									NULL, 
+									'[rast] * ' || least(
+										( inter_timeend - inter_timestart) / extract( epoch from (source_timeend - source_timestart)),
+										1
+									)::text),
+								$6::text
+						),
+						ST_Union(
+								rast,
+								'COUNT'
+						)
+					)`
+					args.push(srid_rast)
+				} else {
+					var clip_stmt = `ST_Clip(
+						data_table.valor,
+						ST_GeomFromText($1::text, $2::int),
+						'{1}'::integer[]
+					)`
+					var addband_stmt = `ST_AddBand(
+						ST_Union(
+								ST_MapAlgebra(
+									${rescale_band}, 
+									NULL, 
+									'[rast] * ' || least(
+										( inter_timeend - inter_timestart) / extract( epoch from (source_timeend - source_timestart)),
+										1
+									)::text),
+								$6::text
+						),
+						ST_Union(
+								rast,
+								'COUNT'
+						)
+					)`
 				}
 				stmt = `WITH dest_interval as (
 					SELECT
@@ -14433,11 +14579,7 @@ internal.CRUD = class {
 							greatest(extract( epoch from data_table.timestart ), extract( epoch from dest_interval.timestart)) AS inter_timestart,
 							least(extract(epoch from ${timeend_column}), extract( epoch from dest_interval.timeend)) AS inter_timeend,
 							${timeupdate_column} AS timeupdate, 
-							ST_Clip(
-									data_table.valor,
-									ST_GeomFromText($1, $2),
-									'{1}'::integer[]
-							) AS rast
+							${clip_stmt} AS rast
 					FROM 
 						${data_table} AS data_table ${join_data_table},
 						dest_interval
@@ -14457,22 +14599,7 @@ internal.CRUD = class {
 									sum(
 										to_timestamp(inter_timeend)::timestamp - to_timestamp(inter_timestart)::timestamp
 									) AS time_sum, 
-									ST_AddBand(
-											ST_Union(
-													ST_MapAlgebra(
-														${rescale_band}, 
-														NULL, 
-														'[rast] * ' || least(
-															( inter_timeend - inter_timestart) / extract( epoch from (source_timeend - source_timestart)),
-															1
-														)::text),
-													$6
-											),
-											ST_Union(
-													rast,
-													'COUNT'
-											)
-									) AS rast
+									${addband_stmt} AS rast
 							FROM rasts 
 							GROUP BY series_id, timestart, timeend
 					),
@@ -14539,7 +14666,7 @@ internal.CRUD = class {
 		})
 	}
 
-	static async rastExtractByArea(series_id,timestart,timeend,area,options={},client,cor_id, cal_id, forecast_date, qualifier) {
+	static async rastExtractByArea(series_id,timestart,timeend,area,options={},client,cor_id, cal_id, forecast_date, qualifier, user_id) {
 		return withClient(client, async (client) => {
 			if(!timestart || !timeend) {
 				return Promise.reject("falta timestart y/o timeend")
@@ -14553,7 +14680,7 @@ internal.CRUD = class {
 				throw new Error("Area not found")
 			}
 			var serie = await this.getSerie("rast",series_id,undefined,undefined,undefined,undefined,undefined,
-			client)
+			client, user_id)
 			if(!serie) {
 				console.error("serie no encontrada")
 				return
@@ -14912,9 +15039,19 @@ internal.CRUD = class {
 		cor_id, 
 		cal_id, 
 		forecast_date,
-		qualifier
+		qualifier,
+		user_id
 		) {
 		return withClient(client, async (client) => {
+			const serie_md = await this.getSerie("rast", series_id, undefined, undefined, undefined, undefined, undefined, client, user_id)
+			if(!serie_md) {
+				console.error("serie no encontrada")
+				return
+			}
+			if(!serie_md.id) {
+				console.log("serie no encontrada")
+				return
+			}
 			if(area == "all") {
 				var query = "SELECT series_areal.id,series_areal.area_id FROM series_areal,series_rast,areas_pluvio WHERE series_rast.id=$1 AND series_rast.fuentes_id=series_areal.fuentes_id AND areas_pluvio.unid=series_areal.area_id AND areas_pluvio.activar=TRUE ORDER BY series_areal.id"
 				// console.log(internal.utils.pasteIntoSQLQuery(query,[series_id]))
@@ -14937,12 +15074,12 @@ internal.CRUD = class {
 					// 		}
 					// 	}
 					// } else {
-						try {
-							var serie = await this.rastExtractByArea(series_id,timestart,timeend,serie_areal.area_id,options,client,cor_id,cal_id,forecast_date,qualifier)
-						} catch(e) {
-							console.error(e)
-							continue
-						}
+					try {
+						var serie = await this.rastExtractByArea(series_id,timestart,timeend,serie_areal.area_id,options,client,cor_id,cal_id,forecast_date,qualifier)
+					} catch(e) {
+						console.error(e)
+						continue
+					}
 					// }
 					if(!serie) {
 						console.log("serie rast no encontrada")
@@ -15109,7 +15246,7 @@ internal.CRUD = class {
 		})
 	}
 	
-	static async rastExtractByPoint(series_id,timestart,timeend,point_,options={}, client, cor_id, cal_id, forecast_date, qualifier) {
+	static async rastExtractByPoint(series_id,timestart,timeend,point_,options={}, client, cor_id, cal_id, forecast_date, qualifier, user_id) {
 		return withClient(client, async (client) => {
 			if(typeof(point_) == 'object' || typeof(point_) == 'string' && /\,/.test(point_)) {
 				var point = new internal.estacion({nombre:"Punto arbitrario", geom: point_})
@@ -15119,7 +15256,7 @@ internal.CRUD = class {
 			if(!point) {
 				throw("Missing point or station not found")
 			}
-			var serie = await this.getSerie("rast",series_id, undefined, undefined, undefined, undefined, undefined, client)
+			var serie = await this.getSerie("rast",series_id, undefined, undefined, undefined, undefined, undefined, client, user_id)
 			if(!serie) {
 				console.error("serie no encontrada")
 				return

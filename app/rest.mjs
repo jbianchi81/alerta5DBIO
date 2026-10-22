@@ -3299,6 +3299,7 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 	try {
 		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
+		var user_id = getUserId(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
@@ -3308,7 +3309,7 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 		res.status(400).send({message:"query error",error:"Faltan parámetros: series_id, timestart, timeend"})
 		return
 	}
-	const serie_md = await crud.getSerie("raster",filter.series_id,undefined,undefined,undefined,filter.public,undefined,undefined)
+	const serie_md = await crud.getSerie("raster",filter.series_id,undefined,undefined,undefined,filter.public,undefined,undefined, user_id)
 	if(!serie_md) {
 		console.error("serie no encontrada")
 		return
@@ -3317,26 +3318,28 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 		console.log("serie no encontrada")
 		return
 	}
-	options.location = default_rast_location
-	options.bbox = (!options.bbox) ? serie_md.fuente.def_extent : options.bbox
-	options.pixel_height = (!options.pixel_height) ? serie_md.fuente.def_pixel_height : options.pixel_height
-	options.pixel_width = (!options.pixel_width) ? serie_md.fuente.def_pixel_width : options.pixel_width
-	options.srid = (!options.srid) ? serie_md.fuente.def_srid : options.srid
 	var valid_func = [ 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE']
-	options.funcion = (!options.funcion) ? "SUM" : options.funcion.toUpperCase()
-	options.funcion = (options.funcion == "AVG") ? "MEAN" : options.funcion
-	if(valid_func.indexOf(options.funcion) < 0) {
+	const parsed_options = {
+		location: default_rast_location,
+		bbox: (!options.bbox) ? serie_md.fuente.def_extent : options.bbox,
+		pixel_height: (!options.pixel_height) ? serie_md.fuente.def_pixel_height : options.pixel_height,
+		pixel_width: (!options.pixel_width) ? serie_md.fuente.def_pixel_width : options.pixel_width,
+		srid: (!options.srid) ? serie_md.fuente.def_srid : options.srid,
+		funcion: (!options.funcion) ? "SUM" : (options.funcion.toUpperCase() == "AVG") ? "MEAN" : options.funcion.toUpperCase(),
+		format: (!options.format) ? "GTiff" : options.format,
+		height: (!options.height) ? 300 : options.height,
+		width: (!options.width) ? 300 : options.width
+	}
+	if(valid_func.indexOf(parsed_options.funcion) < 0) {
 		res.status(404).send({message:"'funcion' inválida. Opciones: 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE'",error:"'funcion' inválida. Opciones: 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE'"})
 		return
 	}
-	options.format = (!options.format) ? "GTiff" : options.format
 	const valid_formats = ["gtiff", "png"]
-	if(valid_formats.map(f=> (f == options.format.toLowerCase()) ? 1 : 0).reduce( (a,b)=>a+b) == 0) {
-		console.error("Invalid format:" + options.format)
+	if(valid_formats.map(f=> (f == parsed_options.format.toLowerCase()) ? 1 : 0).reduce( (a,b)=>a+b) == 0) {
+		console.error("Invalid format:" + parsed_options.format)
 		return
 	}
-	options.height = (!options.height) ? 300 : options.height
-	options.width = (!options.width) ? 300 : options.width
+	
 	if(options.only_hlink) {
 		const filenamePart = value => {
 			if(value === undefined || value === null || value === "") {
@@ -3351,16 +3354,16 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 			`cal-${filenamePart(filter.cal_id)}`,
 			`cor-${filenamePart(filter.cor_id)}`,
 			`qualifier-${filenamePart(filter.qualifier)}`,
-			`function-${filenamePart(options.funcion)}`,
-			`format-${filenamePart(options.format)}`
-		].join("_") + "." + (options.format.toLowerCase() == "gtiff" ? "tif" : options.format.toLowerCase())
+			`function-${filenamePart(parsed_options.funcion)}`,
+			`format-${filenamePart(parsed_options.format)}`
+		].join("_") + "." + (parsed_options.format.toLowerCase() == "gtiff" ? "tif" : parsed_options.format.toLowerCase())
 		const filepath = path.resolve(__dirname, default_rast_location, filename)
 		const filename_legend = `${filename}_legend.png`
 		const filepath_legend = path.resolve(__dirname, default_rast_location, filename_legend)
 		try {
 			if(!options.try_cache || !fs.existsSync(filepath)) {
 				try {
-					var serie = await crud.rastExtract(filter.series_id,filter.timestart,filter.timeend,options,filter.public, undefined, filter.cal_id, filter.cor_id, filter.forecast_date, filter.qualifier)
+					var serie = await crud.rastExtract(filter.series_id,filter.timestart,filter.timeend,options,filter.public, undefined, filter.cal_id, filter.cor_id, filter.forecast_date, filter.qualifier, user_id)
 				} catch (e) {
 					handleCrudError(e, res)
 					return
@@ -3395,14 +3398,14 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 				throw new Error("La ubicación de salida ráster no está servida desde public")
 			}
 			const relativePath_legend = path.relative(publicRoot, filepath_legend)
-			const [left, bottom, right, top] = options.bbox.bbox()
+			const [left, bottom, right, top] = parsed_options.bbox.bbox()
 			res.json({
 				hlink: "/" + relativePath.split(path.sep).map(encodeURIComponent).join("/"),
 				ll: [left, bottom],
 				ur: [right, top],
-				height: Number(options.height),
-				width: Number(options.width),
-				srs: Number(options.srid),
+				height: Number(parsed_options.height),
+				width: Number(parsed_options.width),
+				srs: Number(parsed_options.srid),
 				legend_hlink: "/" + relativePath_legend.split(path.sep).map(encodeURIComponent).join("/")
 			})
 			return
@@ -3412,7 +3415,7 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 		}
 	}
 	try {
-		var serie = await crud.rastExtract(filter.series_id,filter.timestart,filter.timeend,options,filter.public, undefined, filter.cal_id, filter.cor_id, filter.forecast_date, filter.qualifier)
+		var serie = await crud.rastExtract(filter.series_id,filter.timestart,filter.timeend,options,filter.public, undefined, filter.cal_id, filter.cor_id, filter.forecast_date, filter.qualifier, user_id)
 	} catch (e) {
 		handleCrudError(e, res)
 		return
@@ -3501,6 +3504,7 @@ function rastExtractByArea(req,res) {
 	try {
 		var filter = getFilter(req,res.locals)
 		var options = getOptions(req)
+		var user_id = getUserId(req)
 	} catch (e) {
 		console.error(e)
 		res.status(400).send({message:"query error",error:e.toString()})
@@ -3533,6 +3537,8 @@ function rastExtractByArea(req,res) {
 			}
 			console.log("Got observaciones: " + obs + " records.")
 			if(options.series_metadata) {
+				result.id = filter.series_id
+				result.tipo = "raster"
 				res.send(result)
 			} else {
 				send_output(options,obs,res)
@@ -3547,7 +3553,7 @@ function rastExtractByArea(req,res) {
 
 	if(options.no_insert) {
 		if(!area) {   // area="all"
-			crud.rast2areal(filter.series_id,filter.timestart,filter.timeend,"all",options) 
+			crud.rast2areal(filter.series_id,filter.timestart,filter.timeend,"all",options, undefined, undefined, undefined, undefined, undefined, user_id) 
 			.then(observaciones=>{
 				console.log("Got observaciones: " + observaciones.length + " records.")
 				send_output(options,observaciones,res)
@@ -3559,7 +3565,7 @@ function rastExtractByArea(req,res) {
 			//~ console.error("Falta area_id o area_geom")
 			//~ res.status(404).send("Falta area_id o area_geom")
 		} else {
-			crud.rastExtractByArea(filter.series_id,filter.timestart,filter.timeend,area,options) 
+			crud.rastExtractByArea(filter.series_id,filter.timestart,filter.timeend,area,options,undefined, undefined,undefined, undefined, undefined, user_id) 
 			.then(result=>{
 				if(!result) {
 					console.error("No se encontró la serie")

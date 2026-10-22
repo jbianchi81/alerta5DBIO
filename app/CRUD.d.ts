@@ -1443,5 +1443,43 @@ export class CRUD {
             location?: string
         }
 		) : Promise<observacion[]>
-}
 
+    static async getSerie(
+        tipo: SeriesType | "rast",
+        id: number | string,
+        timestart?: Date | string,
+        timeend?: Date | string,
+        options?: {
+            no_metadata?: boolean,
+            asArray?: boolean,
+            getStats?: boolean,
+            getMonthlyStats?: boolean,
+            getWeibullPercentiles?: boolean,
+            regular?: boolean,
+            dt?: string,
+            format?: string,
+            obs_type?: string
+        },
+        isPublic?: boolean,
+        timeupdate?: Date | string,
+        client?: Client,
+        user_id?: string
+    ) : Promise<Serie | undefined>
+
+    static async rastExtractByArea(
+        series_id : number,
+        timestart : Date | string,
+        timeend : Date | string,
+        area : Geometry|string|number,
+        options? : {
+            funcion?: string,
+            force_resample?: boolean,
+            only_obs?: boolean
+        },
+        client?: Client,
+        cor_id?: number, 
+        cal_id?: number, 
+        forecast_date?: Date | string, 
+        qualifier?: string, 
+        user_id?: string) : Promise<Serie | undefined>
+}

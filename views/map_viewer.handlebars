@@ -115,6 +115,9 @@
 	.map-viewer-no-series {
 		color: #6c757d;
 	}
+	.slider-width50 {
+		width: 50px;
+	}
 	@media (max-width: 600px) {
 		.map-viewer-controls > .form-group {
 			width: 100%;
@@ -160,6 +163,7 @@
 			<strong id="map-viewer-legend-title">Leyenda</strong>
 			<img id="map-viewer-legend-image" alt="Leyenda de la capa WMS">
 			<span id="map-viewer-legend-unavailable" hidden>La leyenda no está disponible.</span>
+			<input type="range" value="1" class="slider-width50" id="opprod" min="0" max="1" step="0.1">
 		</div>
 	</div>
 	<section id="map-viewer-results" hidden aria-live="polite">
