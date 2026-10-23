@@ -199,6 +199,12 @@
                                     }
                                 },
                                 "additionalProperties": true
+                            },
+                            "menu_path": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
                             }
                         },
                         "required": ["name", "layer_name", "view_params", "defaults"],

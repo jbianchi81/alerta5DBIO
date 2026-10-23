@@ -15287,6 +15287,18 @@ internal.CRUD = class {
 			var transform = (serie.fuente.scale_factor) ? " * " + serie.fuente.scale_factor : ""
 			transform += (serie.fuente.data_offset) ? " + " + serie.fuente.data_offset : ""
 			serie.extractionParameters = {funcion:options.funcion, max_distance: max_distance, buffer: buffer}
+			const srid_fuente = parseInt(serie.fuente.def_srid)
+			if(options.srid) {
+				var srid_geom = parseInt(options.srid)
+				if(srid_geom != srid_fuente) {
+					var reproject_geom = true
+				} else {
+					var reproject_geom = false
+				}
+			} else {
+				var srid_geom = srid_fuente
+				var reproject_geom = false
+			}
 			var stmt
 			var args
 			const useForecast = Boolean(cor_id || cal_id && forecast_date)
@@ -15296,26 +15308,42 @@ internal.CRUD = class {
 			const corIdColumn = useForecast ? "data_table.cor_id" : "NULL::integer"
 			const qualifierColumn = useForecast ? "data_table.qualifier" : "NULL::text"
 			let forecastFilter = ""
-			const forecastArgs = []
+			const moreArgs = []
 			if(cor_id) {
-				forecastArgs.push(cor_id)
-				forecastFilter += ` AND data_table.cor_id=$${8 + forecastArgs.length}`
+				moreArgs.push(cor_id)
+				forecastFilter += ` AND data_table.cor_id=$${6 + moreArgs.length}`
 			} else if(cal_id && forecast_date) {
-				forecastArgs.push(cal_id, forecast_date)
-				forecastFilter += ` AND corridas.cal_id=$${8 + forecastArgs.length - 1} AND corridas.date=$${8 + forecastArgs.length}`
+				moreArgs.push(cal_id, forecast_date)
+				forecastFilter += ` AND corridas.cal_id=$${6 + moreArgs.length - 1} AND corridas.date=$${6 + moreArgs.length}`
 			}
 			if(qualifier !== undefined && qualifier !== null) {
-				forecastArgs.push(qualifier)
-				const qualifierPlaceholder = `$${8 + forecastArgs.length}`
+				moreArgs.push(qualifier)
+				const qualifierPlaceholder = `$${6 + moreArgs.length}`
 				forecastFilter += Array.isArray(qualifier)
 					? ` AND data_table.qualifier=ANY(${qualifierPlaceholder}::text[])`
 					: ` AND data_table.qualifier=${qualifierPlaceholder}`
 			}
+
+			if(reproject_geom) {
+				moreArgs.push(srid_fuente)
+				var geom_stmt = `ST_Transform(
+					ST_GeomFromText($4::text,$5::int),
+					$${6 + moreArgs.length}::int
+				)`
+			} else {
+				var geom_stmt = `ST_GeomFromText($4::text,$5::int)`
+			}
+
 			if(options.funcion.toLowerCase() == "nearest") {
 				//~ console.log([series_id,timestart,timeend,serie.estacion.geom.toString(),serie.fuente.def_srid,serie.fuente.hora_corte,serie.fuente.def_dt,max_distance])
 				stmt = `WITH centroids AS (
-					SELECT data_table.timestart, ${timeupdateColumn} AS timeupdate,
-							${corIdColumn} AS cor_id, ${qualifierColumn} AS qualifier, dp.*
+					SELECT 
+						data_table.timestart, 
+						data_table.timeend,
+						${timeupdateColumn} AS timeupdate,
+						${corIdColumn} AS cor_id, 
+						${qualifierColumn} AS qualifier, 
+						dp.*
 					FROM ${dataTable} AS data_table
 					${corridaJoin}
 					CROSS JOIN LATERAL st_pixelascentroids(data_table.valor) AS dp
@@ -15325,44 +15353,89 @@ internal.CRUD = class {
 					${forecastFilter}
 				),
 				distancias AS (
-					SELECT timestart,
-							timeupdate,
-							cor_id,
-							qualifier,
-							val,
-							x,
-							y,
-							centroids.geom,
-							st_distance(ST_GeomFromText($4,$5),centroids.geom) distance,
-							row_number() over (partition by timestart order by st_distance(st_geomfromtext($4,$5),centroids.geom)) as rk
-					FROM centroids ORDER BY centroids.timestart,centroids.x,centroids.y
-				)
-				SELECT timestart + $6::interval timestart,
-						timestart + $6::interval + $7::interval timeend,
-						round(val::numeric,2) valor,
+					SELECT 
+						timestart,
+						timeend,
 						timeupdate,
 						cor_id,
-						qualifier
+						qualifier,
+						val,
+						x,
+						y,
+						centroids.geom,
+						st_distance(
+							${geom_stmt},
+							centroids.geom
+						) AS distance,
+						row_number() over (partition by timestart order by st_distance(${geom_stmt},centroids.geom)) as rk
+					FROM centroids ORDER BY centroids.timestart,centroids.x,centroids.y
+				)
+				SELECT 
+					timestart,
+					timeend,
+					round(val::numeric,2) valor,
+					timeupdate,
+					cor_id,
+					qualifier
 				FROM distancias
 				WHERE rk=1
-				AND distance<=$8
+				AND distance<=$6
 				ORDER BY timestart`
-				args = [series_id,timestart,timeend,serie.estacion.geom.toString(),serie.fuente.def_srid,serie.fuente.hora_corte,serie.fuente.def_dt,max_distance, ...forecastArgs]
+				args = [
+					series_id,
+					timestart,
+					timeend,
+					serie.estacion.geom.toString(),
+					srid_geom,
+					max_distance,
+					...moreArgs
+				]
 			} else {
-				stmt = `SELECT data_table.timestart + $1::interval timestart,
-								data_table.timestart + $1::interval + $2::interval timeend,
-								round(((st_summarystats(st_clip(data_table.valor,st_buffer(st_envelope(st_geomfromtext($3,$4)),$5)))).${options.funcion} ${transform})::numeric,2) valor,
-								${timeupdateColumn} AS timeupdate,
-								${corIdColumn} AS cor_id,
-								${qualifierColumn} AS qualifier
-								FROM ${dataTable} AS data_table
-								${corridaJoin}
-								WHERE data_table.series_id=$6
-								AND data_table.timestart >= $7
-								AND data_table.timeend <= $8
-								${forecastFilter}
-								ORDER BY data_table.timestart`
-				args = [serie.fuente.hora_corte, serie.fuente.def_dt, serie.estacion.geom.toString(), serie.fuente.def_srid, buffer, series_id, timestart, timeend, ...forecastArgs]
+
+				stmt = `SELECT 
+						data_table.timestart,
+						data_table.timeend,
+						round(
+							(
+								(
+									st_summarystats(
+										st_clip(
+											st_setbandnodatavalue(
+												data_table.valor,
+												coalesce(
+													st_bandnodatavalue(data_table.valor),
+													-9999
+												)
+											),
+											st_buffer(
+												st_envelope(
+													${geom_stmt}
+												),
+												$6
+											)
+										)
+									)
+								).${options.funcion} ${transform})::numeric,
+							2) AS valor,
+						${timeupdateColumn} AS timeupdate,
+						${corIdColumn} AS cor_id,
+						${qualifierColumn} AS qualifier
+					FROM ${dataTable} AS data_table
+					${corridaJoin}
+					WHERE data_table.series_id=$1
+					AND data_table.timestart >= $2
+					AND data_table.timeend <= $3
+					${forecastFilter}
+					ORDER BY data_table.timestart`
+				args = [
+					series_id, 
+					timestart, 
+					timeend, 
+					serie.estacion.geom.toString(), 
+					srid_geom, 
+					buffer,
+					...moreArgs
+				]
 			}
 			var result = await client.query(stmt,args)
 			if(!result.rows) {

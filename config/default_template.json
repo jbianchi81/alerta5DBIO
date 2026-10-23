@@ -2968,7 +2968,8 @@
 						"days": -1
 					},
 					"function": "sum"
-				}
+				},
+				"menu_path": ["Pluviométricos", "Observados", "areales", "interpolado a grilla (raster)"]
 			}
 		],
 		"view_center": [-55, -25],

@@ -1,5 +1,7 @@
 <link rel="stylesheet" href="css/ol.css" type="text/css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.13.2/themes/base/jquery-ui.min.css">
 <script src="js/ol.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
 <script src="js/map_viewer.js" defer></script>
 <style>
 	.map-viewer-page {
@@ -41,6 +43,60 @@
 	}
 	.map-viewer-map-panel {
 		position: relative;
+	}
+	.map-viewer-layer-menu-button {
+		position: absolute;
+		z-index: 6;
+		top: .75rem;
+		right: .75rem;
+		display: grid;
+		gap: 4px;
+		width: 44px;
+		height: 44px;
+		padding: 10px;
+		border: 1px solid #aaa;
+		border-radius: .25rem;
+		background: rgba(255, 255, 255, .95);
+		cursor: pointer;
+	}
+	.map-viewer-layer-menu-button span {
+		display: block;
+		height: 2px;
+		background: #333;
+	}
+	.map-viewer-layer-menu {
+		position: absolute;
+		z-index: 7;
+		top: 3.75rem;
+		right: .75rem;
+		width: min(320px, calc(100% - 1.5rem));
+		max-height: min(70vh, 480px);
+		overflow: auto;
+		padding: .5rem;
+		background: rgba(255, 255, 255, .98);
+		border: 1px solid #aaa;
+		border-radius: .25rem;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, .2);
+	}
+	.map-viewer-layer-menu[hidden] {
+		display: none !important;
+	}
+	#map-viewer-layer-menu-l1 {
+		width: 100%;
+		max-height: none;
+		border: 0;
+		box-shadow: none;
+	}
+	.map-viewer-layer-menu-clickable {
+		cursor: pointer;
+	}
+	.map-viewer-layer-menu-clickable:hover,
+	.map-viewer-layer-menu-clickable:focus {
+		background: #e9ecef;
+	}
+	.map-viewer-layer-menu-selected {
+		font-weight: bold;
+		background: #abd3f6;
 	}
 	#map-viewer-legend {
 		position: absolute;
@@ -122,6 +178,14 @@
 		.map-viewer-controls > .form-group {
 			width: 100%;
 		}
+		.map-viewer-layer-menu {
+			width: min(320px, calc(100% - 1rem));
+			right: .5rem;
+		}
+		.map-viewer-layer-menu-button {
+			top: .5rem;
+			right: .5rem;
+		}
 		#map-viewer-map {
 			height: 65vh;
 			min-height: 320px;
@@ -152,13 +216,22 @@
 		</div>
 		<div class="form-group" style="flex: 1; min-width: 240px;">
 			<label for="map-viewer-layer">Capa</label>
-			<select id="map-viewer-layer" name="layer" class="form-control"></select>
+			<select id="map-viewer-layer" name="layer"></select>
 		</div>
 		<button type="submit" class="btn btn-primary">Aplicar</button>
 	</form>
 	<div id="map-viewer-status" role="status" aria-live="polite"></div>
 	<div class="map-viewer-map-panel">
 		<div id="map-viewer-map" role="application" aria-label="Mapa"></div>
+		<button id="map-viewer-layer-menu-button" class="map-viewer-layer-menu-button" type="button"
+			aria-label="Mostrar capas" aria-controls="map-viewer-layer-menu" aria-expanded="false">
+			<span aria-hidden="true"></span>
+			<span aria-hidden="true"></span>
+			<span aria-hidden="true"></span>
+		</button>
+		<div id="map-viewer-layer-menu" class="map-viewer-layer-menu" hidden>
+			<ul id="map-viewer-layer-menu-l1"></ul>
+		</div>
 		<div id="map-viewer-legend">
 			<strong id="map-viewer-legend-title">Leyenda</strong>
 			<img id="map-viewer-legend-image" alt="Leyenda de la capa WMS">

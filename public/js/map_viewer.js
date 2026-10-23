@@ -14,6 +14,9 @@
 	const featureResults = document.getElementById("map-viewer-feature-results");
 	const mapElement = document.getElementById("map-viewer-map");
 	const opControl = document.getElementById("opprod");
+	const layerMenu = document.getElementById("map-viewer-layer-menu");
+	const layerMenuL1 = document.getElementById("map-viewer-layer-menu-l1");
+	const layerMenuButton = document.getElementById("map-viewer-layer-menu-button");
 	const wms = config.wms || {};
 	const layers = Array.isArray(config.layers) ? config.layers : [];
 	const rastextractEndpoint = (config.rastextract && config.rastextract.endpoint) || "res/rastextract/rast";
@@ -54,6 +57,11 @@
 		return "";
 	}
 
+	const menu = {
+		name: "capas",
+		items: []
+	}
+
 	for (const layer of layers) {
 		if (!layer || typeof layer.name !== "string" || typeof layer.layer_name !== "string" ||
 			!layer.view_params || typeof layer.view_params !== "object" || Array.isArray(layer.view_params) ||
@@ -66,6 +74,104 @@
 		option.value = layer.name;
 		option.textContent = layer.name;
 		layerInput.appendChild(option);
+
+		if(layer.menu_path && layer.menu_path.length) {
+			appendToMenu(menu, layer.menu_path, layer.name)
+		}
+	}
+
+	for(const item of menu.items) {
+		addMenuItem(item, layerMenuL1)
+	}
+
+	function addMenuItem(item, menu) {
+		const listitem = document.createElement("li")
+		const title = document.createElement("div")
+		title.textContent = item.name
+		title.layer_name = item.layer_name
+		title.classList.add("map-viewer-layer-menu-title")
+		if(item.layer_name) {
+			title.classList.add("map-viewer-layer-menu-clickable")
+			title.dataset.layerName = item.layer_name
+			title.onclick = function () {
+				$(".map-viewer-layer-menu-title").removeClass("map-viewer-layer-menu-selected")
+				this.classList.add("map-viewer-layer-menu-selected")
+				setSelectedBranch(this.parentElement.closest("ul").closest("li"))
+				setLayer(this.dataset.layerName)
+			}
+		} 
+		listitem.appendChild(title)
+		if(item.items.length) {
+			const itemlist = document.createElement("ul")
+			for(const i of item.items) {
+				addMenuItem(i, itemlist)
+			}
+			listitem.appendChild(itemlist)
+		}
+		menu.appendChild(listitem)
+	}
+
+	function setSelectedBranch(li) {
+		if(!li) {
+			return
+		}
+		li.childNodes[0].classList.add("map-viewer-layer-menu-selected")
+		setSelectedBranch(li.closest("ul").closest("li"))
+	}
+
+	function setLayer(layer_name) {
+		layerInput.value = layer_name
+		layerInput.dispatchEvent(new Event('change'));
+		closeLayerMenu();
+	}
+
+	function closeLayerMenu() {
+		layerMenu.hidden = true;
+		layerMenuButton.setAttribute("aria-expanded", "false");
+		layerMenuButton.setAttribute("aria-label", "Mostrar capas");
+	}
+
+	layerMenuButton.addEventListener("click", function () {
+		layerMenu.hidden = !layerMenu.hidden;
+		layerMenuButton.setAttribute("aria-expanded", String(!layerMenu.hidden));
+		layerMenuButton.setAttribute("aria-label", layerMenu.hidden ? "Mostrar capas" : "Ocultar capas");
+	});
+
+	layerMenu.addEventListener("keydown", function (event) {
+		if (event.key === "Escape") {
+			closeLayerMenu();
+			layerMenuButton.focus();
+		}
+	});
+
+	document.addEventListener("click", function (event) {
+		if (!layerMenu.hidden && !layerMenu.contains(event.target) && !layerMenuButton.contains(event.target)) {
+			closeLayerMenu();
+		}
+	});
+
+	function appendToMenu(menu, path, layer_name) {
+		var path_exists = false
+		for(const item of menu.items) {
+			if (item.name == path[0]) {
+				path_exists = true
+				if (path.length > 1) {
+					appendToMenu(item, path.slice(1), layer_name)
+				}
+			}
+		}
+		if (!path_exists) {
+			const new_item = {
+				name: path[0],
+				items: []
+			}
+			if (path.length > 1) {
+				appendToMenu(new_item, path.slice(1), layer_name)
+			} else {
+				new_item.layer_name = layer_name
+			}
+			menu.items.push(new_item)
+		}
 	}
 
 	function setStatus(message, isError) {
@@ -247,6 +353,7 @@
 		try {
 			const response = await fetch(rastextractUrl({
 				only_hlink: "true",
+				try_cache: "true",
 				format: "PNG"
 			}));
 			if (!response.ok) {
@@ -363,18 +470,24 @@
 			var series_obj = series;
 		}
 		const points = Object.entries(series_obj).map(([timestamp, rawValue]) => {
-			const match = timestamp.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
-			if (!match) {
-				return null;
+			let date;
+			const isoDate = timestamp.includes("T") ? new Date(timestamp) : null;
+			if (isoDate && Number.isFinite(isoDate.getTime())) {
+				date = isoDate;
+			} else {
+				const match = timestamp.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+				if (!match) {
+					return null;
+				}
+				date = new Date(
+					Number(match[1]),
+					Number(match[2]) - 1,
+					Number(match[3]),
+					Number(match[4] || 0),
+					Number(match[5] || 0),
+					Number(match[6] || 0)
+				);
 			}
-			const date = new Date(
-				Number(match[1]),
-				Number(match[2]) - 1,
-				Number(match[3]),
-				Number(match[4] || 0),
-				Number(match[5] || 0),
-				Number(match[6] || 0)
-			);
 			const number = Number(rawValue);
 			return Number.isFinite(number) ? [date.getTime(), number] : null;
 		}).filter(Boolean);
@@ -428,7 +541,7 @@
 				name_j.textContent = "Descargar JSON";
 				const cell_j = document.createElement("td");
 				const link_j = document.createElement("a");
-				link_j.href = `/rastExtractByArea?series_id=${properties["series_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&area_geom=${properties["coordinates"].join(",")}&series_metadata=true`
+				link_j.href = `/rastExtractByArea?series_id=${properties["series_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&area_geom=${properties["coordinates"].join(",")}&series_metadata=true&function=avg&srid=4326`
 				if(properties["cal_id"]) {
 					// sim
 					link_j.href = `${link_j.href}&cal_id=${properties["cal_id"]}&forecast_date=last` // ${properties["forecast_date"]}`;
@@ -659,7 +772,8 @@
 						pointPadding: 0,
 						groupPadding: 0,
 						borderWidth: 0,
-						minPointLength: 3
+						minPointLength: 3,
+						pointPlacement: 'between'
 					}
 				} : {},
 				tooltip: {
@@ -687,6 +801,7 @@
 		url.searchParams.set("timeEnd", params.timeend);
 		url.searchParams.set("area_geom", `${coordinate[0]},${coordinate[1]}`)
 		url.searchParams.set("series_metadata", true)
+		url.searchParams.set("function", "avg")
 		// url.searchParams.set("function", String(params.function).toLowerCase());
 		url.pathname = url.pathname.replace(/\/rastExtract\/?$/, "/rastExtractByArea");
 		return url;
