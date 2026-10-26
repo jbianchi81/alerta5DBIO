@@ -3,6 +3,10 @@
 <script src="js/ol.js"></script>
 <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
 <script src="js/map_viewer.js" defer></script>
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+/>
 <style>
 	.map-viewer-page {
 		max-width: 1440px;
@@ -218,13 +222,14 @@
 			<label for="map-viewer-layer">Capa</label>
 			<select id="map-viewer-layer" name="layer"></select>
 		</div>
-		<button type="submit" class="btn btn-primary">Aplicar</button>
+		<button type="submit" class="btn btn-primary" title="Recargar capa con los filtros seleccionados">Aplicar</button>
+		<a href="" target="_blank" id="download-layer" style="font-size: 34px;"><i class="fa-solid fa-file-arrow-down"></i></a>
 	</form>
 	<div id="map-viewer-status" role="status" aria-live="polite"></div>
 	<div class="map-viewer-map-panel">
 		<div id="map-viewer-map" role="application" aria-label="Mapa"></div>
 		<button id="map-viewer-layer-menu-button" class="map-viewer-layer-menu-button" type="button"
-			aria-label="Mostrar capas" aria-controls="map-viewer-layer-menu" aria-expanded="false">
+			aria-label="Mostrar capas" aria-controls="map-viewer-layer-menu" aria-expanded="false" title="Seleccionar capa">
 			<span aria-hidden="true"></span>
 			<span aria-hidden="true"></span>
 			<span aria-hidden="true"></span>

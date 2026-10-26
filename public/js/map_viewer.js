@@ -17,6 +17,7 @@
 	const layerMenu = document.getElementById("map-viewer-layer-menu");
 	const layerMenuL1 = document.getElementById("map-viewer-layer-menu-l1");
 	const layerMenuButton = document.getElementById("map-viewer-layer-menu-button");
+	const dwnldLayerButton = document.getElementById("download-layer");
 	const wms = config.wms || {};
 	const layers = Array.isArray(config.layers) ? config.layers : [];
 	const rastextractEndpoint = (config.rastextract && config.rastextract.endpoint) || "res/rastextract/rast";
@@ -257,7 +258,8 @@
 			}
 			return;
 		}
-		if (!wms.endpoint) {
+		const endpoint = (activeLayer.endpoint) ? activeLayer.endpoint : wms.endpoint
+		if (!endpoint) {
 			legendImage.hidden = true;
 			legendUnavailable.hidden = false;
 			return;
@@ -273,7 +275,7 @@
 		});
 		legendImage.hidden = false;
 		legendUnavailable.hidden = true;
-		legendImage.src = `${wms.endpoint}?${query.toString()}`;
+		legendImage.src = `${endpoint}?${query.toString()}`;
 		document.getElementById("map-viewer-legend-title").textContent = String(activeLayer.title || activeLayer.name);
 	}
 	legendImage.addEventListener("error", function () {
@@ -318,12 +320,16 @@
 	}
 
 	function createWmsLayer() {
-		if (!wms.endpoint) {
+		if(activeLayer.endpoint) {
+				var endpoint = activeLayer.endpoint
+		} else if (!wms.endpoint) {
 			throw new Error("Configure map_viewer.wms.endpoint para las capas WMS.");
+		} else {
+			var endpoint = wms.endpoint
 		}
 		wmsLayer = new ol.layer.Tile({
 			source: new ol.source.TileWMS({
-				url: wms.endpoint,
+				url: endpoint,
 				params: {
 					LAYERS: activeLayer.layer_name,
 					FORMAT: "image/png",
@@ -345,6 +351,10 @@
 		map.addLayer(wmsLayer);
 		opControl.value = 0.9;
 		opControl.dispatchEvent(new Event('change'));
+
+		// update dwnld href
+		dwnldLayerButton.href = `${endpoint.replace(/\/wms$/,"/ows")}?service=WFS&version=1.0.0&request=GetFeature&typeName=${activeLayer.layer_name}&maxFeatures=500&outputFormat=application/json&viewParams=${toViewparams(params)}`
+		dwnldLayerButton.title = "Descargar GeoJSON"
 	}
 
 	async function loadRasterLayer() {
@@ -399,6 +409,15 @@
 				legendUnavailable.hidden = true;
 				document.getElementById("map-viewer-legend-title").textContent = String(activeLayer.title || activeLayer.name);
 			}
+
+			// update dwnld href
+			const tif_url = rastextractUrl({
+				only_hlink: "false",
+				try_cache: "true"
+			})
+			dwnldLayerButton.href = `${tif_url}`
+			dwnldLayerButton.title = "Descargar GeoTiff"
+
 		} catch (error) {
 			if (requestId === rasterRequestId) {
 				setStatus(`No se pudo obtener la capa ráster: ${error.message}`, true);
@@ -565,7 +584,12 @@
 				name_s.textContent = "Ver más datos";
 				const cell_s = document.createElement("td");
 				const link_s = document.createElement("a");
-				link_s.href = `/secciones?varId=${properties["var_id"]}&seriesId=${properties["series_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&data_availability=a`;
+
+				if(properties["cal_id"] && properties["cor_id"] && properties["estacion_id"] && properties["var_id"]) {
+					link_s.href = `/secciones?estacionId=${properties["estacion_id"]}&varId=${properties["var_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&data_availability=a`;
+				} else {			
+					link_s.href = `/secciones?varId=${(properties["var_id"]) ? properties["var_id"] : ""}&seriesId=${properties["series_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&data_availability=a`;
+				}
 				if(series_type == "areal") {
 					link_s.href = `${link_s.href}&fuentesId=${properties["fuentes_id"]}`;
 				} 
@@ -585,7 +609,7 @@
 				const link_j = document.createElement("a")
 				if(properties["cal_id"] && properties["cor_id"]) {
 					// sim
-					link_j.href = `/sim/calibrados/${properties["cal_id"]}/corridas/${properties["cor_id"]}?tipo=${series_type}&series_id=${properties["series_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&includeProno=true`;		
+					link_j.href = `/sim/calibrados/${properties["cal_id"]}/corridas/last?tipo=${series_type}&series_id=${properties["series_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&includeProno=true`;		// USANDO LAST en lugar de ${properties["cor_id"]}
 					if(properties["qualifier"]) {
 						link_j.href = `${link_j.href}&qualifier=${properties["qualifier"]}`
 					}
@@ -694,7 +718,16 @@
 				chartContainer.mapViewerPlotLines = [
 					["nivel_de_alerta", "nivel de alerta", "#ffff00"],
 					["nivel_de_evacuacion", "nivel de evacuacion", "#ff0000"],
-					["nivel_de_aguas_bajas", "nivel de aguas bajas", "#ff8c00"]
+					["nivel_de_aguas_bajas", "nivel de aguas bajas", "#ff8c00"],
+					["alerta", "nivel de alerta", "#ffff00"],
+					["evacuacion", "nivel de evacuacion", "#ff0000"],
+					["caudal_alerta", "caudal de alerta", "#ffff00"],
+					["caudal_evacuacion", "caudal de evacuacion", "#ff0000"],
+					["percentil_05", "aguas altas (P05)", "#6fa8dc"],
+					["percentil_25", "aguas medias altas (P25)", "#cfe2f3"],
+					["percentil_50", "aguas medias (P50)", "#fff2cc"],
+					["percentil_75", "aguas medias bajas (P75)", "#f6b26b"],
+					["percentil_95", "aguas bajas (P95)", "#ea9999"],
 				].flatMap(([property, label, color]) => {
 					const rawValue = properties[property];
 					if (rawValue == null || (typeof rawValue === "string" && rawValue.trim() === "")) {
@@ -935,10 +968,12 @@
 		if (activeLayer.type === "rastextract") {
 			applyActiveLayer();
 		} else if (wmsLayer) {
+			// wmsLayer.setUrl(activeLayer.endpoint || wms.endpoint)
 			wmsLayer.getSource().updateParams({
 				LAYERS: activeLayer.layer_name,
 				STYLES: activeLayer.styles,
-				VIEWPARAMS: toViewparams(params)
+				VIEWPARAMS: toViewparams(params),
+				URL
 			});
 			updateLegend();
 			setStatus("", false);

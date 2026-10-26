@@ -205,6 +205,10 @@
                                 "items": {
                                     "type": "string"
                                 }
+                            },
+                            "endpoint": {
+                                "type": "string",
+                                "description": "WMS endpoint. Overrides map_viewer.wms for this layer"
                             }
                         },
                         "required": ["name", "layer_name", "view_params", "defaults"],

@@ -14226,9 +14226,10 @@ internal.CRUD = class {
 				var bbox = serie.fuente.def_extent
 				var srid_bbox = srid_fuente
 			}
+
 						
 			var valid_func = [ 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE']
-			options.funcion = (!options.funcion) ? "SUM" : options.funcion.toUpperCase()
+			options.funcion = (!options.funcion) ? "SUM" : (options.funcion.toUpperCase() == "AVG") ? "MEAN" : options.funcion.toUpperCase()
 			if(valid_func.indexOf(options.funcion) < 0) {
 				return Promise.reject("'funcion' inválida. Opciones: 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE'")
 			}
@@ -14324,7 +14325,19 @@ internal.CRUD = class {
 			var stmt
 			var args
 			if(options.format.toLowerCase() == "png") {
-				args = [options.pixel_height, bbox.toString(), srid_bbox, options.funcion, serie.id, timestart, timeend, options.height, options.width, options.format, options.colormap]
+				args = [
+					options.pixel_height, 
+					bbox.toString(), 
+					srid_bbox, 
+					options.funcion,
+					serie.id, 
+					timestart, 
+					timeend, 
+					options.width, 
+					options.height, 
+					options.format, 
+					options.colormap
+				]
 				if (reproject_bbox) {
 					var union_stmt = `ST_Transform(
 						ST_Union(
@@ -14427,7 +14440,17 @@ internal.CRUD = class {
 							${min_count_filter}
 							ON CONFLICT (cor_id, series_id, timestart, qualifier) DO UPDATE SET valor=excluded.valor, timeend=excluded.timeend
 							RETURNING series_id, cor_id, timestart, timeend, qualifier`
-						args = [bbox.toString(),srid_bbox,series_id,timestart,timeend,options.funcion, options.insertSeriesId, cor_id, qualifier || "main"]
+						args = [
+							bbox.toString(),
+							srid_bbox,
+							series_id,
+							timestart,
+							timeend,
+							options.funcion, 
+							options.insertSeriesId, 
+							cor_id, 
+							qualifier || "main"
+						]
 					} else if(cal_id && forecast_date) {
 						var select_block = `INSERT INTO pronosticos_rast (series_id, cor_id, timestart, timeend, qualifier, valor)
 							SELECT 
@@ -14443,7 +14466,18 @@ internal.CRUD = class {
 							${min_count_filter}
 							ON CONFLICT (cor_id, series_id, timestart, qualifier) DO UPDATE SET valor=excluded.valor, timeend=excluded.timeend
 							RETURNING series_id, timestart, timeend`
-						args = [bbox.toString(),srid_bbox,series_id,timestart,timeend,options.funcion, options.insertSeriesId, qualifier || "main", cal_id, forecast_date]
+						args = [
+							bbox.toString(),
+							srid_bbox,
+							series_id,
+							timestart,
+							timeend,
+							options.funcion, 
+							options.insertSeriesId, 
+							qualifier || "main", 
+							cal_id, 
+							forecast_date
+						]
 					} else if(forecast_date) {
 						var select_block = `INSERT INTO observaciones_rast (series_id, timestart, timeend, valor, timeupdate)
 							SELECT 
@@ -14457,7 +14491,16 @@ internal.CRUD = class {
 							${min_count_filter}
 							ON CONFLICT (series_id, timestart, timeend) DO UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate
 							RETURNING series_id, timestart, timeend`
-						args = [bbox.toString(),srid_bbox,series_id,timestart,timeend,options.funcion, options.insertSeriesId, forecast_date]
+						args = [
+							bbox.toString(),
+							srid_bbox,
+							series_id,
+							timestart,
+							timeend,
+							options.funcion, 
+							options.insertSeriesId, 
+							forecast_date
+						]
 					} else {
 						var select_block = `INSERT INTO observaciones_rast (series_id, timestart, timeend, valor)
 							SELECT 
@@ -14470,7 +14513,15 @@ internal.CRUD = class {
 							${min_count_filter}
 							ON CONFLICT (series_id, timestart, timeend) DO UPDATE SET valor=excluded.valor, timeupdate=excluded.timeupdate
 							RETURNING series_id, timestart, timeend`
-						args = [bbox.toString(),srid_bbox,series_id,timestart,timeend,options.funcion, options.insertSeriesId]
+						args = [
+							bbox.toString(),
+							srid_bbox,
+							series_id,
+							timestart,
+							timeend,
+							options.funcion, 
+							options.insertSeriesId
+						]
 					}
 				} else {
 					var select_block = `SELECT series_id,
@@ -14487,7 +14538,15 @@ internal.CRUD = class {
 					FROM agg, raststats
 					WHERE 1=1
 					${min_count_filter}`
-					args = [bbox.toString(),srid_bbox,series_id,timestart,timeend,options.funcion,options.format]
+					args = [
+						bbox.toString(),
+						srid_bbox,
+						series_id,
+						timestart,
+						timeend,
+						options.funcion,
+						options.format
+					]
 				}
 				if (reproject_bbox) {
 					var clip_stmt = `ST_Clip(
