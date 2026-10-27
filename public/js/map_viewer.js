@@ -264,15 +264,18 @@
 			legendUnavailable.hidden = false;
 			return;
 		}
-		const query = new URLSearchParams({
+		const seach_params = {
 			SERVICE: "WMS",
 			VERSION: "1.1.1",
 			REQUEST: "GetLegendGraphic",
 			FORMAT: "image/png",
 			LAYER: activeLayer.layer_name,
-			STYLES: activeLayer.styles,
 			VIEWPARAMS: toViewparams(params)
-		});
+		};
+		if(activeLayer.styles) {
+			seach_params["STYLE"] = activeLayer.styles;
+		}
+		const query = new URLSearchParams(seach_params);
 		legendImage.hidden = false;
 		legendUnavailable.hidden = true;
 		legendImage.src = `${endpoint}?${query.toString()}`;
