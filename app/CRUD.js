@@ -6709,7 +6709,8 @@ internal.corrida = class extends baseModel {
 				options.series_metadata,
 				filter.cal_grupo_id,
 				(filter.qualifier) ? true : options.group_by_qualifier,
-				filter.model_id,filter.tipo,
+				filter.model_id,
+				filter.tipo,
 				undefined,
 				(options.concat) ? 1 : undefined,
 				filter.limit,
@@ -14181,6 +14182,90 @@ internal.CRUD = class {
 		})
 	}
 
+	static async rastExtractEnsemble(
+		series_id,
+		timestart,
+		timeend,
+		options,
+		isPublic,
+		client,
+		cal_id,
+		cor_id,
+		forecast_date,
+		qualifier,
+		user_id,
+		output_file_prefix
+	) {
+		return withClient(client, async (client) => {
+			if(!series_id) {
+				throw new Error("Falta series_id")
+			}
+			if(!cor_id) {
+				if(!cal_id) {
+					throw new Error("Falta cor_id o cal_id")
+				}
+				if(!forecast_date) {
+					const last_corrida = await internal.corrida.getLast(cal_id, client, isPublic)
+					if(!last_corrida || !last_corrida.length) {
+						throw new Error("No se encontró la última corrida de cal_id " + cal_id)
+					}
+					forecast_date = last_corrida[0].forecast_date
+				}
+			}
+			const corrida = await internal.corrida.read(
+				{
+					id: cor_id,
+					cal_id: cal_id,
+					forecast_date: forecast_date,
+					series_id: series_id,
+					qualifier: qualifier,
+					user_id: user_id,
+					tipo: "rast"
+				},
+				{
+					includeProno: false,
+					group_by_qualifier: true
+				}
+			)
+			if(!corrida || !corrida.length) {
+				throw new Error("No se encontraron corridas")
+			}
+			if(!corrida[0].series || !corrida[0].series.length) {
+				throw new Error("No se encontraron series")
+			}
+			const results = []
+			for(const serie of corrida[0].series) {
+				const serie_agg = await this.rastExtract(
+					series_id,
+					timestart || serie.begin_date,
+					timeend || serie.end_date,
+					options,
+					isPublic,
+					client,
+					corrida[0].cal_id,
+					corrida[0].id,
+					corrida[0].forecast_date,
+					serie.qualifier,
+					user_id
+				)
+				if(!serie_agg || !serie_agg.observaciones.length) {
+					console.error("No se encontraron pronosticos para el qualifier " + serie.qualifier)
+					continue
+				}
+				if(output_file_prefix) {
+					const output_file = `${output_file_prefix}-${serie.qualifier}.${options.format || "tif"}`
+					serie_agg.observaciones[0].toRaster(
+						output_file
+					)
+					console.debug("Se escribió el archivo " + output_file)
+				}
+				results.push(serie_agg)
+			}
+			return results
+		})
+	}
+
+
 	static async rastExtract(
 		series_id,
 		timestart,
@@ -14266,18 +14351,18 @@ internal.CRUD = class {
 						{
 							"cor_id": {
 								type: "integer",
-								table: "pronosticos_rast"
+								table: "data_table"
 							},
 							"qualifier": {
 								type: "string",
-								table: "pronosticos_rast"
+								table: "data_table"
 							}
 						},
 						{
 							cor_id: cor_id,
 							qualifier: qualifier
 						},
-						"pronosticos_rast"
+						"data_table"
 					)
 				} else {
 					if(forecast_date == "last") {
@@ -14308,7 +14393,7 @@ internal.CRUD = class {
 							forecast_date: forecast_date,
 							qualifier: qualifier
 						},
-						"pronosticos_rast"
+						"data_table"
 					)
 				}
 			} else {
@@ -19226,7 +19311,7 @@ internal.CRUD = class {
 
 	static async getCorridaSeriesDateRange(corrida,filter={},options={}, client) {
 		return withClient(client, async (client) => {
-			filter.series_table = filter.series_table ?? ((filter.tipo) ? (filter.tipo == "puntual") ? "series" : (filter.tipo == "areal") ? "series_areal" : (filter.tipo == "raster" || filteri.tipo == "rast") ? "series_rast" : undefined : undefined)
+			filter.series_table = filter.series_table ?? ((filter.tipo) ? (filter.tipo == "puntual") ? "series" : (filter.tipo == "areal") ? "series_areal" : (filter.tipo == "raster" || filter.tipo == "rast") ? "series_rast" : undefined : undefined)
 			if(options.group_by_qualifier) {
 				var filter_string = internal.utils.control_filter2(
 					{

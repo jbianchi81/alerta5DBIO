@@ -3631,6 +3631,59 @@ internal.RastToArealProcedure = class extends internal.CrudProcedure {
     }
 }
 
+internal.RastExtractEnsembleProcedure = class extends internal.CrudProcedure {
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "RastExtractEnsembleProcedure"
+        if(!arguments[0].filter) {
+            throw("Missing filter")
+        }
+        this.filter = arguments[0].filter
+        if(!this.filter.series_id) {
+            throw("missing filter.series_id [of series_rast]")
+        }
+        this.series_id = this.filter.series_id
+        this.timestart = (this.filter.timestart) ? DateFromDateOrInterval(this.filter.timestart) : undefined
+        this.timeend = (this.filter.timeend) ? DateFromDateOrInterval(this.filter.timeend) : undefined
+        this.forecast_date = (this.filter.forecast_date) ? DateFromDateOrInterval(this.filter.forecast_date) : undefined
+        if(!arguments[0].filepath_prefix) {
+            throw("Missing filepath_prefix")
+        }
+        this.filepath_prefix = path.resolve(this.files_base_dir,arguments[0].filepath_prefix)
+        // more filters:
+        // - cal_id
+        // - cor_id
+        // - forecast_date
+        // - qualifier
+        // options:
+        // - bbox
+        // - pixel_height
+        // - pixel_width
+        // - srid
+        // - funcion
+    }
+
+    async run() {
+        const result_series = await crud.rastExtractEnsemble(
+            this.series_id,
+            this.timestart,
+            this.timeend,
+            this.options,
+            undefined,
+            undefined,
+            this.filter.cal_id,
+            this.filter.cor_id,
+            this.filter.forecast_date,
+            this.filter.qualifier,
+            undefined,
+            this.filepath_prefix
+        )
+        this.result = result_series
+        return this.result
+    }
+    
+}
+
 internal.RastExtractProcedure = class extends internal.CrudProcedure {
     constructor() {
         super(...arguments)
@@ -3859,6 +3912,7 @@ const availableCrudProcedures = {
     "GetSeriesBySiteAndVarProcedure": internal.GetSeriesBySiteAndVarProcedure,
     "UpdateSeriesPronoDateRangeProcedure": internal.UpdateSeriesPronoDateRangeProcedure,
     "RastToArealProcedure": internal.RastToArealProcedure,
+    "RastExtractEnsembleProcedure": internal.RastExtractEnsembleProcedure,
     "RastExtractProcedure": internal.RastExtractProcedure,
     "RastExtractByAreaProcedure": internal.RastExtractByAreaProcedure,
     "RastExtractByPointProcedure": internal.RastExtractByPointProcedure,

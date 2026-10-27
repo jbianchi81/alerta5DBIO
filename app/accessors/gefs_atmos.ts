@@ -302,6 +302,11 @@ export class Client extends AbstractAccessorEngine {
 			console.error("Corrida no insertada en base de datos")
 			return corrida
 		}
+		await corrida.updateSeriesDateRange(
+			{
+				tipo: "rast"
+			}
+		)
 		return created
 	}
 	

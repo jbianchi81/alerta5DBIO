@@ -189,6 +189,9 @@ class Client extends abstract_accessor_engine_1.AbstractAccessorEngine {
                 console.error("Corrida no insertada en base de datos");
                 return corrida;
             }
+            yield corrida.updateSeriesDateRange({
+                tipo: "rast"
+            });
             return created;
         });
     }

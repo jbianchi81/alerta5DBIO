@@ -1313,6 +1313,7 @@ export class corrida extends baseModel implements CorridaDict {
     series : SerieTemporalSim[]
     cal_id: number
     async create(options?:any, client?: Client) : Promise<this|void>
+    async updateSeriesDateRange(filter?:any, client?: Client) : Promise<void>
 }
 
 export class CRUD {
