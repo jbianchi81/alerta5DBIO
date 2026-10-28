@@ -563,7 +563,7 @@
 				name_j.textContent = "Descargar JSON";
 				const cell_j = document.createElement("td");
 				const link_j = document.createElement("a");
-				link_j.href = `/rastExtractByArea?series_id=${properties["series_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&area_geom=${properties["coordinates"].join(",")}&series_metadata=true&function=avg&srid=4326`
+				link_j.href = `rastExtractByArea?series_id=${properties["series_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&area_geom=${properties["coordinates"].join(",")}&series_metadata=true&function=avg&srid=4326`
 				if(properties["cal_id"]) {
 					// sim
 					link_j.href = `${link_j.href}&cal_id=${properties["cal_id"]}&forecast_date=last` // ${properties["forecast_date"]}`;
@@ -589,9 +589,9 @@
 				const link_s = document.createElement("a");
 
 				if(properties["cal_id"] && properties["cor_id"] && properties["estacion_id"] && properties["var_id"]) {
-					link_s.href = `/secciones?estacionId=${properties["estacion_id"]}&varId=${properties["var_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&data_availability=a`;
+					link_s.href = `secciones?estacionId=${properties["estacion_id"]}&varId=${properties["var_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&data_availability=a`;
 				} else {			
-					link_s.href = `/secciones?varId=${(properties["var_id"]) ? properties["var_id"] : ""}&seriesId=${properties["series_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&data_availability=a`;
+					link_s.href = `secciones?varId=${(properties["var_id"]) ? properties["var_id"] : ""}&seriesId=${properties["series_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&data_availability=a`;
 				}
 				if(series_type == "areal") {
 					link_s.href = `${link_s.href}&fuentesId=${properties["fuentes_id"]}`;
@@ -612,13 +612,13 @@
 				const link_j = document.createElement("a")
 				if(properties["cal_id"] && properties["cor_id"]) {
 					// sim
-					link_j.href = `/sim/calibrados/${properties["cal_id"]}/corridas/last?tipo=${series_type}&series_id=${properties["series_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&includeProno=true`;		// USANDO LAST en lugar de ${properties["cor_id"]}
+					link_j.href = `sim/calibrados/${properties["cal_id"]}/corridas/last?tipo=${series_type}&series_id=${properties["series_id"]}&timestart=${params["timestart"]}&timeend=${params["timeend"]}&includeProno=true`;		// USANDO LAST en lugar de ${properties["cor_id"]}
 					if(properties["qualifier"]) {
 						link_j.href = `${link_j.href}&qualifier=${properties["qualifier"]}`
 					}
 				} else {
 					// obs
-					link_j.href = `/obs/${series_type}/series/${properties["series_id"]}/observaciones?timestart=${params["timestart"]}&timeend=${params["timeend"]}`;
+					link_j.href = `obs/${series_type}/series/${properties["series_id"]}/observaciones?timestart=${params["timestart"]}&timeend=${params["timeend"]}`;
 				}
 				link_j.textContent = link_j.href;
 				link_j.target = "_blank";
@@ -637,7 +637,7 @@
 			const cell_m = document.createElement("td");
 			const link_m = document.createElement("a");
 			const md_element = (series_type == "areal") ? "seriesAreales" : (series_type == "raster") ? "seriesRaster" : "seriesPuntuales"
-			link_m.href = `/metadatos?element=${md_element}&id=${properties["series_id"]}`;
+			link_m.href = `metadatos?element=${md_element}&id=${properties["series_id"]}`;
 			link_m.textContent = link_m.href;
 			link_m.target = "_blank";
 			cell_m.appendChild(link_m);
