@@ -3400,13 +3400,13 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 			const relativePath_legend = path.relative(publicRoot, filepath_legend)
 			const [left, bottom, right, top] = parsed_options.bbox.bbox()
 			res.json({
-				hlink: "/" + relativePath.split(path.sep).map(encodeURIComponent).join("/"),
+				hlink: "" + relativePath.split(path.sep).map(encodeURIComponent).join("/"),
 				ll: [left, bottom],
 				ur: [right, top],
 				height: Number(parsed_options.height),
 				width: Number(parsed_options.width),
 				srs: Number(parsed_options.srid),
-				legend_hlink: "/" + relativePath_legend.split(path.sep).map(encodeURIComponent).join("/")
+				legend_hlink: "" + relativePath_legend.split(path.sep).map(encodeURIComponent).join("/")
 			})
 			return
 		} catch (e) {
