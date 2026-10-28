@@ -21,6 +21,7 @@
 	const wms = config.wms || {};
 	const layers = Array.isArray(config.layers) ? config.layers : [];
 	const rastextractEndpoint = (config.rastextract && config.rastextract.endpoint) || "res/rastextract/rast";
+	const token = (config.token) ? config.token : ""
 	const validFunctions = ["sum", "avg", "min", "max", "count","stddev"];
 	const params = {};
 	let activeLayer = null;
@@ -199,7 +200,8 @@
 		Object.assign(params, layer.view_params, {
 			timestart: startInput.value,
 			timeend: endInput.value,
-			function: functionInput.value
+			function: functionInput.value,
+			token: token
 		});
 	}
 

@@ -21,6 +21,30 @@ import {exec as pexec} from 'child-process-promise'
 
 const config = global.config // require('config');
 
+export function issueSignedToken(req) {
+	if (!req?.user || req.user.username == null || req.user.id == null) {
+		// throw new TypeError('An authenticated user with a name and id is required')
+		return
+	}
+
+	const secret = process.env.JWT_SECRET || config.rest?.jwt_secret
+	if (typeof secret !== 'string' || secret.length === 0) {
+		// throw new Error('JWT signing secret is missing; set JWT_SECRET or rest.jwt_secret')
+		return
+	}
+
+	const payload = {
+		user_name: req.user.username,
+		user_id: req.user.id,
+		expires: Math.floor(Date.now() / 1000) + 3600 * 3
+	}
+	const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url')
+	const signingInput = `${encode({alg: 'HS256', typ: 'JWT'})}.${encode(payload)}`
+	const signature = crypto.createHmac('sha256', secret).update(signingInput).digest('base64url')
+
+	return `${signingInput}.${signature}`
+}
+
 const CRUD = require('./CRUD')
 const crud = CRUD.CRUD // new CRUD.CRUD(global.pool,config)
 
@@ -201,7 +225,16 @@ app.get('/secciones',auth.isPublicView, (req,res)=>{
 	}
 	res.render("secciones_bs",params)
 })
+app.get('/token',auth.isPublic,(req,res)=>{
+	const token = issueSignedToken(req)
+	if(!token) {
+		res.status(401).send("Unauthorized")
+		return
+	}
+	res.send({token: token})
+})
 app.get('/map-viewer',auth.isPublicView,(req,res)=>{
+	const token = issueSignedToken(req)
 	const viewerConfig = config.map_viewer || {}
 	const wmsConfig = viewerConfig.wms || {}
 	const seccionesConfig = config.secciones || {}
@@ -221,7 +254,8 @@ app.get('/map-viewer',auth.isPublicView,(req,res)=>{
 		},
 		layers,
 		view_center: viewerConfig.view_center || seccionesConfig.view_center || [-55, -25],
-		view_zoom: viewerConfig.view_zoom || seccionesConfig.view_zoom || 5
+		view_zoom: viewerConfig.view_zoom || seccionesConfig.view_zoom || 5,
+		token: token || ""
 	}
 	let params = (req.query) ? {...req.query} : {}
 	params = (res.locals) ? {...params, ...res.locals} : params
@@ -230,6 +264,7 @@ app.get('/map-viewer',auth.isPublicView,(req,res)=>{
 	}
 	params.mapViewerConfig = JSON.stringify(mapConfig).replace(/</g, '\\u003c')
 	params.tools = config.tools || []
+	
 	res.render("map_viewer",params)
 })
 // app.get('/visor',auth.isAuthenticatedView, (req,res)=>{
