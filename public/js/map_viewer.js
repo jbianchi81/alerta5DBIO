@@ -470,7 +470,7 @@
 		return String(value);
 	}
 
-	function parseSeries(value, timeseries_property) {
+	function parseSeries(value, timeseries_property, qualifier="main") {
 		const series = (typeof value === "string") ? JSON.parse(value) : value;
 		if (!series || typeof series !== "object") {
 			throw new Error("La propiedad " + timeseries_property + " no contiene una serie temporal.");
@@ -479,6 +479,12 @@
 			var series_obj = {};
 			for (var i = 0; i < series.length; i++) {
 				if (Array.isArray(series[i])) {
+					if (series[i].length > 2) {
+						// skip other qualifiers if value for this date already set
+						if (series_obj[series[i][0]] && series[i][2] != qualifier) {
+							continue
+						}
+					}
 					series_obj[series[i][0]] = series[i][1];
 				} else if (series[i] && typeof series[i] === "object") {
 					if(Object.hasOwnProperty.call(series[i], "ts")) {
@@ -664,7 +670,21 @@
 		const timeseries_property = (Object.prototype.hasOwnProperty.call(properties, "timeseries")) ? "timeseries" : (Object.prototype.hasOwnProperty.call(properties, "valor")) ? "valor" : undefined
 		if (timeseries_property) {
 			try {
-				const points = parseSeries(properties[timeseries_property], timeseries_property);
+				const points = parseSeries(
+					properties[timeseries_property], 
+					timeseries_property, 
+					(activeLayer.main_qualifier) ? activeLayer.main_qualifier : (activeLayer.view_params && activeLayer.view_params.qualifier) ? activeLayer.view_params.qualifier : "main"
+				);
+				const other_points = {}
+				if (activeLayer.other_qualifiers) {
+					for(const q of activeLayer.other_qualifiers) {
+						other_points[q] = parseSeries(
+							properties[timeseries_property], 
+							timeseries_property,
+							q
+						)
+					}
+				}
 				const seriesContainer = document.createElement("div");
 				seriesContainer.className = "map-viewer-series";
 
@@ -685,7 +705,7 @@
 				seriesTable.hidden = true;
 				const seriesHead = document.createElement("thead");
 				const headerRow = document.createElement("tr");
-				for (const label of ["Fecha", "Valor"]) {
+				for (const label of ["Fecha", "Valor", ...Object.keys(other_points)]) {
 					const header = document.createElement("th");
 					header.scope = "col";
 					header.textContent = label;
@@ -701,6 +721,17 @@
 					const valueCell = document.createElement("td");
 					valueCell.textContent = String(value);
 					row.append(dateCell, valueCell);
+					for(const q of Object.keys(other_points)) {
+						// pivot in other qualifiers
+						const valueCell_q = document.createElement("td");
+						const match_p = other_points[q].filter(p => p[0] == timestamp)
+						if(match_p.length) {
+							valueCell_q.textContent = String(match_p[0][1]);
+						} else {
+							valueCell_q.textContent = ""
+						}
+						row.appendChild(valueCell_q);
+					}
 					seriesBody.appendChild(row);
 				}
 				seriesTable.appendChild(seriesBody);
@@ -718,6 +749,7 @@
 					}
 				});
 				chartContainer.mapViewerPoints = points;
+				chartContainer.mapViewerOtherPoints = other_points;
 				chartContainer.mapViewerTitle = heading.textContent;
 				chartContainer.mapViewerVarId = Number(properties.var_id);
 				chartContainer.mapViewerPlotLines = [
@@ -783,16 +815,27 @@
 		featureResults.replaceChildren(...cards);
 		for (const chartContainer of featureResults.querySelectorAll(".map-viewer-chart")) {
 			const useBars = [1, 31, 34, 91].includes(chartContainer.mapViewerVarId);
-			const ymin = Math.min(
+			var ymin = Math.min(
 				chartContainer.mapViewerPoints.reduce((a, b) => (a < b[1]) ? a : b[1], Infinity),
 				chartContainer.mapViewerPlotLines.reduce((a, b) => (a < b.value) ? a : b.value, Infinity)
 			);
-			const ymax = Math.max(
+			var ymax = Math.max(
 				chartContainer.mapViewerPoints.reduce((a, b) => (a > b[1]) ? a : b[1], -Infinity),
 				chartContainer.mapViewerPlotLines.reduce((a, b) => (a > b.value) ? a : b.value, -Infinity)
 			);
+			for(const q of Object.keys(chartContainer.mapViewerOtherPoints)) {
+				ymin = Math.min(
+					ymin,
+					chartContainer.mapViewerOtherPoints[q].reduce((a, b) => (a < b[1]) ? a : b[1], Infinity)					
+				);	
+				ymax = Math.max(
+					ymax,
+					chartContainer.mapViewerOtherPoints[q].reduce((a, b) => (a > b[1]) ? a : b[1], -Infinity)
+				);
+			}
+
 			chartContainer.mapViewerChart = Highcharts.chart(chartContainer.id, {
-				chart: { type: useBars ? "column" : "spline", zoomType: "x" },
+				chart: { type: useBars ? "column" : "spline", zoomType: "xy" },
 				title: { text: `Serie temporal: ${chartContainer.mapViewerTitle}` },
 				xAxis: { 
 					type: "datetime", 
@@ -820,8 +863,18 @@
 				},
 				series: [{
 					name: "valor",
-					data: chartContainer.mapViewerPoints
-				}],
+					data: chartContainer.mapViewerPoints,
+					color: "black",
+					zIndex: 10
+				}, ...Object.keys(chartContainer.mapViewerOtherPoints).map(q => {
+					return {
+						name: q,
+						data: chartContainer.mapViewerOtherPoints[q],
+						color: "grey",
+				        dashStyle: 'shortdot',
+						zIndex: 9
+					}
+				})],
 				credits: { enabled: false }
 			});
 		}
