@@ -479,14 +479,16 @@
 			var series_obj = {};
 			for (var i = 0; i < series.length; i++) {
 				if (Array.isArray(series[i])) {
-					if (series[i].length > 2) {
-						// skip other qualifiers if value for this date already set
-						if (series_obj[series[i][0]] && series[i][2] != qualifier) {
-							continue
-						}
+					if (series[i].length > 2 && series[i][2] != qualifier) {
+						// skip other qualifiers
+						continue
 					}
 					series_obj[series[i][0]] = series[i][1];
 				} else if (series[i] && typeof series[i] === "object") {
+					if (Object.hasOwnProperty.call(series[i], "qualifier") && series[i].qualifier != qualifier) {
+						// skip other qualifiers
+						continue
+					}
 					if(Object.hasOwnProperty.call(series[i], "ts")) {
 						series_obj[series[i].ts] = series[i].f;
 					} else if(Object.hasOwnProperty.call(series[i], "timestart")) {
@@ -523,7 +525,7 @@
 		}).filter(Boolean);
 		points.sort((left, right) => left[0] - right[0]);
 		if (points.length === 0) {
-			throw new Error("No hay valores numéricos con fechas válidas en valor.");
+			console.warn("No hay valores numéricos con fechas válidas para qualifier=" + qualifier);
 		}
 		return points;
 	}
@@ -670,19 +672,41 @@
 		const timeseries_property = (Object.prototype.hasOwnProperty.call(properties, "timeseries")) ? "timeseries" : (Object.prototype.hasOwnProperty.call(properties, "valor")) ? "valor" : undefined
 		if (timeseries_property) {
 			try {
-				const points = parseSeries(
-					properties[timeseries_property], 
-					timeseries_property, 
-					(activeLayer.main_qualifier) ? activeLayer.main_qualifier : (activeLayer.view_params && activeLayer.view_params.qualifier) ? activeLayer.view_params.qualifier : "main"
-				);
+				var points = []
+				if(Array.isArray(activeLayer.main_qualifier)) {
+					for(const main_q of activeLayer.main_qualifier) {
+						var q_points = parseSeries(
+							properties[timeseries_property], 
+							timeseries_property, 
+							main_q
+						);
+						if(q_points.length) {
+							points = q_points
+							break
+						}
+					}
+				} else {
+					points = parseSeries(
+						properties[timeseries_property], 
+						timeseries_property, 
+						(activeLayer.main_qualifier) ? activeLayer.main_qualifier : (activeLayer.view_params && activeLayer.view_params.qualifier) ? activeLayer.view_params.qualifier : "main"
+					);
+				}
+				if (!points.length) {
+					throw new Error("No se encontraron valores del qualifier principal")
+				}
 				const other_points = {}
 				if (activeLayer.other_qualifiers) {
 					for(const q of activeLayer.other_qualifiers) {
-						other_points[q] = parseSeries(
+						const points_q = parseSeries(
 							properties[timeseries_property], 
 							timeseries_property,
 							q
 						)
+						if(!points_q.length) {
+							continue
+						}
+						other_points[q] = points_q
 					}
 				}
 				const seriesContainer = document.createElement("div");
