@@ -218,6 +218,10 @@
                                 "items": {
                                     "type": "string"
                                 }
+                            },
+                            "fuentes_id": {
+                                "type": "number",
+                                "description": "If set, filter out this item when user has no read access to the source."
                             }
                         },
                         "required": ["name", "layer_name", "view_params", "defaults"],

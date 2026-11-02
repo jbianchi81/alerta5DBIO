@@ -1483,4 +1483,25 @@ export class CRUD {
         forecast_date?: Date | string, 
         qualifier?: string, 
         user_id?: string) : Promise<Serie | undefined>
+    
+    static async rast2areal(
+		series_id: number,
+		timestart : Date | string,
+		timeend : Date | string,
+		area :  Geometry|string|number,
+		options : {
+            no_insert: boolean,
+            upsert_as_observaciones: boolean,
+            funcion?: string,
+            force_resample?: boolean,
+            only_obs?: boolean
+
+        }={},
+		client?: Client,
+		cor_id?: number, 
+		cal_id?: number, 
+		forecast_date?: Date | string,
+		qualifier?: string,
+		user_id?: string
+    )  : Promise<observacion[] | pronostico[] | undefined>
 }

@@ -201,7 +201,7 @@ app.post('/getRastObs',auth.isPublic,getRastObs)
 app.get('/getRastObs',auth.isPublic,getRastObs)
 app.post('/rastExtract',auth.isPublic,rastExtract)
 app.get('/rastExtract',auth.isPublic,rastExtract)
-app.get('/rastExtractByArea',auth.isWriter,rastExtractByArea)
+app.get('/rastExtractByArea',auth.isPublic,rastExtractByArea)
 //~ app.post('/getFromAccessor',getFromAccessor)
 app.get('/getSeriesBySiteAndVar',auth.isPublic, getSeriesBySiteAndVar)
 app.post('/getSeriesBySiteAndVar',auth.isPublic, getSeriesBySiteAndVar)
@@ -233,18 +233,32 @@ app.get('/token',auth.isPublic,(req,res)=>{
 	}
 	res.send({token: token})
 })
-app.get('/map-viewer',auth.isPublicView,(req,res)=>{
+app.get('/map-viewer',auth.isPublicView, async (req,res)=>{
+	const user_id = getUserId(req)
 	const token = issueSignedToken(req)
 	const viewerConfig = config.map_viewer || {}
 	const wmsConfig = viewerConfig.wms || {}
 	const seccionesConfig = config.secciones || {}
 	const legacyParams = viewerConfig.initial_viewparams || {}
-	const layers = Array.isArray(viewerConfig.layers) ? viewerConfig.layers : (wmsConfig.layers ? [{
+
+	const fuentes = await crud.getFuentes({},user_id)
+	
+	var layers = Array.isArray(viewerConfig.layers) ? viewerConfig.layers : (wmsConfig.layers ? [{
 		name: wmsConfig.layers,
 		layer_name: wmsConfig.layers,
 		view_params: Object.fromEntries(Object.entries(legacyParams).filter(([key])=>!["timestart","timeend","function"].includes(key))),
 		defaults: Object.fromEntries(Object.entries(legacyParams).filter(([key])=>["timestart","timeend","function"].includes(key)))
 	}] : [])
+	layers = layers.filter( l => { 
+		if (!l.fuentes_id) {
+			return true
+		}
+		if (fuentes.map(f => f.id).indexOf(l.fuentes_id) >= 0)  {
+			return true
+		}
+		return false
+	})
+
 	const mapConfig = {
 		wms: {
 			endpoint: wmsConfig.endpoint || (seccionesConfig.wms_areas && seccionesConfig.wms_areas.endpoint) || (seccionesConfig.endpoints && seccionesConfig.endpoints.geoserver && seccionesConfig.endpoints.geoserver.wms) || ""
@@ -3532,7 +3546,7 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 // 	}
 // }
 
-function rastExtractByArea(req,res) {
+async function rastExtractByArea(req,res) {
 	//~ (series_id,timestart,timeend,area_id|area_geom,options)
   //~ .description('Get serie temporal agregada espacialmente de Observaciones by series_id, timestart, timeend y area (id or box)')
 	// options : agg_func no_insert format no_send_data
@@ -3553,7 +3567,7 @@ function rastExtractByArea(req,res) {
 	//~ }
 	if(area && area.type && area.type == "Point") {
 		console.log("extract by point:" + area.toString())
-		return crud.rastExtractByPoint(filter.series_id,filter.timestart,filter.timeend,area,options,undefined,filter.cor_id,filter.cal_id,filter.forecast_date,filter.qualifier)
+		return crud.rastExtractByPoint(filter.series_id,filter.timestart,filter.timeend,area,options,undefined,filter.cor_id,filter.cal_id,filter.forecast_date,filter.qualifier, user_id)
 		.then(result=>{
 			if(!result) {
 				console.error("No se encontró la serie")
@@ -3626,10 +3640,16 @@ function rastExtractByArea(req,res) {
 		}
 	} else {
 		// actualiza series_areales correspondientes
+
+		const n = await auth.isWriter(req, res, () => true)
+		if(!n) {
+			return
+		}
+
 		if(!area) {
 			area="all"
 		}
-		crud.rast2areal(filter.series_id,filter.timestart,filter.timeend,area,options) 
+		crud.rast2areal(filter.series_id,filter.timestart,filter.timeend,area,options, undefined, undefined, undefined, undefined, undefined, user_id) 
 		.then(observaciones=>{
 			if(observaciones) {
 				console.log("Got observaciones: " + observaciones.length + " records.")
