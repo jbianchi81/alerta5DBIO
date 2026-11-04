@@ -3369,6 +3369,7 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 		return
 	}
 	var valid_func = [ 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE']
+	const print_level_labels = (options.colormap) ? true : false
 	const parsed_options = {
 		location: default_rast_location,
 		bbox: (!options.bbox) ? serie_md.fuente.def_extent : options.bbox,
@@ -3378,7 +3379,22 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 		funcion: (!options.funcion) ? "SUM" : (options.funcion.toUpperCase() == "AVG") ? "MEAN" : options.funcion.toUpperCase(),
 		format: (!options.format) ? "GTiff" : options.format,
 		height: (!options.height) ? 300 : options.height,
-		width: (!options.width) ? 300 : options.width
+		width: (!options.width) ? 300 : options.width,
+		colormap: (!options.colormap) ? `100% 165:0:0 255
+90% 225:20:0 255
+80% 255:96:0 255
+70% 254:191:60 255
+60% 40:0:159 255
+50% 57:38:171 255
+40% 127:112:234 255
+30% 20:129:189 255
+40% 40:149:209 255
+30% 95:189:249 255
+20% 15:160:15 255
+10% 55:210:60 255
+5% 150:245:140 255
+1 255:255:255 255
+0 255:255:255 0` : options.colormap
 	}
 	if(valid_func.indexOf(parsed_options.funcion) < 0) {
 		res.status(404).send({message:"'funcion' inválida. Opciones: 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE'",error:"'funcion' inválida. Opciones: 'LAST', 'FIRST', 'MIN', 'MAX', 'COUNT', 'SUM', 'MEAN', 'RANGE'"})
@@ -3440,7 +3456,7 @@ async function rastExtract(req,res) {  // GENERA RASTER DE AGREGACIÓN TEMPORAL 
 				await fs.writeFile(filepath, observation.valor)
 
 				// legend
-				await makeRastLegend(observation.stats, filepath_legend)
+				await makeRastLegend(observation.stats, filepath_legend, options.colormap, print_level_labels)
 			}
 			const publicRoot = path.resolve(process.cwd(), "public")
 			const relativePath = path.relative(publicRoot, filepath)
@@ -8318,7 +8334,7 @@ function getOptions(req) {
 		if(req.body.inverted) {
 			options.inverted = (req.body.inverted.toString().toLowerCase() == 'true')
 		}
-		["agg_func","dt","t_offset","id_grupo","get_raster","min_count","group_by_cal","interval","stats","pivot","group_by_qualifier","sort","order","from_view","get_cal_stats","batch_size","concat","include_partial_time_intersection"].forEach(k=>{
+		["agg_func","dt","t_offset","id_grupo","get_raster","min_count","group_by_cal","interval","stats","pivot","group_by_qualifier","sort","order","from_view","get_cal_stats","batch_size","concat","include_partial_time_intersection","colormap"].forEach(k=>{
 			if(req.body[k]) {
 				options[k] = req.body[k]
 			}
@@ -8475,7 +8491,7 @@ function getOptions(req) {
 		if(req.query.inverted) {
 			options.inverted = (req.query.inverted.toString().toLowerCase() == 'true')
 		}
-		["agg_func","dt","t_offset","get_raster","min_count","group_by_cal","interval","stats","pivot","sort","order","from_view","get_cal_stats","batch_size","concat","include_partial_time_intersection"].forEach(k=>{
+		["agg_func","dt","t_offset","get_raster","min_count","group_by_cal","interval","stats","pivot","sort","order","from_view","get_cal_stats","batch_size","concat","include_partial_time_intersection","colormap"].forEach(k=>{
 			if(req.query[k]) {
 				options[k] = req.query[k]
 			}
@@ -8593,12 +8609,41 @@ async function makeRastLegend(
 		["10%","55,210,60","255"],
 		["5%","150,245,140","255"],
 		["1","255,255,255","255"]
-	] //  : string[][] 
+	], //  : string[][] 
+	print_level_labels,
+	filter_levels_out_of_range
 ) {
-	const min = (stats.min > -1 && stats.min != 0 && stats.min < 1) ? sprintf("%.2f", stats.min) : sprintf("%5d", stats.min)	
-	const max = (stats.max > 0 && stats.max < 10) ? sprintf("%.2f", stats.max) : sprintf("%5d", stats.max)
-	const median = (stats.max + stats.min) / 2
+	if(typeof color_levels == "string") {
+		color_levels = color_levels.split("\n").map(l => l.split(" ").map(c => c.replace(/:/g,","))).filter(l => (l.length>1 && l[0] != ""))
+	}
+	if(print_level_labels) {
+		var min = color_levels.filter(l => (!l[0].match(/%$/))).map(l => parseFloat(l[0])).reduce( (a, b) => (a < b) ? a : b, Infinity)
+		var max = color_levels.filter(l => (!l[0].match(/%$/))).map(l => parseFloat(l[0])).reduce( (a, b) => (a > b) ? a : b, -Infinity)
+		var median = (max + min) / 2
+	} else {
+		var min = stats.min
+		var max = stats.max
+		var median = (stats.max + stats.min) / 2
+	}
+	var min_ = (min > -1 && min != 0 && min < 1) ? sprintf("%.2f", min) : sprintf("%5d", min)	
+	var max_ = (max > 0 && max < 10) ? sprintf("%.2f", max) : sprintf("%5d", max)
+	
 	const med = (median > -1 && median != 0 && median < 10) ? sprintf("%.2f", median) : sprintf("%5d", median)
+	if(filter_levels_out_of_range) {
+		color_levels = color_levels.filter(l => {
+			if (l[0].match(/%$/)) {
+				return true
+			}
+			const v = parseFloat(l[0])
+			if (v < stats.min) {
+				return false
+			}
+			if (v > stats.max) {
+				return false
+			}
+			return true
+		})
+	}
 	var levels = ""
 	const step_height = 5
 	for(var i=1;i<color_levels.length;i++) {
@@ -8609,7 +8654,7 @@ async function makeRastLegend(
 			levels = `${levels} -append`
 		}
 	}
-	const height = (color_levels.length - 2) * step_height
+	const height = Math.max(25,(color_levels.length - 2) * step_height)
 	const convert_result = await pexec(`convert \\( ${levels} \\)  \\( -size 30x${height} xc:#ffffff \\) +append ${output_path}`)
 	if(convert_result.stdout) {
 		console.debug(convert_result.stdout)
@@ -8617,14 +8662,27 @@ async function makeRastLegend(
 	if(convert_result.stderr) {
 		console.debug(convert_result.stderr)
 	}
-	const composite_result = await pexec(`composite label:"${min}" -gravity southeast ${output_path} ${output_path}`)
+	// if(print_level_labels) {
+	// 	var top = 0
+	// 	for(const l of color_levels) {
+	// 		const composite_result = await pexec(`composite label:"${l[0]}" -gravity northeast -geometry +0+${top} ${output_path} ${output_path}`)
+	// 		if(composite_result.stdout) {
+	// 			console.debug(composite_result.stdout)
+	// 		}
+	// 		if(composite_result.stderr) {
+	// 			console.debug(composite_result.stderr)
+	// 		}
+	// 		top = top + step_height
+	// 	}
+	// } else {
+	const composite_result = await pexec(`composite label:"${min_}" -gravity southeast ${output_path} ${output_path}`)
 	if(composite_result.stdout) {
 		console.debug(composite_result.stdout)
 	}
 	if(composite_result.stderr) {
 		console.debug(composite_result.stderr)
 	}
-	const composite2_result = await pexec(`composite label:"${max}" -gravity northeast ${output_path} ${output_path}`)
+	const composite2_result = await pexec(`composite label:"${max_}" -gravity northeast ${output_path} ${output_path}`)
 	if(composite2_result.stdout) {
 		console.debug(composite2_result.stdout)
 	}
@@ -8638,6 +8696,7 @@ async function makeRastLegend(
 	if(composite3_result.stderr) {
 		console.debug(composite3_result.stderr)
 	}
+	// }
 }
 
 export default app

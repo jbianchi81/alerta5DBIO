@@ -14519,6 +14519,7 @@ internal.CRUD = class {
 			}
 			options.height = (!options.height) ? 300 : options.height
 			options.width = (!options.width) ? 300 : options.width
+			const reclass = (options.colormap) ? false : true
 			options.colormap = (options.colormap) ? options.colormap : `100% 165:0:0 255
 90% 225:20:0 255
 80% 255:96:0 255
@@ -14679,11 +14680,11 @@ internal.CRUD = class {
 							ST_asGDALRaster(
 								st_colormap(
 									st_resize(
-										st_reclass(
+										${(reclass) ? `st_reclass(
 											rast,
 											'[' || (st_summarystats(rast)).min || '-' || (st_summarystats(rast)).max || ']:1-255, ' || st_bandnodatavalue(rast) || ':0',
 											'8BUI'
-										),
+										)` : "rast"},
 										$8::int,
 										$9::int
 									),
