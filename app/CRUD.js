@@ -35,7 +35,7 @@ var pointsWithinPolygon = require("@turf/points-within-polygon")
 
 // const series2waterml2 = require('./series2waterml2');
 // const { relativeTimeThreshold } = require('moment-timezone');
-const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2, control_filter3, control_query_args, getCalStats, assertValidDateTruncField, sanitizeIdFilter, ensureDirForFile, waitForFile } = require('./utils');
+const { pasteIntoSQLQuery, setDeepValue, delay, gdalDatasetToJSON, parseField, control_filter2, control_filter3, control_query_args, getCalStats, assertValidDateTruncField, sanitizeIdFilter, ensureDirForFile, waitForFile, copyDir } = require('./utils');
 const { DateFromDateOrInterval, Interval } = require('./timeSteps');
 // const { isContext } = require('vm');
 const logger = require('./logger');
@@ -14182,6 +14182,183 @@ internal.CRUD = class {
 		})
 	}
 
+	static async getEnsembleProbabilities(
+		series_id,
+		timestart,
+		timeend,
+		options,
+		isPublic,
+		client,
+		cal_id,
+		cor_id,
+		forecast_date,
+		qualifier,
+		user_id,
+		gdal_output_dir,
+		png_output_dir,
+		thresholds,
+		color_rules,
+		category_cuts,
+		overwrite,
+		output_prefix,
+		output_series_id,
+		product,
+		date_base_dir
+	) {
+		// create tmp dir
+		const dir = fs.mkdtempSync(join(tmpdir(), "a5dbio-"));
+		await fs.chmod(dir, 0o777)
+		console.debug("created tmp dir: " + dir)
+		const output_file_prefix = `${dir}/sum`
+		const corrida = await this.rastExtractEnsemble(
+			series_id,
+			timestart,
+			timeend,
+			{...options, format: "gtiff"},
+			isPublic,
+			client,
+			cal_id,
+			cor_id,
+			forecast_date,
+			qualifier,
+			user_id,
+			output_file_prefix
+		)
+		if(!corrida.series.length) {
+			throw new Error("No se encontraron pronósticos")
+		}
+		
+		const input_file_glob = `${output_file_prefix}*.gtiff`
+		const gdal_output_dir_tmp = `${dir}/gdal`
+		const png_output_dir_tmp = `${dir}/png`
+		const fd = corrida.forecast_date.toISOString().replace("T","").substring(0,10)
+		const ts = corrida.series[0].observaciones[0].timestart.toISOString().replace("T","").substring(0,10)
+		const prob_files = await this.makeProbabilityMaps(
+			input_file_glob,
+			gdal_output_dir_tmp,
+			png_output_dir_tmp,
+			thresholds,
+			color_rules,
+			category_cuts,
+			overwrite,
+			`${product}.${fd}.${ts}.${output_prefix}`,
+			{
+				"forecast-date": corrida.forecast_date.toISOString().replace('T', ' ').slice(0, 16) + ' UTC',
+				timestart: corrida.series[0].observaciones[0].timestart.toISOString().replace('T', ' ').slice(0, 16) + ' UTC',
+				timeend: corrida.series[0].observaciones[0].timeend.toISOString().replace('T', ' ').slice(0, 16) + ' UTC',
+				product: product || corrida.series[0].fuente.nombre
+			}
+		)
+		// read gdal output
+		const pronosticos = prob_files.map(file => {
+			return new internal.pronostico({
+				valor: fs.readFileSync(file.filename),
+				timestart: corrida.series[0].observaciones[0].timestart,
+				timeend: corrida.series[0].observaciones[0].timeend,
+				qualifier: `t${file.threshold}`
+			})
+		})
+		if(gdal_output_dir) {
+			copyDir(
+				gdal_output_dir_tmp, 
+				gdal_output_dir)
+		}
+		if (date_base_dir) {
+			const y = corrida.forecast_date.getUTCFullYear()
+			const m = corrida.forecast_date.getUTCMonth() + 1
+			const date_dir = path.resolve(date_base_dir, y.toString(), m.toString())
+			fs.mkdirSync(date_dir, {recursive: true})
+			copyDir(
+				gdal_output_dir_tmp, 
+				date_dir)
+			copyDir(
+				png_output_dir_tmp, 
+				date_dir)
+		}
+		if(png_output_dir) {
+			copyDir(
+				png_output_dir_tmp, 
+				png_output_dir)
+		}
+		return new internal.SerieTemporalSim({
+			series_id: output_series_id,
+			series_table: "series_rast",
+			cal_id: corrida.cal_id,
+			cor_id: corrida.cor_id,
+			forecast_date: corrida.forecast_date,
+			pronosticos: pronosticos
+		})
+	}
+
+	static async makeProbabilityMaps(
+		input_file_glob,
+		gdal_output_dir,
+		png_output_dir,
+		thresholds,
+		color_rules,
+		category_cuts,
+		overwrite,
+		output_prefix="prob",
+		metadata
+	) {
+		if(!input_file_glob) {
+			throw new Error("Falta input_file_glob")
+		}
+		if(!gdal_output_dir) {
+			throw new Error("Falta gdal_output_dir")
+		}
+		const args = [
+			input_file_glob, 
+			"--output-prefix",
+			output_prefix,
+			"--gdal-output-dir",
+			gdal_output_dir
+		]
+		if(png_output_dir) {
+			args.push(...["--png-output-dir", png_output_dir])
+		}
+		if(thresholds) {
+			const value = (Array.isArray(thresholds)) ? thresholds.map(t=>t.toString()).join(" ") : thresholds.toString()
+			args.push(...["--thesholds", value])
+		}
+		if(color_rules) {
+			args.push(...["--color-rules", color_rules])
+		}
+		if(category_cuts) {
+			const value = (Array.isArray(category_cuts)) ? category_cuts.map(t=>t.toString()).join(" ") : category_cuts.toString()
+			args.push(...["--category_cuts", value])
+		}
+		if(overwrite) {
+			args.push("--overwrite")
+		}
+		if(metadata) {
+			for(const key of Object.keys(metadata)) {
+				args.push(...[`--${key}`, metadata[key]])
+			}
+		}
+		try {
+			const p = pspawn(global.config.probability_maps_exec,args)
+			p.childProcess.stdout.on("data", data => {
+				process.stdout.write(data);
+			});
+			p.childProcess.stderr.on("data", data => {
+				process.stderr.write(data);
+			})
+			await p
+		} catch (e) {
+			console.error(e)
+			throw new Error("Failed to run probability maps")
+		}
+		// read gdal output
+		const gdal_output_files = await fs.readdir(gdal_output_dir)
+		return gdal_output_files.map(file => {
+			return {
+				filename: `${gdal_output_dir}/${file}`,
+				threshold: parseInt(file.match(/exceed_(\d+).tif$/)[1])
+			}
+		})
+	}
+
 	static async rastExtractEnsemble(
 		series_id,
 		timestart,
@@ -14233,7 +14410,7 @@ internal.CRUD = class {
 			if(!corrida[0].series || !corrida[0].series.length) {
 				throw new Error("No se encontraron series")
 			}
-			const results = []
+			const series_sim = []
 			for(const serie of corrida[0].series) {
 				const serie_agg = await this.rastExtract(
 					series_id,
@@ -14259,9 +14436,14 @@ internal.CRUD = class {
 					)
 					console.debug("Se escribió el archivo " + output_file)
 				}
-				results.push(serie_agg)
+				series_sim.push(serie_agg)
 			}
-			return results
+			return {
+				cal_id: corrida[0].cal_id,
+				id: corrida[0].id,
+				forecast_date: corrida[0].forecast_date,
+				series: series_sim
+			}
 		})
 	}
 

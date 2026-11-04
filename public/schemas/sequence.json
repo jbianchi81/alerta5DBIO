@@ -102,6 +102,9 @@
                         "$ref": "rastextractensembleprocedure.json"
                     },
                     {
+                        "$ref": "getensembleprobabilitiesprocedure.json"
+                    },
+                    {
                         "$ref": "rastextractprocedure.json"
                     },
                     {

@@ -3684,6 +3684,82 @@ internal.RastExtractEnsembleProcedure = class extends internal.CrudProcedure {
     
 }
 
+internal.GetEnsembleProbabilitiesProcedure = class extends internal.CrudProcedure {
+constructor() {
+        super(...arguments)
+        this.procedureClass = "GetEnsembleProbabilitiesProcedure"
+        if(!arguments[0].filter) {
+            throw("Missing filter")
+        }
+        this.filter = arguments[0].filter
+        if(!this.filter.series_id) {
+            throw("missing filter.series_id [of series_rast]")
+        }
+        if(!this.filter.timestart) {
+            throw("missing filter.timestart")
+        }
+        if(!this.filter.timeend) {
+            throw("missing filter.timeend")
+        }
+        if(!this.filter.cal_id) {
+            throw("missing cal_id")
+        }
+        if(!arguments[0].gdal_output_dir && !arguments[0].date_base_dir) {
+            throw("missing gdal_output_dir or date_base_dir")
+        }
+        this.series_id = this.filter.series_id
+        this.timestart = DateFromDateOrInterval(this.filter.timestart)
+        this.timeend = DateFromDateOrInterval(this.filter.timeend)
+        this.forecast_date = (this.filter.forecast_date) ? DateFromDateOrInterval(this.filter.forecast_date) : undefined
+        this.cal_id = this.filter.cal_id
+        this.qualifier = this.filter.qualifier
+        this.gdal_output_dir = arguments[0].gdal_output_dir
+        this.png_output_dir = arguments[0].png_output_dir
+        this.thresholds = arguments[0].thresholds
+        this.color_rules = arguments[0].color_rules
+        this.category_cuts = arguments[0].category_cuts
+        this.overwrite = arguments[0].overwrite
+        this.output_prefix = arguments[0].output_prefix
+        this.output_series_id = arguments[0].output_series_id
+        this.product = arguments[0].product
+        this.date_base_dir = arguments[0].date_base_dir
+
+        // options:
+        // - bbox
+        // - pixel_height
+        // - pixel_width
+        // - srid
+        // - funcion
+    }
+
+    async run() {
+        const result = await crud.getEnsembleProbabilities(
+            this.series_id,
+            this.timestart,
+            this.timeend,
+            this.options,
+            undefined,
+            undefined,
+            this.cal_id,
+            this.cor_id,
+            this.forecast_date,
+            this.qualifier,
+            undefined,
+            this.gdal_output_dir,
+            this.png_output_dir,
+            this.thresholds,
+            this.color_rules,
+            this.category_cuts,
+            this.overwrite,
+            this.output_prefix,
+            this.output_series_id,
+            this.product,
+            this.date_base_dir
+        )
+        this.result = result
+    }
+}
+
 internal.RastExtractProcedure = class extends internal.CrudProcedure {
     constructor() {
         super(...arguments)
@@ -3913,6 +3989,7 @@ const availableCrudProcedures = {
     "UpdateSeriesPronoDateRangeProcedure": internal.UpdateSeriesPronoDateRangeProcedure,
     "RastToArealProcedure": internal.RastToArealProcedure,
     "RastExtractEnsembleProcedure": internal.RastExtractEnsembleProcedure,
+    "GetEnsembleProbabilitiesProcedure": internal.GetEnsembleProbabilitiesProcedure,
     "RastExtractProcedure": internal.RastExtractProcedure,
     "RastExtractByAreaProcedure": internal.RastExtractByAreaProcedure,
     "RastExtractByPointProcedure": internal.RastExtractByPointProcedure,

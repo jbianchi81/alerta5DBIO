@@ -486,6 +486,14 @@
         "python_bin": {
             "type": "string",
             "description": "location of python bin directory"
+        },
+        "zonal_means_exec": {
+            "type": "string",
+            "description": "executable for zonal means procedure"
+        },
+        "probability_maps_exec": {
+            "type": "string",
+            "description": "executable for probability maps procedure"
         }
     },
     "required": [],

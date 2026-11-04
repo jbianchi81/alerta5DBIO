@@ -1128,4 +1128,21 @@ internal.ensureDirForFile = function(filePath) {
   fs.mkdirSync(dir, { recursive: true }); // won't throw if exists
 }
 
+internal.copyDir = function(src, dest) {
+    if (!fs.existsSync(dest)) {
+        fs.mkdirSync(dest, { recursive: true });
+    }
+
+    for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+
+        if (entry.isDirectory()) {
+            copyDir(srcPath, destPath);
+        } else if (entry.isFile()) {
+            fs.copyFileSync(srcPath, destPath);
+        }
+    }
+}
+
 module.exports = internal
