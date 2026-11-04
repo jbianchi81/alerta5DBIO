@@ -233,10 +233,11 @@ app.get('/token',auth.isPublic,(req,res)=>{
 	}
 	res.send({token: token})
 })
+
 app.get('/map-viewer',auth.isPublicView, async (req,res)=>{
 	const user_id = getUserId(req)
 	const token = issueSignedToken(req)
-	const viewerConfig = config.map_viewer || {}
+	const viewerConfig = config.util.loadFileConfigs(path.resolve(__dirname,"../config/map_viewer"))
 	const wmsConfig = viewerConfig.wms || {}
 	const seccionesConfig = config.secciones || {}
 	const legacyParams = viewerConfig.initial_viewparams || {}

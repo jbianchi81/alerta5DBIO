@@ -74,6 +74,9 @@
                 },
                 "date_base_dir": {
                     "type": "string"
+                },
+                "insert": {
+                    "type": "boolean"
                 }
             },
             "required": [

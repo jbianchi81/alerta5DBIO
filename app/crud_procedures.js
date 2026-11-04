@@ -3721,6 +3721,7 @@ constructor() {
         this.overwrite = arguments[0].overwrite
         this.output_prefix = arguments[0].output_prefix
         this.output_series_id = arguments[0].output_series_id
+        this.insert = arguments[0].insert
         this.product = arguments[0].product
         this.date_base_dir = arguments[0].date_base_dir
 
@@ -3754,7 +3755,8 @@ constructor() {
             this.output_prefix,
             this.output_series_id,
             this.product,
-            this.date_base_dir
+            this.date_base_dir,
+            this.insert
         )
         this.result = result
     }

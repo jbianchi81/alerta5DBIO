@@ -14203,7 +14203,8 @@ internal.CRUD = class {
 		output_prefix,
 		output_series_id,
 		product,
-		date_base_dir
+		date_base_dir,
+		insert
 	) {
 		// create tmp dir
 		const dir = fs.mkdtempSync(join(tmpdir(), "a5dbio-"));
@@ -14280,14 +14281,24 @@ internal.CRUD = class {
 				png_output_dir_tmp, 
 				png_output_dir)
 		}
-		return new internal.SerieTemporalSim({
+		const serie_sim = new internal.SerieTemporalSim({
 			series_id: output_series_id,
 			series_table: "series_rast",
 			cal_id: corrida.cal_id,
-			cor_id: corrida.cor_id,
+			cor_id: corrida.id,
 			forecast_date: corrida.forecast_date,
 			pronosticos: pronosticos
 		})
+		if(insert) {
+			for(const p of serie_sim.pronosticos) {
+				p.series_id = output_series_id
+				p.series_table = "series_rast"
+				p.cor_id = corrida.id
+			}
+			await serie_sim.create()
+		}
+		return serie_sim
+		
 	}
 
 	static async makeProbabilityMaps(

@@ -1,0 +1,1426 @@
+{
+    "wms": {
+        "endpoint": "https://alerta.ina.gob.ar/geoserver/wms"
+    },
+    "rastextract": {
+        "endpoint": "rastExtract"
+    },
+    "layers": [
+        {
+            "name": "niveles - pronóstico",
+            "title": "Pronóstico niveles",
+            "description": "Pronóstico niveles",
+            "layer_name": "a5:last_prono_public_by_var",
+            "view_params": {
+                "varId": 2
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -15
+                },
+                "timeend": {
+                    "days": 15
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pronósticos",
+                "Niveles: Pronóstico"
+            ],
+            "main_qualifier": [
+                "medio",
+                "main"
+            ],
+            "other_qualifiers": [
+                "inferior",
+                "superior",
+                "p05",
+                "p25",
+                "p75",
+                "p95",
+                "p01",
+                "p99"
+            ]
+        },
+        {
+            "name": "niveles medios semanales - pronóstico",
+            "title": "niveles medios semanales - pronóstico",
+            "description": "niveles medios semanales - pronóstico",
+            "layer_name": "a5:last_prono_public_by_var",
+            "view_params": {
+                "varId": 67
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -20
+                },
+                "timeend": {
+                    "days": 90
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pronósticos",
+                "Niveles medios semanales - Pronóstico"
+            ],
+            "main_qualifier": "main",
+            "other_qualifiers": [
+                "min",
+                "max"
+            ]
+        },
+        {
+            "name": "condición hídrica - tramos",
+            "title": "condición hídrica - tramos",
+            "description": "condición hídrica - tramos",
+            "layer_name": "public2:tramos_condicion_params",
+            "view_params": {},
+            "defaults": {
+                "timestart": {
+                    "days": -8
+                },
+                "timeend": {
+                    "days": 0
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Hidrométricos",
+                "observados",
+                "Condición hídrica - tramos"
+            ]
+        },
+        {
+            "name": "condición hídrica - niveles",
+            "title": "condición hídrica - niveles",
+            "description": "condición hídrica - niveles",
+            "layer_name": "a5:ultimas_alturas_reporte",
+            "view_params": {},
+            "defaults": {
+                "timestart": {
+                    "days": -8
+                },
+                "timeend": {
+                    "days": 0
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Hidrométricos",
+                "observados",
+                "Condición hídrica - niveles"
+            ]
+        },
+        {
+            "name": "condición hídrica - caudales",
+            "title": "condición hídrica - caudales",
+            "description": "condición hídrica - caudales",
+            "layer_name": "a5:ultimos_caudales_reporte",
+            "view_params": {},
+            "defaults": {
+                "timestart": {
+                    "days": -8
+                },
+                "timeend": {
+                    "days": 0
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Hidrométricos",
+                "observados",
+                "Condición hídrica - caudales"
+            ]
+        },
+        {
+            "name": "niveles",
+            "title": "Últimos niveles",
+            "description": "Niveles hidrométricos",
+            "layer_name": "public2:ultimas_alturas_con_timeseries",
+            "view_params": {},
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": 1
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Hidrométricos",
+                "Observados",
+                "niveles"
+            ]
+        },
+        {
+            "name": "caudales",
+            "title": "Caudales",
+            "description": "Caudales",
+            "layer_name": "public2:ultimos_caudales_con_timeseries",
+            "view_params": {},
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": 1
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Hidrométricos",
+                "Observados",
+                "caudales"
+            ]
+        },
+        {
+            "name": "niveles (distr. acum.)",
+            "title": "niveles (distr. acum.)",
+            "description": "niveles (distr. acum.)",
+            "layer_name": "public2:ultimas_alturas_cume_dist",
+            "view_params": {},
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": 1
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Hidrométricos",
+                "Observados",
+                "niveles (distr. acum.)"
+            ]
+        },
+        {
+            "name": "caudales (distr. acum.)",
+            "title": "caudales (distr. acum.)",
+            "description": "caudales (distr. acum.)",
+            "layer_name": "public2:ultimos_caudales_cume_dist",
+            "view_params": {},
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": 1
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Hidrométricos",
+                "Observados",
+                "caudales (distr. acum.)"
+            ]
+        },
+        {
+            "name": "Volúmenes de embalses, tendencia",
+            "title": "Volúmenes de embalses, tendencia",
+            "description": "Volúmenes de embalses, tendencia",
+            "layer_name": "public2:ultimos_vu_con_timeseries",
+            "view_params": {},
+            "defaults": {
+                "timestart": {
+                    "days": -10
+                },
+                "timeend": {
+                    "days": 1
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Hidrométricos",
+                "Observados",
+                "Volúmenes de embalses, tendencia"
+            ]
+        },
+        {
+            "name": "Volúmenes de embalses, estado",
+            "title": "Volúmenes de embalses, estado",
+            "description": "Volúmenes de embalses, estado",
+            "layer_name": "public2:ultimos_vu_con_timeseries",
+            "view_params": {},
+            "defaults": {
+                "timestart": {
+                    "days": -10
+                },
+                "timeend": {
+                    "days": 1
+                },
+                "function": "sum"
+            },
+            "styles": "public2:vu_escalado",
+            "menu_path": [
+                "Hidrométricos",
+                "Observados",
+                "Volúmenes de embalses, estado"
+            ]
+        },
+        {
+            "name": "Altura de marea astronómica (SHN)",
+            "title": "Altura de marea astronómica (SHN)",
+            "description": "Altura de marea astronómica (SHN)",
+            "layer_name": "public2:alturas_de_marea_FDelta",
+            "view_params": {},
+            "defaults": {
+                "timestart": {
+                    "days": 0
+                },
+                "timeend": {
+                    "days": 5
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Hidrométricos",
+                "Simulados",
+                "Modelo de marea frente del delta del Paraná",
+                "Altura de marea astronómica (SHN)"
+            ]
+        },
+        {
+            "name": "SMARA - raster",
+            "title": "SMARA - raster",
+            "description": "SMARA - raster",
+            "type": "rastextract",
+            "layer_name": "smara",
+            "fuentes_id": 32,
+            "view_params": {
+                "coverageId": 32,
+                "series_id": 10,
+                "width": 600,
+                "height": 388
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -1
+                },
+                "timeend": {
+                    "days": 5
+                },
+                "function": "avg"
+            },
+            "menu_path": [
+                "Hidrométricos",
+                "Simulados",
+                "Modelo de marea frente del delta del Paraná",
+                "grilla Río de la Plata (raster)"
+            ]
+        },
+        {
+            "name": "Altura de marea meteorológica+astronómica",
+            "title": "Altura de marea meteorológica+astronómica",
+            "description": "Altura de marea meteorológica+astronómica",
+            "layer_name": "public2:alturas_marea_func",
+            "view_params": {},
+            "defaults": {
+                "timestart": {
+                    "days": 0
+                },
+                "timeend": {
+                    "days": 5
+                },
+                "function": "avg"
+            },
+            "menu_path": [
+                "Hidrométricos",
+                "Simulados",
+                "Modelo de marea frente del delta del Paraná",
+                "Altura de marea meteorológica+astronómica"
+            ]
+        },
+        {
+            "name": "Registros pluviométricos diarios",
+            "title": "Registros pluviométricos diarios",
+            "description": "Registros pluviométricos diarios",
+            "layer_name": "public2:precip_diarias_view",
+            "view_params": {},
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": 1
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "Observados",
+                "puntuales",
+                "diarios (día meteo.)"
+            ]
+        },
+        {
+            "name": "Registros pluviométricos horarios",
+            "title": "Registros pluviométricos horarios",
+            "description": "Registros pluviométricos horarios",
+            "layer_name": "public2:precip_horario_view",
+            "view_params": {},
+            "defaults": {
+                "timestart": {
+                    "days": -3
+                },
+                "timeend": {
+                    "days": 1
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "Observados",
+                "puntuales",
+                "horarios"
+            ]
+        },
+        {
+            "name": "Registros pluviométricos int. nativo",
+            "title": "Registros pluviométricos int. nativo",
+            "description": "Registros pluviométricos int. nativo",
+            "layer_name": "public2:precip_intervalo_nativo_view",
+            "view_params": {},
+            "defaults": {
+                "timestart": {
+                    "days": -3
+                },
+                "timeend": {
+                    "days": 1
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "Observados",
+                "puntuales",
+                "int. nativo"
+            ]
+        },
+        {
+            "name": "Registros pluviométricos interpolados - splines",
+            "title": "Registros pluviométricos interpolados - splines",
+            "type": "rastextract",
+            "layer_name": "pp_emas_spl",
+            "fuentes_id": 33,
+            "view_params": {
+                "coverageId": 33,
+                "series_id": 23,
+                "width": 600,
+                "height": 600
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": 1
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "Observados",
+                "areales",
+                "interpolado a grilla (raster)",
+                "método splines"
+            ]
+        },
+        {
+            "name": "Registros pluviométricos interpolados - thiessen",
+            "title": "Registros pluviométricos interpolados - thiessen",
+            "type": "rastextract",
+            "layer_name": "pp_emas_thi",
+            "fuentes_id": 7,
+            "view_params": {
+                "coverageId": 7,
+                "series_id": 8,
+                "width": 600,
+                "height": 600
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": 1
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "Observados",
+                "areales",
+                "interpolado a grilla (raster)",
+                "método thiessen"
+            ]
+        },
+        {
+            "name": "Registros pluviométricos - media areal",
+            "title": "Registros pluviométricos - media areal",
+            "description": "Registros pluviométricos - media areal",
+            "layer_name": "public2:timeseries_areal",
+            "fuentes_id": 7,
+            "view_params": {
+                "sourceId": 7
+            },
+            "styles": "pmad_int_m",
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": 1
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "Observados",
+                "areales",
+                "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "Registros pluviométricos - media areal SSTD",
+            "title": "Registros pluviométricos - media areal SSTD",
+            "description": "Registros pluviométricos - media areal SSTD",
+            "layer_name": "public2:timeseries_areal",
+            "fuentes_id": 54,
+            "view_params": {
+                "sourceId": 54
+            },
+            "styles": "pmad_int_m",
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": 1
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "Observados",
+                "areales",
+                "media por cuenca (vectorial SSTD)"
+            ]
+        },
+        {
+            "name": "Análisis de precipitación CPC",
+            "title": "Análisis de precipitación CPC",
+            "type": "rastextract",
+            "layer_name": "pp_cpc",
+            "fuentes_id": 2,
+            "view_params": {
+                "coverageId": 2,
+                "series_id": 1,
+                "width": 600,
+                "height": 600
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -8
+                },
+                "timeend": {
+                    "days": 0
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "Análisis CPC diario 00Z",
+                "grilla (raster)"
+            ]
+        },
+        {
+            "name": "Análisis de precipitación CPC medias areales",
+            "title": "Análisis de precipitación CPC medias areales",
+            "description": "https://www.cpc.ncep.noaa.gov/",
+            "layer_name": "public2:timeseries_areal",
+            "fuentes_id": 2,
+            "view_params": {
+                "sourceId": 2
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": -1
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "Análisis CPC diario 00Z",
+                "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "Estimación satelital de precipitación PERSIANN",
+            "title": "Estimación satelital de precipitación PERSIANN",
+            "type": "rastextract",
+            "layer_name": "pp_persiann",
+            "fuentes_id": 51,
+            "view_params": {
+                "coverageId": 51,
+                "series_id": 21,
+                "width": 600,
+                "height": 600
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": 1
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "estimado satelital PERSIANN",
+                "diario (día meteo.)",
+                "grilla (raster)"
+            ]
+        },
+        {
+            "name": "Estimación satelital de precipitación PERSIANN medias areales",
+            "title": "Estimación satelital de precipitación PERSIANN areales",
+            "description": "Estimación satelital de precipitación PERSIANN",
+            "layer_name": "public2:timeseries_areal",
+            "fuentes_id": 51,
+            "view_params": {
+                "sourceId": 51
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -8
+                },
+                "timeend": {
+                    "days": 0
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "estimado satelital PERSIANN",
+                "diario (día meteo.)",
+                "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "Hidroestimador GOES",
+            "title": "Hidroestimador GOES",
+            "type": "rastextract",
+            "layer_name": "pp_hidroestimador",
+            "fuentes_id": 11,
+            "view_params": {
+                "coverageId": 11,
+                "series_id": 20,
+                "width": 600,
+                "height": 798
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -8
+                },
+                "timeend": {
+                    "days": 0
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "estimado satelital GOES hidroestimador",
+                "grilla (raster)"
+            ]
+        },
+        {
+            "name": "Hidroestimador GOES medias areales",
+            "title": "Hidroestimador GOES medias areales",
+            "description": "Hidroestimador GOES medias areales",
+            "layer_name": "public2:timeseries_areal",
+            "fuentes_id": 11,
+            "view_params": {
+                "sourceId": 11
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -8
+                },
+                "timeend": {
+                    "days": 0
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "estimado satelital GOES hidroestimador",
+                "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "Pronóstico de precipitación GFS diario grilla",
+            "title": "Pronóstico de precipitación GFS diario grilla",
+            "type": "rastextract",
+            "layer_name": "pp_gfs_1d",
+            "fuentes_id": 5,
+            "view_params": {
+                "coverageId": 5,
+                "series_id": 3,
+                "width": 600,
+                "height": 600
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -1
+                },
+                "timeend": {
+                    "days": 8
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "GFS",
+                "grilla (raster)"
+            ]
+        },
+        {
+            "name": "Pronóstico de precipitación GFS diario medias areales",
+            "title": "Pronóstico de precipitación GFS diario medias areales",
+            "description": "Pronóstico de precipitación GFS diario medias areales",
+            "layer_name": "public2:timeseries_areal",
+            "fuentes_id": 5,
+            "view_params": {
+                "sourceId": 5
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -1
+                },
+                "timeend": {
+                    "days": 8
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "GFS",
+                "diario",
+                "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "Pronóstico de precipitación GFS 3-horario medias areales",
+            "title": "Pronóstico de precipitación GFS 3-horario medias areales",
+            "description": "Pronóstico de precipitación GFS 3-horario medias areales",
+            "layer_name": "public2:timeseries_areal",
+            "fuentes_id": 35,
+            "view_params": {
+                "sourceId": 35
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -1
+                },
+                "timeend": {
+                    "days": 8
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "GFS",
+                "3-horario",
+                "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "Pronóstico de precipitación GFS-NOMADS 6-horario grilla",
+            "title": "GFS - precipitación",
+            "type": "rastextract",
+            "layer_name": "pp_gfs_nomads",
+            "fuentes_id": 50,
+            "view_params": {
+                "coverageId": 50,
+                "series_id": 17,
+                "cal_id": 676,
+                "forecast_date": "last",
+                "width": 600,
+                "height": 600
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -1
+                },
+                "timeend": {
+                    "days": 16
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "GFS-NOMADS",
+                "diario (día meteo.)",
+                "grilla (raster)"
+            ]
+        },
+        {
+            "name": "Pronóstico de precipitación GFS-NOMADS 6-horario medias areales",
+            "title": "Pronóstico de precipitación GFS-NOMADS 6-horario medias areales",
+            "description": "Pronóstico de precipitación GFS-NOMADS 6-horario medias areales",
+            "layer_name": "public2:series_areal_prono",
+            "fuentes_id": 50,
+            "view_params": {
+                "sourceId": 50,
+                "calId": 676,
+                "varId": 91,
+                "qualifier": "main"
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -1
+                },
+                "timeend": {
+                    "days": 16
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "GFS-NOMADS",
+                "6-horario",
+                "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "Pronóstico de precipitación COSMO diario medias areales",
+            "title": "Pronóstico de precipitación COSMO diario medias areales",
+            "description": "Pronóstico de precipitación COSMO diario medias areales",
+            "layer_name": "public2:timeseries_areal",
+            "fuentes_id": 39,
+            "view_params": {
+                "sourceId": 39
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -1
+                },
+                "timeend": {
+                    "days": 8
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "COSMO",
+                "diario",
+                "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "Pronóstico de precipitación COSMO 3-horario medias areales",
+            "title": "Pronóstico de precipitación COSMO 3-horario medias areales",
+            "description": "Pronóstico de precipitación COSMO 3-horario medias areales",
+            "layer_name": "public2:timeseries_areal",
+            "fuentes_id": 38,
+            "view_params": {
+                "sourceId": 38
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -1
+                },
+                "timeend": {
+                    "days": 8
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "COSMO",
+                "3-horario",
+                "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "Pronóstico de precipitación WRF diario grilla",
+            "title": "Pronóstico de precipitación WRF diario grilla",
+            "type": "rastextract",
+            "layer_name": "pp_wrf_6h",
+            "fuentes_id": 56,
+            "view_params": {
+                "coverageId": 56,
+                "series_id": 90,
+                "cal_id": 723,
+                "forecast_date": "last",
+                "width": 600,
+                "height": 600,
+                "srid": 4326,
+                "bbox": "-80,-55,-45,-11"
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -2
+                },
+                "timeend": {
+                    "days": 5
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "WRF",
+                "diario",
+                "grilla (raster)"
+            ]
+        },
+        {
+            "name": "Pronóstico de precipitación WRF diario medias areales",
+            "title": "Pronóstico de precipitación WRF diario medias areales",
+            "description": "Pronóstico de precipitación WRF diario medias areales",
+            "layer_name": "public2:series_areal_prono",
+            "fuentes_id": 56,
+            "view_params": {
+                "sourceId": 56,
+                "calId": 723,
+                "qualifier": "main",
+                "varId": 1
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -1
+                },
+                "timeend": {
+                    "days": 4
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "WRF",
+                "diario",
+                "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "Pronóstico de precipitación WRF 6-horario grilla",
+            "title": "Pronóstico de precipitación WRF 6-horario grilla",
+            "type": "rastextract",
+            "layer_name": "pp_wrf_6h",
+            "fuentes_id": 56,
+            "view_params": {
+                "coverageId": 56,
+                "series_id": 89,
+                "cal_id": 723,
+                "forecast_date": "last",
+                "width": 600,
+                "height": 600,
+                "srid": 4326,
+                "bbox": "-80,-55,-45,-11"
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -2
+                },
+                "timeend": {
+                    "days": 5
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "WRF",
+                "6-horario",
+                "grilla (raster)"
+            ]
+        },
+        {
+            "name": "Pronóstico de precipitación WRF 6-horario medias areales",
+            "title": "Pronóstico de precipitación WRF 6-horario medias areales",
+            "description": "Pronóstico de precipitación WRF 6-horario medias areales",
+            "layer_name": "public2:series_areal_prono",
+            "fuentes_id": 56,
+            "view_params": {
+                "sourceId": 56,
+                "calId": 723,
+                "qualifier": "main",
+                "varId": 91
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -1
+                },
+                "timeend": {
+                    "days": 4
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "WRF",
+                "6-horario",
+                "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "Pronóstico de precipitación GEFS diario grilla",
+            "title": "Pronóstico de precipitación GEFS diario grilla",
+            "type": "rastextract",
+            "layer_name": "pp_gefs_1d",
+            "fuentes_id": 55,
+            "view_params": {
+                "coverageId": 55,
+                "series_id": 56,
+                "cal_id": 721,
+                "forecast_date": "last",
+                "width": 600,
+                "height": 600,
+                "qualifier": "geavg"
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -1
+                },
+                "timeend": {
+                    "days": 11
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "GEFS",
+                "diario",
+                "grilla (raster)"
+            ]
+        },
+        {
+            "name": "Pronóstico de precipitación GEFS diario medias areales",
+            "title": "Pronóstico de precipitación GEFS diario medias areales",
+            "description": "Pronóstico de precipitación GEFS diario medias areales",
+            "layer_name": "public2:series_areal_prono",
+            "fuentes_id": 56,
+            "view_params": {
+                "sourceId": 56,
+                "calId": 721,
+                "varId": 1,
+                "qualifier": "geavg"
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -1
+                },
+                "timeend": {
+                    "days": 11
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "GEFS",
+                "diario",
+                "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "Pronóstico de precipitación GEFS 6-horario grilla",
+            "title": "Pronóstico de precipitación GEFS 6-horario grilla",
+            "type": "rastextract",
+            "layer_name": "pp_gefs_avg",
+            "fuentes_id": 55,
+            "view_params": {
+                "coverageId": 55,
+                "series_id": 55,
+                "cal_id": 721,
+                "forecast_date": "last",
+                "width": 600,
+                "height": 600,
+                "qualifier": "geavg"
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -1
+                },
+                "timeend": {
+                    "days": 11
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "GEFS",
+                "6-horario",
+                "grilla (raster)"
+            ]
+        },
+        {
+            "name": "Pronóstico de precipitación GEFS 6-horario medias areales",
+            "title": "Pronóstico de precipitación GEFS 6-horario medias areales",
+            "description": "Pronóstico de precipitación GEFS 6-horario medias areales",
+            "layer_name": "public2:series_areal_prono",
+            "fuentes_id": 56,
+            "view_params": {
+                "sourceId": 56,
+                "calId": 721,
+                "varId": 91,
+                "qualifier": "geavg"
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -1
+                },
+                "timeend": {
+                    "days": 11
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "GEFS",
+                "6-horario",
+                "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "Probabilidad de superación 10mm a 5 días GEFS",
+            "title": "Probabilidad de superación 10mm a 5 días GEFS",
+            "type": "rastextract",
+            "layer_name": "pppr10_gefs_5d",
+            "fuentes_id": 55,
+            "view_params": {
+                "coverageId": 55,
+                "series_id": 25,
+                "cal_id": 721,
+                "forecast_date": "last",
+                "width": 600,
+                "height": 600,
+                "qualifier": "t10"
+            },
+            "defaults": {
+                "timestart": {
+                    "days": 0
+                },
+                "timeend": {
+                    "days": 6
+                },
+                "function": "last"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "GEFS",
+                "5-diario",
+                "prob. PP>10mm"
+            ]
+        },
+        {
+            "name": "Probabilidad de superación 50mm a 5 días GEFS",
+            "title": "Probabilidad de superación 50mm a 5 días GEFS",
+            "type": "rastextract",
+            "layer_name": "pppr50_gefs_5d",
+            "fuentes_id": 55,
+            "view_params": {
+                "coverageId": 55,
+                "series_id": 25,
+                "cal_id": 721,
+                "forecast_date": "last",
+                "width": 600,
+                "height": 600,
+                "qualifier": "t50"
+            },
+            "defaults": {
+                "timestart": {
+                    "days": 0
+                },
+                "timeend": {
+                    "days": 6
+                },
+                "function": "last"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "GEFS",
+                "5-diario",
+                "prob. PP>50mm"
+            ]
+        },
+        {
+            "name": "Probabilidad de superación 100mm a 5 días GEFS",
+            "title": "Probabilidad de superación 100mm a 5 días GEFS",
+            "type": "rastextract",
+            "layer_name": "pppr100_gefs_5d",
+            "fuentes_id": 55,
+            "view_params": {
+                "coverageId": 55,
+                "series_id": 25,
+                "cal_id": 721,
+                "forecast_date": "last",
+                "width": 600,
+                "height": 600,
+                "qualifier": "t100"
+            },
+            "defaults": {
+                "timestart": {
+                    "days": 0
+                },
+                "timeend": {
+                    "days": 6
+                },
+                "function": "last"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "GEFS",
+                "5-diario",
+                "prob. PP>100mm"
+            ]
+        },
+        {
+            "name": "Probabilidad de superación 10mm a 10 días GEFS",
+            "title": "Probabilidad de superación 10mm a 10 días GEFS",
+            "type": "rastextract",
+            "layer_name": "pppr10_gefs_10d",
+            "fuentes_id": 55,
+            "view_params": {
+                "coverageId": 55,
+                "series_id": 26,
+                "cal_id": 721,
+                "forecast_date": "last",
+                "width": 600,
+                "height": 600,
+                "qualifier": "t10"
+            },
+            "defaults": {
+                "timestart": {
+                    "days": 0
+                },
+                "timeend": {
+                    "days": 11
+                },
+                "function": "last"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "GEFS",
+                "10-diario",
+                "prob. PP>10mm"
+            ]
+        },
+        {
+            "name": "Probabilidad de superación 50mm a 10 días GEFS",
+            "title": "Probabilidad de superación 50mm a 10 días GEFS",
+            "type": "rastextract",
+            "layer_name": "pppr50_gefs_10d",
+            "fuentes_id": 55,
+            "view_params": {
+                "coverageId": 55,
+                "series_id": 26,
+                "cal_id": 721,
+                "forecast_date": "last",
+                "width": 600,
+                "height": 600,
+                "qualifier": "t50"
+            },
+            "defaults": {
+                "timestart": {
+                    "days": 0
+                },
+                "timeend": {
+                    "days": 11
+                },
+                "function": "last"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "GEFS",
+                "10-diario",
+                "prob. PP>50mm"
+            ]
+        },
+        {
+            "name": "Probabilidad de superación 100mm a 10 días GEFS",
+            "title": "Probabilidad de superación 100mm a 10 días GEFS",
+            "type": "rastextract",
+            "layer_name": "pppr100_gefs_10d",
+            "fuentes_id": 55,
+            "view_params": {
+                "coverageId": 55,
+                "series_id": 26,
+                "cal_id": 721,
+                "forecast_date": "last",
+                "width": 600,
+                "height": 600,
+                "qualifier": "t100"
+            },
+            "defaults": {
+                "timestart": {
+                    "days": 0
+                },
+                "timeend": {
+                    "days": 11
+                },
+                "function": "last"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "GEFS",
+                "10-diario",
+                "prob. PP>100mm"
+            ]
+        },
+        {
+            "name": "Humedad del suelo API CONAE",
+            "title": "Humedad del suelo API CONAE",
+            "description": "Humedad del suelo API CONAE",
+            "layer_name": "MHS_GPMIMERG_APIDIARIO_1",
+            "view_params": {},
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": 0
+                },
+                "function": "sum"
+            },
+            "endpoint": "https://geoservicios2.conae.gov.ar/geoserver/EstatusHidrico/wms",
+            "menu_path": [
+                "Humedad del suelo",
+                "API",
+                "grilla (raster)"
+            ]
+        },
+        {
+            "name": "Área inundada MODIS grilla",
+            "title": "Área inundada MODIS grilla",
+            "description": "Área inundada MODIS grilla",
+            "type": "rastextract",
+            "layer_name": "fai_modis",
+            "fuentes_id": 18,
+            "view_params": {
+                "coverageId": 18,
+                "seriesId": 14,
+                "varId": 84,
+                "width": 600,
+                "height": 600
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": 0
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Extensión de agua en superficie",
+                "fracción de área inundada MODIS",
+                "grilla (raster)"
+            ]
+        },
+        {
+            "name": "Área inundada MODIS media areal",
+            "title": "Área inundada MODIS media areal",
+            "description": "Área inundada MODIS media areal",
+            "layer_name": "public2:timeseries_areal",
+            "fuentes_id": 18,
+            "view_params": {
+                "sourceId": 18,
+                "varId": 84
+            },
+            "styles": "siyah:serie_areal_0_1000",
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": 0
+                },
+                "function": "avg"
+            },
+            "menu_path": [
+                "Extensión de agua en superficie",
+                "fracción de área inundada MODIS",
+                "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "magnitud de inundación AMSR2 media areal",
+            "title": "magnitud de inundación AMSR2 media areal",
+            "description": "magnitud de inundación AMSR2 media areal",
+            "layer_name": "public2:timeseries_areal",
+            "fuentes_id": 9,
+            "view_params": {
+                "sourceId": 9
+            },
+            "styles": "siyah:fmma",
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": 0
+                },
+                "function": "avg"
+            },
+            "menu_path": [
+                "Extensión de agua en superficie",
+                "magnitud de inundación AMSR2",
+                "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "Agua en superficie ABI/VIIRS",
+            "title": "Agua en superficie ABI/VIIRS",
+            "description": "Agua en superficie ABI/VIIRS",
+            "layer_name": "NOAA20-SNPP-GOES19_VIIRS-VIIRS-ABI_FLD_1",
+            "view_params": {},
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": 0
+                },
+                "function": "sum"
+            },
+            "endpoint": "https://geoservicios2.conae.gov.ar/geoserver/Inundaciones/wms",
+            "menu_path": [
+                "Extensión de agua en superficie",
+                "Agua en superficie ABI/VIIRS",
+                "grilla (raster)"
+            ]
+        }
+    ],
+    "view_center": [
+        -55,
+        -25
+    ],
+    "view_zoom": 5
+}
