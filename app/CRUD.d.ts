@@ -1504,4 +1504,23 @@ export class CRUD {
 		qualifier?: string,
 		user_id?: string
     )  : Promise<observacion[] | pronostico[] | undefined>
+
+    static async getEnsemblePercentiles(
+        cor_id? : number,
+        cal_id? : number,
+        forecast_date? : Date,
+        percentiles : number[],
+        tipo? : "puntual" | "areal",
+        series_id?: number|number[],
+        qualifiers?: string[],
+        timestart? : Date,
+        timeend? : Date,
+        var_id? : number|number[],
+        proc_id? : number|number[],
+        unit_id? : number|number[],
+        fuentes_id? : number|number[],
+        percentile_cont?: boolean,
+        insert?: boolean,
+        client?: Client
+    ) : Promise<PronosticoDict[]>
 }

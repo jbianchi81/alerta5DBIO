@@ -3684,6 +3684,55 @@ internal.RastExtractEnsembleProcedure = class extends internal.CrudProcedure {
     
 }
 
+internal.GetEnsemblePercentilesProcedure = class extends internal.CrudProcedure {
+
+    constructor()   { 
+        super(...arguments)
+        this.procedureClass = "GetEnsemblePercentilesProcedure"
+        if(!arguments[0].percentiles) {
+            throw("Missing percentiles")
+        }
+        this.percentiles = arguments[0].percentiles
+        this.tipo = arguments[0].tipo
+        this.series_id = arguments[0].series_id
+        this.timestart = (arguments[0].timestart) ? DateFromDateOrInterval(arguments[0].timestart) : undefined
+        this.timeend = (arguments[0].timeend) ? DateFromDateOrInterval(arguments[0].timeend) : undefined
+        this.forecast_date = (arguments[0].forecast_date) ? DateFromDateOrInterval(arguments[0].forecast_date) : undefined
+        this.cor_id = arguments[0].cor_id
+        this.cal_id = arguments[0].cal_id
+        this.qualifiers = arguments[0].qualifiers
+        this.var_id = arguments[0].var_id
+        this.proc_id = arguments[0].proc_id
+        this.unit_id = arguments[0].unit_id
+        this.fuentes_id = arguments[0].fuentes_id
+        this.percentile_cont = arguments[0].percentile_cont
+        this.insert = arguments[0].insert
+    }
+
+    async run() {
+        const result = await crud.getEnsemblePercentiles(
+            this.cor_id,
+            this.cal_id,
+            this.forecast_date,
+            this.percentiles,
+            this.tipo,
+            this.series_id,
+            this.qualifiers,
+            this.timestart,
+            this.timeend,
+            this.var_id,
+            this.proc_id,
+            this.unit_id,
+            this.fuentes_id,
+            this.percentile_cont,
+            this.insert,
+            undefined
+        )
+        this.result = result
+        return this.result
+    }
+}
+
 internal.GetEnsembleProbabilitiesProcedure = class extends internal.CrudProcedure {
 constructor() {
         super(...arguments)
@@ -3759,6 +3808,7 @@ constructor() {
             this.insert
         )
         this.result = result
+        return this.result
     }
 }
 
@@ -3990,6 +4040,7 @@ const availableCrudProcedures = {
     "GetSeriesBySiteAndVarProcedure": internal.GetSeriesBySiteAndVarProcedure,
     "UpdateSeriesPronoDateRangeProcedure": internal.UpdateSeriesPronoDateRangeProcedure,
     "RastToArealProcedure": internal.RastToArealProcedure,
+    "GetEnsemblePercentilesProcedure": internal.GetEnsemblePercentilesProcedure,
     "RastExtractEnsembleProcedure": internal.RastExtractEnsembleProcedure,
     "GetEnsembleProbabilitiesProcedure": internal.GetEnsembleProbabilitiesProcedure,
     "RastExtractProcedure": internal.RastExtractProcedure,

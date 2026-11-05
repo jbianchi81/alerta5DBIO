@@ -14182,6 +14182,202 @@ internal.CRUD = class {
 		})
 	}
 
+	static async getEnsemblePercentiles(
+		cor_id,
+		cal_id,
+		forecast_date,
+		percentiles,
+		tipo="puntual",
+		series_id,
+		qualifiers,
+		timestart,
+		timeend,
+		var_id,
+		proc_id,
+		unit_id,
+		fuentes_id,
+		percentile_cont,
+		insert,
+		client
+	) {
+		return withClient(client, async (client) => { 
+			if(!cor_id) {
+				if(!cal_id) {
+					throw new Error("Falta cal_id o cor_id")
+				}
+				if(!forecast_date || forecast_date.toLowerCase() == "last") {
+					var corridas = await internal.corrida.getLast(
+						cal_id,
+						client
+					)
+				} else {
+					var corridas = await internal.corrida.read(
+						{
+							cal_id: cal_id,
+							forecast_date: forecast_date
+						},
+						undefined,
+						client
+					)
+				}
+				if(!corridas || !corridas.length) {
+					throw new Error("No se encontraron corridas")
+				}
+				var corrida = corridas[0]
+			} else {
+				var corrida = internal.corrida.read(
+					{
+						id: cor_id
+					},
+					undefined,
+					client
+				)
+				if(!corrida) {
+					throw new Error("No se encontraron corridas")
+				}
+			}
+			if(tipo.toLowerCase() == "puntual") {
+				var from_clause = "pronosticos JOIN valores_prono_num ON pronosticos.id=valores_prono_num.prono_id JOIN series ON series.id=series_id"
+				var series_table = "series"
+				var pronosticos_table = "pronosticos"
+			} else if (tipo.toLowerCase() == "areal") {
+				var from_clause = "pronosticos_areal JOIN series_areal ON series_areal.id=series_id"
+				var series_table = "series_areal"
+				var pronosticos_table = "pronosticos_areal"
+			} else {
+				throw new Error("tipo no aceptado, debe ser 'puntual' o 'areal'")
+			}
+			const args = [corrida.id]
+			const filters = [`cor_id=$1::integer`]
+			if(series_id) {
+				if(Array.isArray(series_id)) {
+					args.push(series_id.map(s => parseInt(s)))
+					filters.push(`series_id = ANY($${args.length}::int[])`)	
+				} else if(parseInt(series_id).toString() != "NaN") {
+					args.push(parseInt(series_id))
+					filters.push(`series_id = $${args.length}::int`)	
+				} else {
+					throw new Error("argumento series_id inválido")
+				}			
+			}
+			if(qualifiers) {
+				if(!Array.isArray(qualifiers)) {
+					throw new Error("qualifier debe ser un array")
+				}
+				args.push(qualifiers.map(q => q.toString()))
+				filters.push(`qualifier = ANY($${args.length}::text[])`)
+			}
+			if(timestart) {
+				args.push(timestart)
+				filters.push(`timestart >= $${args.length}::timestamptz`)
+			}
+			if(timeend) {
+				args.push(timeend)
+				filters.push(`timeend >= $${args.length}::timestamptz`)
+			}
+			if(var_id) {
+				if(Array.isArray(var_id)) {
+					args.push(var_id.map(v => parseInt(v)))
+					filters.push(`var_id = ANY($${args.length}::int[])`)					
+				} else {
+					args.push(parseInt(var_id))
+					filters.push(`var_id = $${args.length}::int`)					
+				}
+			}
+			if(proc_id) {
+				if(Array.isArray(proc_id)) {
+					args.push(proc_id.map(v => parseInt(v)))
+					filters.push(`proc_id = ANY($${args.length}::int[])`)					
+				} else {
+					args.push(parseInt(proc_id))
+					filters.push(`proc_id = $${args.length}::int`)					
+				}
+			}
+			if(unit_id) {
+				if(Array.isArray(unit_id)) {
+					args.push(unit_id.map(v => parseInt(v)))
+					filters.push(`unit_id = ANY($${args.length}::int[])`)					
+				} else {
+					args.push(parseInt(unit_id))
+					filters.push(`unit_id = $${args.length}::int`)					
+				}
+			}
+			if(fuentes_id && tipo.toLowerCase() == "areal") {
+				if(Array.isArray(fuentes_id)) {
+					args.push(fuentes_id.map(v => parseInt(v)))
+					filters.push(`fuentes_id = ANY($${args.length}::int[])`)					
+				} else {
+					args.push(parseInt(fuentes_id))
+					filters.push(`fuentes_id = $${args.length}::int`)					
+				}
+			}
+
+			if(Array.isArray(percentiles)) {
+				var percentiles_arr = percentiles.map(p => parseFloat(p))
+				args.push(percentiles_arr)
+			} else if (parseFloat(percentiles).toString() != "NaN") {
+				var percentiles_arr = [parseFloat(percentiles)]
+				args.push(percentiles_arr)
+			} else {
+				throw new Error("argumento percentiles inválido")
+			}
+			const percentile_func = (percentile_cont) ? "percentile_cont" : "percentile_disc"
+			var stmt = `SELECT
+					cor_id,
+					series_id,
+					p AS percentil,
+                    format('p%02s', (p * 100)::int) AS qualifier,
+					timestart,
+					timeend,
+					${percentile_func}(p) WITHIN GROUP (ORDER BY valor) AS valor,
+					count(valor) AS count
+				FROM
+					${from_clause}
+				CROSS JOIN unnest($${args.length}::float[]) AS p
+				WHERE
+					${filters.join(" AND ")}
+				GROUP BY
+					cor_id,
+					p,
+					series_id,
+					timestart,
+					timeend
+				ORDER BY series_id, timestart`
+			if(insert) {
+				stmt = `with pronos_cuant AS (
+					${stmt}
+				)
+				INSERT INTO "${pronosticos_table}" (cor_id, series_id, timestart, timeend, qualifier, valor)
+					SELECT 
+						cor_id,
+						series_id,
+						timestart,
+						timeend,
+						qualifier,
+						valor
+					FROM pronos_cuant
+				ON CONFLICT (cor_id, series_id, timestart, timeend, qualifier) DO UPDATE SET valor=excluded.valor
+				RETURNING *`				
+			}
+			const results = await client.query(stmt, args)
+			const pronosticos = []
+			for(const row of results.rows) {
+				// for(const i in row.percentiles) {
+				// 	const qualif = `p${String(Math.round(percentiles_arr[i] * 100)).padStart(2, '0')}`
+					pronosticos.push({
+						cor_id: corrida.id,
+						series_table: series_table,
+						timestart: row.timestart,
+						timeend: row.timeend,
+						valor: row.valor, // percentiles[i],
+						qualifier: row.qualifier //qualif
+					})
+				// }
+			}
+			return pronosticos
+		})
+	}
+
 	static async getEnsembleProbabilities(
 		series_id,
 		timestart,

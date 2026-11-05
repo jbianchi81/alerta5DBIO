@@ -1,0 +1,115 @@
+{
+    "$id": "getensemblepercentiles.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "GetEnsemblePercentiles",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "GetEnsemblePercentilesProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "percentiles": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
+                    }
+                },
+                "series_id": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "array",
+                            "items": "integer"
+                        }
+                    ]
+                },
+                "timestart": {
+                    "$ref": "dateorinterval.json"
+                },
+                "timeend": {
+                    "$ref": "dateorinterval.json"
+                },
+                "cal_id": {
+                    "type": "integer"
+                },
+                "cor_id": {
+                    "type": "integer"
+                },
+                "forecast_date": {
+                    "$ref": "dateorinterval.json"
+                },
+                "qualifiers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "tipo": {
+                    "type": "string",
+                    "enum": ["puntual", "areal"]
+                },
+                "var_id": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "array",
+                            "items": "integer"
+                        }
+                    ]
+                },
+                "proc_id": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "array",
+                            "items": "integer"
+                        }
+                    ]
+                },
+                "unit_id": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "array",
+                            "items": "integer"
+                        }
+                    ]
+                },
+                "fuentes_id": {
+                    "oneOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "array",
+                            "items": "integer"
+                        }
+                    ]
+                },
+                "percentile_cont" : {
+                    "type": "boolean",
+                    "description": "usar percentiles continuos en lugar de discretos"
+                },
+                "insert": {
+                    "type": "boolean",
+                    "description": "insertar resultado en base de datos"
+                }
+
+            },
+            "required": [
+                "percentiles"
+            ]
+        }
+    }
+}
