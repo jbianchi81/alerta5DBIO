@@ -1076,7 +1076,7 @@
             "name": "Pronóstico de precipitación GEFS 6-horario medias areales",
             "title": "Pronóstico de precipitación GEFS 6-horario medias areales",
             "description": "Pronóstico de precipitación GEFS 6-horario medias areales",
-            "layer_name": "public2:series_areal_prono",
+            "layer_name": "public2:series_areal_prono_percentiles",
             "fuentes_id": 56,
             "view_params": {
                 "sourceId": 56,
@@ -1084,6 +1084,7 @@
                 "varId": 91,
                 "qualifier": "geavg"
             },
+            "other_qualifiers": ["p90","p75","p50","p25","p10"],
             "defaults": {
                 "timestart": {
                     "days": -1

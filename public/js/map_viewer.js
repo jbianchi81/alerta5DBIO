@@ -719,10 +719,23 @@
 				toggleButton.setAttribute("aria-pressed", "false");
 				seriesContainer.appendChild(toggleButton);
 
+				const toggleAcumButton = document.createElement("button");
+				toggleAcumButton.type = "button";
+				toggleAcumButton.className = "btn btn-outline-secondary btn-sm map-viewer-series-controls";
+				toggleAcumButton.textContent = "Ver acumulado";
+				toggleAcumButton.setAttribute("aria-pressed", "false");
+				toggleAcumButton.dataset.cumulative = "false"
+				toggleAcumButton.hidden = true
+				seriesContainer.appendChild(toggleAcumButton);
+
 				const chartContainer = document.createElement("div");
 				chartContainer.className = "map-viewer-chart";
 				chartContainer.id = `map-viewer-chart-${++chartIndex}`;
 				seriesContainer.appendChild(chartContainer);
+
+				if( [1, 31, 34, 91].includes(Number(properties.var_id))) {
+					toggleAcumButton.hidden = false
+				}
 
 				const seriesTable = document.createElement("table");
 				seriesTable.className = "map-viewer-series-table";
@@ -766,12 +779,57 @@
 					const showTable = seriesTable.hidden;
 					seriesTable.hidden = !showTable;
 					chartContainer.hidden = showTable;
+					toggleAcumButton.hidden = showTable;
 					toggleButton.textContent = showTable ? "Ver gráfico" : "Ver tabla";
 					toggleButton.setAttribute("aria-pressed", String(showTable));
 					if (!showTable && chartContainer.mapViewerChart) {
 						chartContainer.mapViewerChart.reflow();
 					}
 				});
+
+				// toggle acum
+				toggleAcumButton.addEventListener("click", function () {
+					const cumulative = toggleAcumButton.dataset.cumulative  !== 'true';
+					toggleAcumButton.textContent = cumulative ? "Ver original" : "Ver acumulado";
+					toggleAcumButton.dataset.cumulative = cumulative
+
+					chartContainer.mapViewerChart.series.forEach(s => {
+						let sum = 0;
+
+						const data = s.userOptions.originalData || s.options.data;
+
+						if (!s.userOptions.originalData) {
+							s.update({
+								originalData: [...data]
+							}, false);
+						}
+
+						const original = s.userOptions.originalData;
+
+						s.setData(
+							cumulative
+								? original.map(v => {
+									return [v[0], sum += v[1]]
+								})
+								: original,
+							false
+						);
+    				});
+
+					// recalculate y range
+					const axis = chartContainer.mapViewerChart.yAxis[0];
+					const values = chartContainer.mapViewerChart.series.flatMap(s =>
+						s.options.data.map(p =>
+							p[1]
+						).filter(Number.isFinite)
+					);
+					const min = Math.min(...values);
+					const max = Math.max(...values);
+					axis.setExtremes(min, max);
+
+    				chartContainer.mapViewerChart.redraw();
+				});
+
 				chartContainer.mapViewerPoints = points;
 				chartContainer.mapViewerOtherPoints = other_points;
 				chartContainer.mapViewerTitle = heading.textContent;
@@ -874,6 +932,7 @@
 				},
 				plotOptions: useBars ? {
 					column: {
+						grouping: false,
 						pointPadding: 0,
 						groupPadding: 0,
 						borderWidth: 0,
@@ -888,13 +947,13 @@
 				series: [{
 					name: "valor",
 					data: chartContainer.mapViewerPoints,
-					color: "black",
+					color: "blue",
 					zIndex: 10
 				}, ...Object.keys(chartContainer.mapViewerOtherPoints).map(q => {
 					return {
 						name: q,
 						data: chartContainer.mapViewerOtherPoints[q],
-						color: "grey",
+						color: 'rgba(0,100,255,0.2)',
 				        dashStyle: 'shortdot',
 						zIndex: 9
 					}
