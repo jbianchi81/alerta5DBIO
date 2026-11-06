@@ -735,6 +735,7 @@
 
 				if( [1, 31, 34, 91].includes(Number(properties.var_id))) {
 					toggleAcumButton.hidden = false
+					toggleAcumButton.dataset.enabled = true
 				}
 
 				const seriesTable = document.createElement("table");
@@ -779,7 +780,7 @@
 					const showTable = seriesTable.hidden;
 					seriesTable.hidden = !showTable;
 					chartContainer.hidden = showTable;
-					toggleAcumButton.hidden = showTable;
+					toggleAcumButton.hidden = (toggleAcumButton.dataset.enabled == "true") ? showTable : true;
 					toggleButton.textContent = showTable ? "Ver gráfico" : "Ver tabla";
 					toggleButton.setAttribute("aria-pressed", String(showTable));
 					if (!showTable && chartContainer.mapViewerChart) {
