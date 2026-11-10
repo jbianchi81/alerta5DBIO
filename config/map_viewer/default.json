@@ -1,4 +1,5 @@
 {
+	"$schema": "../../public/schemas/map_viewer.json",
     "wms": {
         "endpoint": "https://alerta.ina.gob.ar/geoserver/wms"
     },

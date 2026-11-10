@@ -1,0 +1,184 @@
+{
+    "$id": "map_viewer.json",
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "title": "map_viewer",
+    "type": "object",
+    "description": "/map-viewer page settings",
+    "properties": {
+        "wms": {
+            "type": "object",
+            "properties": {
+                "endpoint": {
+                    "type": "string",
+                    "description": "GeoServer WMS endpoint"
+                }
+            },
+            "required": [
+                "endpoint"
+            ],
+            "additionalProperties": true
+        },
+        "rastextract": {
+            "type": "object",
+            "properties": {
+                "endpoint": {
+                    "type": "string",
+                    "description": "RastExtract endpoint"
+                }
+            },
+            "required": [
+                "endpoint"
+            ],
+            "additionalProperties": true
+        },
+        "layers": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "layer_name": {
+                        "type": "string"
+                    },
+                    "view_params": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": [
+                                "string",
+                                "number",
+                                "boolean"
+                            ]
+                        }
+                    },
+                    "styles": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "wms",
+                            "rastextract"
+                        ]
+                    },
+                    "defaults": {
+                        "type": "object",
+                        "properties": {
+                            "timestart": {
+                                "oneOf": [
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "days": {
+                                                "type": "number"
+                                            }
+                                        },
+                                        "required": [
+                                            "days"
+                                        ],
+                                        "additionalProperties": false
+                                    }
+                                ]
+                            },
+                            "timeend": {
+                                "oneOf": [
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "days": {
+                                                "type": "number"
+                                            }
+                                        },
+                                        "required": [
+                                            "days"
+                                        ],
+                                        "additionalProperties": false
+                                    }
+                                ]
+                            },
+                            "function": {
+                                "type": "string",
+                                "enum": [
+                                    "sum",
+                                    "avg",
+                                    "min",
+                                    "max",
+                                    "count",
+                                    "stddev",
+                                    "first",
+                                    "last"
+                                ]
+                            }
+                        },
+                        "additionalProperties": true
+                    },
+                    "menu_path": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "endpoint": {
+                        "type": "string",
+                        "description": "WMS endpoint. Overrides map_viewer.wms for this layer"
+                    },
+                    "main_qualifier": {
+                        "oneOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        ]
+                    },
+                    "other_qualifiers": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "fuentes_id": {
+                        "type": "number",
+                        "description": "If set, filter out this item when user has no read access to the source."
+                    }
+                },
+                "required": [
+                    "name",
+                    "layer_name",
+                    "view_params",
+                    "defaults"
+                ],
+                "additionalProperties": true
+            }
+        },
+        "view_center": {
+            "type": "array",
+            "items": {
+                "type": "number"
+            },
+            "minItems": 2,
+            "maxItems": 2
+        },
+        "view_zoom": {
+            "type": "number"
+        }
+    },
+    "additionalProperties": true
+}
