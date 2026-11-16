@@ -9,6 +9,54 @@ import {exec as pexec} from 'child-process-promise'
 import { observacion as CrudObservacion, pronostico as CrudPronostico, SerieTemporalSim } from "../CRUD";
 import {advanceTimeStep} from "../timeSteps"
 import { Interval, IntervalDict } from "a5base/timeSteps";
+import { spawn } from 'child_process';
+
+export function argsDictToList(params : Record<string, boolean|string>) : string[] {
+    const args = Object.entries(params).flatMap(([key, value]) => {
+        if (value === false || value === null || value === undefined) return [];
+        if (value === true) return [`--${key}`];
+        
+        const key_f = key.replace(/_/g,"-")
+
+        return [`--${key_f}`, String(value)];
+    });
+    return args
+}
+
+
+export async function spawnAsync(
+    command: string, 
+    args: Record<string, boolean|string>|string[]=[]
+): Promise<void> {
+    const arglist = (Array.isArray(args)) ? args : argsDictToList(args)
+    return new Promise((resolve, reject) => {
+        const child = spawn(command, arglist, {
+            stdio: ['ignore', 'pipe', 'pipe']
+        });
+
+        child.stdout.on('data', data => {
+            console.debug(data.toString());
+        });
+
+        child.stderr.on('data', data => {
+            console.warn(data.toString());
+        });
+
+        child.on('error', err => {
+            reject(err);
+        });
+
+        child.on('close', (code, signal) => {
+            if (code !== 0) {
+                reject(new Error(
+                    `Process failed (exit code: ${code}, signal: ${signal})`
+                ));
+            } else {
+                resolve();
+            }
+        });
+    });
+}
 
 
 export type SeriesFilter = {

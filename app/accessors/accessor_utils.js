@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isValidGdalFile = exports.groupBySeriesIdAndQualifier = exports.flatten = exports.grib2obs = exports.rast2obs = exports.downloadAndWriteStream = exports.filterSeriesByIds = exports.filterSites = exports.filterSeries = exports.filterByParam = exports.parseUtcDateTime = exports.fetchData = void 0;
+exports.isValidGdalFile = exports.groupBySeriesIdAndQualifier = exports.flatten = exports.grib2obs = exports.rast2obs = exports.downloadAndWriteStream = exports.filterSeriesByIds = exports.filterSites = exports.filterSeries = exports.filterByParam = exports.parseUtcDateTime = exports.fetchData = exports.spawnAsync = exports.argsDictToList = void 0;
 const axios_1 = __importDefault(require("axios"));
 const https_1 = __importDefault(require("https"));
 const boolean_point_in_polygon_1 = require("@turf/boolean-point-in-polygon");
@@ -22,6 +22,47 @@ const promises_1 = require("node:stream/promises");
 const child_process_promise_1 = require("child-process-promise");
 const CRUD_1 = require("../CRUD");
 const timeSteps_1 = require("../timeSteps");
+const child_process_1 = require("child_process");
+function argsDictToList(params) {
+    const args = Object.entries(params).flatMap(([key, value]) => {
+        if (value === false || value === null || value === undefined)
+            return [];
+        if (value === true)
+            return [`--${key}`];
+        const key_f = key.replace(/_/g, "-");
+        return [`--${key_f}`, String(value)];
+    });
+    return args;
+}
+exports.argsDictToList = argsDictToList;
+function spawnAsync(command, args = []) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const arglist = (Array.isArray(args)) ? args : argsDictToList(args);
+        return new Promise((resolve, reject) => {
+            const child = (0, child_process_1.spawn)(command, arglist, {
+                stdio: ['ignore', 'pipe', 'pipe']
+            });
+            child.stdout.on('data', data => {
+                console.debug(data.toString());
+            });
+            child.stderr.on('data', data => {
+                console.warn(data.toString());
+            });
+            child.on('error', err => {
+                reject(err);
+            });
+            child.on('close', (code, signal) => {
+                if (code !== 0) {
+                    reject(new Error(`Process failed (exit code: ${code}, signal: ${signal})`));
+                }
+                else {
+                    resolve();
+                }
+            });
+        });
+    });
+}
+exports.spawnAsync = spawnAsync;
 function fetchData(url, options) {
     var _a, _b;
     return __awaiter(this, void 0, void 0, function* () {
