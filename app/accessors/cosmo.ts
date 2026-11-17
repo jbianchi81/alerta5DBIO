@@ -66,11 +66,11 @@ export class Client extends AbstractAccessorEngine {
             forecast_date.toISOString().substring(5,7)
         )
         
-        if(!fs.existsSync(path.resolve(dir_1d, "files.csv"))) {
+        if(!fs.existsSync(path.resolve(dir_1d, "index.csv"))) {
             throw new Error("Falta index.csv en " + dir_1d)
         }
 
-        const files_1d = fs.readFileSync(path.resolve(dir_1d, "files.csv"), {encoding: "utf-8"}).split("\n")
+        const files_1d = fs.readFileSync(path.resolve(dir_1d, "index.csv"), {encoding: "utf-8"}).split("\n")
 
         // const pronosticos_1d = fs.readdirSync(dir_1d).filter(f => f.endsWith(".tif")).map(f => {
         const pronosticos_1d = files_1d.map(f => {
@@ -88,25 +88,26 @@ export class Client extends AbstractAccessorEngine {
                 forecast_date: forecast_date,
                 timestart: timestart,
                 timeend: timeend,
-                valor: fs.readFileSync(path.resolve(dir_1d, f))
+                valor: fs.readFileSync(path.resolve(dir_1d, f)),
+                qualifier: "main"
             }
         }).filter((v): v is NonNullable<typeof v> => !!v)
 
         // 3 horario
         const dir_3h = path.resolve(this.config.dir_3h, forecast_date.toISOString().substring(0,4), forecast_date.toISOString().substring(5,7))
 
-        if(!fs.existsSync(path.resolve(dir_3h, "files.csv"))) {
+        if(!fs.existsSync(path.resolve(dir_3h, "index.csv"))) {
             throw new Error("Falta index.csv en " + dir_3h)
         }
 
-        const files_3h = fs.readFileSync(path.resolve(dir_3h, "files.csv"), {encoding: "utf-8"}).split("\n")
+        const files_3h = fs.readFileSync(path.resolve(dir_3h, "index.csv"), {encoding: "utf-8"}).split("\n")
 
         // const pronosticos_3h = fs.readdirSync(dir_3h).filter(f => f.endsWith(".tif")).map(f => {
         const pronosticos_3h = files_3h.map(f => {
             if(!fs.existsSync(path.resolve(dir_3h, f))) {
                 throw new Error("Missing file: " + dir_3h + "/" + f)
             }
-            const match = f.match(/PLATA_{(\d{10})_(\d{10})\.tif/)
+            const match = f.match(/PLATA_(\d{10})_(\d{10})\.tif/)
             if(!match) return null
             const timeend = new Date(parseYYYYMMDDHH(match[2]))
             timeend.setUTCHours(timeend.getUTCHours() + 1)

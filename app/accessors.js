@@ -65,6 +65,7 @@ internal.wqdatalive = require('./accessors/wqdatalive').Client
 internal.ctm_ws = require('./accessors/ctm_ws').Client
 internal.gefs_atmos = require('./accessors/gefs_atmos').Client
 internal.wrf = require('./accessors/wrf.js').Client
+internal.cosmo = require('./accessors/cosmo.js').Client
 
 // Promise.allSettled polyfill
 
