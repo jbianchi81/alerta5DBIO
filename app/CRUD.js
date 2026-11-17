@@ -14497,6 +14497,119 @@ internal.CRUD = class {
 		
 	}
 
+	static async makeDangerMap(
+		input_1_series_id,
+		input_2_series_id,
+		input_1_cal_id,
+		input_2_cal_id,
+		input_1_forecast_date,
+		input_2_forecast_date,
+		timestart,
+		timeend,
+		input_1_qualifier,
+		input_2_qualifier,
+		thresholds,
+		resolution,
+		window_size,
+		fuzzy_threshold,
+		title,
+		output,
+		agg_function,
+		output_series_id
+	) {
+		if(!input_1_series_id) {
+			throw new Error("Falta input_1_series_id")
+		}
+		if(!input_2_series_id) {
+			throw new Error("Falta input_2_series_id")
+		}
+		if(!output) {
+			throw new Error("Falta output")
+		}
+		const output_dir = path.dirname(output)
+		await fs.mkdir(output_dir, {recursive: true})
+		const input_1 = await this.rastExtract(
+			input_1_series_id, 
+			timestart, 
+			timeend, 
+			{funcion: agg_function}, 
+			undefined,
+			undefined,
+			input_1_cal_id,
+			undefined,
+			input_1_forecast_date,
+			input_1_qualifier,
+			undefined
+		)
+		await input_1.toRaster(`${output_dir}/input_1.tif`)
+		const input_2 = await this.rastExtract(
+			input_2_series_id, 
+			timestart, 
+			timeend, 
+			{funcion: agg_function}, 
+			undefined,
+			undefined,
+			input_2_cal_id,
+			undefined,
+			input_2_forecast_date,
+			input_2_qualifier,
+			undefined
+		)
+		await input_2.toRaster(`${output_dir}/input_2.tif`)
+		const args = [
+			`${output_dir}/input_1.tif`, 
+			`${output_dir}/input_2.tif`,
+			"--output",
+			output,
+			"--workdir",
+			output_dir
+		]
+		if(thresholds) {
+			const value = (Array.isArray(thresholds)) ? thresholds.map(t=>t.toString()).join(" ") : thresholds.toString()
+			args.push(...["--thesholds", value])
+		}
+		if(resolution) {
+			args.push(...["--resolution", resolution.toString()])
+		}
+		if(window_size) {
+			args.push(...["--window-size", window_size.toString()])
+		}
+		if(fuzzy_threshold) {
+			args.push(...["--fuzzy-threshold", fuzzy_threshold.toString()])
+		}
+		if(title) {
+			args.push(...["--title", title])
+		}
+		try {
+			const p = pspawn(global.config.danger_map_exec,args)
+			p.childProcess.stdout.on("data", data => {
+				process.stdout.write(data);
+			});
+			p.childProcess.stderr.on("data", data => {
+				process.stderr.write(data);
+			})
+			await p
+		} catch (e) {
+			console.error(e)
+			throw new Error("Failed to run danger map")
+		}
+		// read gdal output
+		const danger_map = await fs.readFile(output)
+		const result = new internal.observacion(
+			{
+				tipo: "raster",
+				series_id: output_series_id,
+				valor: danger_map,
+				timestart: timestart || input_1_forecast_date,
+				timeend: timeend
+			}
+		)
+		if(output_series_id) {
+			return result.create()
+		}
+		return result
+	}
+
 	static async makeProbabilityMaps(
 		input_file_glob,
 		gdal_output_dir,
@@ -14659,7 +14772,7 @@ internal.CRUD = class {
 		series_id,
 		timestart,
 		timeend,
-		options,
+		options={},
 		isPublic,
 		client,
 		cal_id,

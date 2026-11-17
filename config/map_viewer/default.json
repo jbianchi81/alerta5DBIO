@@ -805,6 +805,40 @@
             ]
         },
         {
+            "name": "Pronóstico de precipitación COSMO diario grilla",
+            "title": "Pronóstico de precipitación COSMO diario grilla",
+            "type": "rastextract",
+            "layer_name": "pp_cosmo_1d",
+            "fuentes_id": 39,
+            "view_params": {
+                "coverageId": 39,
+                "series_id": 28,
+                "cal_id": 724,
+                "forecast_date": "last",
+                "width": 600,
+                "height": 600,
+                "srid": 4326,
+                "bbox": "-70,-40,-40,-10",
+                "qualifier": "main"
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -2
+                },
+                "timeend": {
+                    "days": 7
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "COSMO",
+                "diario",
+                "grilla (raster)"
+            ]
+        },
+        {
             "name": "Pronóstico de precipitación COSMO diario medias areales",
             "title": "Pronóstico de precipitación COSMO diario medias areales",
             "description": "Pronóstico de precipitación COSMO diario medias areales",
@@ -854,6 +888,35 @@
                 "COSMO",
                 "3-horario",
                 "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "Match COSMO-GFS",
+            "title": "Match COSMO-GFS",
+            "type": "rastextract",
+            "layer_name": "pp_match",
+            "fuentes_id": 59,
+            "view_params": {
+                "coverageId": 59,
+                "series_id": 29,
+                "width": 1024,
+                "height": 960,
+                "srid": 4326,
+                "bbox": "-70,-45,-40,-14"
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -2
+                },
+                "timeend": {
+                    "days": 9
+                },
+                "function": "last"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "Match COSMO-GFS"
             ]
         },
         {

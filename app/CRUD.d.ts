@@ -1523,4 +1523,25 @@ export class CRUD {
         insert?: boolean,
         client?: Client
     ) : Promise<PronosticoDict[]>
+
+    static async makeDangerMap(
+		input_1_series_id : number,
+		input_2_series_id : number,
+		input_1_cal_id? : number,
+		input_2_cal_id? : number,
+		input_1_forecast_date? : Date,
+		input_2_forecast_date? : Date,
+		timestart? : Date,
+		timeend? : Date,
+		input_1_qualifier? : string,
+		input_2_qualifier? : string,
+		thresholds?: number[],
+		resolution?: number,
+		window_size?: number,
+		fuzzy_threshold?: number,
+		title?: string,
+		output?: string,
+        agg_function?: string,
+        output_series_id?: number
+	) : Promise<ObservacionRaster>
 }
