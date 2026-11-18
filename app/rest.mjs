@@ -237,7 +237,13 @@ app.get('/token',auth.isPublic,(req,res)=>{
 app.get('/map-viewer',auth.isPublicView, async (req,res)=>{
 	const user_id = getUserId(req)
 	const token = issueSignedToken(req)
-	const viewerConfig = config.util.loadFileConfigs(path.resolve(__dirname,"../config/map_viewer"))
+	if(config.rest && config.rest.map_viewer_config_file) {
+		var viewerConfig = JSON.parse(
+  		    fs.readFileSync(path.resolve(__dirname,"../config", config.rest.map_viewer_config_file), 'utf8')
+		)
+	} else {
+		var viewerConfig = config.util.loadFileConfigs(path.resolve(__dirname,"../config/map_viewer"))
+	}
 	const wmsConfig = viewerConfig.wms || {}
 	const seccionesConfig = config.secciones || {}
 	const legacyParams = viewerConfig.initial_viewparams || {}

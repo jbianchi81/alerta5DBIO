@@ -319,6 +319,9 @@
                         },
                         "required": ["source", "path"]
                     }
+                },
+                "map_viewer_config_file": {
+                    "type": "string"
                 }
             }      
         },
