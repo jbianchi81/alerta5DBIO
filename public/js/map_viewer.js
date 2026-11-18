@@ -470,11 +470,32 @@
 		return String(value);
 	}
 
+	function parseDate(timestamp) {
+		const isoDate = timestamp.includes("T") ? new Date(timestamp) : null;
+		if (isoDate && Number.isFinite(isoDate.getTime())) {
+			return isoDate;
+		} else {
+			const match = timestamp.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+			if (!match) {
+				return null;
+			}
+			return new Date(
+				Number(match[1]),
+				Number(match[2]) - 1,
+				Number(match[3]),
+				Number(match[4] || 0),
+				Number(match[5] || 0),
+				Number(match[6] || 0)
+			);
+		}
+	}
+
 	function parseSeries(value, timeseries_property, qualifier="main") {
 		const series = (typeof value === "string") ? JSON.parse(value) : value;
 		if (!series || typeof series !== "object") {
 			throw new Error("La propiedad " + timeseries_property + " no contiene una serie temporal.");
 		}
+		const timeends = {};
 		if(Array.isArray(series)) {
 			var series_obj = {};
 			for (var i = 0; i < series.length; i++) {
@@ -484,6 +505,9 @@
 						continue
 					}
 					series_obj[series[i][0]] = series[i][1];
+					if(series[i][2]) {
+						timeends[series[i][0]] = series[i][2];
+					}
 				} else if (series[i] && typeof series[i] === "object") {
 					if (Object.hasOwnProperty.call(series[i], "qualifier") && series[i].qualifier != qualifier) {
 						// skip other qualifiers
@@ -491,8 +515,14 @@
 					}
 					if(Object.hasOwnProperty.call(series[i], "ts")) {
 						series_obj[series[i].ts] = series[i].f;
+						if(series[i].te) {
+							timeends[series[i].ts] = series[i].te;
+						}
 					} else if(Object.hasOwnProperty.call(series[i], "timestart")) {
 						series_obj[series[i].timestart] = series[i].valor;
+						if(series[i].timeend) {
+							timeends[series[i].timestart] = series[i].timeend;
+						}
 					} else {
 						console.error("Missing timestart or ts at item " + i)
 					}
@@ -503,25 +533,23 @@
 		}
 		const points = Object.entries(series_obj).map(([timestamp, rawValue]) => {
 			let date;
-			const isoDate = timestamp.includes("T") ? new Date(timestamp) : null;
-			if (isoDate && Number.isFinite(isoDate.getTime())) {
-				date = isoDate;
-			} else {
-				const match = timestamp.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
-				if (!match) {
-					return null;
-				}
-				date = new Date(
-					Number(match[1]),
-					Number(match[2]) - 1,
-					Number(match[3]),
-					Number(match[4] || 0),
-					Number(match[5] || 0),
-					Number(match[6] || 0)
-				);
+			date = parseDate(timestamp)
+			if(!date) {
+				return null
 			}
 			const number = Number(rawValue);
-			return Number.isFinite(number) ? [date.getTime(), number] : null;
+			if (!Number.isFinite(number)) {
+				return null
+			}
+			if (timeends[timestamp]) {
+				const date_end = parseDate(timeends[timestamp])
+				if(date_end) {
+					return [date.getTime(), number, date_end.getTime()]
+				} else {
+					return [date.getTime(), number]
+				}
+			}
+			return [date.getTime(), number]
 		}).filter(Boolean);
 		points.sort((left, right) => left[0] - right[0]);
 		if (points.length === 0) {
@@ -743,7 +771,8 @@
 				seriesTable.hidden = true;
 				const seriesHead = document.createElement("thead");
 				const headerRow = document.createElement("tr");
-				for (const label of ["Fecha", "Valor", ...Object.keys(other_points)]) {
+				const main_headers = (points.length && points[0].length==3 && points[0][2]) ? ["Inicio", "Fin", "Valor"] : ["Fecha", "Valor"]
+				for (const label of [...main_headers, ...Object.keys(other_points)]) {
 					const header = document.createElement("th");
 					header.scope = "col";
 					header.textContent = label;
@@ -752,13 +781,21 @@
 				seriesHead.appendChild(headerRow);
 				seriesTable.appendChild(seriesHead);
 				const seriesBody = document.createElement("tbody");
-				for (const [timestamp, value] of points) {
+				for (const [timestamp, value, timeend] of points) {
 					const row = document.createElement("tr");
 					const dateCell = document.createElement("td");
 					dateCell.textContent = new Date(timestamp).toLocaleString();
+					row.appendChild(dateCell);
+					if(main_headers.length==3) {
+						const enddateCell = document.createElement("td");
+						if(timeend) {
+							enddateCell.textContent = new Date(timeend).toLocaleString();
+						}
+						row.appendChild(enddateCell);
+					}
 					const valueCell = document.createElement("td");
 					valueCell.textContent = String(value);
-					row.append(dateCell, valueCell);
+					row.appendChild(valueCell);
 					for(const q of Object.keys(other_points)) {
 						// pivot in other qualifiers
 						const valueCell_q = document.createElement("td");
@@ -897,7 +934,7 @@
 		}
 		featureResults.replaceChildren(...cards);
 		for (const chartContainer of featureResults.querySelectorAll(".map-viewer-chart")) {
-			const useBars = [1, 31, 34, 91].includes(chartContainer.mapViewerVarId);
+			const useBars = [1, 31, 34, 38, 91].includes(chartContainer.mapViewerVarId);
 			var ymin = Math.min(
 				chartContainer.mapViewerPoints.reduce((a, b) => (a < b[1]) ? a : b[1], Infinity),
 				chartContainer.mapViewerPlotLines.reduce((a, b) => (a < b.value) ? a : b.value, Infinity)
