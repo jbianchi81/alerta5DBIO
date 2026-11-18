@@ -14517,6 +14517,9 @@ internal.CRUD = class {
 		agg_function,
 		output_series_id
 	) {
+		if(!global.config.danger_map_exec) {
+			throw new Error("Falta config.danger_map_exec")
+		}
 		if(!input_1_series_id) {
 			throw new Error("Falta input_1_series_id")
 		}
