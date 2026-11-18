@@ -103,13 +103,14 @@
             ]
         },
         {
-            "name": "Registros pluviométricos - media areal",
-            "title": "Registros pluviométricos - media areal",
-            "description": "Registros pluviométricos - media areal",
+            "name": "Registros pluviométricos - cuencas",
+            "title": "Registros pluviométricos - cuencas",
+            "description": "Registros pluviométricos - cuencas",
             "layer_name": "pba:timeseries_areal",
             "fuentes_id": 7,
             "view_params": {
-                "sourceId": 7
+                "sourceId": 7,
+                "groupId": 1
             },
             "styles": "pmad_int_m",
             "defaults": {
@@ -126,6 +127,63 @@
                 "Observados",
                 "areales",
                 "media por cuenca (vectorial)"
+            ]
+        },
+        {
+            "name": "Registros pluviométricos - partidos",
+            "title": "Registros pluviométricos - partidos",
+            "description": "Registros pluviométricos - partidos",
+            "layer_name": "pba:timeseries_areal",
+            "fuentes_id": 7,
+            "view_params": {
+                "sourceId": 7,
+                "groupId": 2
+            },
+            "styles": "pmad_int_m",
+            "defaults": {
+                "timestart": {
+                    "days": -7
+                },
+                "timeend": {
+                    "days": 1
+                },
+                "function": "sum"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "Observados",
+                "areales",
+                "media por partido (vectorial)"
+            ]
+        },
+        {
+            "name": "Match COSMO-GFS",
+            "title": "Match COSMO-GFS",
+            "type": "rastextract",
+            "layer_name": "pp_match",
+            "fuentes_id": 59,
+            "view_params": {
+                "coverageId": 59,
+                "series_id": 29,
+                "width": 1024,
+                "height": 960,
+                "srid": 4326,
+                "bbox": "-70,-45,-40,-14",
+                "colormap": "nv 255:255:255 0\n200 148:0:211 255\n100 255:0:0 255\n80 255:165:0 255\n50 255:255:0 255\n10 0:255:0 255\n0 255:255:255 255\n"
+            },
+            "defaults": {
+                "timestart": {
+                    "days": -2
+                },
+                "timeend": {
+                    "days": 9
+                },
+                "function": "last"
+            },
+            "menu_path": [
+                "Pluviométricos",
+                "pronosticado",
+                "Match COSMO-GFS"
             ]
         }
     ],

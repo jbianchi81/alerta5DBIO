@@ -352,6 +352,6 @@
             "description": "executable for probability maps procedure"
         }
     },
-    "required": [],
+    "required": ["database"],
     "additionalProperties": true
 }
