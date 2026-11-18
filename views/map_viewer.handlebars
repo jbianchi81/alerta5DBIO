@@ -178,7 +178,18 @@
 	.slider-width50 {
 		width: 50px;
 	}
+	.map-viewer-select-layer {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
 	@media (max-width: 600px) {
+		.map-viewer-select-layer {
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			max-width: 300px;
+		}
 		.map-viewer-controls > .form-group {
 			width: 100%;
 		}
@@ -223,7 +234,7 @@
 		</div>
 		<div class="form-group" style="flex: 1; min-width: 240px;">
 			<label for="map-viewer-layer">Capa</label>
-			<select id="map-viewer-layer" name="layer"></select>
+			<select id="map-viewer-layer" class="map-viewer-select-layer" name="layer"></select>
 		</div>
 		<button type="submit" class="btn btn-primary" title="Recargar capa con los filtros seleccionados">Aplicar</button>
 		<a href="" target="_blank" id="download-layer" style="font-size: 34px;"><i class="fa-solid fa-file-arrow-down"></i></a>
