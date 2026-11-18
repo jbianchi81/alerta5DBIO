@@ -3631,6 +3631,58 @@ internal.RastToArealProcedure = class extends internal.CrudProcedure {
     }
 }
 
+internal.MakeDangerMapProcedure = class extends internal.CrudProcedure {
+
+    constructor() {
+        super(...arguments)
+        this.procedureClass = "MakeDangerMapProcedure"
+        if(!arguments[0].input_1_series_id) {
+            throw("missing input_1_series_id [of series_rast]")
+        }
+        this.input_1_series_id = arguments[0].input_1_series_id
+        if(!arguments[0].input_2_series_id) {
+            throw("missing input_2_series_id [of series_rast]")
+        }
+        this.input_2_series_id = arguments[0].input_2_series_id
+
+        this.filter = arguments[0].filter || {}
+        this.timestart = (this.filter.timestart) ? DateFromDateOrInterval(this.filter.timestart) : undefined
+        this.timeend = (this.filter.timeend) ? DateFromDateOrInterval(this.filter.timeend) : undefined
+        this.input_1_forecast_date = (this.filter.input_1_forecast_date) ? DateFromDateOrInterval(this.filter.input_1_forecast_date) : undefined
+        this.input_2_forecast_date = (this.filter.input_2_forecast_date) ? DateFromDateOrInterval(this.filter.input_2_forecast_date) : undefined
+        
+        if(!arguments[0].output_tif) {
+            throw("Missing output_tif")
+        }
+        this.output_tif = path.resolve(this.files_base_dir, arguments[0].output_tif)
+        this.output_series_id= arguments[0].output_series_id
+    }
+
+    async run() {
+            this.result = await CRUD.CRUD.makeDangerMap(
+                this.input_1_series_id,
+                this.input_2_series_id,
+                this.filter.input_1_cal_id,
+                this.filter.input_2_cal_id,
+                this.input_1_forecast_date,
+                this.input_2_forecast_date,
+                this.timestart,
+                this.timeend,
+                this.filter.input_1_qualifier,
+                this.filter.input_2_qualifier,
+                this.options.thresholds,
+                this.options.resolution,
+                this.options.window_size,
+                this.options.fuzzy_threshold,
+                this.options.title,
+                this.output_tif,
+                this.options.agg_function,
+                this.output_series_id
+            )
+            return this.result        
+    }
+ }
+
 internal.RastExtractEnsembleProcedure = class extends internal.CrudProcedure {
     constructor() {
         super(...arguments)
@@ -4041,6 +4093,7 @@ const availableCrudProcedures = {
     "UpdateSeriesPronoDateRangeProcedure": internal.UpdateSeriesPronoDateRangeProcedure,
     "RastToArealProcedure": internal.RastToArealProcedure,
     "GetEnsemblePercentilesProcedure": internal.GetEnsemblePercentilesProcedure,
+    "MakeDangerMapProcedure": internal.MakeDangerMapProcedure,
     "RastExtractEnsembleProcedure": internal.RastExtractEnsembleProcedure,
     "GetEnsembleProbabilitiesProcedure": internal.GetEnsembleProbabilitiesProcedure,
     "RastExtractProcedure": internal.RastExtractProcedure,

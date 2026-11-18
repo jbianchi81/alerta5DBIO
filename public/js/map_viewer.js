@@ -22,7 +22,7 @@
 	const layers = Array.isArray(config.layers) ? config.layers : [];
 	const rastextractEndpoint = (config.rastextract && config.rastextract.endpoint) || "res/rastextract/rast";
 	const token = (config.token) ? config.token : ""
-	const validFunctions = ["sum", "avg", "min", "max", "count","stddev"];
+	const validFunctions = ["sum", "avg", "min", "max", "count","stddev","first","last"];
 	const params = {};
 	let activeLayer = null;
 	let pendingMapLoads = 0;

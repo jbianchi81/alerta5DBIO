@@ -1,0 +1,92 @@
+{
+    "$id": "makedangermaprocedure.json",
+    "schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "MakeDangerMapProcedure",
+    "type": "object",
+    "allOf": [{ "$ref": "crudprocedure.json" }],
+    "properties": {
+        "procedureName": {
+            "const": "MakeDangerMapProcedure"
+        },
+        "arguments": {
+            "type": "object",
+            "properties": {
+                "input_1_series_id": {
+                    "type": "integer"
+                },
+                "input_2_series_id": {
+                    "type": "integer"
+                },
+                "output_tif": {
+                    "type": "string"
+                },
+                "output_series_id": {
+                    "type": "integer"
+                },
+                "filter": {
+                    "description": "filter to select which raster records to extract",
+                    "type": "object",
+                    "properties": {
+                        "timestart": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "timeend": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "input_1_cal_id": {
+                            "type": "integer"
+                        },
+                        "input_2_cal_id": {
+                            "type": "integer"
+                        },
+                        "input_1_forecast_date": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "input_2_forecast_date": {
+                            "$ref": "dateorinterval.json"
+                        },
+                        "input_1_qualifier": {
+                            "type": "string"
+                        },
+                        "input_2_qualifier": {
+                            "type": "string"
+                        } 
+                    },
+                    "additionalProperties": false
+                },
+                "options": {
+                    "type": "object",
+                    "properties": {
+                        "thresholds": {
+                            "type": "array",
+                            "items": {
+                                "type": "number"
+                            }
+                        },
+                        "resolution": {
+                            "type": "number"
+                        },
+                        "window_size": {
+                            "type": "number"
+                        },
+                        "fuzzy_threshold": {
+                            "type": "number"
+                        },
+                        "title": {
+                            "type": "string"
+                        },
+                        "agg_function": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "required": [
+                "input_1_series_id",
+                "input_2_series_id",
+                "output_tif",
+                "filter"
+            ]
+        }
+    }
+}

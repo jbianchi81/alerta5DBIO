@@ -35,7 +35,7 @@ test('qpf match test', async(t) => {
 
 
 test('qpf match create obs test', async(t) => {
-    const forecast_date = new Date(Date.UTC(2026,10,17,0))
+    const forecast_date = new Date(Date.UTC(2026,10,18,0))
     const timestart = new Date(forecast_date)
     timestart.setUTCHours(12)
     const timeend = new Date(timestart)
@@ -56,7 +56,7 @@ test('qpf match create obs test', async(t) => {
         undefined,
         undefined,
         "Match QPF INA (COSMO+GFS)*",
-        "/home/juan-bianchi/alerta5DBIO/data/match/danger_map.tif",
+        "/home/alerta7/git_clones/alerta-hims/alerta5DBIO/data/match/danger_map.tif",
         undefined,
         29
     )
